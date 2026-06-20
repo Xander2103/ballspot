@@ -3,12 +3,17 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LeaderboardEntryResource;
 use App\Models\League;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class LeaderboardController extends Controller
 {
-    public function index(League $league)
+    public function index(Request $request, League $league)
     {
+        if (!$league->members()->where('user_id', $request->user()->id)->exists()) {
+            return response()->json(['message' => 'Not a member of this league'], 403);
+        }
+
         $entries = DB::table('guesses')
             ->join('league_rounds', 'guesses.league_round_id', '=', 'league_rounds.id')
             ->join('users', 'guesses.user_id', '=', 'users.id')

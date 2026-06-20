@@ -31,8 +31,11 @@ class LeagueController extends Controller
         return new LeagueResource($league->load('members'));
     }
 
-    public function show(League $league)
+    public function show(Request $request, League $league)
     {
+        if (!$league->members()->where('user_id', $request->user()->id)->exists()) {
+            return response()->json(['message' => 'Not a member of this league'], 403);
+        }
         return new LeagueResource($league->load('members'));
     }
 
