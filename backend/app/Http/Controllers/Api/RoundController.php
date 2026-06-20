@@ -20,6 +20,10 @@ class RoundController extends Controller
             return response()->json(['message' => 'Not a member of this league'], 403);
         }
 
+        if ($round->status !== 'open') {
+            return response()->json(['message' => 'This round is closed'], 422);
+        }
+
         if (Guess::where('league_round_id', $round->id)->where('user_id', $userId)->exists()) {
             return response()->json(['message' => 'Already submitted a guess for this round'], 422);
         }

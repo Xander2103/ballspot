@@ -14,7 +14,7 @@ class LeagueController extends Controller
 
     public function index(Request $request)
     {
-        $leagues = $request->user()->members()->with('rounds')->get();
+        $leagues = $request->user()->leagues()->with('rounds')->get();
         return LeagueResource::collection($leagues);
     }
 

@@ -2,7 +2,6 @@
 namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LeaderboardEntryResource;
-use App\Models\Guess;
 use App\Models\League;
 use Illuminate\Support\Facades\DB;
 
