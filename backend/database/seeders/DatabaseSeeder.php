@@ -14,15 +14,18 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        \App\Models\User::firstOrCreate(
+        $admin = \App\Models\User::firstOrCreate(
             ['email' => 'admin@ballspot.local'],
             [
                 'name' => 'Admin',
                 'username' => 'admin',
                 'password' => \Illuminate\Support\Facades\Hash::make('password'),
-                'is_admin' => true,
             ]
         );
+        if (!$admin->is_admin) {
+            $admin->is_admin = true;
+            $admin->save();
+        }
 
         $this->call([
             SportSeeder::class,
