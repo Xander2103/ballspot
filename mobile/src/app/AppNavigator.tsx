@@ -41,7 +41,7 @@ export function AppNavigator() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    tokenStorage.get().then((token) => setIsLoggedIn(!!token));
+    tokenStorage.get().then((token) => setIsLoggedIn(!!token)).catch(() => setIsLoggedIn(false));
   }, []);
 
   if (isLoggedIn === null) {
