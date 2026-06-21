@@ -1,3 +1,54 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-export function JoinLeagueScreen() { return <View><Text>JoinLeague</Text></View>; }
+import React, { useState } from 'react';
+import { Text, StyleSheet, Alert } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../app/AppNavigator';
+import { Screen } from '../components/Screen';
+import { AppInput } from '../components/AppInput';
+import { AppButton } from '../components/AppButton';
+import { leagueApi } from '../api/leagueApi';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'JoinLeague'>;
+
+export function JoinLeagueScreen({ navigation }: Props) {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleJoin() {
+    const trimmed = code.trim().toUpperCase();
+    if (trimmed.length !== 6) { Alert.alert('Error', 'Join code must be 6 characters'); return; }
+    setLoading(true);
+    try {
+      const league = await leagueApi.join(trimmed);
+      navigation.replace('LeagueDetail', { leagueId: league.id, leagueName: league.name });
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'League not found');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Screen scroll padding>
+      <Text style={styles.title}>Join a League</Text>
+      <Text style={styles.sub}>Ask the league creator for their 6-character join code.</Text>
+      <AppInput
+        label="Join Code"
+        value={code}
+        onChangeText={setCode}
+        autoCapitalize="characters"
+        maxLength={6}
+        placeholder="ABC123"
+        style={styles.codeInput}
+      />
+      <AppButton title="Join League" onPress={handleJoin} loading={loading} />
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  title: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  sub: { color: colors.textSecondary, marginBottom: spacing.lg },
+  codeInput: { fontSize: 24, letterSpacing: 8, textAlign: 'center' } as any,
+});
