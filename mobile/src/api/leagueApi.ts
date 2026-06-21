@@ -1,5 +1,10 @@
 import { apiClient } from './client';
 import { League } from '../types/league';
+import { LeaderboardEntry } from '../types/guess';
+
+interface LeaderboardResponse {
+  data: LeaderboardEntry[];
+}
 
 export const leagueApi = {
   list: () =>
@@ -15,5 +20,5 @@ export const leagueApi = {
     apiClient.request<League>(`/leagues/${id}`),
 
   leaderboard: (id: number) =>
-    apiClient.request<{ data: import('../types/guess').LeaderboardEntry[] }>(`/leagues/${id}/leaderboard`),
+    apiClient.request<LeaderboardResponse>(`/leagues/${id}/leaderboard`),
 };
