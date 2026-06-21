@@ -6,6 +6,12 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::prefix('admin')->group(function () {
+// Admin auth (unguarded)
+Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'showLogin'])->name('admin.login');
+Route::post('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'login'])->name('admin.login.submit');
+Route::post('/admin/logout', [\App\Http\Controllers\Admin\AuthController::class, 'logout'])->name('admin.logout');
+
+// Admin protected area
+Route::prefix('admin')->middleware('admin')->group(function () {
     Route::resource('challenges', \App\Http\Controllers\Admin\ChallengeController::class);
 });
