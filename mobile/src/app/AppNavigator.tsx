@@ -23,8 +23,8 @@ export type RootStackParamList = {
   CreateLeague: undefined;
   JoinLeague: undefined;
   LeagueDetail: { leagueId: number; leagueName: string };
-  Guess: { leagueId: number; roundId: number };
-  Result: { roundId: number; leagueId: number };
+  Guess: { leagueId: number; roundId: number; leagueName: string };
+  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string };
   Leaderboard: { leagueId: number; leagueName: string };
 };
 

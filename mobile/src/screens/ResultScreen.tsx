@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
+import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -12,7 +13,7 @@ import { GuessResult } from '../types/guess';
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
 export function ResultScreen({ route, navigation }: Props) {
-  const { roundId, leagueId } = route.params;
+  const { roundId, leagueId, imageUrl, leagueName } = route.params;
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,6 +47,17 @@ export function ResultScreen({ route, navigation }: Props) {
         <Text style={styles.distance}>Distance: {(result.distance * 100).toFixed(1)}%</Text>
       </View>
 
+      {imageUrl ? (
+        <ImageGuessPicker
+          imageUri={imageUrl}
+          interactive={false}
+          markers={[
+            { x_ratio: result.guess_x_ratio, y_ratio: result.guess_y_ratio, color: colors.accent, label: 'U' },
+            { x_ratio: result.ball_x_ratio, y_ratio: result.ball_y_ratio, color: colors.success, label: 'B' },
+          ]}
+        />
+      ) : null}
+
       <View style={styles.coordsBox}>
         <View style={styles.coordRow}>
           <View style={[styles.dot, { backgroundColor: colors.accent }]} />
@@ -59,7 +71,7 @@ export function ResultScreen({ route, navigation }: Props) {
 
       <AppButton
         title="Back to League"
-        onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName: '' })}
+        onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
         style={styles.backBtn}
       />
     </Screen>

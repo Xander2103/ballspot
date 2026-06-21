@@ -54,7 +54,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         {hasRound && roundId ? (
           <AppButton
             title="▶ Play Current Round"
-            onPress={() => navigation.navigate('Guess', { leagueId, roundId })}
+            onPress={() => navigation.navigate('Guess', { leagueId, roundId, leagueName })}
             style={styles.playBtn}
           />
         ) : (

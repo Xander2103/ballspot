@@ -13,7 +13,7 @@ import { LeagueRound } from '../types/challenge';
 type Props = NativeStackScreenProps<RootStackParamList, 'Guess'>;
 
 export function GuessScreen({ route, navigation }: Props) {
-  const { leagueId, roundId } = route.params;
+  const { leagueId, roundId, leagueName } = route.params;
   const [round, setRound] = useState<LeagueRound | null>(null);
   const [guessX, setGuessX] = useState<number | null>(null);
   const [guessY, setGuessY] = useState<number | null>(null);
@@ -40,7 +40,12 @@ export function GuessScreen({ route, navigation }: Props) {
     setSubmitting(true);
     try {
       await roundApi.submitGuess(roundId, { guess_x_ratio: guessX, guess_y_ratio: guessY });
-      navigation.replace('Result', { roundId, leagueId });
+      navigation.replace('Result', {
+        roundId,
+        leagueId,
+        imageUrl: round!.challenge.hidden_image_url,
+        leagueName,
+      });
     } catch (e: any) {
       Alert.alert('Error', e?.message || 'Failed to submit guess');
     } finally {
