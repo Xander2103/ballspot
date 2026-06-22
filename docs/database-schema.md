@@ -14,6 +14,7 @@ Database: SQLite (dev) / MySQL (production)
 | email_verified_at | timestamp nullable |
 | password | varchar(255) hashed |
 | remember_token | varchar(100) nullable |
+| is_admin | boolean | default false — true grants admin Blade access |
 | created_at / updated_at | timestamp |
 
 ## sports

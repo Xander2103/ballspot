@@ -50,7 +50,7 @@ php artisan serve
 # → http://127.0.0.1:8000
 ```
 
-**Admin area:** http://127.0.0.1:8000/admin/challenges
+**Admin area:** http://127.0.0.1:8000/admin/login (credentials: `admin@ballspot.local / password`)
 
 ---
 
@@ -62,7 +62,10 @@ cd mobile
 # Install dependencies (first time)
 npm install
 
-# Start Expo dev server
+# Copy env file (first time)
+cp .env.example .env
+
+# Start Expo dev server (simulator/emulator)
 npx expo start
 
 # Then press:
@@ -71,7 +74,22 @@ npx expo start
 #   w → Web browser
 ```
 
-**Physical device:** Replace `127.0.0.1` in `mobile/src/api/client.ts` (or set env var `EXPO_PUBLIC_API_BASE_URL`) with your computer's LAN IP, e.g. `http://192.168.1.42:8000/api`.
+**Physical device (iOS/Android):**
+
+1. Find your computer's LAN IP: `ipconfig` (Windows) or `ifconfig` (Mac/Linux)
+2. Edit `mobile/.env` and set:
+   ```
+   EXPO_PUBLIC_API_BASE_URL=http://192.168.1.x:8000/api
+   ```
+3. Start the backend with LAN binding:
+   ```bash
+   cd backend && php artisan serve --host=0.0.0.0 --port=8000
+   ```
+4. Start Expo:
+   ```bash
+   cd mobile && npx expo start --host=lan
+   ```
+5. Scan the QR code with Expo Go (Android) or Camera app (iOS)
 
 ---
 
@@ -80,8 +98,8 @@ npx expo start
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    11 passed (22 assertions)
-Duration: ~26s
+Tests:    14 passed (26 assertions)
+Duration: ~1.4s
 ```
 
 | Test | Status |
@@ -94,6 +112,9 @@ Duration: ~26s
 | LeagueTest::test_user_can_join_league_with_code | ✅ |
 | GuessTest::test_member_can_submit_guess_and_receive_score | ✅ |
 | GuessTest::test_duplicate_guess_is_rejected | ✅ |
+| AdminTest::test_unauthenticated_user_is_redirected_to_login | ✅ |
+| AdminTest::test_non_admin_user_gets_403 | ✅ |
+| AdminTest::test_admin_user_can_access_challenges | ✅ |
 | LeaderboardTest::test_leaderboard_shows_ranked_scores | ✅ |
 | ExampleTest (default) × 2 | ✅ |
 
@@ -109,31 +130,23 @@ Run: `cd mobile && npx tsc --noEmit`
 
 ## Known Limitations
 
-1. **No admin authentication** — The `/admin` area is publicly accessible. Acceptable for v1 internal use; add Laravel auth middleware before any public deployment.
+1. **SVG images may not render in all React Native versions** — The demo challenges use SVG files. React Native's `Image` component does not natively support SVG. If images appear blank, upload JPEG/PNG replacements via the admin panel.
 
-2. **Image reveal is ratio-based only** — The ResultScreen shows coordinate dots. The hidden image is displayed with U/B markers overlaid, but images are placeholder JPEGs in dev — replace with real football photos.
+2. **No push notifications** — Round availability is not pushed to users. They must open the app to see new rounds.
 
-3. **No push notifications** — Round availability is not pushed to users. They must open the app to see new rounds.
+3. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after league creation.
 
-4. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after league creation.
+4. **No user profile or avatar** — v1 shows name + username only.
 
-5. **Physical device requires LAN IP** — `127.0.0.1` only works on simulator/emulator. See "How to Run" above.
-
-6. **No image click-to-set in admin** — Ball X/Y ratios must be typed manually in the admin create/edit forms.
-
-7. **No user profile or avatar** — v1 shows name + username only.
-
-8. **Single sport** — Only football challenges are used. The data model supports more sports but the UI and API hardcode football.
+5. **Single sport** — Only football challenges are used. The data model supports more sports but the UI and API hardcode football.
 
 ---
 
 ## Next Recommended Steps
 
 ### High Priority
-- [ ] Add admin authentication (Laravel auth middleware on `/admin`)
-- [ ] Add real football challenge images to storage
-- [ ] Click-to-set ball position in admin (JS canvas overlay)
 - [ ] Round time windows (set opens_at/closes_at and enforce them in the API)
+- [ ] Replace SVG demo images with JPEG/PNG for broad React Native compatibility
 
 ### Medium Priority
 - [ ] Push notifications when a new round opens

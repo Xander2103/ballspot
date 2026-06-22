@@ -44,7 +44,7 @@ Perfect guess = 100 points. Score reaches 0 at ~40% diagonal distance.
 
 - SQLite in development (zero config), MySQL-ready for production
 - Sanctum bearer token auth (stateless, works for mobile)
-- Admin area is unauthenticated in v1 (internal tool only)
+- Admin area uses Laravel session auth (not Sanctum); login at `/admin/login` with seeded admin credentials
 - All rounds are immediately playable (opens_at/closes_at nullable)
 - League join codes are 6 uppercase random characters, unique
 - If not enough challenges exist, rounds cycle through available ones

@@ -77,16 +77,28 @@ Returns leagues the current user is a member of.
 ### GET /leagues/{id}/current-round  *(auth required, must be member)*
 ```json
 // Response 200 — round available
-{ "current_round": { "id": 5, "round_number": 2, "status": "open", "challenge": { "id": 3, "title": "Corner Kick", "difficulty": "easy", "hidden_image_url": "http://..." } }, "completed": false }
+{
+  "current_round": { "id": 5, "round_number": 2, "status": "open", "challenge": { "id": 3, "title": "Corner Kick", "difficulty": "easy", "hidden_image_url": "http://..." } },
+  "has_current_round": true,
+  "completed": false,
+  "reason": "has_pending_round",
+  "progress": { "completed": 1, "total": 3, "remaining": 2, "pct": 33 }
+}
 
 // Response 200 — all rounds done
-{ "current_round": null, "completed": true }
+{
+  "current_round": null,
+  "has_current_round": false,
+  "completed": true,
+  "reason": "all_rounds_complete",
+  "progress": { "completed": 3, "total": 3, "remaining": 0, "pct": 100 }
+}
 ```
 
 ### GET /leagues/{id}/leaderboard  *(auth required, must be member)*
 ```json
 // Response 200
-{ "data": [{ "rank": 1, "user_id": 1, "username": "xander", "name": "Xander", "total_score": 250, "guesses_count": 3 }] }
+{ "data": [{ "rank": 1, "user_id": 1, "username": "xander", "name": "Xander", "total_score": 250, "guesses_count": 3, "avg_score": 83.3, "is_current_user": true }] }
 ```
 
 ---
@@ -122,13 +134,18 @@ Returns leagues the current user is a member of.
 
 ---
 
-## Admin (Blade, no auth in v1)
+## Admin (Blade, session auth)
+
+Login at `/admin/login` with `admin@ballspot.local / password`. All admin routes require session auth.
 
 | Method | URL | Description |
 |--------|-----|-------------|
+| GET | /admin/login | Login form |
+| POST | /admin/login | Submit credentials |
+| POST | /admin/logout | Logout |
 | GET | /admin/challenges | List all challenges |
-| GET | /admin/challenges/create | Create form |
+| GET | /admin/challenges/create | Create form (with click-to-set ball position) |
 | POST | /admin/challenges | Store new challenge |
-| GET | /admin/challenges/{id}/edit | Edit form |
+| GET | /admin/challenges/{id}/edit | Edit form (with click-to-set ball position) |
 | PATCH | /admin/challenges/{id} | Update challenge |
 | DELETE | /admin/challenges/{id} | Delete challenge |
