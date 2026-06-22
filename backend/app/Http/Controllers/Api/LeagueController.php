@@ -48,6 +48,7 @@ class LeagueController extends Controller
 
         $totalRounds = $league->rounds()->where('status', 'open')->count();
         $completedRounds = $league->rounds()
+            ->where('status', 'open')
             ->whereHas('guesses', fn($q) => $q->where('user_id', $userId))
             ->count();
         $remaining = max(0, $totalRounds - $completedRounds);
