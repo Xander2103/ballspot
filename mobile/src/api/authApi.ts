@@ -16,6 +16,7 @@ export const authApi = {
   logout: () =>
     apiClient.request<{ message: string }>('/logout', { method: 'POST' }),
 
+  // GET /me returns a JsonResource → wrapped in { data: User }
   me: () =>
-    apiClient.request<User>('/me'),
+    apiClient.request<{ data: User }>('/me').then(r => r.data),
 };

@@ -16,6 +16,7 @@ export function LeaderboardScreen({ route }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!leagueId) { setLoading(false); return; }
     leagueApi.leaderboard(leagueId)
       .then((res) => setEntries(res.data ?? []))
       .catch(() => {})

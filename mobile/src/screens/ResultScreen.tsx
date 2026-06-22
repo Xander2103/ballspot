@@ -26,6 +26,7 @@ export function ResultScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!roundId) { setLoading(false); return; }
     roundApi.result(roundId)
       .then(setResult)
       .catch(() => {})

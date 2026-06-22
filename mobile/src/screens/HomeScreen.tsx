@@ -23,7 +23,7 @@ export function HomeScreen({ navigation }: Props) {
     try {
       const [me, list] = await Promise.all([authApi.me(), leagueApi.list()]);
       setUser(me);
-      setLeagues(Array.isArray(list) ? list : []);
+      setLeagues(list);
     } catch {
       // silent
     } finally {

@@ -24,6 +24,11 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!leagueId) {
+      Alert.alert('Error', 'Invalid league — no ID was passed to this screen.');
+      setLoading(false);
+      return;
+    }
     try {
       const [l, lb, cr] = await Promise.all([
         leagueApi.get(leagueId),

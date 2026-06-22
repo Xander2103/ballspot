@@ -21,6 +21,13 @@ export function GuessScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!leagueId || !roundId) {
+      Alert.alert('Error', 'Invalid round — missing league or round ID.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+      setLoading(false);
+      return;
+    }
     roundApi.currentRound(leagueId)
       .then((res) => {
         if (res.current_round && res.current_round.id === roundId) {
