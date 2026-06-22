@@ -12,7 +12,17 @@ export interface LeagueRound {
   challenge: Challenge;
 }
 
+export interface CurrentRoundProgress {
+  completed: number;
+  total: number;
+  remaining: number;
+  pct: number;
+}
+
 export interface CurrentRoundResponse {
   current_round: LeagueRound | null;
+  has_current_round: boolean;
   completed: boolean;
+  reason: 'has_pending_round' | 'all_rounds_complete';
+  progress: CurrentRoundProgress;
 }

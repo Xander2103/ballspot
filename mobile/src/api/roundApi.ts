@@ -1,6 +1,8 @@
 import { apiClient } from './client';
-import { CurrentRoundResponse } from '../types/challenge';
+import { CurrentRoundResponse, CurrentRoundProgress } from '../types/challenge';
 import { GuessResult } from '../types/guess';
+
+export type { CurrentRoundProgress, CurrentRoundResponse };
 
 export const roundApi = {
   currentRound: (leagueId: number) =>

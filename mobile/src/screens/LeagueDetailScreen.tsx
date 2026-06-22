@@ -20,6 +20,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [hasRound, setHasRound] = useState(false);
   const [roundId, setRoundId] = useState<number | null>(null);
+  const [progress, setProgress] = useState<{ completed: number; total: number; pct: number } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -33,6 +34,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
       setLeaderboard(lb.data ?? []);
       setHasRound(!cr.completed && cr.current_round !== null);
       if (cr.current_round) setRoundId(cr.current_round.id);
+      if (cr.progress) setProgress(cr.progress);
     } catch {
       Alert.alert('Error', 'Failed to load league');
     } finally {
@@ -62,6 +64,16 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
             <Text style={styles.doneText}>✓ All rounds completed for now</Text>
           </View>
         )}
+        {progress && (
+          <View style={styles.progressBox}>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${progress.pct}%` }]} />
+            </View>
+            <Text style={styles.progressText}>
+              {progress.completed}/{progress.total} rounds completed ({progress.pct}%)
+            </Text>
+          </View>
+        )}
         <AppButton
           title="Full Leaderboard"
           onPress={() => navigation.navigate('Leaderboard', { leagueId, leagueName })}
@@ -83,5 +95,9 @@ const styles = StyleSheet.create({
   playBtn: { marginBottom: 0 },
   doneBox: { backgroundColor: colors.surface, borderRadius: 12, padding: spacing.md, alignItems: 'center' },
   doneText: { color: colors.success, fontWeight: '600' },
+  progressBox: { marginTop: 4 },
+  progressBarBg: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
+  progressBarFill: { height: 6, backgroundColor: colors.primary, borderRadius: 3 },
+  progressText: { fontSize: 12, color: colors.textSecondary, marginTop: 4, textAlign: 'center' },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, paddingHorizontal: spacing.md, paddingTop: spacing.md, paddingBottom: spacing.sm },
 });

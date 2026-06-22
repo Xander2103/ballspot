@@ -46,6 +46,20 @@ class LeagueController extends Controller
             return response()->json(['message' => 'Not a member of this league'], 403);
         }
 
+        $totalRounds = $league->rounds()->where('status', 'open')->count();
+        $completedRounds = $league->rounds()
+            ->whereHas('guesses', fn($q) => $q->where('user_id', $userId))
+            ->count();
+        $remaining = max(0, $totalRounds - $completedRounds);
+        $pct = $totalRounds > 0 ? (int) round($completedRounds / $totalRounds * 100) : 0;
+
+        $progress = [
+            'completed' => $completedRounds,
+            'total' => $totalRounds,
+            'remaining' => $remaining,
+            'pct' => $pct,
+        ];
+
         $round = $league->rounds()
             ->where('status', 'open')
             ->whereDoesntHave('guesses', fn($q) => $q->where('user_id', $userId))
@@ -54,9 +68,21 @@ class LeagueController extends Controller
             ->first();
 
         if (!$round) {
-            return response()->json(['current_round' => null, 'completed' => true]);
+            return response()->json([
+                'current_round' => null,
+                'has_current_round' => false,
+                'completed' => true,
+                'reason' => 'all_rounds_complete',
+                'progress' => $progress,
+            ]);
         }
 
-        return response()->json(['current_round' => new LeagueRoundResource($round), 'completed' => false]);
+        return response()->json([
+            'current_round' => new LeagueRoundResource($round),
+            'has_current_round' => true,
+            'completed' => false,
+            'reason' => 'has_pending_round',
+            'progress' => $progress,
+        ]);
     }
 }
