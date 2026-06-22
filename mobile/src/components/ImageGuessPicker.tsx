@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { View, Image, StyleSheet, TouchableOpacity, Text, Dimensions } from 'react-native';
+import React, { useRef, useState, useCallback } from 'react';
+import { View, Image, StyleSheet, Pressable, Text, LayoutChangeEvent } from 'react-native';
 import { colors } from '../theme/colors';
-import { spacing } from '../theme/spacing';
 
-const SCREEN_W = Dimensions.get('window').width;
-const IMAGE_H = Math.round(SCREEN_W * (9 / 16));
+const MARKER_SIZE = 40;
+const HALF = MARKER_SIZE / 2;
 
-interface Marker {
+export interface Marker {
   x_ratio: number;
   y_ratio: number;
   color: string;
   label: string;
+  emoji?: string;
 }
 
 interface Props {
@@ -21,72 +21,139 @@ interface Props {
 }
 
 export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true }: Props) {
-  const [guess, setGuess] = useState<{ x: number; y: number } | null>(null);
-  const width = SCREEN_W;
-  const height = IMAGE_H;
+  const containerRef = useRef<View>(null);
+  // Actual rendered dimensions captured via onLayout
+  const [dims, setDims] = useState({ width: 0, height: 0 });
+  const [guess, setGuess] = useState<{ xRatio: number; yRatio: number } | null>(null);
 
-  function handlePress(e: { nativeEvent: { locationX: number; locationY: number } }) {
-    if (!interactive || !onGuess) return;
-    const { locationX, locationY } = e.nativeEvent;
-    const xRatio = Math.min(1, Math.max(0, locationX / width));
-    const yRatio = Math.min(1, Math.max(0, locationY / height));
-    setGuess({ x: locationX, y: locationY });
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setDims({ width, height });
+  }, []);
+
+  function applyGuess(tapX: number, tapY: number) {
+    if (!onGuess || dims.width === 0 || dims.height === 0) return;
+    // Clamp to [0, 1] and reject non-finite values
+    const xRatio = Math.min(1, Math.max(0, tapX / dims.width));
+    const yRatio = Math.min(1, Math.max(0, tapY / dims.height));
+    if (!Number.isFinite(xRatio) || !Number.isFinite(yRatio)) return;
+    setGuess({ xRatio, yRatio });
     onGuess(xRatio, yRatio);
   }
 
+  function handlePress(e: any) {
+    if (!interactive || !onGuess || dims.width === 0) return;
+
+    const { locationX, locationY, pageX, pageY } = e.nativeEvent;
+
+    // locationX/Y are relative to the Pressable on native.
+    // On React Native Web, the browser maps offsetX/offsetY to locationX/Y from
+    // the event TARGET element. Since the Pressable is the only pointer-active
+    // element (Image and markers are pointer-events:none), offsetX/Y should be
+    // relative to the Pressable — same as what we want.
+    //
+    // Guard: check the value is finite and inside the container bounds (±2px
+    // tolerance for sub-pixel rounding). Fall back to pageX - container origin
+    // via measureInWindow when they are out-of-bounds or undefined.
+    if (
+      Number.isFinite(locationX) && Number.isFinite(locationY) &&
+      locationX >= -2 && locationX <= dims.width + 2 &&
+      locationY >= -2 && locationY <= dims.height + 2
+    ) {
+      applyGuess(locationX, locationY);
+    } else if (Number.isFinite(pageX) && Number.isFinite(pageY)) {
+      // Fallback: measure container origin in window coordinates then subtract
+      containerRef.current?.measureInWindow((cx, cy) => {
+        applyGuess(pageX - cx, pageY - cy);
+      });
+    }
+    // If neither path yields valid coords, we silently ignore the tap
+  }
+
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={handlePress}
-        disabled={!interactive}
-        style={{ width, height }}
-      >
+    <View ref={containerRef} style={styles.container} onLayout={handleLayout}>
+      {/* Image layer — pointer-events:none so Pressable above receives all taps */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <Image
           source={{ uri: imageUri }}
-          style={{ width, height }}
+          style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
-        {guess && interactive && (
-          <View style={[styles.marker, styles.guessMarker, { left: guess.x - 12, top: guess.y - 12 }]} />
-        )}
-        {markers.map((m, i) => (
+      </View>
+
+      {/* Transparent tap-capture layer (interactive mode only) */}
+      {interactive && (
+        <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} />
+      )}
+
+      {/* User's guess marker — rendered above Pressable, pointer-events:none */}
+      {guess && interactive && dims.width > 0 && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.markerBase,
+            styles.guessMarker,
+            {
+              left: guess.xRatio * dims.width - HALF,
+              top: guess.yRatio * dims.height - HALF,
+            },
+          ]}
+        >
+          <Text style={styles.markerEmoji}>⚽</Text>
+        </View>
+      )}
+
+      {/* Result / reveal markers — pointer-events:none */}
+      {dims.width > 0 && markers.map((m, i) => {
+        const left = m.x_ratio * dims.width - HALF;
+        const top = m.y_ratio * dims.height - HALF;
+        // Skip markers whose ratios resolved to NaN (malformed data guard)
+        if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+        return (
           <View
             key={i}
-            style={[styles.marker, { backgroundColor: m.color, left: m.x_ratio * width - 12, top: m.y_ratio * height - 12 }]}
+            pointerEvents="none"
+            style={[
+              styles.markerBase,
+              { backgroundColor: m.color, left, top },
+            ]}
           >
-            <Text style={styles.markerLabel}>{m.label}</Text>
+            <Text style={styles.markerEmoji}>{m.emoji ?? m.label}</Text>
           </View>
-        ))}
-      </TouchableOpacity>
-      {interactive && (
-        <Text style={styles.hint}>
-          {guess ? '✓ Tap to reposition' : 'Tap on the image to guess the ball position'}
-        </Text>
-      )}
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { width: SCREEN_W },
-  marker: {
-    position: 'absolute',
-    width: 24,
-    height: 24,
+  container: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    backgroundColor: colors.surface,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#fff',
+    overflow: 'hidden',
+  },
+  markerBase: {
+    position: 'absolute',
+    width: MARKER_SIZE,
+    height: MARKER_SIZE,
+    borderRadius: HALF,
+    borderWidth: 3,
+    borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    // Shadow gives visibility on both light and dark image regions
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.75,
+    shadowRadius: 4,
+    elevation: 8,
   },
-  guessMarker: { backgroundColor: colors.accent },
-  markerLabel: { fontSize: 8, color: '#fff', fontWeight: '700' },
-  hint: {
-    textAlign: 'center',
-    color: colors.textSecondary,
-    fontSize: 13,
-    padding: spacing.sm,
-    backgroundColor: colors.surface,
+  guessMarker: {
+    backgroundColor: 'rgba(41, 121, 255, 0.85)',
+  },
+  markerEmoji: {
+    fontSize: 18,
   },
 });

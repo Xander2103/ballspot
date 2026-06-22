@@ -128,17 +128,32 @@ Run: `cd mobile && npx tsc --noEmit`
 
 ---
 
+## Tap Coordinate System
+
+`ImageGuessPicker` converts a tap into normalised ratios (0–1) relative to the rendered image container:
+
+```
+xRatio = clamp(tapX / containerWidth,  0, 1)
+yRatio = clamp(tapY / containerHeight, 0, 1)
+```
+
+Dimensions are captured live via React Native's `onLayout` callback (not `Dimensions.get`), so the calculation is correct regardless of screen size or orientation.
+
+**Web / native event handling** — On React Native Web, `Pressable.onPress` maps to a browser `onClick`. The `nativeEvent.locationX/Y` fields are derived from `offsetX/offsetY` of the click event, which are relative to the event-target element. To guarantee the target is always the `Pressable` (not a child image or marker), all child views use `pointerEvents="none"`. A `measureInWindow` fallback is applied when `locationX/Y` fall outside the container bounds, which can happen in some browser versions.
+
 ## Known Limitations
 
-1. **SVG images may not render in all React Native versions** — The demo challenges use SVG files. React Native's `Image` component does not natively support SVG. If images appear blank, upload JPEG/PNG replacements via the admin panel.
+1. **SVG images may not render in all React Native versions** — The demo challenges use SVG files. React Native's `Image` component does not natively support SVG. If images appear blank, upload JPEG/PNG replacements (4:3 ratio recommended) via the admin panel. The placeholder SVGs are intentionally simple; replace with realistic football-pitch photos for the best gameplay experience.
 
-2. **No push notifications** — Round availability is not pushed to users. They must open the app to see new rounds.
+2. **Coordinate mapping assumes image fills the container** — `ImageGuessPicker` uses `resizeMode="cover"`, so the tappable area matches the visible image area. If the uploaded image has a very different aspect ratio from 4:3, portions may be cropped and the ball could theoretically lie in the cropped region. Upload 4:3 images to avoid this.
 
-3. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after league creation.
+3. **No push notifications** — Round availability is not pushed to users. They must open the app to see new rounds.
 
-4. **No user profile or avatar** — v1 shows name + username only.
+4. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after league creation.
 
-5. **Single sport** — Only football challenges are used. The data model supports more sports but the UI and API hardcode football.
+5. **No user profile or avatar** — v1 shows name + username only.
+
+6. **Single sport** — Only football challenges are used. The data model supports more sports but the UI and API hardcode football.
 
 ---
 
