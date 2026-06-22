@@ -8,19 +8,22 @@ interface Props extends TextInputProps {
   error?: string;
 }
 
-export function AppInput({ label, error, style, ...rest }: Props) {
-  return (
-    <View style={styles.container}>
-      {label && <Text style={styles.label}>{label}</Text>}
-      <TextInput
-        style={[styles.input, error ? styles.inputError : undefined, style]}
-        placeholderTextColor={colors.textMuted}
-        {...rest}
-      />
-      {error && <Text style={styles.error}>{error}</Text>}
-    </View>
-  );
-}
+export const AppInput = React.forwardRef<TextInput, Props>(
+  ({ label, error, style, ...rest }, ref) => {
+    return (
+      <View style={styles.container}>
+        {label && <Text style={styles.label}>{label}</Text>}
+        <TextInput
+          ref={ref}
+          style={[styles.input, error ? styles.inputError : undefined, style]}
+          placeholderTextColor={colors.textMuted}
+          {...rest}
+        />
+        {error && <Text style={styles.error}>{error}</Text>}
+      </View>
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   container: { marginBottom: spacing.md },
