@@ -12,6 +12,14 @@ import { GuessResult } from '../types/guess';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
+function getScoreRating(score: number): string {
+  if (score >= 95) return 'Perfect! 🎯';
+  if (score >= 75) return 'Very close!';
+  if (score >= 50) return 'Not bad';
+  if (score >= 25) return 'Far away';
+  return 'Missed';
+}
+
 export function ResultScreen({ route, navigation }: Props) {
   const { roundId, leagueId, imageUrl, leagueName } = route.params;
   const [result, setResult] = useState<GuessResult | null>(null);
@@ -38,12 +46,14 @@ export function ResultScreen({ route, navigation }: Props) {
   }
 
   const scoreColor = result.score >= 80 ? colors.success : result.score >= 50 ? colors.warning : colors.error;
+  const rating = getScoreRating(result.score);
 
   return (
     <Screen scroll padding>
       <View style={styles.scoreBox}>
         <Text style={styles.scoreLabel}>Your Score</Text>
         <Text style={[styles.score, { color: scoreColor }]}>{result.score}</Text>
+        <Text style={styles.rating}>{rating}</Text>
         <Text style={styles.distance}>Distance: {(result.distance * 100).toFixed(1)}%</Text>
       </View>
 
@@ -70,8 +80,14 @@ export function ResultScreen({ route, navigation }: Props) {
       </View>
 
       <AppButton
+        title="Play Next Round"
+        onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
+        style={styles.nextBtn}
+      />
+      <AppButton
         title="Back to League"
         onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
+        variant="secondary"
         style={styles.backBtn}
       />
     </Screen>
@@ -83,10 +99,12 @@ const styles = StyleSheet.create({
   scoreBox: { alignItems: 'center', paddingVertical: spacing.xxl, backgroundColor: colors.surface, borderRadius: 16, marginBottom: spacing.lg },
   scoreLabel: { fontSize: 14, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
   score: { fontSize: 72, fontWeight: '800', marginVertical: spacing.sm },
+  rating: { fontSize: 20, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   distance: { fontSize: 15, color: colors.textSecondary },
   coordsBox: { backgroundColor: colors.surface, borderRadius: 12, padding: spacing.md, marginBottom: spacing.lg, gap: spacing.sm },
   coordRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   dot: { width: 12, height: 12, borderRadius: 6 },
   coordText: { color: colors.textSecondary, fontSize: 13 },
-  backBtn: { marginTop: spacing.sm },
+  nextBtn: { marginBottom: spacing.sm },
+  backBtn: { marginTop: 0 },
 });

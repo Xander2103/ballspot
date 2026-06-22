@@ -15,4 +15,6 @@ export interface LeaderboardEntry {
   name: string;
   total_score: number;
   guesses_count: number;
+  avg_score: number;
+  is_current_user: boolean;
 }

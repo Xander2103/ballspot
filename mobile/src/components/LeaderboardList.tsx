@@ -17,15 +17,17 @@ function getRankEmoji(rank: number) {
 
 function EntryRow({ item }: { item: LeaderboardEntry }) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, item.is_current_user && styles.rowHighlight]}>
       <Text style={styles.rank}>{getRankEmoji(item.rank)}</Text>
       <View style={styles.info}>
-        <Text style={styles.name}>{item.name}</Text>
+        <Text style={[styles.name, item.is_current_user && styles.nameHighlight]}>
+          {item.name}{item.is_current_user ? ' (you)' : ''}
+        </Text>
         <Text style={styles.username}>@{item.username}</Text>
       </View>
       <View style={styles.scoreBox}>
-        <Text style={styles.score}>{item.total_score}</Text>
-        <Text style={styles.guesses}>{item.guesses_count} rounds</Text>
+        <Text style={[styles.score, item.is_current_user && styles.scoreHighlight]}>{item.total_score}</Text>
+        <Text style={styles.guesses}>avg {item.avg_score} · {item.guesses_count} rounds</Text>
       </View>
     </View>
   );
@@ -33,7 +35,13 @@ function EntryRow({ item }: { item: LeaderboardEntry }) {
 
 export function LeaderboardList({ entries }: Props) {
   if (entries.length === 0) {
-    return <Text style={styles.empty}>No scores yet. Play some rounds!</Text>;
+    return (
+      <View style={styles.emptyWrap}>
+        <Text style={styles.emptyIcon}>🏆</Text>
+        <Text style={styles.emptyTitle}>No scores yet</Text>
+        <Text style={styles.emptyText}>Play some rounds to see the leaderboard!</Text>
+      </View>
+    );
   }
   return (
     <FlatList
@@ -47,13 +55,19 @@ export function LeaderboardList({ entries }: Props) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.md },
+  rowHighlight: { backgroundColor: colors.surfaceElevated },
   rank: { fontSize: 22, width: 44, textAlign: 'center' },
   info: { flex: 1, marginLeft: spacing.sm },
   name: { fontSize: 15, fontWeight: '700', color: colors.text },
+  nameHighlight: { color: colors.primary },
   username: { fontSize: 12, color: colors.textSecondary },
   scoreBox: { alignItems: 'flex-end' },
   score: { fontSize: 20, fontWeight: '700', color: colors.primary },
+  scoreHighlight: { color: colors.warning },
   guesses: { fontSize: 11, color: colors.textMuted },
   separator: { height: 1, backgroundColor: colors.border, marginLeft: spacing.md },
-  empty: { color: colors.textSecondary, textAlign: 'center', padding: spacing.xl },
+  emptyWrap: { padding: spacing.xxl, alignItems: 'center' },
+  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
 });

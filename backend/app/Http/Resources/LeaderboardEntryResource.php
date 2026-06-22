@@ -13,6 +13,8 @@ class LeaderboardEntryResource extends JsonResource
             'name' => $this->resource['name'],
             'total_score' => $this->resource['total_score'],
             'guesses_count' => $this->resource['guesses_count'],
+            'avg_score' => $this->resource['avg_score'],
+            'is_current_user' => $this->resource['is_current_user'],
         ];
     }
 }

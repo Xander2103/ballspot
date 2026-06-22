@@ -65,6 +65,7 @@ export function GuessScreen({ route, navigation }: Props) {
         <Text style={styles.roundNum}>Round {round.round_number}</Text>
         <Text style={styles.challenge}>{round.challenge.title}</Text>
         <Text style={styles.difficulty}>{round.challenge.difficulty.toUpperCase()}</Text>
+        <Text style={styles.instruction}>Tap the image below to mark where you think the ball is hidden.</Text>
       </View>
       <ImageGuessPicker
         imageUri={round.challenge.hidden_image_url}
@@ -87,6 +88,7 @@ const styles = StyleSheet.create({
   roundNum: { fontSize: 12, color: colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
   challenge: { fontSize: 18, fontWeight: '700', color: colors.text, marginTop: 2 },
   difficulty: { fontSize: 11, color: colors.primary, fontWeight: '600', marginTop: 2 },
+  instruction: { fontSize: 12, color: colors.textSecondary, marginTop: 6, fontStyle: 'italic' },
   footer: { padding: spacing.md, gap: spacing.sm },
   coords: { textAlign: 'center', color: colors.textMuted, fontSize: 12, fontFamily: 'monospace' },
 });

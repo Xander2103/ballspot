@@ -60,18 +60,27 @@ export function HomeScreen({ navigation }: Props) {
   return (
     <Screen padding={false}>
       <View style={styles.topBar}>
-        <View>
+        <View style={styles.topBarLeft}>
           <Text style={styles.greeting}>Hey, {user?.name || '…'} 👋</Text>
           <Text style={styles.sub}>@{user?.username || '…'}</Text>
         </View>
         <AppButton title="Logout" onPress={handleLogout} variant="secondary" style={styles.logoutBtn} />
+      </View>
+      <View style={styles.heroBar}>
+        <Text style={styles.heroText}>Guess the hidden ball. Beat your friends.</Text>
       </View>
       <FlatList
         data={leagues}
         keyExtractor={(l) => String(l.id)}
         renderItem={renderLeague}
         contentContainerStyle={styles.list}
-        ListEmptyComponent={!loading ? <Text style={styles.empty}>No leagues yet. Create or join one!</Text> : null}
+        ListEmptyComponent={!loading ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyIcon}>⚽</Text>
+            <Text style={styles.emptyTitle}>No leagues yet</Text>
+            <Text style={styles.emptyText}>Create a league and invite friends to play!</Text>
+          </View>
+        ) : null}
         ListFooterComponent={
           <View style={styles.actions}>
             <AppButton title="+ Create League" onPress={() => navigation.navigate('CreateLeague')} style={styles.actionBtn} />
@@ -85,13 +94,20 @@ export function HomeScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.md, backgroundColor: colors.surface },
+  topBarLeft: { flex: 1 },
   greeting: { fontSize: 18, fontWeight: '700', color: colors.text },
   sub: { fontSize: 13, color: colors.textSecondary },
   logoutBtn: { height: 36, paddingHorizontal: spacing.md },
+  heroBar: { backgroundColor: colors.surfaceElevated, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  heroText: { fontSize: 13, color: colors.textSecondary, fontStyle: 'italic', textAlign: 'center' },
   list: { padding: spacing.md, gap: spacing.sm },
-  card: { backgroundColor: colors.surface, borderRadius: 12, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
-  leagueName: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  card: { backgroundColor: colors.surface, borderRadius: 14, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
+  leagueName: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 6 },
   leagueMeta: { fontSize: 13, color: colors.textSecondary },
+  emptyWrap: { paddingVertical: spacing.xxl, alignItems: 'center' },
+  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   empty: { textAlign: 'center', color: colors.textSecondary, padding: spacing.xl },
   actions: { gap: spacing.sm, marginTop: spacing.md },
   actionBtn: { marginBottom: 0 },

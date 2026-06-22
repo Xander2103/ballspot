@@ -14,17 +14,27 @@ class LeaderboardController extends Controller
             return response()->json(['message' => 'Not a member of this league'], 403);
         }
 
+        $currentUserId = $request->user()->id;
+
         $entries = DB::table('guesses')
             ->join('league_rounds', 'guesses.league_round_id', '=', 'league_rounds.id')
             ->join('users', 'guesses.user_id', '=', 'users.id')
             ->where('league_rounds.league_id', $league->id)
-            ->select('users.id as user_id', 'users.username', 'users.name',
+            ->select(
+                'users.id as user_id',
+                'users.username',
+                'users.name',
                 DB::raw('SUM(guesses.score) as total_score'),
-                DB::raw('COUNT(guesses.id) as guesses_count'))
+                DB::raw('COUNT(guesses.id) as guesses_count'),
+                DB::raw('ROUND(AVG(guesses.score), 1) as avg_score')
+            )
             ->groupBy('users.id', 'users.username', 'users.name')
             ->orderByDesc('total_score')
             ->get()
-            ->map(fn($row, $i) => array_merge((array) $row, ['rank' => $i + 1]));
+            ->map(fn($row, $i) => array_merge((array) $row, [
+                'rank' => $i + 1,
+                'is_current_user' => (int) $row->user_id === $currentUserId,
+            ]));
 
         return LeaderboardEntryResource::collection($entries);
     }
