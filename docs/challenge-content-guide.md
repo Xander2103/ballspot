@@ -130,7 +130,7 @@ Categories are optional — a challenge can be uncategorised. The mobile app sho
 - **Format:** JPEG or PNG (SVG may not render on all React Native versions)
 - **Aspect ratio:** 16:9 or 4:3 recommended for best gameplay experience
 - **Resolution:** 800×600px minimum, 1920×1080px maximum
-- **File size:** Under 2MB per image
+- **File size:** Under 2MB recommended (hard limit: 5MB)
 - **Avoid:** Extreme portrait orientation (taller than 1:1) — takes excessive vertical space
 - **Ball placement:** Avoid placing the ball very near image edges (within 5%)
 
