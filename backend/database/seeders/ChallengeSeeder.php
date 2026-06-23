@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Challenge;
+use App\Models\ChallengeCategory;
 use App\Models\Sport;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
@@ -12,6 +13,7 @@ class ChallengeSeeder extends Seeder
     public function run(): void
     {
         $sport = Sport::where('slug', 'football')->first();
+        $generalCategory = ChallengeCategory::where('sport_id', $sport->id)->where('slug', 'general')->first();
 
         $challenges = [
             ['title' => 'Corner Kick',  'slug' => 'corner-kick',  'ball_x_ratio' => 0.12, 'ball_y_ratio' => 0.85, 'difficulty' => 'easy'],
@@ -55,12 +57,13 @@ class ChallengeSeeder extends Seeder
             Challenge::firstOrCreate(
                 ['title' => $c['title'], 'sport_id' => $sport->id],
                 [
-                    'hidden_image_path'   => $hiddenPath,
-                    'original_image_path' => $revealPath,
-                    'ball_x_ratio'        => $c['ball_x_ratio'],
-                    'ball_y_ratio'        => $c['ball_y_ratio'],
-                    'difficulty'          => $c['difficulty'],
-                    'status'              => 'active',
+                    'challenge_category_id' => $generalCategory?->id,
+                    'hidden_image_path'     => $hiddenPath,
+                    'original_image_path'   => $revealPath,
+                    'ball_x_ratio'          => $c['ball_x_ratio'],
+                    'ball_y_ratio'          => $c['ball_y_ratio'],
+                    'difficulty'            => $c['difficulty'],
+                    'status'                => 'active',
                 ]
             );
         }

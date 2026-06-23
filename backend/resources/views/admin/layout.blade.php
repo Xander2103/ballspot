@@ -19,9 +19,13 @@
 </head>
 <body>
 <nav class="navbar navbar-dark bg-dark mb-4">
-    <div class="container d-flex align-items-center">
-        <a class="navbar-brand me-auto" href="/admin/challenges">BallSpot Admin</a>
-        <span class="text-secondary small me-3">v1</span>
+    <div class="container d-flex align-items-center gap-3">
+        <a class="navbar-brand me-2" href="/admin/challenges">BallSpot Admin</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/challenges*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/challenges">Challenges</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/categories*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/categories">Categories</a>
+        <span class="text-secondary small ms-auto me-3">v1</span>
         <form action="{{ route('admin.logout') }}" method="POST" class="mb-0">
             @csrf
             <button type="submit" class="btn btn-sm btn-outline-secondary text-white">Logout</button>

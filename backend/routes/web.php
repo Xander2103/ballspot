@@ -14,4 +14,7 @@ Route::post('/admin/logout', [\App\Http\Controllers\Admin\AuthController::class,
 // Admin protected area
 Route::prefix('admin')->middleware('admin')->group(function () {
     Route::resource('challenges', \App\Http\Controllers\Admin\ChallengeController::class);
+    Route::resource('categories', \App\Http\Controllers\Admin\ChallengeCategoryController::class);
+    Route::post('categories/{category}/toggle', [\App\Http\Controllers\Admin\ChallengeCategoryController::class, 'toggle'])
+        ->name('admin.categories.toggle');
 });

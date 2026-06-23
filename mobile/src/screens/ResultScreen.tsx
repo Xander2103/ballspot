@@ -41,7 +41,7 @@ function pct(ratio: number): string {
 }
 
 export function ResultScreen({ route, navigation }: Props) {
-  const { roundId, leagueId, imageUrl, leagueName } = route.params;
+  const { roundId, leagueId, imageUrl, leagueName, categoryName } = route.params;
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -80,6 +80,9 @@ export function ResultScreen({ route, navigation }: Props) {
     <Screen scroll padding>
       {/* Score card */}
       <View style={styles.scoreBox}>
+        {categoryName ? (
+          <Text style={styles.categoryLabel}>{categoryName}</Text>
+        ) : null}
         <Text style={styles.scoreLabel}>Your Score</Text>
         <Text style={[styles.score, { color: scoreColor }]}>{result.score}</Text>
         <Text style={styles.rating}>{rating}</Text>
@@ -174,6 +177,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 16,
     marginBottom: spacing.sm,
+  },
+  categoryLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
   scoreLabel: {
     fontSize: 12,

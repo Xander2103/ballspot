@@ -1,8 +1,15 @@
+export interface ChallengeCategory {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 export interface Challenge {
   id: number;
   title: string;
   difficulty: 'easy' | 'medium' | 'hard';
   hidden_image_url: string;
+  category: ChallengeCategory | null;
 }
 
 export interface LeagueRound {

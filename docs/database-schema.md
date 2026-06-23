@@ -25,14 +25,30 @@ Database: SQLite (dev) / MySQL (production)
 | slug | varchar(255) unique | e.g. 'football' |
 | created_at / updated_at | timestamp |
 
+## challenge_categories
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK auto |
+| sport_id | bigint FK → sports | cascade delete |
+| name | varchar(255) | e.g. 'Corner Kicks' |
+| slug | varchar(255) | URL-safe, unique per sport |
+| description | varchar(255) nullable |
+| sort_order | integer | default 0; lower = first in lists |
+| is_active | boolean | default true; inactive categories hidden from challenge assign UI |
+| created_at / updated_at | timestamp |
+| | unique(sport_id, slug) |
+
+Default seeded categories (football): General, Corner Kicks, Dribbles, Goalkeeper Saves, Headers, Penalties, Hard Mode.
+
 ## challenges
 | Column | Type | Notes |
 |--------|------|-------|
 | id | bigint PK auto |
 | sport_id | bigint FK → sports | cascade delete |
+| challenge_category_id | bigint FK → challenge_categories nullable | null on delete |
 | title | varchar(255) |
 | hidden_image_path | varchar(255) | relative to storage/public |
-| original_image_path | varchar(255) nullable |
+| original_image_path | varchar(255) nullable | reveal image shown post-guess |
 | ball_x_ratio | decimal(8,6) | 0.000000 .. 1.000000 |
 | ball_y_ratio | decimal(8,6) |
 | difficulty | varchar | 'easy' \| 'medium' \| 'hard' |

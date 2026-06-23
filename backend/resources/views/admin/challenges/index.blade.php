@@ -27,7 +27,15 @@
                 @endforeach
             </select>
         </div>
-        @if(request('status') || request('difficulty'))
+        <div class="col-auto">
+            <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All categories</option>
+                @foreach($categories as $cat)
+                    <option value="{{ $cat->id }}" {{ request('category') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        @if(request('status') || request('difficulty') || request('category'))
         <div class="col-auto">
             <a href="/admin/challenges" class="btn btn-outline-secondary btn-sm">Clear</a>
         </div>
@@ -43,6 +51,7 @@
                     <th style="width:80px">Hidden</th>
                     <th style="width:80px">Reveal</th>
                     <th>Title</th>
+                    <th>Category</th>
                     <th>Difficulty</th>
                     <th>Status</th>
                     <th>Ball position</th>
@@ -70,6 +79,7 @@
                         @endif
                     </td>
                     <td class="fw-semibold">{{ $challenge->title }}</td>
+                    <td class="small text-muted">{{ $challenge->category?->name ?? '—' }}</td>
                     <td>
                         <span class="badge badge-{{ $challenge->difficulty }}">{{ ucfirst($challenge->difficulty) }}</span>
                     </td>
@@ -93,7 +103,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-4">
+                    <td colspan="9" class="text-center text-muted py-4">
                         No challenges yet. <a href="/admin/challenges/create">Create one.</a>
                     </td>
                 </tr>

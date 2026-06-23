@@ -72,6 +72,7 @@ export function GuessScreen({ route, navigation }: Props) {
         leagueId,
         imageUrl: round!.challenge.hidden_image_url,
         leagueName,
+        categoryName: round!.challenge.category?.name ?? null,
       });
     } catch (e: any) {
       setSubmitError(e?.message || 'Failed to submit guess. Please try again.');
@@ -92,8 +93,8 @@ export function GuessScreen({ route, navigation }: Props) {
 
   const hasGuess = guessX !== null && guessY !== null;
   const diffColor = DIFFICULTY_COLOR[round.challenge.difficulty] ?? colors.textSecondary;
+  const categoryName = round.challenge.category?.name ?? null;
 
-  // Display rounded percentages — never show raw decimals or NaN
   const guessLabel = hasGuess
     ? `Guess locked at ${Math.round(guessX! * 100)}%, ${Math.round(guessY! * 100)}%`
     : 'Tap the image to place your guess';
@@ -104,10 +105,17 @@ export function GuessScreen({ route, navigation }: Props) {
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>
           <Text style={styles.roundNum}>Round {round.round_number}</Text>
-          <View style={[styles.diffBadge, { backgroundColor: diffColor + '26' }]}>
-            <Text style={[styles.diffText, { color: diffColor }]}>
-              {round.challenge.difficulty.toUpperCase()}
-            </Text>
+          <View style={styles.badges}>
+            {categoryName ? (
+              <View style={styles.catBadge}>
+                <Text style={styles.catText}>{categoryName}</Text>
+              </View>
+            ) : null}
+            <View style={[styles.diffBadge, { backgroundColor: diffColor + '26' }]}>
+              <Text style={[styles.diffText, { color: diffColor }]}>
+                {round.challenge.difficulty.toUpperCase()}
+              </Text>
+            </View>
           </View>
         </View>
         <Text style={styles.challengeTitle}>{round.challenge.title}</Text>
@@ -169,6 +177,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
     fontWeight: '600',
+  },
+  badges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  catBadge: {
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: colors.surfaceElevated,
+  },
+  catText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
   },
   diffBadge: {
     borderRadius: 6,

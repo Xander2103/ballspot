@@ -93,6 +93,28 @@ The ball position can be set from either image — whichever is clearer.
 
 ---
 
+## Categories
+
+Challenges can be assigned to a category for grouping and future pack filtering. Categories are managed at `/admin/categories`.
+
+**Default football categories:**
+
+| Category | Slug | Description |
+|----------|------|-------------|
+| General | `general` | Miscellaneous challenges |
+| Corner Kicks | `corner-kicks` | Ball near the corner arc |
+| Dribbles | `dribbles` | Ball during dribbling sequences |
+| Goalkeeper Saves | `goalkeeper-saves` | Ball near the goal during saves |
+| Headers | `headers` | Aerial situations |
+| Penalties | `penalties` | Ball at or near the penalty spot |
+| Hard Mode | `hard-mode` | Expert-level challenges |
+
+Categories are optional — a challenge can be uncategorised. The mobile app shows the category name as a small badge on the GuessScreen and ResultScreen.
+
+**Future use:** categories will power pack-based challenge browsing (e.g. "Play the Corner Kicks pack") and leaderboards scoped to a category.
+
+---
+
 ## Difficulty Guidelines
 
 | Difficulty | Ball visibility | Example |

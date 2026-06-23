@@ -90,7 +90,8 @@ Returns leagues the current user is a member of.
       "id": 3,
       "title": "Corner Kick",
       "difficulty": "easy",
-      "hidden_image_url": "http://..."
+      "hidden_image_url": "http://...",
+      "category": { "id": 1, "name": "Corner Kicks", "slug": "corner-kicks" }
     }
   },
   "has_current_round": true,
@@ -184,12 +185,19 @@ Login at `/admin/login` with `admin@ballspot.local / password`. All admin routes
 | GET | /admin/login | Login form |
 | POST | /admin/login | Submit credentials |
 | POST | /admin/logout | Logout |
-| GET | /admin/challenges | List all challenges (with thumbnail, filters) |
-| GET | /admin/challenges/create | Create form (click-to-set on hidden + reveal image) |
+| GET | /admin/challenges | List all challenges (thumbnails, category/status/difficulty filters) |
+| GET | /admin/challenges/create | Create form (category dropdown, click-to-set on images) |
 | POST | /admin/challenges | Store new challenge |
-| GET | /admin/challenges/{id}/edit | Edit form (click-to-set on all images) |
+| GET | /admin/challenges/{id}/edit | Edit form |
 | PATCH | /admin/challenges/{id} | Update challenge |
 | DELETE | /admin/challenges/{id} | Delete challenge |
+| GET | /admin/categories | List all categories |
+| GET | /admin/categories/create | Create category form |
+| POST | /admin/categories | Store new category |
+| GET | /admin/categories/{id}/edit | Edit category form |
+| PATCH | /admin/categories/{id} | Update category |
+| DELETE | /admin/categories/{id} | Delete category (uncategorises its challenges) |
+| POST | /admin/categories/{id}/toggle | Toggle is_active |
 
 ---
 

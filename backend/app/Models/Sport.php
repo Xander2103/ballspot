@@ -9,4 +9,5 @@ class Sport extends Model
 
     public function challenges(): HasMany { return $this->hasMany(Challenge::class); }
     public function leagues(): HasMany { return $this->hasMany(League::class); }
+    public function categories(): HasMany { return $this->hasMany(ChallengeCategory::class); }
 }

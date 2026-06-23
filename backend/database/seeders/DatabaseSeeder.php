@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             SportSeeder::class,
+            ChallengeCategorySeeder::class,
             ChallengeSeeder::class,
         ]);
     }

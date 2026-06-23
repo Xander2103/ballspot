@@ -44,6 +44,20 @@
                 </div>
             </div>
 
+            <div class="mb-3">
+                <label for="challenge_category_id" class="form-label fw-semibold">Category</label>
+                <select id="challenge_category_id" name="challenge_category_id" class="form-select @error('challenge_category_id') is-invalid @enderror">
+                    <option value="">— Uncategorised —</option>
+                    @foreach($categories as $cat)
+                    <option value="{{ $cat->id }}" {{ old('challenge_category_id') == $cat->id ? 'selected' : '' }}>
+                        {{ $cat->name }}
+                    </option>
+                    @endforeach
+                </select>
+                <div class="form-text">Optional. Used for grouping and future pack filtering.</div>
+                @error('challenge_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+
             {{-- Section: Hidden image --}}
             <hr class="my-4">
             <h6 class="fw-semibold mb-1">Hidden Image <span class="text-danger">*</span></h6>

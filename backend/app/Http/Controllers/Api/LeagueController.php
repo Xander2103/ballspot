@@ -65,7 +65,7 @@ class LeagueController extends Controller
             ->where('status', 'open')
             ->whereDoesntHave('guesses', fn($q) => $q->where('user_id', $userId))
             ->orderBy('round_number')
-            ->with('challenge')
+            ->with('challenge.category')
             ->first();
 
         if (!$round) {
