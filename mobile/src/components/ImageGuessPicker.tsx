@@ -1,6 +1,11 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { View, Image, StyleSheet, Pressable, Text, LayoutChangeEvent } from 'react-native';
 import { colors } from '../theme/colors';
+
+const GHOST_SIZE = 42;
+const GLOW_SIZE  = 60;
+const DEFAULT_SIZE = 40;
+const FALLBACK_ASPECT = 4 / 3;
 
 export type MarkerType = 'ghost-ball' | 'glow' | 'default';
 
@@ -17,14 +22,24 @@ interface Props {
   interactive?: boolean;
 }
 
-const GHOST_SIZE = 42;
-const GLOW_SIZE = 60;
-const DEFAULT_SIZE = 40;
-
 export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true }: Props) {
   const containerRef = useRef<View>(null);
-  const [dims, setDims] = useState({ width: 0, height: 0 });
-  const [guess, setGuess] = useState<{ xRatio: number; yRatio: number } | null>(null);
+  const [dims, setDims]         = useState({ width: 0, height: 0 });
+  const [aspect, setAspect]     = useState<number>(FALLBACK_ASPECT);
+  const [guess, setGuess]       = useState<{ xRatio: number; yRatio: number } | null>(null);
+
+  // Load natural image dimensions to set the container aspect ratio exactly,
+  // preventing any cropping of the challenge image.
+  useEffect(() => {
+    if (!imageUri) return;
+    Image.getSize(
+      imageUri,
+      (w, h) => {
+        if (w > 0 && h > 0) setAspect(w / h);
+      },
+      () => { /* keep FALLBACK_ASPECT */ }
+    );
+  }, [imageUri]);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -57,27 +72,20 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
   }
 
   function renderMarker(m: Marker, key: number | string) {
+    if (!Number.isFinite(m.x_ratio) || !Number.isFinite(m.y_ratio)) return null;
     const size = m.type === 'glow' ? GLOW_SIZE : m.type === 'ghost-ball' ? GHOST_SIZE : DEFAULT_SIZE;
     const half = size / 2;
-    const left = m.x_ratio * dims.width - half;
-    const top = m.y_ratio * dims.height - half;
+    const left = m.x_ratio * dims.width  - half;
+    const top  = m.y_ratio * dims.height - half;
     if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
-
-    const style = m.type === 'ghost-ball'
-      ? styles.markerGhostBall
-      : m.type === 'glow'
-      ? styles.markerGlow
-      : styles.markerDefault;
-
+    const markerStyle = m.type === 'ghost-ball' ? styles.markerGhostBall
+                      : m.type === 'glow'       ? styles.markerGlow
+                      : styles.markerDefault;
     return (
       <View
         key={key}
         pointerEvents="none"
-        style={[
-          styles.markerBase,
-          style,
-          { width: size, height: size, borderRadius: half, left, top },
-        ]}
+        style={[styles.markerBase, markerStyle, { width: size, height: size, borderRadius: half, left, top }]}
       >
         {m.type === 'ghost-ball' && <Text style={styles.ghostEmoji}>⚽</Text>}
       </View>
@@ -85,7 +93,11 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
   }
 
   return (
-    <View ref={containerRef} style={styles.container} onLayout={handleLayout}>
+    <View
+      ref={containerRef}
+      style={[styles.container, { aspectRatio: aspect }]}
+      onLayout={handleLayout}
+    >
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
       </View>
@@ -94,13 +106,11 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
         <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} />
       )}
 
-      {/* Ghost-ball guess marker in interactive mode */}
       {guess && interactive && dims.width > 0 && renderMarker(
         { x_ratio: guess.xRatio, y_ratio: guess.yRatio, type: 'ghost-ball' },
         'guess'
       )}
 
-      {/* Result markers */}
       {dims.width > 0 && markers.map((m, i) => renderMarker(m, i))}
     </View>
   );
@@ -109,7 +119,6 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    aspectRatio: 4 / 3,
     backgroundColor: colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
@@ -131,24 +140,25 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   markerGlow: {
+    opacity: 0.65,
     backgroundColor: 'transparent',
-    borderWidth: 3,
-    borderColor: '#00E676',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,230,118,0.55)',
     shadowColor: '#00E676',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    elevation: 10,
+    shadowOpacity: 0.45,
+    shadowRadius: 5,
+    elevation: 4,
   },
   markerDefault: {
-    backgroundColor: 'rgba(0,230,118,0.85)',
-    borderWidth: 3,
+    backgroundColor: 'rgba(0,230,118,0.7)',
+    borderWidth: 2,
     borderColor: '#ffffff',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.6,
-    shadowRadius: 4,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 5,
   },
   ghostEmoji: {
     fontSize: 20,
