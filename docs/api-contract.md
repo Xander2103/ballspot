@@ -82,7 +82,21 @@ Join a tournament by code. Fails if the tournament is not in `lobby` status.
 ### GET /leagues/{id}  *(auth required, must be member)*
 ```json
 // Response 200
-{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", "status": "active", "is_owner": false, "rounds_count": 3, "completed_rounds_count": 1, "remaining_rounds_count": 2, "progress_pct": 33, "members": [...] } }
+{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", "status": "active", "is_owner": false, "rounds_count": 3, "completed_rounds_count": 1, "remaining_rounds_count": 2, "progress_pct": 33, "members": [{ "id": 1, "name": "Xander", "username": "xander", "is_owner": true, "joined_at": "2026-06-24T10:00:00Z" }] } }
+```
+
+### DELETE /leagues/{id}/members/{userId}  *(auth required, must be owner)*
+
+Removes a player from a lobby tournament. Only works while status = lobby.
+
+```json
+// Response 204 — success (no content)
+// Response 403 — not owner
+{ "message": "Only the owner can remove players." }
+// Response 422 — not lobby
+{ "message": "Players can only be removed while the tournament is in lobby." }
+// Response 422 — self-remove
+{ "message": "The owner cannot be removed." }
 ```
 
 ### POST /leagues/{id}/start  *(auth required, must be owner)*

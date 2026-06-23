@@ -1,16 +1,18 @@
-# BallSpot v1.4 — Test Report
+# BallSpot v1.4.1 — Test Report
 
-Build date: 2026-06-23
+Build date: 2026-06-24
 
 ---
 
 ## What Was Implemented
 
-### Backend (Laravel 12) — v1.4
+### Backend (Laravel 12) — v1.4.1
 - Full REST API: auth (register/login/logout/me/profile/stats), leagues (create/join/start/cancel/detail/current-round/leaderboard), rounds (submit-guess/result), health
 - **Tournament lifecycle:** leagues start in `lobby`; rounds generated only on `POST /start`; owner can cancel (soft-delete to `cancelled`); non-lobby join blocked
-- **Enriched LeagueResource:** `is_owner`, `rounds_count`, `completed_rounds_count`, `remaining_rounds_count`, `progress_pct`, `starts_at`, `ends_at`
+- **Enriched LeagueResource:** `is_owner`, `rounds_count`, `completed_rounds_count`, `remaining_rounds_count`, `progress_pct`, `starts_at`, `ends_at`, `members` (LobbyMember[])
+- **LobbyMember resource:** `id`, `name`, `username`, `is_owner`, `joined_at`
 - **Profile stats:** `GET /profile/stats` returns aggregate stats (tournaments, guesses, scores)
+- **Member removal:** `DELETE /leagues/{id}/members/{userId}` — owner-only, lobby-only, cannot remove self
 - Sanctum bearer token authentication
 - Score calculation in ScoreService (server-side only)
 - Admin Blade area for challenge CRUD with image upload
@@ -23,18 +25,22 @@ Build date: 2026-06-23
 - Email shown only to self in UserResource
 - **Security:** `current-round` endpoint never exposes `ball_x_ratio`, `ball_y_ratio`, or `reveal_image_url`
 
-### Mobile (Expo 56 / React Native 0.85.3) — v1.4
+### Mobile (Expo 56 / React Native 0.85.3) — v1.4.1
 - 10 screens: Login, Register, Home, CreateTournament, JoinTournament, LeagueDetail (status-aware), Guess, Result, Leaderboard, Profile
-- **LeagueDetailScreen:** lobby/active/completed/cancelled status modes; owner sees "Start Tournament" in lobby; active shows progress bar + play button
+- **LeagueDetailScreen:** lobby/active/completed/cancelled status modes; owner sees "Start Tournament" in lobby; active shows progress bar + play button; lobby members list with remove (owner only)
 - **HomeScreen:** SectionList with "Your Tournaments" (lobby+active) and "Completed" sections; owner delete with ConfirmModal
 - **ProfileScreen:** stat grid (tournaments, guesses, total score, avg score)
 - **ConfirmModal:** reusable destructive-action modal
-- **Marker polish:** ghost-ball (semi-transparent ⚽ 42px) for guess; neon-green glow ring (60px) for correct position on reveal images; no ball-covering on reveal
+- **Marker polish:** ghost-ball (semi-transparent ⚽ 42px) for guess; neon-green glow ring (60px) for correct position on reveal images; no ball-covering on reveal; softer glow (borderWidth 1.5, opacity 0.65, shadowOpacity 0.45)
+- **ImageGuessPicker:** dynamic aspect ratio detection via `Image.getSize()`; displays any aspect ratio without cropping; fallback to 4:3
+- **GuessScreen:** shows "Round X of Y" progress context with sub-text (Last round! / Bonus round / N more rounds after this)
+- **ResultScreen:** updated reveal hint text and legend caption
 - React Navigation (native-stack) with typed RootStackParamList
 - Bearer token stored securely via expo-secure-store (sessionStorage fallback on web)
 - Dark navy/green theme throughout
 - TypeScript strict — 0 errors
-- **ResultScreen:** ghost-ball for user guess, glow for correct position; updated legend; reveal badge
+- **Lobby polling:** 3-second interval for live member updates; removed members see "You were removed" screen
+- **LobbyMember interface:** `id`, `name`, `username`, `is_owner` (bool), `joined_at` (ISO string or null)
 
 ---
 
@@ -110,8 +116,8 @@ npx expo start
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    34 passed (95 assertions)
-Duration: ~27s
+Tests:    40 passed (116 assertions)
+Duration: ~0.92s
 ```
 
 | Test | Status |
@@ -132,18 +138,24 @@ Duration: ~27s
 | AdminTest::test_non_admin_user_gets_403 | ✅ |
 | AdminTest::test_admin_user_can_access_challenges | ✅ |
 | LeaderboardTest::test_leaderboard_shows_ranked_scores | ✅ |
-| **LeagueTournamentLifecycleTest::test_create_league_starts_in_lobby_with_no_rounds** | ✅ |
-| **LeagueTournamentLifecycleTest::test_owner_can_start_tournament** | ✅ |
-| **LeagueTournamentLifecycleTest::test_non_owner_cannot_start_tournament** | ✅ |
-| **LeagueTournamentLifecycleTest::test_start_fails_when_no_active_challenges** | ✅ |
-| **LeagueTournamentLifecycleTest::test_users_can_join_lobby_tournament** | ✅ |
-| **LeagueTournamentLifecycleTest::test_users_cannot_join_active_tournament** | ✅ |
-| **LeagueTournamentLifecycleTest::test_owner_can_cancel_tournament** | ✅ |
-| **LeagueTournamentLifecycleTest::test_non_owner_cannot_cancel_tournament** | ✅ |
-| **LeagueTournamentLifecycleTest::test_cancelled_leagues_not_in_index** | ✅ |
-| **LeagueTournamentLifecycleTest::test_league_resource_includes_enriched_fields** | ✅ |
-| **ProfileStatsTest::test_profile_stats_returns_expected_fields** | ✅ |
-| **ProfileStatsTest::test_profile_stats_requires_auth** | ✅ |
+| LeagueTournamentLifecycleTest::test_create_league_starts_in_lobby_with_no_rounds | ✅ |
+| LeagueTournamentLifecycleTest::test_owner_can_start_tournament | ✅ |
+| LeagueTournamentLifecycleTest::test_non_owner_cannot_start_tournament | ✅ |
+| LeagueTournamentLifecycleTest::test_start_fails_when_no_active_challenges | ✅ |
+| LeagueTournamentLifecycleTest::test_users_can_join_lobby_tournament | ✅ |
+| LeagueTournamentLifecycleTest::test_users_cannot_join_active_tournament | ✅ |
+| LeagueTournamentLifecycleTest::test_owner_can_cancel_tournament | ✅ |
+| LeagueTournamentLifecycleTest::test_non_owner_cannot_cancel_tournament | ✅ |
+| LeagueTournamentLifecycleTest::test_cancelled_leagues_not_in_index | ✅ |
+| LeagueTournamentLifecycleTest::test_league_resource_includes_enriched_fields | ✅ |
+| ProfileStatsTest::test_profile_stats_returns_expected_fields | ✅ |
+| ProfileStatsTest::test_profile_stats_requires_auth | ✅ |
+| **LeagueMemberTest::test_league_detail_includes_members_with_is_owner_and_joined_at** | ✅ |
+| **LeagueMemberTest::test_owner_can_remove_lobby_member** | ✅ |
+| **LeagueMemberTest::test_non_owner_cannot_remove_member** | ✅ |
+| **LeagueMemberTest::test_owner_cannot_remove_themselves** | ✅ |
+| **LeagueMemberTest::test_cannot_remove_member_after_tournament_starts** | ✅ |
+| **LeagueMemberTest::test_removed_member_cannot_access_league** | ✅ |
 | ExampleTest (default) × 6 | ✅ |
 
 ## Mobile TypeScript Check
@@ -175,19 +187,21 @@ The current-round endpoint (`GET /leagues/{id}/current-round`) deliberately omit
 
 ## Known Limitations
 
-1. **SVG images may not render in all React Native versions** — The demo challenges ship with SVG placeholders. React Native's `Image` component does not natively support SVG. If images appear blank, upload JPEG/PNG replacements (4:3 ratio recommended) via the admin panel. See `docs/challenge-content-guide.md` for image specifications.
+1. **SVG images may not render in all React Native versions** — The demo challenges ship with SVG placeholders. React Native's `Image` component does not natively support SVG. If images appear blank, upload JPEG/PNG replacements via the admin panel. See `docs/challenge-content-guide.md` for image specifications.
 
-2. **Coordinate mapping assumes image fills the container** — `ImageGuessPicker` uses `resizeMode="cover"`, so the tappable area matches the visible image area. If the uploaded image has a very different aspect ratio from 4:3, portions may be cropped and the ball could theoretically lie in the cropped region. Upload 4:3 images to avoid this.
+2. **Lobby polling is not realtime** — Member list updates every 3 seconds. A player joining will appear on the host's screen within 3 seconds. For true realtime, upgrade to WebSockets or Server-Sent Events.
 
-3. **No push notifications** — Round availability is not pushed to users. They must open the app to see new rounds.
+3. **Challenge images are displayed without cropping** — The app now detects natural image dimensions via `Image.getSize()` and displays any aspect ratio at its full size. Fallback to 4:3 if detection fails. Any aspect ratio is supported (16:9, 1:1, portrait, etc.), but extreme portrait orientations consume excessive vertical space.
 
-4. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after `POST /start`.
+4. **No push notifications** — Round availability is not pushed to users. They must open the app to see new rounds.
 
-5. **No avatar** — Profile screen shows stats only; no avatar/photo upload.
+5. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after `POST /start`.
 
-6. **Single sport** — Only football challenges are used. The data model supports more sports but the UI and API hardcode football.
+6. **No avatar** — Profile screen shows stats only; no avatar/photo upload.
 
-7. **Token storage on web** — expo-secure-store has no web implementation. Tokens are stored in `sessionStorage` on web (cleared on tab close). For production web, migrate to HttpOnly+Secure+SameSite cookies.
+7. **Single sport** — Only football challenges are used. The data model supports more sports but the UI and API hardcode football.
+
+8. **Token storage on web** — expo-secure-store has no web implementation. Tokens are stored in `sessionStorage` on web (cleared on tab close). For production web, migrate to HttpOnly+Secure+SameSite cookies.
 
 ---
 
@@ -198,6 +212,7 @@ The current-round endpoint (`GET /leagues/{id}/current-round`) deliberately omit
 - [ ] Replace SVG demo images with JPEG/PNG for broad React Native compatibility
 - [ ] Add real football pitch photos to `backend/public/demo/challenges/hidden/` and `reveal/` (see `docs/challenge-content-guide.md`)
 - [ ] Completed league status — currently `completed` must be set manually; add auto-complete when all rounds played
+- [ ] Realtime lobby updates — upgrade from 3s polling to WebSockets or Server-Sent Events
 
 ### Medium Priority
 - [ ] Push notifications when a new round opens

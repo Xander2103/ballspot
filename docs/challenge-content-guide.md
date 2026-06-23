@@ -22,7 +22,7 @@ The reveal image is never exposed before the player submits a guess — it is on
 | Property | Recommendation |
 |----------|---------------|
 | Format | JPEG or PNG (avoid SVG — React Native's `Image` component does not support SVG natively) |
-| Aspect ratio | **4:3** (e.g. 800×600, 1200×900) — the app crops to 4:3 |
+| Aspect ratio | 16:9 or 4:3 recommended (e.g. 800×600, 1200×900, 1920×1080) — any aspect ratio supported, no cropping |
 | File size | Max **5 MB** per image |
 | Resolution | 800×600 px minimum for acceptable quality on device |
 
@@ -93,6 +93,16 @@ The ball position can be set from either image — whichever is clearer.
 
 ---
 
+## Image Display Behavior
+
+- The app detects the natural dimensions of each challenge image via `Image.getSize()`.
+- Images are displayed at their full natural aspect ratio — **no cropping**.
+- Any aspect ratio is supported: 16:9, 4:3, 1:1, portrait, etc.
+- Ball position ratios are always relative to the full image dimensions.
+- **Fallback:** If image dimensions cannot be loaded, the app defaults to 4:3 container aspect ratio.
+
+---
+
 ## Categories
 
 Challenges can be assigned to a category for grouping and future pack filtering. Categories are managed at `/admin/categories`.
@@ -114,6 +124,15 @@ Categories are optional — a challenge can be uncategorised. The mobile app sho
 **Future use:** categories will power pack-based challenge browsing (e.g. "Play the Corner Kicks pack") and leaderboards scoped to a category.
 
 ---
+
+## Recommended Image Specifications
+
+- **Format:** JPEG or PNG (SVG may not render on all React Native versions)
+- **Aspect ratio:** 16:9 or 4:3 recommended for best gameplay experience
+- **Resolution:** 800×600px minimum, 1920×1080px maximum
+- **File size:** Under 2MB per image
+- **Avoid:** Extreme portrait orientation (taller than 1:1) — takes excessive vertical space
+- **Ball placement:** Avoid placing the ball very near image edges (within 5%)
 
 ## Difficulty Guidelines
 
