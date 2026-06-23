@@ -1,4 +1,4 @@
-# BallSpot v1 — Test Report
+# BallSpot v1.4 — Test Report
 
 Build date: 2026-06-23
 
@@ -6,11 +6,13 @@ Build date: 2026-06-23
 
 ## What Was Implemented
 
-### Backend (Laravel 12)
-- Full REST API: auth (register/login/logout/me), leagues (create/join/detail/current-round/leaderboard), rounds (submit-guess/result), health
+### Backend (Laravel 12) — v1.4
+- Full REST API: auth (register/login/logout/me/profile/stats), leagues (create/join/start/cancel/detail/current-round/leaderboard), rounds (submit-guess/result), health
+- **Tournament lifecycle:** leagues start in `lobby`; rounds generated only on `POST /start`; owner can cancel (soft-delete to `cancelled`); non-lobby join blocked
+- **Enriched LeagueResource:** `is_owner`, `rounds_count`, `completed_rounds_count`, `remaining_rounds_count`, `progress_pct`, `starts_at`, `ends_at`
+- **Profile stats:** `GET /profile/stats` returns aggregate stats (tournaments, guesses, scores)
 - Sanctum bearer token authentication
 - Score calculation in ScoreService (server-side only)
-- LeagueService for league creation, joining, and round generation
 - Admin Blade area for challenge CRUD with image upload
   - Click-to-set ball position on hidden image and reveal image
   - Status/difficulty filters on challenge list
@@ -21,14 +23,18 @@ Build date: 2026-06-23
 - Email shown only to self in UserResource
 - **Security:** `current-round` endpoint never exposes `ball_x_ratio`, `ball_y_ratio`, or `reveal_image_url`
 
-### Mobile (Expo 56 / React Native 0.85.3)
-- 9 screens: Login, Register, Home, CreateLeague, JoinLeague, LeagueDetail, Guess, Result, Leaderboard
+### Mobile (Expo 56 / React Native 0.85.3) — v1.4
+- 10 screens: Login, Register, Home, CreateTournament, JoinTournament, LeagueDetail (status-aware), Guess, Result, Leaderboard, Profile
+- **LeagueDetailScreen:** lobby/active/completed/cancelled status modes; owner sees "Start Tournament" in lobby; active shows progress bar + play button
+- **HomeScreen:** SectionList with "Your Tournaments" (lobby+active) and "Completed" sections; owner delete with ConfirmModal
+- **ProfileScreen:** stat grid (tournaments, guesses, total score, avg score)
+- **ConfirmModal:** reusable destructive-action modal
+- **Marker polish:** ghost-ball (semi-transparent ⚽ 42px) for guess; neon-green glow ring (60px) for correct position on reveal images; no ball-covering on reveal
 - React Navigation (native-stack) with typed RootStackParamList
-- ImageGuessPicker: tap-to-guess ratio conversion, marker overlay for reveal
 - Bearer token stored securely via expo-secure-store (sessionStorage fallback on web)
 - Dark navy/green theme throughout
 - TypeScript strict — 0 errors
-- **ResultScreen:** shows reveal image if available, else hidden image; updated score ratings; friendly distance feedback
+- **ResultScreen:** ghost-ball for user guess, glow for correct position; updated legend; reveal badge
 
 ---
 
@@ -104,8 +110,8 @@ npx expo start
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    18 passed (41 assertions)
-Duration: ~0.6s
+Tests:    34 passed (95 assertions)
+Duration: ~27s
 ```
 
 | Test | Status |
@@ -118,15 +124,27 @@ Duration: ~0.6s
 | LeagueTest::test_user_can_join_league_with_code | ✅ |
 | GuessTest::test_member_can_submit_guess_and_receive_score | ✅ |
 | GuessTest::test_duplicate_guess_is_rejected | ✅ |
-| **ChallengeSecurityTest::test_current_round_does_not_expose_ball_position** | ✅ |
-| **ChallengeSecurityTest::test_result_exposes_ball_position_after_guessing** | ✅ |
-| **ChallengeSecurityTest::test_result_includes_reveal_image_url_when_original_image_exists** | ✅ |
-| **ChallengeSecurityTest::test_result_reveal_image_url_is_null_when_no_original_image** | ✅ |
+| ChallengeSecurityTest::test_current_round_does_not_expose_ball_position | ✅ |
+| ChallengeSecurityTest::test_result_exposes_ball_position_after_guessing | ✅ |
+| ChallengeSecurityTest::test_result_includes_reveal_image_url_when_original_image_exists | ✅ |
+| ChallengeSecurityTest::test_result_reveal_image_url_is_null_when_no_original_image | ✅ |
 | AdminTest::test_unauthenticated_user_is_redirected_to_login | ✅ |
 | AdminTest::test_non_admin_user_gets_403 | ✅ |
 | AdminTest::test_admin_user_can_access_challenges | ✅ |
 | LeaderboardTest::test_leaderboard_shows_ranked_scores | ✅ |
-| ExampleTest (default) × 2 | ✅ |
+| **LeagueTournamentLifecycleTest::test_create_league_starts_in_lobby_with_no_rounds** | ✅ |
+| **LeagueTournamentLifecycleTest::test_owner_can_start_tournament** | ✅ |
+| **LeagueTournamentLifecycleTest::test_non_owner_cannot_start_tournament** | ✅ |
+| **LeagueTournamentLifecycleTest::test_start_fails_when_no_active_challenges** | ✅ |
+| **LeagueTournamentLifecycleTest::test_users_can_join_lobby_tournament** | ✅ |
+| **LeagueTournamentLifecycleTest::test_users_cannot_join_active_tournament** | ✅ |
+| **LeagueTournamentLifecycleTest::test_owner_can_cancel_tournament** | ✅ |
+| **LeagueTournamentLifecycleTest::test_non_owner_cannot_cancel_tournament** | ✅ |
+| **LeagueTournamentLifecycleTest::test_cancelled_leagues_not_in_index** | ✅ |
+| **LeagueTournamentLifecycleTest::test_league_resource_includes_enriched_fields** | ✅ |
+| **ProfileStatsTest::test_profile_stats_returns_expected_fields** | ✅ |
+| **ProfileStatsTest::test_profile_stats_requires_auth** | ✅ |
+| ExampleTest (default) × 6 | ✅ |
 
 ## Mobile TypeScript Check
 
@@ -163,9 +181,9 @@ The current-round endpoint (`GET /leagues/{id}/current-round`) deliberately omit
 
 3. **No push notifications** — Round availability is not pushed to users. They must open the app to see new rounds.
 
-4. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after league creation.
+4. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after `POST /start`.
 
-5. **No user profile or avatar** — v1 shows name + username only.
+5. **No avatar** — Profile screen shows stats only; no avatar/photo upload.
 
 6. **Single sport** — Only football challenges are used. The data model supports more sports but the UI and API hardcode football.
 
@@ -179,12 +197,14 @@ The current-round endpoint (`GET /leagues/{id}/current-round`) deliberately omit
 - [ ] Round time windows (set opens_at/closes_at and enforce them in the API)
 - [ ] Replace SVG demo images with JPEG/PNG for broad React Native compatibility
 - [ ] Add real football pitch photos to `backend/public/demo/challenges/hidden/` and `reveal/` (see `docs/challenge-content-guide.md`)
+- [ ] Completed league status — currently `completed` must be set manually; add auto-complete when all rounds played
 
 ### Medium Priority
 - [ ] Push notifications when a new round opens
-- [ ] Profile screen (avatar, stats)
+- [ ] Profile avatar upload
 - [ ] League chat (simple message board)
 - [ ] Multiple sports support
+- [ ] Join tournament by link / QR code (not just manual code entry)
 
 ### Quality / Infra
 - [ ] Switch dev DB to MySQL for production parity

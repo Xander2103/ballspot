@@ -67,7 +67,7 @@ Default seeded categories (football): General, Corner Kicks, Dribbles, Goalkeepe
 | rounds_per_day | integer | 1 or 3 |
 | starts_at | datetime nullable |
 | ends_at | datetime nullable |
-| status | varchar | 'active' \| 'finished' |
+| status | varchar | 'lobby' \| 'active' \| 'completed' \| 'cancelled' |
 | created_at / updated_at | timestamp |
 
 ## league_members

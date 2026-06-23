@@ -40,38 +40,68 @@ Protected routes require: `Authorization: Bearer <token>`
 { "data": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com" } }
 ```
 
+### GET /profile/stats  *(auth required)*
+Returns aggregate stats for the current user.
+```json
+// Response 200
+{ "tournaments_count": 3, "completed_tournaments_count": 1, "guesses_count": 9, "total_score": 720, "average_score": 80.0 }
+```
+
 ---
 
 ## Leagues
 
 ### GET /leagues  *(auth required)*
-Returns leagues the current user is a member of.
+Returns leagues the current user is a member of (excludes cancelled).
 ```json
 // Response 200
-{ "data": [{ "id": 1, "name": "Friday Squad", "join_code": "ABC123", "duration_days": 3, "rounds_per_day": 1, "status": "active", "total_rounds": 3, "members_count": 2 }] }
+{ "data": [{ "id": 1, "name": "Friday Squad", "join_code": "ABC123", "duration_days": 3, "rounds_per_day": 1, "status": "lobby", "owner_user_id": 1, "is_owner": true, "members_count": 2, "rounds_count": 0, "completed_rounds_count": 0, "remaining_rounds_count": 0, "progress_pct": 0, "starts_at": null, "ends_at": null }] }
 ```
 
 ### POST /leagues  *(auth required)*
+Creates a new tournament in **lobby** status. No rounds are generated until `/start` is called.
 ```json
 // Request
 { "name": "Friday Squad", "duration_days": 3, "rounds_per_day": 1 }
 // duration_days: 1|3|7, rounds_per_day: 1|3
-// Response 201
-{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", ... } }
+// Response 200
+{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", "status": "lobby", "is_owner": true, "rounds_count": 0, ... } }
 ```
 
 ### POST /leagues/join  *(auth required)*
+Join a tournament by code. Fails if the tournament is not in `lobby` status.
 ```json
 // Request
 { "join_code": "ABC123" }
 // Response 200
-{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", ... } }
+{ "data": { "id": 1, "name": "Friday Squad", ... } }
+// Response 422 — tournament already started
+{ "message": "This tournament is no longer accepting players." }
 ```
 
 ### GET /leagues/{id}  *(auth required, must be member)*
 ```json
 // Response 200
-{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", "members": [...], ... } }
+{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", "status": "active", "is_owner": false, "rounds_count": 3, "completed_rounds_count": 1, "remaining_rounds_count": 2, "progress_pct": 33, "members": [...] } }
+```
+
+### POST /leagues/{id}/start  *(auth required, must be owner)*
+Transitions a lobby tournament to active. Generates all rounds from available challenges.
+```json
+// Response 200
+{ "data": { "id": 1, "status": "active", "rounds_count": 3, "starts_at": "2026-06-23T...", "ends_at": "2026-06-24T...", ... } }
+// Response 403 — not the owner
+{ "message": "Only the owner can start this tournament." }
+// Response 422 — no active challenges available
+{ "message": "No active football challenges available. Add challenges in admin." }
+```
+
+### DELETE /leagues/{id}  *(auth required, must be owner)*
+Soft-cancels a tournament. Sets `status = cancelled`. No data is deleted.
+```json
+// Response 204 — no content
+// Response 403 — not the owner
+{ "message": "Only the owner can cancel this tournament." }
 ```
 
 ### GET /leagues/{id}/current-round  *(auth required, must be member)*
