@@ -6,6 +6,7 @@ use App\Http\Requests\CreateLeagueRequest;
 use App\Http\Resources\LeagueResource;
 use App\Http\Resources\LeagueRoundResource;
 use App\Models\Challenge;
+use App\Models\Guess;
 use App\Models\League;
 use App\Models\User;
 use App\Services\LeagueService;
@@ -134,6 +135,24 @@ class LeagueController extends Controller
             'remaining' => $remaining,
             'pct'       => $pct,
         ];
+
+        $today = now()->toDateString();
+        $playedToday = Guess::whereHas('round', fn($q) => $q->where('league_id', $league->id))
+            ->where('user_id', $userId)
+            ->whereDate('submitted_at', $today)
+            ->count();
+
+        if ($playedToday >= $league->rounds_per_day) {
+            return response()->json([
+                'current_round'    => null,
+                'has_current_round'=> false,
+                'completed'        => false,
+                'reason'           => 'daily_limit_reached',
+                'message'          => 'You have played all rounds available for today.',
+                'next_available_at'=> null,
+                'progress'         => $progress,
+            ]);
+        }
 
         $round = $league->rounds()
             ->where('status', 'open')
