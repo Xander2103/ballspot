@@ -151,6 +151,9 @@ class LeagueController extends Controller
                 'message'          => 'You have played all rounds available for today.',
                 'next_available_at'=> null,
                 'progress'         => $progress,
+                'rounds_per_day'   => $league->rounds_per_day,
+                'played_today_count'=> $playedToday,
+                'remaining_today_count' => max(0, $league->rounds_per_day - $playedToday),
             ]);
         }
 
@@ -168,6 +171,9 @@ class LeagueController extends Controller
                 'completed'         => true,
                 'reason'            => 'all_rounds_complete',
                 'progress'          => $progress,
+                'rounds_per_day'    => $league->rounds_per_day,
+                'played_today_count'=> $playedToday,
+                'remaining_today_count' => max(0, $league->rounds_per_day - $playedToday),
             ]);
         }
 
@@ -177,6 +183,9 @@ class LeagueController extends Controller
             'completed'         => false,
             'reason'            => 'has_pending_round',
             'progress'          => $progress,
+            'rounds_per_day'    => $league->rounds_per_day,
+            'played_today_count'=> $playedToday,
+            'remaining_today_count' => max(0, $league->rounds_per_day - $playedToday),
         ]);
     }
 }

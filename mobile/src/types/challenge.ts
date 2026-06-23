@@ -30,6 +30,11 @@ export interface CurrentRoundResponse {
   current_round: LeagueRound | null;
   has_current_round: boolean;
   completed: boolean;
-  reason: 'has_pending_round' | 'all_rounds_complete';
+  reason: 'has_pending_round' | 'all_rounds_complete' | 'no_rounds_yet' | 'daily_limit_reached';
+  message?: string;
+  next_available_at: string | null;
   progress: CurrentRoundProgress;
+  rounds_per_day: number;
+  played_today_count: number;
+  remaining_today_count: number;
 }
