@@ -2,6 +2,14 @@ import { User } from './auth';
 
 export type LeagueStatus = 'lobby' | 'active' | 'completed' | 'cancelled';
 
+export interface LobbyMember {
+  id: number;
+  name: string;
+  username: string;
+  is_owner: boolean;
+  joined_at: string | null;
+}
+
 export interface League {
   id: number;
   name: string;
@@ -18,5 +26,5 @@ export interface League {
   progress_pct: number;
   starts_at: string | null;
   ends_at: string | null;
-  members?: User[];
+  members?: LobbyMember[];
 }

@@ -24,6 +24,9 @@ export const leagueApi = {
   cancel: (id: number) =>
     apiClient.request<void>(`/leagues/${id}`, { method: 'DELETE' }),
 
+  removeMember: (leagueId: number, userId: number) =>
+    apiClient.request<void>(`/leagues/${leagueId}/members/${userId}`, { method: 'DELETE' }),
+
   leaderboard: (id: number) =>
     apiClient.request<LeaderboardResponse>(`/leagues/${id}/leaderboard`),
 };

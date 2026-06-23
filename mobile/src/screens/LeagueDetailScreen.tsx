@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -10,7 +10,7 @@ import { leagueApi } from '../api/leagueApi';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { League } from '../types/league';
+import { League, LobbyMember } from '../types/league';
 import { LeaderboardEntry } from '../types/guess';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
@@ -25,6 +25,9 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<LobbyMember | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removedFromLobby, setRemovedFromLobby] = useState(false);
 
   const load = useCallback(async () => {
     if (!leagueId) {
@@ -50,7 +53,12 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         setRoundId(null);
         setProgress(null);
       }
-    } catch {
+    } catch (e) {
+      if (e && typeof e === 'object' && 'status' in e && (e as { status: number }).status === 403) {
+        setRemovedFromLobby(true);
+        setLoading(false);
+        return;
+      }
       Alert.alert('Error', 'Failed to load tournament');
     } finally {
       setLoading(false);
@@ -59,6 +67,12 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const u = navigation.addListener('focus', load); return u; }, [navigation, load]);
+
+  useEffect(() => {
+    if (league?.status !== 'lobby') return;
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
+  }, [league?.status, load]);
 
   async function handleStart() {
     if (!league) return;
@@ -74,11 +88,44 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
     }
   }
 
+  async function handleRemoveMember() {
+    if (!removeTarget || !leagueId) return;
+    setRemoving(true);
+    try {
+      await leagueApi.removeMember(leagueId, removeTarget.id);
+      setRemoveTarget(null);
+      await load();
+    } catch {
+      setRemoveTarget(null);
+    } finally {
+      setRemoving(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.primary} size="large" />
       </View>
+    );
+  }
+
+  if (removedFromLobby) {
+    return (
+      <Screen padding>
+        <View style={styles.removedBox}>
+          <Text style={styles.removedIcon}>🚫</Text>
+          <Text style={styles.removedTitle}>You were removed</Text>
+          <Text style={styles.removedText}>
+            You have been removed from this tournament.
+          </Text>
+          <AppButton
+            title="Back to Home"
+            onPress={() => navigation.navigate('Home')}
+            style={{ marginTop: spacing.lg }}
+          />
+        </View>
+      </Screen>
     );
   }
 
@@ -100,6 +147,33 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
               {league.members_count} player{league.members_count !== 1 ? 's' : ''} joined · {league.duration_days * league.rounds_per_day} rounds total
             </Text>
           </View>
+
+          <View style={styles.membersSection}>
+            <Text style={styles.membersSectionTitle}>
+              Players in Lobby ({league.members_count})
+            </Text>
+            {(league.members ?? []).map(member => (
+              <View key={member.id} style={styles.memberRow}>
+                <View style={styles.memberInfo}>
+                  <Text style={styles.memberName}>
+                    {member.name}
+                    {member.is_owner ? ' 👑' : ''}
+                  </Text>
+                  <Text style={styles.memberUsername}>@{member.username}</Text>
+                </View>
+                {league.is_owner && !member.is_owner && (
+                  <TouchableOpacity
+                    onPress={() => setRemoveTarget(member)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.removeBtn}
+                  >
+                    <Text style={styles.removeBtnText}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+          </View>
+
           {league.is_owner ? (
             <AppButton
               title="Start Tournament"
@@ -186,6 +260,17 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         onConfirm={handleStart}
         onCancel={() => setShowStartConfirm(false)}
       />
+
+      <ConfirmModal
+        visible={!!removeTarget}
+        title="Remove player?"
+        message="This player will be removed from the lobby."
+        confirmLabel={removing ? 'Removing…' : 'Remove'}
+        cancelLabel="Cancel"
+        onConfirm={handleRemoveMember}
+        onCancel={() => !removing && setRemoveTarget(null)}
+        destructive
+      />
     </Screen>
   );
 }
@@ -217,6 +302,14 @@ const styles = StyleSheet.create({
   lobbyIcon: { fontSize: 32, marginBottom: spacing.sm },
   lobbyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 4 },
   lobbyDesc: { fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
+  membersSection: { marginTop: spacing.sm },
+  membersSectionTitle: { fontSize: 11, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.sm },
+  memberRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.border },
+  memberInfo: { flex: 1 },
+  memberName: { fontSize: 14, fontWeight: '600', color: colors.text },
+  memberUsername: { fontSize: 12, color: colors.textSecondary },
+  removeBtn: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  removeBtnText: { fontSize: 14, color: colors.error, fontWeight: '700' },
   startBtn: { marginTop: 4 },
   waitingBox: {
     backgroundColor: colors.surfaceElevated,
@@ -263,4 +356,8 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
+  removedBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: spacing.xxl },
+  removedIcon: { fontSize: 48, marginBottom: spacing.md },
+  removedTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  removedText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
 });
