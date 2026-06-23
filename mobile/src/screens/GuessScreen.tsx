@@ -124,8 +124,11 @@ export function GuessScreen({ route, navigation }: Props) {
         {progress && (
           <Text style={styles.roundContext}>
             Round {round.round_number} of {progress.total}
-            {progress.remaining > 1 ? `  ·  ${progress.remaining - 1} round${progress.remaining - 1 !== 1 ? 's' : ''} left after this` : ''}
-            {progress.remaining === 1 ? '  ·  Last round!' : ''}
+            {progress.remaining === 1
+              ? '  ·  Last round!'
+              : progress.remaining === 0 && progress.total > 0
+                ? '  ·  Bonus round'
+                : `  ·  ${progress.remaining - 1} more round${progress.remaining - 1 !== 1 ? 's' : ''} after this`}
           </Text>
         )}
         <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
