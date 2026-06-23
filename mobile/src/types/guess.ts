@@ -6,6 +6,7 @@ export interface GuessResult {
   guess_y_ratio: number;
   ball_x_ratio: number;
   ball_y_ratio: number;
+  reveal_image_url: string | null;
 }
 
 export interface LeaderboardEntry {

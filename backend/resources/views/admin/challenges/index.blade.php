@@ -8,34 +8,80 @@
     <a href="/admin/challenges/create" class="btn btn-primary btn-sm">+ New Challenge</a>
 </div>
 
+{{-- Filters --}}
+<form method="GET" action="/admin/challenges" class="mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-auto">
+            <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All statuses</option>
+                @foreach(['draft','active','archived'] as $s)
+                    <option value="{{ $s }}" {{ request('status') === $s ? 'selected' : '' }}>{{ ucfirst($s) }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-auto">
+            <select name="difficulty" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">All difficulties</option>
+                @foreach(['easy','medium','hard'] as $d)
+                    <option value="{{ $d }}" {{ request('difficulty') === $d ? 'selected' : '' }}>{{ ucfirst($d) }}</option>
+                @endforeach
+            </select>
+        </div>
+        @if(request('status') || request('difficulty'))
+        <div class="col-auto">
+            <a href="/admin/challenges" class="btn btn-outline-secondary btn-sm">Clear</a>
+        </div>
+        @endif
+    </div>
+</form>
+
 <div class="card shadow-sm">
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    <th>ID</th>
+                    <th style="width:80px">Hidden</th>
+                    <th style="width:80px">Reveal</th>
                     <th>Title</th>
                     <th>Difficulty</th>
                     <th>Status</th>
-                    <th>Ball X</th>
-                    <th>Ball Y</th>
+                    <th>Ball position</th>
+                    <th>Created</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse($challenges as $challenge)
                 <tr>
-                    <td class="text-muted small align-middle">{{ $challenge->id }}</td>
-                    <td class="align-middle fw-semibold">{{ $challenge->title }}</td>
-                    <td class="align-middle">
+                    <td>
+                        @if($challenge->hidden_image_path)
+                        <img src="{{ asset('storage/' . $challenge->hidden_image_path) }}"
+                             alt="hidden" style="width:64px;height:48px;object-fit:cover;border-radius:4px;">
+                        @else
+                        <span class="text-muted small">—</span>
+                        @endif
+                    </td>
+                    <td>
+                        @if($challenge->original_image_path)
+                        <img src="{{ asset('storage/' . $challenge->original_image_path) }}"
+                             alt="reveal" style="width:64px;height:48px;object-fit:cover;border-radius:4px;">
+                        @else
+                        <span class="text-muted small">—</span>
+                        @endif
+                    </td>
+                    <td class="fw-semibold">{{ $challenge->title }}</td>
+                    <td>
                         <span class="badge badge-{{ $challenge->difficulty }}">{{ ucfirst($challenge->difficulty) }}</span>
                     </td>
-                    <td class="align-middle">
+                    <td>
                         <span class="badge badge-{{ $challenge->status }}">{{ ucfirst($challenge->status) }}</span>
                     </td>
-                    <td class="align-middle small">{{ $challenge->ball_x_ratio }}</td>
-                    <td class="align-middle small">{{ $challenge->ball_y_ratio }}</td>
-                    <td class="align-middle">
+                    <td class="small text-muted">
+                        x {{ round($challenge->ball_x_ratio * 100) }}%
+                        · y {{ round($challenge->ball_y_ratio * 100) }}%
+                    </td>
+                    <td class="small text-muted">{{ $challenge->created_at->format('d M Y') }}</td>
+                    <td>
                         <a href="/admin/challenges/{{ $challenge->id }}/edit" class="btn btn-outline-secondary btn-sm me-1">Edit</a>
                         <form action="/admin/challenges/{{ $challenge->id }}" method="POST" class="d-inline"
                               onsubmit="return confirm('Delete this challenge?')">
@@ -47,7 +93,9 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No challenges yet. <a href="/admin/challenges/create">Create one.</a></td>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        No challenges yet. <a href="/admin/challenges/create">Create one.</a>
+                    </td>
                 </tr>
                 @endforelse
             </tbody>

@@ -8,9 +8,14 @@ use Illuminate\Support\Facades\Storage;
 
 class ChallengeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $challenges = Challenge::with('sport')->latest()->paginate(20);
+        $challenges = Challenge::with('sport')
+            ->when($request->status, fn ($q, $v) => $q->where('status', $v))
+            ->when($request->difficulty, fn ($q, $v) => $q->where('difficulty', $v))
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
         return view('admin.challenges.index', compact('challenges'));
     }
 

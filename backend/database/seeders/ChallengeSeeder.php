@@ -23,21 +23,44 @@ class ChallengeSeeder extends Seeder
         ];
 
         foreach ($challenges as $c) {
-            $svgSource = public_path("demo/challenges/{$c['slug']}.svg");
-            $storagePath = "challenges/hidden/{$c['slug']}.svg";
+            // Hidden image — prefer demo/challenges/hidden/{slug}.* over legacy demo/challenges/{slug}.svg
+            $hiddenPath = "challenges/hidden/{$c['slug']}.svg";
+            foreach (['jpg', 'jpeg', 'png', 'svg', 'webp'] as $ext) {
+                $src = public_path("demo/challenges/hidden/{$c['slug']}.{$ext}");
+                if (file_exists($src)) {
+                    $hiddenPath = "challenges/hidden/{$c['slug']}.{$ext}";
+                    Storage::disk('public')->put($hiddenPath, file_get_contents($src));
+                    break;
+                }
+            }
+            // Fallback: legacy location demo/challenges/{slug}.svg
+            if (!Storage::disk('public')->exists($hiddenPath)) {
+                $legacySrc = public_path("demo/challenges/{$c['slug']}.svg");
+                if (file_exists($legacySrc)) {
+                    Storage::disk('public')->put($hiddenPath, file_get_contents($legacySrc));
+                }
+            }
 
-            if (file_exists($svgSource)) {
-                Storage::disk('public')->put($storagePath, file_get_contents($svgSource));
+            // Reveal image — optional, from demo/challenges/reveal/
+            $revealPath = null;
+            foreach (['jpg', 'jpeg', 'png', 'svg', 'webp'] as $ext) {
+                $src = public_path("demo/challenges/reveal/{$c['slug']}.{$ext}");
+                if (file_exists($src)) {
+                    $revealPath = "challenges/original/{$c['slug']}.{$ext}";
+                    Storage::disk('public')->put($revealPath, file_get_contents($src));
+                    break;
+                }
             }
 
             Challenge::firstOrCreate(
                 ['title' => $c['title'], 'sport_id' => $sport->id],
                 [
-                    'hidden_image_path' => $storagePath,
-                    'ball_x_ratio'      => $c['ball_x_ratio'],
-                    'ball_y_ratio'      => $c['ball_y_ratio'],
-                    'difficulty'        => $c['difficulty'],
-                    'status'            => 'active',
+                    'hidden_image_path'   => $hiddenPath,
+                    'original_image_path' => $revealPath,
+                    'ball_x_ratio'        => $c['ball_x_ratio'],
+                    'ball_y_ratio'        => $c['ball_y_ratio'],
+                    'difficulty'          => $c['difficulty'],
+                    'status'              => 'active',
                 ]
             );
         }

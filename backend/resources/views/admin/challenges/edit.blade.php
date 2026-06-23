@@ -8,7 +8,7 @@
 </div>
 <h1 class="h3 mb-4">Edit Challenge</h1>
 
-<div class="card shadow-sm" style="max-width: 700px;">
+<div class="card shadow-sm" style="max-width: 740px;">
     <div class="card-body">
         <form action="/admin/challenges/{{ $challenge->id }}" method="POST" enctype="multipart/form-data">
             @csrf
@@ -43,46 +43,78 @@
                 </div>
             </div>
 
-            {{-- Current image with click-to-set --}}
+            {{-- Section: Hidden image --}}
+            <hr class="my-4">
+            <h6 class="fw-semibold mb-1">Hidden Image</h6>
+            <p class="text-muted small mb-3">What players see while guessing. Click the image to reposition the ball marker.</p>
+
             @if($challenge->hidden_image_path)
-            <div class="mb-3">
-                <label class="form-label fw-semibold">Current Hidden Image</label>
-                <div>
-                    <div id="image-picker" style="position:relative; display:inline-block; cursor:crosshair; max-width:100%;">
-                        <img id="image-preview"
-                             src="{{ asset('storage/' . $challenge->hidden_image_path) }}"
-                             alt="Current hidden image"
-                             style="max-width:100%; max-height:300px; border-radius:6px; display:block;">
-                        <div id="ball-marker" style="position:absolute; width:20px; height:20px; border-radius:50%; background:red; border:2px solid #fff; transform:translate(-50%,-50%); pointer-events:none;
-                            left:{{ old('ball_x_ratio', $challenge->ball_x_ratio) * 100 }}%;
-                            top:{{ old('ball_y_ratio', $challenge->ball_y_ratio) * 100 }}%;"></div>
-                    </div>
-                    <p class="text-muted small mt-1">Click image to reposition ball. Current: <span id="coords-display">x={{ old('ball_x_ratio', $challenge->ball_x_ratio) }}, y={{ old('ball_y_ratio', $challenge->ball_y_ratio) }}</span></p>
-                </div>
+            <div id="hidden-picker" class="image-picker-container mb-1">
+                <img id="hidden-preview" src="{{ asset('storage/' . $challenge->hidden_image_path) }}" alt="Current hidden image">
+                <div id="hidden-marker" class="ball-marker" style="
+                    left:{{ old('ball_x_ratio', $challenge->ball_x_ratio) * 100 }}%;
+                    top:{{ old('ball_y_ratio', $challenge->ball_y_ratio) * 100 }}%;"></div>
             </div>
+            <p class="text-muted small mb-3">Current: <span id="coords-display">x={{ old('ball_x_ratio', $challenge->ball_x_ratio) }}, y={{ old('ball_y_ratio', $challenge->ball_y_ratio) }}</span></p>
             @endif
 
             <div class="mb-3">
-                <label for="hidden_image" class="form-label fw-semibold">Replace Hidden Image <span class="text-muted small">(optional)</span></label>
+                <label for="hidden_image" class="form-label fw-semibold">Replace Hidden Image <span class="text-muted fw-normal small">(optional)</span></label>
                 <input type="file" id="hidden_image" name="hidden_image"
                        class="form-control @error('hidden_image') is-invalid @enderror"
                        accept="image/*">
-                <div class="form-text">Max 5 MB. Leave empty to keep current image.</div>
+                <div class="form-text">JPEG/PNG, max 5 MB. Leave blank to keep current.</div>
                 @error('hidden_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
 
-            <div id="new-image-picker-wrap" style="display:none; margin-bottom:1rem;">
-                <p class="text-muted small mb-1">Click the new image to set ball position:</p>
-                <div id="new-image-picker" style="position:relative; display:inline-block; cursor:crosshair; max-width:100%;">
-                    <img id="new-image-preview" src="" alt="New preview" style="max-width:100%; display:block; border-radius:6px;">
-                    <div id="new-ball-marker" style="display:none; position:absolute; width:20px; height:20px; border-radius:50%; background:red; border:2px solid #fff; transform:translate(-50%,-50%); pointer-events:none;"></div>
+            <div id="new-hidden-picker-wrap" style="display:none; margin-bottom:1rem;">
+                <div id="new-hidden-picker" class="image-picker-container">
+                    <img id="new-hidden-preview" src="" alt="New hidden preview">
+                    <div id="new-hidden-marker" class="ball-marker" style="display:none;"></div>
                 </div>
-                <p class="text-muted small mt-1">Ball position: <span id="new-coords-display">not set</span></p>
+                <p class="text-muted small mt-1">Click to place the marker on the new image.</p>
             </div>
+
+            {{-- Section: Reveal image --}}
+            <hr class="my-4">
+            <h6 class="fw-semibold mb-1">Reveal Image</h6>
+            <p class="text-muted small mb-3">Shown after guessing. Click to set ball position precisely — the ball is visible here.</p>
+
+            @if($challenge->original_image_path)
+            <div id="reveal-picker" class="image-picker-container mb-1">
+                <img id="reveal-preview" src="{{ asset('storage/' . $challenge->original_image_path) }}" alt="Current reveal image">
+                <div id="reveal-marker" class="ball-marker" style="
+                    left:{{ old('ball_x_ratio', $challenge->ball_x_ratio) * 100 }}%;
+                    top:{{ old('ball_y_ratio', $challenge->ball_y_ratio) * 100 }}%;"></div>
+            </div>
+            <p class="text-muted small mb-3">Click above to reposition from the reveal image.</p>
+            @endif
+
+            <div class="mb-3">
+                <label for="original_image" class="form-label fw-semibold">{{ $challenge->original_image_path ? 'Replace Reveal Image' : 'Add Reveal Image' }} <span class="text-muted fw-normal small">(optional)</span></label>
+                <input type="file" id="original_image" name="original_image"
+                       class="form-control @error('original_image') is-invalid @enderror"
+                       accept="image/*">
+                <div class="form-text">JPEG/PNG, max 5 MB. Leave blank to keep current.</div>
+                @error('original_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+
+            <div id="new-reveal-picker-wrap" style="display:none; margin-bottom:1rem;">
+                <div id="new-reveal-picker" class="image-picker-container">
+                    <img id="new-reveal-preview" src="" alt="New reveal preview">
+                    <div id="new-reveal-marker" class="ball-marker" style="display:none;"></div>
+                </div>
+                <p class="text-muted small mt-1">Click to set position from the new reveal image.</p>
+            </div>
+
+            {{-- Ball position --}}
+            <hr class="my-4">
+            <h6 class="fw-semibold mb-1">Ball Position <span class="text-danger">*</span></h6>
+            <p class="text-muted small mb-3">Set by clicking any image above, or enter manually. 0 = left/top, 1 = right/bottom.</p>
 
             <div class="row">
                 <div class="col-md-6 mb-3">
-                    <label for="ball_x_ratio" class="form-label fw-semibold">Ball X Ratio <span class="text-danger">*</span></label>
+                    <label for="ball_x_ratio" class="form-label fw-semibold">X (horizontal)</label>
                     <input type="number" id="ball_x_ratio" name="ball_x_ratio"
                            class="form-control @error('ball_x_ratio') is-invalid @enderror"
                            value="{{ old('ball_x_ratio', $challenge->ball_x_ratio) }}" min="0" max="1" step="0.001" required>
@@ -90,7 +122,7 @@
                 </div>
 
                 <div class="col-md-6 mb-3">
-                    <label for="ball_y_ratio" class="form-label fw-semibold">Ball Y Ratio <span class="text-danger">*</span></label>
+                    <label for="ball_y_ratio" class="form-label fw-semibold">Y (vertical)</label>
                     <input type="number" id="ball_y_ratio" name="ball_y_ratio"
                            class="form-control @error('ball_y_ratio') is-invalid @enderror"
                            value="{{ old('ball_y_ratio', $challenge->ball_y_ratio) }}" min="0" max="1" step="0.001" required>
@@ -99,81 +131,113 @@
             </div>
 
             <div class="mb-4">
-                <label for="original_image" class="form-label fw-semibold">Replace Original Image <span class="text-muted small">(optional)</span></label>
-                <input type="file" id="original_image" name="original_image"
-                       class="form-control @error('original_image') is-invalid @enderror"
-                       accept="image/*">
-                <div class="form-text">Max 5 MB. Leave empty to keep current.</div>
-                @error('original_image')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                <button type="submit" class="btn btn-primary px-4">Save Changes</button>
+                <a href="/admin/challenges" class="btn btn-outline-secondary ms-2">Cancel</a>
             </div>
-
-            <button type="submit" class="btn btn-primary px-4">Save Changes</button>
-            <a href="/admin/challenges" class="btn btn-outline-secondary ms-2">Cancel</a>
         </form>
     </div>
 </div>
 
+<style>
+.image-picker-container {
+    position: relative;
+    display: inline-block;
+    cursor: crosshair;
+    max-width: 100%;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 2px solid #dee2e6;
+}
+.image-picker-container img {
+    max-width: 100%;
+    max-height: 280px;
+    display: block;
+}
+.ball-marker {
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #dc3545;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.5);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+</style>
+
 <script>
 (function () {
-    // Existing image click-to-set
-    var picker = document.getElementById('image-picker');
-    var marker = document.getElementById('ball-marker');
-    var coordsDisplay = document.getElementById('coords-display');
     var xInput = document.getElementById('ball_x_ratio');
     var yInput = document.getElementById('ball_y_ratio');
+    var coordsDisplay = document.getElementById('coords-display');
 
-    if (picker) {
-        picker.addEventListener('click', function (e) {
-            var img = document.getElementById('image-preview');
-            var rect = img.getBoundingClientRect();
-            var x = (e.clientX - rect.left) / rect.width;
-            var y = (e.clientY - rect.top) / rect.height;
-            x = Math.min(1, Math.max(0, x));
-            y = Math.min(1, Math.max(0, y));
-            xInput.value = x.toFixed(4);
-            yInput.value = y.toFixed(4);
-            marker.style.left = (x * 100) + '%';
-            marker.style.top = (y * 100) + '%';
-            coordsDisplay.textContent = 'x=' + x.toFixed(4) + ', y=' + y.toFixed(4);
+    // The IDs of all picker → marker pairs. Some may not exist (e.g. no existing reveal image).
+    var pickers = [
+        { pickerId: 'hidden-picker',     imgId: 'hidden-preview',     markerId: 'hidden-marker',     wrapId: null },
+        { pickerId: 'reveal-picker',     imgId: 'reveal-preview',     markerId: 'reveal-marker',     wrapId: null },
+        { pickerId: 'new-hidden-picker', imgId: 'new-hidden-preview', markerId: 'new-hidden-marker', wrapId: 'new-hidden-picker-wrap' },
+        { pickerId: 'new-reveal-picker', imgId: 'new-reveal-preview', markerId: 'new-reveal-marker', wrapId: 'new-reveal-picker-wrap' },
+    ];
+
+    function isVisible(p) {
+        var picker = document.getElementById(p.pickerId);
+        if (!picker) return false;
+        if (p.wrapId) {
+            var wrap = document.getElementById(p.wrapId);
+            return wrap && wrap.style.display !== 'none';
+        }
+        return true; // existing images always visible
+    }
+
+    function applyPosition(x, y) {
+        xInput.value = x.toFixed(4);
+        yInput.value = y.toFixed(4);
+        if (coordsDisplay) {
+            coordsDisplay.textContent = 'x=' + x.toFixed(4) + ' (' + Math.round(x * 100) + '%), y=' + y.toFixed(4) + ' (' + Math.round(y * 100) + '%)';
+        }
+        pickers.forEach(function (p) {
+            if (!isVisible(p)) return;
+            var m = document.getElementById(p.markerId);
+            if (!m) return;
+            m.style.left    = (x * 100) + '%';
+            m.style.top     = (y * 100) + '%';
+            m.style.display = 'block';
         });
     }
 
-    // New image preview click-to-set
-    var fileInput = document.getElementById('hidden_image');
-    var newWrap = document.getElementById('new-image-picker-wrap');
-    var newPreview = document.getElementById('new-image-preview');
-    var newPicker = document.getElementById('new-image-picker');
-    var newMarker = document.getElementById('new-ball-marker');
-    var newCoordsDisplay = document.getElementById('new-coords-display');
+    pickers.forEach(function (p) {
+        var picker = document.getElementById(p.pickerId);
+        var img    = document.getElementById(p.imgId);
+        if (!picker || !img) return;
+        picker.addEventListener('click', function (e) {
+            var rect = img.getBoundingClientRect();
+            applyPosition(
+                Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),
+                Math.min(1, Math.max(0, (e.clientY - rect.top)  / rect.height))
+            );
+        });
+    });
 
-    if (fileInput) {
-        fileInput.addEventListener('change', function () {
-            var file = fileInput.files[0];
-            if (!file) { newWrap.style.display = 'none'; return; }
+    function setupFileInput(inputId, wrapId, previewId, markerId) {
+        var input = document.getElementById(inputId);
+        if (!input) return;
+        input.addEventListener('change', function () {
+            var file = this.files[0];
+            var wrap = document.getElementById(wrapId);
+            if (!file) { wrap.style.display = 'none'; return; }
             var reader = new FileReader();
             reader.onload = function (e) {
-                newPreview.src = e.target.result;
-                newWrap.style.display = 'block';
-                newMarker.style.display = 'none';
-                newCoordsDisplay.textContent = 'not set';
+                document.getElementById(previewId).src = e.target.result;
+                document.getElementById(markerId).style.display = 'none';
+                wrap.style.display = 'block';
             };
             reader.readAsDataURL(file);
         });
-
-        newPicker.addEventListener('click', function (e) {
-            var rect = newPreview.getBoundingClientRect();
-            var x = (e.clientX - rect.left) / rect.width;
-            var y = (e.clientY - rect.top) / rect.height;
-            x = Math.min(1, Math.max(0, x));
-            y = Math.min(1, Math.max(0, y));
-            xInput.value = x.toFixed(4);
-            yInput.value = y.toFixed(4);
-            newMarker.style.left = (x * 100) + '%';
-            newMarker.style.top = (y * 100) + '%';
-            newMarker.style.display = 'block';
-            newCoordsDisplay.textContent = 'x=' + x.toFixed(4) + ', y=' + y.toFixed(4);
-        });
     }
+
+    setupFileInput('hidden_image',   'new-hidden-picker-wrap', 'new-hidden-preview', 'new-hidden-marker');
+    setupFileInput('original_image', 'new-reveal-picker-wrap', 'new-reveal-preview', 'new-reveal-marker');
 }());
 </script>
 @endsection

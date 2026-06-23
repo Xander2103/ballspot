@@ -13,11 +13,26 @@ import { GuessResult } from '../types/guess';
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
 function getScoreRating(score: number): string {
-  if (score >= 95) return 'Perfect! 🎯';
-  if (score >= 75) return 'Very close!';
-  if (score >= 50) return 'Not bad';
-  if (score >= 25) return 'Far away';
-  return 'Missed';
+  if (score >= 90) return 'Perfect spot! 🎯';
+  if (score >= 70) return 'Very close! 🔥';
+  if (score >= 40) return 'Not bad 👍';
+  if (score >= 1) return 'Far away 😅';
+  return 'Missed! ❌';
+}
+
+function getScoreColor(score: number): string {
+  if (score >= 90) return colors.success;
+  if (score >= 70) return colors.primary;
+  if (score >= 40) return colors.warning;
+  return colors.error;
+}
+
+function getDistanceFeedback(distance: number): string {
+  if (!Number.isFinite(distance)) return '';
+  if (distance <= 0.03) return 'Right on it!';
+  if (distance <= 0.10) return 'Very close';
+  if (distance <= 0.25) return 'A bit off';
+  return 'Way off';
 }
 
 function pct(ratio: number): string {
@@ -55,8 +70,11 @@ export function ResultScreen({ route, navigation }: Props) {
     );
   }
 
-  const scoreColor = result.score >= 80 ? colors.success : result.score >= 50 ? colors.warning : colors.error;
+  const scoreColor = getScoreColor(result.score);
   const rating = getScoreRating(result.score);
+  const distanceFeedback = getDistanceFeedback(result.distance);
+  const displayImageUrl = result.reveal_image_url ?? imageUrl;
+  const isRevealImage = !!result.reveal_image_url;
 
   return (
     <Screen scroll padding>
@@ -65,16 +83,26 @@ export function ResultScreen({ route, navigation }: Props) {
         <Text style={styles.scoreLabel}>Your Score</Text>
         <Text style={[styles.score, { color: scoreColor }]}>{result.score}</Text>
         <Text style={styles.rating}>{rating}</Text>
-        <Text style={styles.distance}>
-          Distance: {Number.isFinite(result.distance) ? `${(result.distance * 100).toFixed(1)}%` : '—'}
-        </Text>
+        <View style={styles.distanceRow}>
+          <Text style={styles.distanceValue}>
+            {Number.isFinite(result.distance) ? `${(result.distance * 100).toFixed(1)}% away` : '—'}
+          </Text>
+          {distanceFeedback ? (
+            <Text style={styles.distanceFeedback}> · {distanceFeedback}</Text>
+          ) : null}
+        </View>
       </View>
 
       {/* Image with markers */}
-      {imageUrl ? (
+      {displayImageUrl ? (
         <>
+          {isRevealImage && (
+            <View style={styles.revealBadge}>
+              <Text style={styles.revealBadgeText}>Reveal image</Text>
+            </View>
+          )}
           <ImageGuessPicker
-            imageUri={imageUrl}
+            imageUri={displayImageUrl}
             interactive={false}
             markers={[
               {
@@ -145,7 +173,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xl,
     backgroundColor: colors.surface,
     borderRadius: 16,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   scoreLabel: {
     fontSize: 12,
@@ -165,9 +193,35 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  distance: {
+  distanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  distanceValue: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  distanceFeedback: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  revealBadge: {
+    alignSelf: 'flex-end',
+    backgroundColor: colors.surface,
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    marginBottom: 4,
+  },
+  revealBadgeText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   legend: {
     backgroundColor: colors.surface,
