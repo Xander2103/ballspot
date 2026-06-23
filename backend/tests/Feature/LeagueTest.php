@@ -40,7 +40,7 @@ class LeagueTest extends TestCase
 
         $league = League::create([
             'name' => 'Join Me', 'join_code' => 'ABC123', 'owner_user_id' => $owner->id,
-            'sport_id' => $sport->id, 'duration_days' => 1, 'rounds_per_day' => 1, 'status' => 'active',
+            'sport_id' => $sport->id, 'duration_days' => 1, 'rounds_per_day' => 1, 'status' => 'lobby',
         ]);
 
         [$joiner, $joinerHeaders] = $this->actingAsUser();

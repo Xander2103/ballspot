@@ -2,8 +2,6 @@ import { apiClient } from './client';
 import { League } from '../types/league';
 import { LeaderboardEntry } from '../types/guess';
 
-// Laravel JsonResource wraps single resources and collections in { data: ... }.
-// Leaderboard already models this correctly; all other league endpoints need unwrapping.
 interface ResourceResponse<T> { data: T; }
 interface LeaderboardResponse { data: LeaderboardEntry[]; }
 
@@ -19,6 +17,12 @@ export const leagueApi = {
 
   get: (id: number) =>
     apiClient.request<ResourceResponse<League>>(`/leagues/${id}`).then(r => r.data),
+
+  start: (id: number) =>
+    apiClient.request<ResourceResponse<League>>(`/leagues/${id}/start`, { method: 'POST' }).then(r => r.data),
+
+  cancel: (id: number) =>
+    apiClient.request<void>(`/leagues/${id}`, { method: 'DELETE' }),
 
   leaderboard: (id: number) =>
     apiClient.request<LeaderboardResponse>(`/leagues/${id}/leaderboard`),

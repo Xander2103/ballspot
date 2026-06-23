@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { User } from '../types/auth';
+import { User, ProfileStats } from '../types/auth';
 
 interface AuthResponse {
   user: User;
@@ -19,4 +19,7 @@ export const authApi = {
   // GET /me returns a JsonResource → wrapped in { data: User }
   me: () =>
     apiClient.request<{ data: User }>('/me').then(r => r.data),
+
+  stats: () =>
+    apiClient.request<ProfileStats>('/profile/stats'),
 };

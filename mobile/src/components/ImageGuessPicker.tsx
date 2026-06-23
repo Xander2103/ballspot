@@ -2,15 +2,12 @@ import React, { useRef, useState, useCallback } from 'react';
 import { View, Image, StyleSheet, Pressable, Text, LayoutChangeEvent } from 'react-native';
 import { colors } from '../theme/colors';
 
-const MARKER_SIZE = 40;
-const HALF = MARKER_SIZE / 2;
+export type MarkerType = 'ghost-ball' | 'glow' | 'default';
 
 export interface Marker {
   x_ratio: number;
   y_ratio: number;
-  color: string;
-  label: string;
-  emoji?: string;
+  type: MarkerType;
 }
 
 interface Props {
@@ -20,9 +17,12 @@ interface Props {
   interactive?: boolean;
 }
 
+const GHOST_SIZE = 42;
+const GLOW_SIZE = 60;
+const DEFAULT_SIZE = 40;
+
 export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true }: Props) {
   const containerRef = useRef<View>(null);
-  // Actual rendered dimensions captured via onLayout
   const [dims, setDims] = useState({ width: 0, height: 0 });
   const [guess, setGuess] = useState<{ xRatio: number; yRatio: number } | null>(null);
 
@@ -33,7 +33,6 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
 
   function applyGuess(tapX: number, tapY: number) {
     if (!onGuess || dims.width === 0 || dims.height === 0) return;
-    // Clamp to [0, 1] and reject non-finite values
     const xRatio = Math.min(1, Math.max(0, tapX / dims.width));
     const yRatio = Math.min(1, Math.max(0, tapY / dims.height));
     if (!Number.isFinite(xRatio) || !Number.isFinite(yRatio)) return;
@@ -43,18 +42,7 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
 
   function handlePress(e: any) {
     if (!interactive || !onGuess || dims.width === 0) return;
-
     const { locationX, locationY, pageX, pageY } = e.nativeEvent;
-
-    // locationX/Y are relative to the Pressable on native.
-    // On React Native Web, the browser maps offsetX/offsetY to locationX/Y from
-    // the event TARGET element. Since the Pressable is the only pointer-active
-    // element (Image and markers are pointer-events:none), offsetX/Y should be
-    // relative to the Pressable — same as what we want.
-    //
-    // Guard: check the value is finite and inside the container bounds (±2px
-    // tolerance for sub-pixel rounding). Fall back to pageX - container origin
-    // via measureInWindow when they are out-of-bounds or undefined.
     if (
       Number.isFinite(locationX) && Number.isFinite(locationY) &&
       locationX >= -2 && locationX <= dims.width + 2 &&
@@ -62,66 +50,58 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
     ) {
       applyGuess(locationX, locationY);
     } else if (Number.isFinite(pageX) && Number.isFinite(pageY)) {
-      // Fallback: measure container origin in window coordinates then subtract
       containerRef.current?.measureInWindow((cx, cy) => {
         applyGuess(pageX - cx, pageY - cy);
       });
     }
-    // If neither path yields valid coords, we silently ignore the tap
+  }
+
+  function renderMarker(m: Marker, key: number | string) {
+    const size = m.type === 'glow' ? GLOW_SIZE : m.type === 'ghost-ball' ? GHOST_SIZE : DEFAULT_SIZE;
+    const half = size / 2;
+    const left = m.x_ratio * dims.width - half;
+    const top = m.y_ratio * dims.height - half;
+    if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+
+    const style = m.type === 'ghost-ball'
+      ? styles.markerGhostBall
+      : m.type === 'glow'
+      ? styles.markerGlow
+      : styles.markerDefault;
+
+    return (
+      <View
+        key={key}
+        pointerEvents="none"
+        style={[
+          styles.markerBase,
+          style,
+          { width: size, height: size, borderRadius: half, left, top },
+        ]}
+      >
+        {m.type === 'ghost-ball' && <Text style={styles.ghostEmoji}>⚽</Text>}
+      </View>
+    );
   }
 
   return (
     <View ref={containerRef} style={styles.container} onLayout={handleLayout}>
-      {/* Image layer — pointer-events:none so Pressable above receives all taps */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Image
-          source={{ uri: imageUri }}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-        />
+        <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
       </View>
 
-      {/* Transparent tap-capture layer (interactive mode only) */}
       {interactive && (
         <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} />
       )}
 
-      {/* User's guess marker — rendered above Pressable, pointer-events:none */}
-      {guess && interactive && dims.width > 0 && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.markerBase,
-            styles.guessMarker,
-            {
-              left: guess.xRatio * dims.width - HALF,
-              top: guess.yRatio * dims.height - HALF,
-            },
-          ]}
-        >
-          <Text style={styles.markerEmoji}>⚽</Text>
-        </View>
+      {/* Ghost-ball guess marker in interactive mode */}
+      {guess && interactive && dims.width > 0 && renderMarker(
+        { x_ratio: guess.xRatio, y_ratio: guess.yRatio, type: 'ghost-ball' },
+        'guess'
       )}
 
-      {/* Result / reveal markers — pointer-events:none */}
-      {dims.width > 0 && markers.map((m, i) => {
-        const left = m.x_ratio * dims.width - HALF;
-        const top = m.y_ratio * dims.height - HALF;
-        // Skip markers whose ratios resolved to NaN (malformed data guard)
-        if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
-        return (
-          <View
-            key={i}
-            pointerEvents="none"
-            style={[
-              styles.markerBase,
-              { backgroundColor: m.color, left, top },
-            ]}
-          >
-            <Text style={styles.markerEmoji}>{m.emoji ?? m.label}</Text>
-          </View>
-        );
-      })}
+      {/* Result markers */}
+      {dims.width > 0 && markers.map((m, i) => renderMarker(m, i))}
     </View>
   );
 }
@@ -136,24 +116,41 @@ const styles = StyleSheet.create({
   },
   markerBase: {
     position: 'absolute',
-    width: MARKER_SIZE,
-    height: MARKER_SIZE,
-    borderRadius: HALF,
-    borderWidth: 3,
-    borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    // Shadow gives visibility on both light and dark image regions
+  },
+  markerGhostBall: {
+    opacity: 0.72,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  markerGlow: {
+    backgroundColor: 'transparent',
+    borderWidth: 3,
+    borderColor: '#00E676',
+    shadowColor: '#00E676',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  markerDefault: {
+    backgroundColor: 'rgba(0,230,118,0.85)',
+    borderWidth: 3,
+    borderColor: '#ffffff',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.75,
+    shadowOpacity: 0.6,
     shadowRadius: 4,
     elevation: 8,
   },
-  guessMarker: {
-    backgroundColor: 'rgba(41, 121, 255, 0.85)',
-  },
-  markerEmoji: {
-    fontSize: 18,
+  ghostEmoji: {
+    fontSize: 20,
   },
 });

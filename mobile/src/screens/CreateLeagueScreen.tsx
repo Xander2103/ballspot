@@ -37,7 +37,7 @@ export function CreateLeagueScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
 
   async function handleCreate() {
-    if (!name.trim()) { Alert.alert('Error', 'League name is required'); return; }
+    if (!name.trim()) { Alert.alert('Error', 'Tournament name is required'); return; }
     setLoading(true);
     try {
       const league = await leagueApi.create({ name: name.trim(), duration_days: durationDays, rounds_per_day: roundsPerDay });
@@ -51,14 +51,14 @@ export function CreateLeagueScreen({ navigation }: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.title}>New League</Text>
-      <AppInput label="League Name" value={name} onChangeText={setName} placeholder="e.g. Friday Squad" />
+      <Text style={styles.title}>New Tournament</Text>
+      <AppInput label="Tournament Name" value={name} onChangeText={setName} placeholder="e.g. Friday Squad" />
       <OptionRow label="Duration" options={[1, 3, 7]} value={durationDays} onChange={setDurationDays} />
       <OptionRow label="Rounds per day" options={[1, 3]} value={roundsPerDay} onChange={setRoundsPerDay} />
       <Text style={styles.summary}>
         Total rounds: {durationDays * roundsPerDay}
       </Text>
-      <AppButton title="Create League" onPress={handleCreate} loading={loading} />
+      <AppButton title="Create Tournament" onPress={handleCreate} loading={loading} />
     </Screen>
   );
 }

@@ -4,7 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
-import { ImageGuessPicker } from '../components/ImageGuessPicker';
+import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -13,11 +13,11 @@ import { GuessResult } from '../types/guess';
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
 function getScoreRating(score: number): string {
-  if (score >= 90) return 'Perfect spot! 🎯';
-  if (score >= 70) return 'Very close! 🔥';
-  if (score >= 40) return 'Not bad 👍';
-  if (score >= 1) return 'Far away 😅';
-  return 'Missed! ❌';
+  if (score >= 90) return 'Perfect spot!';
+  if (score >= 70) return 'Very close!';
+  if (score >= 40) return 'Not bad';
+  if (score >= 1) return 'Far away';
+  return 'Missed!';
 }
 
 function getScoreColor(score: number): string {
@@ -76,6 +76,11 @@ export function ResultScreen({ route, navigation }: Props) {
   const displayImageUrl = result.reveal_image_url ?? imageUrl;
   const isRevealImage = !!result.reveal_image_url;
 
+  const markers: Marker[] = [
+    { x_ratio: result.guess_x_ratio, y_ratio: result.guess_y_ratio, type: 'ghost-ball' },
+    { x_ratio: result.ball_x_ratio, y_ratio: result.ball_y_ratio, type: isRevealImage ? 'glow' : 'default' },
+  ];
+
   return (
     <Screen scroll padding>
       {/* Score card */}
@@ -100,35 +105,22 @@ export function ResultScreen({ route, navigation }: Props) {
       {displayImageUrl ? (
         <>
           {isRevealImage && (
-            <View style={styles.revealBadge}>
-              <Text style={styles.revealBadgeText}>Reveal image</Text>
+            <View style={styles.revealHint}>
+              <Text style={styles.revealHintText}>Reveal image shown — ring marks the real ball position</Text>
             </View>
           )}
           <ImageGuessPicker
             imageUri={displayImageUrl}
             interactive={false}
-            markers={[
-              {
-                x_ratio: result.guess_x_ratio,
-                y_ratio: result.guess_y_ratio,
-                color: colors.accent,
-                label: '⚽',
-                emoji: '⚽',
-              },
-              {
-                x_ratio: result.ball_x_ratio,
-                y_ratio: result.ball_y_ratio,
-                color: colors.success,
-                label: '🎯',
-                emoji: '🎯',
-              },
-            ]}
+            markers={markers}
           />
 
           {/* Legend */}
           <View style={styles.legend}>
             <View style={styles.legendRow}>
-              <Text style={styles.legendEmoji}>⚽</Text>
+              <View style={styles.legendGhostIcon}>
+                <Text style={styles.legendGhostEmoji}>⚽</Text>
+              </View>
               <View>
                 <Text style={styles.legendTitle}>Your guess</Text>
                 <Text style={styles.legendCoord}>
@@ -138,7 +130,11 @@ export function ResultScreen({ route, navigation }: Props) {
             </View>
             <View style={styles.legendDivider} />
             <View style={styles.legendRow}>
-              <Text style={styles.legendEmoji}>🎯</Text>
+              {isRevealImage ? (
+                <View style={styles.legendGlowIcon} />
+              ) : (
+                <View style={styles.legendDefaultIcon} />
+              )}
               <View>
                 <Text style={styles.legendTitle}>Ball position</Text>
                 <Text style={styles.legendCoord}>
@@ -218,20 +214,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
   },
-  revealBadge: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.surface,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    marginBottom: 4,
+  revealHint: {
+    marginBottom: 6,
+    paddingHorizontal: spacing.xs,
   },
-  revealBadgeText: {
+  revealHintText: {
     fontSize: 11,
     color: colors.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontStyle: 'italic',
+    textAlign: 'right',
   },
   legend: {
     backgroundColor: colors.surface,
@@ -246,10 +237,39 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xs,
   },
-  legendEmoji: {
-    fontSize: 24,
+  legendGhostIcon: {
     width: 34,
-    textAlign: 'center',
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+    opacity: 0.72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendGhostEmoji: {
+    fontSize: 16,
+  },
+  legendGlowIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'transparent',
+    borderWidth: 3,
+    borderColor: '#00E676',
+    shadowColor: '#00E676',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  legendDefaultIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0,230,118,0.85)',
+    borderWidth: 3,
+    borderColor: '#ffffff',
   },
   legendTitle: {
     fontSize: 13,
@@ -259,7 +279,6 @@ const styles = StyleSheet.create({
   legendCoord: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontVariant: ['tabular-nums'],
   },
   legendDivider: {
     height: 1,

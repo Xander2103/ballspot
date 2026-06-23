@@ -5,7 +5,6 @@ import { View, ActivityIndicator } from 'react-native';
 import { colors } from '../theme/colors';
 import { tokenStorage } from '../storage/tokenStorage';
 
-// Screen imports (will be created in Task 15)
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -15,11 +14,13 @@ import { LeagueDetailScreen } from '../screens/LeagueDetailScreen';
 import { GuessScreen } from '../screens/GuessScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Home: undefined;
+  Profile: undefined;
   CreateLeague: undefined;
   JoinLeague: undefined;
   LeagueDetail: { leagueId: number; leagueName: string };
@@ -58,8 +59,9 @@ export function AppNavigator() {
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'BallSpot', headerLeft: () => null }} />
-        <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'New League' }} />
-        <Stack.Screen name="JoinLeague" component={JoinLeagueScreen} options={{ title: 'Join League' }} />
+        <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
+        <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />
+        <Stack.Screen name="JoinLeague" component={JoinLeagueScreen} options={{ title: 'Join Tournament' }} />
         <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} options={({ route }) => ({ title: route.params.leagueName })} />
         <Stack.Screen name="Guess" component={GuessScreen} options={{ title: 'Make Your Guess', gestureEnabled: false }} />
         <Stack.Screen name="Result" component={ResultScreen} options={{ title: 'Round Result', gestureEnabled: false }} />

@@ -13,63 +13,74 @@ class LeagueService
     public function create(array $data, int $userId): League
     {
         $sport = Sport::where('slug', 'football')->firstOrFail();
-        $totalRounds = $data['duration_days'] * $data['rounds_per_day'];
 
         $league = League::create([
-            'name' => $data['name'],
-            'join_code' => $this->generateJoinCode(),
-            'owner_user_id' => $userId,
-            'sport_id' => $sport->id,
-            'duration_days' => $data['duration_days'],
+            'name'           => $data['name'],
+            'join_code'      => $this->generateJoinCode(),
+            'owner_user_id'  => $userId,
+            'sport_id'       => $sport->id,
+            'duration_days'  => $data['duration_days'],
             'rounds_per_day' => $data['rounds_per_day'],
-            'status' => 'active',
+            'status'         => 'lobby',
         ]);
 
         LeagueMember::create([
             'league_id' => $league->id,
-            'user_id' => $userId,
-            'joined_at' => now(),
-        ]);
-
-        $this->generateRounds($league, $totalRounds);
-
-        return $league;
-    }
-
-    public function join(string $joinCode, int $userId): League
-    {
-        $league = League::where('join_code', $joinCode)->firstOrFail();
-
-        LeagueMember::firstOrCreate([
-            'league_id' => $league->id,
-            'user_id' => $userId,
-        ], [
+            'user_id'   => $userId,
             'joined_at' => now(),
         ]);
 
         return $league;
     }
 
-    private function generateRounds(League $league, int $total): void
+    public function start(League $league, int $userId): League
     {
         $challenges = Challenge::where('status', 'active')
             ->where('sport_id', $league->sport_id)
             ->inRandomOrder()
             ->get();
 
-        if ($challenges->isEmpty()) {
-            return;
-        }
-
+        $total = $league->duration_days * $league->rounds_per_day;
         for ($i = 0; $i < $total; $i++) {
             $challenge = $challenges[$i % $challenges->count()];
             LeagueRound::create([
-                'league_id' => $league->id,
+                'league_id'    => $league->id,
                 'challenge_id' => $challenge->id,
                 'round_number' => $i + 1,
-                'status' => 'open',
+                'status'       => 'open',
             ]);
         }
+
+        $league->update([
+            'status'    => 'active',
+            'starts_at' => now(),
+            'ends_at'   => now()->addDays($league->duration_days),
+        ]);
+
+        return $league->fresh();
+    }
+
+    public function cancel(League $league, int $userId): void
+    {
+        $league->update(['status' => 'cancelled']);
+    }
+
+    public function join(string $joinCode, int $userId): League
+    {
+        $league = League::where('join_code', $joinCode)->firstOrFail();
+
+        abort_if(
+            $league->status !== 'lobby',
+            422,
+            'This tournament is no longer accepting players.'
+        );
+
+        LeagueMember::firstOrCreate([
+            'league_id' => $league->id,
+            'user_id'   => $userId,
+        ], ['joined_at' => now()]);
+
+        return $league;
     }
 
     private function generateJoinCode(): string
