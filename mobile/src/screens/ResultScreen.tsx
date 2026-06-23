@@ -106,7 +106,7 @@ export function ResultScreen({ route, navigation }: Props) {
         <>
           {isRevealImage && (
             <View style={styles.revealHint}>
-              <Text style={styles.revealHintText}>Reveal image shown — ring marks the real ball position</Text>
+              <Text style={styles.revealHintText}>Reveal photo — the real ball is visible in the image</Text>
             </View>
           )}
           <ImageGuessPicker
@@ -142,6 +142,11 @@ export function ResultScreen({ route, navigation }: Props) {
                 </Text>
               </View>
             </View>
+            {isRevealImage ? (
+              <Text style={styles.legendHint}>Your ghost ball shows your guess. The real ball is visible in the photo.</Text>
+            ) : (
+              <Text style={styles.legendHint}>The marker shows the approximate ball position.</Text>
+            )}
           </View>
         </>
       ) : null}
@@ -284,6 +289,13 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginVertical: spacing.xs,
+  },
+  legendHint: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
   nextBtn: {
     marginBottom: spacing.sm,

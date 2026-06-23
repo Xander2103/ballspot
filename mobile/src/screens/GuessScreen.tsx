@@ -8,7 +8,7 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { LeagueRound } from '../types/challenge';
+import { LeagueRound, CurrentRoundProgress } from '../types/challenge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Guess'>;
 
@@ -21,6 +21,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 export function GuessScreen({ route, navigation }: Props) {
   const { leagueId, roundId, leagueName } = route.params;
   const [round, setRound] = useState<LeagueRound | null>(null);
+  const [progress, setProgress] = useState<CurrentRoundProgress | null>(null);
   const [guessX, setGuessX] = useState<number | null>(null);
   const [guessY, setGuessY] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,6 +40,7 @@ export function GuessScreen({ route, navigation }: Props) {
       .then((res) => {
         if (res.current_round && res.current_round.id === roundId) {
           setRound(res.current_round);
+          setProgress(res.progress ?? null);
         } else {
           Alert.alert('No Round', 'This round is no longer available.', [
             { text: 'OK', onPress: () => navigation.goBack() },
@@ -119,7 +121,14 @@ export function GuessScreen({ route, navigation }: Props) {
           </View>
         </View>
         <Text style={styles.challengeTitle}>{round.challenge.title}</Text>
-        <Text style={styles.instruction}>Tap where you think the ball was hidden.</Text>
+        {progress && (
+          <Text style={styles.roundContext}>
+            Round {round.round_number} of {progress.total}
+            {progress.remaining > 1 ? `  ·  ${progress.remaining - 1} round${progress.remaining - 1 !== 1 ? 's' : ''} left after this` : ''}
+            {progress.remaining === 1 ? '  ·  Last round!' : ''}
+          </Text>
+        )}
+        <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
       </View>
 
       {/* Image card */}
@@ -210,6 +219,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginBottom: 4,
+  },
+  roundContext: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginBottom: 2,
   },
   instruction: {
     fontSize: 13,
