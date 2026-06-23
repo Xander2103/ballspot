@@ -69,10 +69,10 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   useEffect(() => { const u = navigation.addListener('focus', load); return u; }, [navigation, load]);
 
   useEffect(() => {
-    if (league?.status !== 'lobby') return;
+    if (league?.status !== 'lobby' || removedFromLobby) return;
     const interval = setInterval(load, 3000);
     return () => clearInterval(interval);
-  }, [league?.status, load]);
+  }, [league?.status, removedFromLobby, load]);
 
   async function handleStart() {
     if (!league) return;

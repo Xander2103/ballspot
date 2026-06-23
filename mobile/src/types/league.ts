@@ -1,5 +1,3 @@
-import { User } from './auth';
-
 export type LeagueStatus = 'lobby' | 'active' | 'completed' | 'cancelled';
 
 export interface LobbyMember {

@@ -24,21 +24,30 @@ interface Props {
 
 export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true }: Props) {
   const containerRef = useRef<View>(null);
-  const [dims, setDims]         = useState({ width: 0, height: 0 });
-  const [aspect, setAspect]     = useState<number>(FALLBACK_ASPECT);
-  const [guess, setGuess]       = useState<{ xRatio: number; yRatio: number } | null>(null);
+  const [dims, setDims]               = useState({ width: 0, height: 0 });
+  const [aspect, setAspect]           = useState<number>(FALLBACK_ASPECT);
+  const [guess, setGuess]             = useState<{ xRatio: number; yRatio: number } | null>(null);
+  const [dimensionsLoaded, setDimensionsLoaded] = useState(false);
 
   // Load natural image dimensions to set the container aspect ratio exactly,
   // preventing any cropping of the challenge image.
   useEffect(() => {
     if (!imageUri) return;
+    let cancelled = false;
+    setDimensionsLoaded(false);
     Image.getSize(
       imageUri,
       (w, h) => {
-        if (w > 0 && h > 0) setAspect(w / h);
+        if (!cancelled) {
+          if (w > 0 && h > 0) setAspect(w / h);
+          setDimensionsLoaded(true);
+        }
       },
-      () => { /* keep FALLBACK_ASPECT */ }
+      () => {
+        if (!cancelled) setDimensionsLoaded(true);
+      }
     );
+    return () => { cancelled = true; };
   }, [imageUri]);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
@@ -103,7 +112,7 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
       </View>
 
       {interactive && (
-        <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} />
+        <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} disabled={!dimensionsLoaded} />
       )}
 
       {guess && interactive && dims.width > 0 && renderMarker(
