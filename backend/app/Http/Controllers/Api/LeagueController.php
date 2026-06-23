@@ -7,6 +7,7 @@ use App\Http\Resources\LeagueResource;
 use App\Http\Resources\LeagueRoundResource;
 use App\Models\Challenge;
 use App\Models\League;
+use App\Models\User;
 use App\Services\LeagueService;
 use Illuminate\Http\Request;
 
@@ -88,6 +89,27 @@ class LeagueController extends Controller
         }
 
         $this->leagueService->cancel($league, $userId);
+        return response()->noContent();
+    }
+
+    public function removeMember(Request $request, League $league, User $user)
+    {
+        $requesterId = $request->user()->id;
+
+        if (!$league->members()->where('user_id', $requesterId)->exists()) {
+            return response()->json(['message' => 'Not a member of this league'], 403);
+        }
+        if ((int) $league->owner_user_id !== (int) $requesterId) {
+            return response()->json(['message' => 'Only the owner can remove players.'], 403);
+        }
+        if ($league->status !== 'lobby') {
+            return response()->json(['message' => 'Players can only be removed while the tournament is in lobby.'], 422);
+        }
+        if ((int) $user->id === (int) $league->owner_user_id) {
+            return response()->json(['message' => 'The owner cannot be removed.'], 422);
+        }
+
+        $league->members()->detach($user->id);
         return response()->noContent();
     }
 

@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/leagues/{league}',               [LeagueController::class, 'show']);
     Route::post('/leagues/{league}/start',        [LeagueController::class, 'start']);
     Route::delete('/leagues/{league}',            [LeagueController::class, 'destroy']);
+    Route::delete('/leagues/{league}/members/{user}', [LeagueController::class, 'removeMember']);
     Route::get('/leagues/{league}/current-round', [LeagueController::class, 'currentRound']);
     Route::get('/leagues/{league}/leaderboard',   [LeaderboardController::class, 'index']);
 
