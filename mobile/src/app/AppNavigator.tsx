@@ -15,6 +15,9 @@ import { GuessScreen } from '../screens/GuessScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
+import { DailyResultScreen } from '../screens/DailyResultScreen';
+import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -27,6 +30,9 @@ export type RootStackParamList = {
   Guess: { leagueId: number; roundId: number; leagueName: string };
   Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null };
   Leaderboard: { leagueId: number; leagueName: string };
+  DailyChallenge: { dailyChallengeId: number };
+  DailyResult: { dailyChallengeId: number };
+  WeeklyLeaderboard: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -66,6 +72,9 @@ export function AppNavigator() {
         <Stack.Screen name="Guess" component={GuessScreen} options={{ title: 'Make Your Guess', gestureEnabled: false }} />
         <Stack.Screen name="Result" component={ResultScreen} options={{ title: 'Round Result', gestureEnabled: false }} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={({ route }) => ({ title: route.params.leagueName })} />
+        <Stack.Screen name="DailyChallenge" component={DailyChallengeScreen} options={{ title: 'Daily Ball Challenge', gestureEnabled: false }} />
+        <Stack.Screen name="DailyResult" component={DailyResultScreen} options={{ title: 'Daily Result', gestureEnabled: false }} />
+        <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: 'Weekly Leaderboard' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
