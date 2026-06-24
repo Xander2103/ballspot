@@ -72,7 +72,16 @@ export function ProfileScreen({ navigation }: Props) {
 
       <View style={styles.dailySection}>
         <Text style={styles.sectionTitle}>Daily Challenge Stats</Text>
-        <Text style={styles.comingSoon}>Coming soon…</Text>
+        {stats ? (
+          <View style={styles.statsGrid}>
+            <StatBox label="Streak" value={`${stats.current_daily_streak}d (best: ${stats.best_daily_streak})`} />
+            <StatBox label="Played" value={stats.daily_challenges_played} />
+            <StatBox label="Avg Score" value={stats.average_daily_score} />
+            <StatBox label="Best Score" value={stats.best_daily_score} />
+          </View>
+        ) : (
+          <Text style={styles.comingSoon}>Coming soon…</Text>
+        )}
       </View>
 
       <AppButton
