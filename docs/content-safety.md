@@ -20,6 +20,14 @@ If you have added real challenge images via the admin panel and then run `migrat
 
 ---
 
+## Do Not Commit Backups
+
+The `backups/` folder is listed in the root `.gitignore` and will never be committed. Backups may contain database files with user data, uploaded images, and challenge metadata — committing them would be a data leak and a repository bloat risk.
+
+If your backup files ever appear in `git status`, check that the root `.gitignore` is present and contains `backups/`.
+
+---
+
 ## Before Running Any Destructive Command
 
 Run a backup first:
@@ -154,4 +162,4 @@ After recovering:
 
 - The backup command copies the SQLite file as-is. If the app is writing to the database during backup, there is a small risk of a partially-written copy. For safety, stop the dev server before backing up in production.
 - MySQL databases are not backed up by `ballspot:backup-content` (it only copies SQLite). For MySQL, use `mysqldump` separately.
-- The `backups/` folder is not included in `.gitignore` by default. Add `backups/` to `.gitignore` if you do not want backups committed to git (recommended for large image sets).
+- The `backups/` folder is ignored by Git via the root `.gitignore`. Backups will never be accidentally committed.

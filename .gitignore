@@ -1,0 +1,5 @@
+# BallSpot monorepo — root .gitignore
+
+# Content backups must never be committed.
+# They may contain database files, uploaded images, and user metadata.
+backups/

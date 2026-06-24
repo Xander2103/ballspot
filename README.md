@@ -74,7 +74,7 @@ Before adding real challenge images or running any destructive database commands
 cd backend && php artisan ballspot:backup-content
 ```
 
-See [docs/content-safety.md](docs/content-safety.md) for full backup, restore, and recovery instructions.
+The `backups/` folder is listed in `.gitignore` — backups are never committed. See [docs/content-safety.md](docs/content-safety.md) for full backup, restore, and recovery instructions.
 
 ## Docs
 
