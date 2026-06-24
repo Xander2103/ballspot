@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DailyChallenge;
 use App\Models\Challenge;
 use App\Models\DailyChallengeGuess;
+use App\Services\DailyStreakService;
 use App\Services\ScoreService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +14,10 @@ use Illuminate\Http\Request;
 
 class DailyChallengeController extends Controller
 {
-    public function __construct(private ScoreService $scoreService) {}
+    public function __construct(
+        private ScoreService $scoreService,
+        private DailyStreakService $streakService,
+    ) {}
 
     // GET /api/daily/today
     public function today(Request $request): JsonResponse
@@ -150,16 +154,9 @@ class DailyChallengeController extends Controller
     {
         $user = $request->user();
 
-        $guessDates = DailyChallengeGuess::where('user_id', $user->id)
-            ->join('daily_challenges', 'daily_challenges.id', '=', 'daily_challenge_guesses.daily_challenge_id')
-            ->orderBy('daily_challenges.challenge_date', 'desc')
-            ->pluck('daily_challenges.challenge_date')
-            ->map(fn($d) => Carbon::parse($d)->toDateString())
-            ->unique()
-            ->values();
-
-        $currentStreak = $this->calculateCurrentStreak($guessDates->toArray());
-        $bestStreak = $this->calculateBestStreak($guessDates->toArray());
+        $streaks = $this->streakService->getStreakForUser($user);
+        $currentStreak = $streaks['current'];
+        $bestStreak = $streaks['best'];
 
         $allGuesses = DailyChallengeGuess::where('user_id', $user->id)->get();
 
@@ -193,44 +190,6 @@ class DailyChallengeController extends Controller
                 ? asset('storage/' . $challenge->original_image_path)
                 : null,
         ];
-    }
-
-    private function calculateCurrentStreak(array $dates): int
-    {
-        if (empty($dates)) return 0;
-        $today = Carbon::today()->toDateString();
-        $yesterday = Carbon::yesterday()->toDateString();
-        if ($dates[0] !== $today && $dates[0] !== $yesterday) return 0;
-        $streak = 0;
-        $expected = $dates[0] === $today ? $today : $yesterday;
-        foreach ($dates as $date) {
-            if ($date === $expected) {
-                $streak++;
-                $expected = Carbon::parse($expected)->subDay()->toDateString();
-            } else {
-                break;
-            }
-        }
-        return $streak;
-    }
-
-    private function calculateBestStreak(array $dates): int
-    {
-        if (empty($dates)) return 0;
-        $sorted = array_reverse($dates); // ASC
-        $best = 1;
-        $current = 1;
-        for ($i = 1; $i < count($sorted); $i++) {
-            $prev = Carbon::parse($sorted[$i - 1]);
-            $curr = Carbon::parse($sorted[$i]);
-            if ($curr->diffInDays($prev) === 1) {
-                $current++;
-                $best = max($best, $current);
-            } else {
-                $current = 1;
-            }
-        }
-        return $best;
     }
 
     private function getWeeklyRank(int $userId, string $weekStart, string $weekEnd): ?int
