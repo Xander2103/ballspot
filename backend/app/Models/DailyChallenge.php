@@ -30,6 +30,6 @@ class DailyChallenge extends Model
 
     public function scopeForDate(Builder $query, string $date): Builder
     {
-        return $query->where('challenge_date', $date);
+        return $query->whereDate('challenge_date', $date);
     }
 }
