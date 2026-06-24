@@ -23,6 +23,11 @@ class ProfileStatsTest extends TestCase
             'guesses_count',
             'total_score',
             'average_score',
+            'daily_challenges_played',
+            'average_daily_score',
+            'best_daily_score',
+            'current_daily_streak',
+            'best_daily_streak',
         ]);
         $res->assertJsonPath('tournaments_count', 0);
         $res->assertJsonPath('guesses_count', 0);
