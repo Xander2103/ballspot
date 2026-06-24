@@ -3,6 +3,7 @@
 @section('title', 'Edit Challenge')
 
 @section('content')
+@include('admin.partials.backup-reminder')
 <div class="mb-3">
     <a href="/admin/challenges" class="text-muted small">&larr; Back to Challenges</a>
 </div>

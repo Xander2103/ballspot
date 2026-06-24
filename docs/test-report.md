@@ -1,10 +1,19 @@
-# BallSpot v1.5 — Test Report
+# BallSpot v1.5.1 — Test Report
 
 Build date: 2026-06-24
 
 ---
 
 ## What Was Implemented
+
+### Backend (Laravel 12) — v1.5.1
+
+- **Content backup command:** `php artisan ballspot:backup-content` — copies SQLite DB, uploaded images, and exports JSON metadata to a timestamped folder outside the web root
+- **Backup inspect command:** `php artisan ballspot:inspect-backup <folder>` — prints manifest summary of a backup
+- **Orphaned image recovery:** `php artisan ballspot:recover-challenges [--dry-run]` — creates draft challenge records for uploaded images not referenced by any challenge
+- **Admin safety warning:** backup reminder alert on challenge index, create, and edit pages
+- **Seeder hardening:** `DailyChallengeSeeder` fixed to use `whereDate()` for idempotent lookup (avoids unique constraint violation on second run)
+- **Content safety docs:** `docs/content-safety.md` added with full backup/restore/recovery workflow
 
 ### Backend (Laravel 12) — v1.5
 
@@ -191,17 +200,43 @@ cd backend && php artisan db:seed --class=DailyChallengeSeeder
 
 ---
 
+## How to Back Up Content
+
+```bash
+cd backend
+php artisan ballspot:backup-content
+# → creates backups/ballspot-content/YYYY-MM-DD-HHMMSS/
+
+php artisan ballspot:inspect-backup backups/ballspot-content/2026-06-24-120000
+# → prints manifest summary
+
+php artisan ballspot:recover-challenges --dry-run
+# → preview orphaned image recovery without writing
+
+php artisan ballspot:recover-challenges
+# → create draft challenges for orphaned images
+```
+
+---
+
 ## Backend Test Results
 
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    54 passed (186 assertions)
-Duration: ~1.16s
+Tests:    61 passed (210 assertions)
+Duration: ~1.63s
 ```
 
 | Test File | Test | Status |
 |-----------|------|--------|
+| **ContentSafetyTest** | backup command creates manifest | ✅ |
+| **ContentSafetyTest** | backup command exports challenges json | ✅ |
+| **ContentSafetyTest** | recover dry run does not create records | ✅ |
+| **ContentSafetyTest** | recover creates draft for orphaned image | ✅ |
+| **ContentSafetyTest** | recover does not create record for referenced image | ✅ |
+| **ContentSafetyTest** | challenge seeder does not duplicate on second run | ✅ |
+| **ContentSafetyTest** | daily challenge seeder is idempotent | ✅ |
 | AdminTest | unauthenticated user is redirected to login | ✅ |
 | AdminTest | non admin user gets 403 | ✅ |
 | AdminTest | admin user can access challenges | ✅ |

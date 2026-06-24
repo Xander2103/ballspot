@@ -3,6 +3,7 @@
 @section('title', 'Challenges')
 
 @section('content')
+@include('admin.partials.backup-reminder')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Challenges</h1>
     <a href="/admin/challenges/create" class="btn btn-primary btn-sm">+ New Challenge</a>

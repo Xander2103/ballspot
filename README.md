@@ -66,11 +66,23 @@ cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 - The mobile app hides the Play button and shows a "Done for today" message in that state
 - Limits reset at UTC midnight
 
+## Content Safety
+
+Before adding real challenge images or running any destructive database commands:
+
+```bash
+cd backend && php artisan ballspot:backup-content
+```
+
+See [docs/content-safety.md](docs/content-safety.md) for full backup, restore, and recovery instructions.
+
 ## Docs
 
 - [API Contract](docs/api-contract.md)
 - [Database Schema](docs/database-schema.md)
 - [Test Report](docs/test-report.md)
+- [Content Safety Guide](docs/content-safety.md)
+- [Challenge Content Guide](docs/challenge-content-guide.md)
 
 ## Constraints
 

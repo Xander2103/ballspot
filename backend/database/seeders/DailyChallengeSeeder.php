@@ -13,9 +13,14 @@ class DailyChallengeSeeder extends Seeder
         $challenge = Challenge::where('status', 'active')->first();
         if (!$challenge) return;
 
-        DailyChallenge::firstOrCreate(
-            ['challenge_date' => today()->toDateString()],
-            ['challenge_id' => $challenge->id, 'status' => 'active']
-        );
+        // Use whereDate() to safely compare against the date-cast column in SQLite/MySQL
+        $existing = DailyChallenge::whereDate('challenge_date', today()->toDateString())->first();
+        if (!$existing) {
+            DailyChallenge::create([
+                'challenge_date' => today()->toDateString(),
+                'challenge_id'   => $challenge->id,
+                'status'         => 'active',
+            ]);
+        }
     }
 }

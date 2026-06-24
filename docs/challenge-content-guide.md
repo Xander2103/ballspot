@@ -2,6 +2,8 @@
 
 This guide explains how to prepare and upload challenge images for BallSpot.
 
+> **⚠️ Before uploading real content:** Run `php artisan ballspot:backup-content` so you have a copy of your database and images. See [docs/content-safety.md](content-safety.md) for full backup and recovery instructions.
+
 ---
 
 ## Image Concepts
