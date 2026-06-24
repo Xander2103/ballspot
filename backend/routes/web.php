@@ -15,6 +15,9 @@ Route::post('/admin/logout', [\App\Http\Controllers\Admin\AuthController::class,
 // Admin protected area
 Route::prefix('admin')->middleware('admin')->group(function () {
     Route::resource('challenges', \App\Http\Controllers\Admin\ChallengeController::class);
+    Route::get('challenges/{challenge}/preview', [\App\Http\Controllers\Admin\ChallengeController::class, 'preview'])->name('admin.challenges.preview');
+    Route::post('challenges/{challenge}/status', [\App\Http\Controllers\Admin\ChallengeController::class, 'updateStatus'])->name('admin.challenges.status');
+    Route::post('challenges/{challenge}/set-as-daily', [\App\Http\Controllers\Admin\ChallengeController::class, 'setAsDaily'])->name('admin.challenges.set-as-daily');
     Route::resource('categories', \App\Http\Controllers\Admin\ChallengeCategoryController::class);
     Route::post('categories/{category}/toggle', [\App\Http\Controllers\Admin\ChallengeCategoryController::class, 'toggle'])
         ->name('admin.categories.toggle');

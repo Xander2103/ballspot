@@ -25,6 +25,8 @@
            href="/admin/challenges">Challenges</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/categories*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/categories">Categories</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/daily*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/daily">Daily</a>
         <span class="text-secondary small ms-auto me-3">v1</span>
         <form action="{{ route('admin.logout') }}" method="POST" class="mb-0">
             @csrf
@@ -36,6 +38,12 @@
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif

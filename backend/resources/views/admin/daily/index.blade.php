@@ -8,20 +8,14 @@
     <a href="{{ route('admin.daily.create') }}" class="btn btn-primary btn-sm">+ New Daily Challenge</a>
 </div>
 
-@if(session('success'))
-<div class="alert alert-success alert-dismissible fade show" role="alert">
-    {{ session('success') }}
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-@endif
-
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
                     <th>Date</th>
-                    <th>Challenge Title</th>
+                    <th>Challenge</th>
+                    <th>Readiness</th>
                     <th>Status</th>
                     <th>Guesses</th>
                     <th>Actions</th>
@@ -29,9 +23,34 @@
             </thead>
             <tbody>
                 @forelse($dailyChallenges as $daily)
+                @php $ch = $daily->challenge; @endphp
                 <tr>
                     <td class="fw-semibold">{{ $daily->challenge_date->format('d M Y') }}</td>
-                    <td>{{ $daily->challenge?->title ?? '—' }}</td>
+                    <td>
+                        @if($ch)
+                            <a href="/admin/challenges/{{ $ch->id }}/edit" class="text-decoration-none fw-semibold">
+                                {{ $ch->title }}
+                            </a>
+                            @if($ch->isDemoContent())
+                                <span class="badge bg-warning text-dark ms-1 small">Demo</span>
+                            @endif
+                        @else
+                            <span class="text-danger">Challenge deleted</span>
+                        @endif
+                    </td>
+                    <td>
+                        @if(!$ch)
+                            <span class="badge bg-danger">Missing</span>
+                        @elseif($ch->isReadyForDaily())
+                            <span class="badge bg-success">Ready</span>
+                        @elseif(!$ch->hidden_image_path)
+                            <span class="badge bg-danger" title="No hidden image">No image</span>
+                        @elseif($ch->status !== 'active')
+                            <span class="badge bg-warning text-dark">Not active</span>
+                        @else
+                            <span class="badge bg-danger">Incomplete</span>
+                        @endif
+                    </td>
                     <td>
                         <span class="badge badge-{{ $daily->status }}">{{ ucfirst($daily->status) }}</span>
                     </td>
@@ -50,7 +69,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="5" class="text-center text-muted py-4">
+                    <td colspan="6" class="text-center text-muted py-4">
                         No daily challenges yet. <a href="{{ route('admin.daily.create') }}">Create one.</a>
                     </td>
                 </tr>

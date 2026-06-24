@@ -13,6 +13,10 @@
 <form method="GET" action="/admin/challenges" class="mb-3">
     <div class="row g-2 align-items-end">
         <div class="col-auto">
+            <input type="search" name="search" value="{{ request('search') }}"
+                   class="form-control form-control-sm" placeholder="Search title…">
+        </div>
+        <div class="col-auto">
             <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
                 <option value="">All statuses</option>
                 @foreach(['draft','active','archived'] as $s)
@@ -36,7 +40,24 @@
                 @endforeach
             </select>
         </div>
-        @if(request('status') || request('difficulty') || request('category'))
+        <div class="col-auto">
+            <select name="has_reveal" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Reveal image?</option>
+                <option value="yes" {{ request('has_reveal') === 'yes' ? 'selected' : '' }}>Has reveal</option>
+                <option value="no"  {{ request('has_reveal') === 'no'  ? 'selected' : '' }}>No reveal</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <select name="used_as_daily" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Used as daily?</option>
+                <option value="yes" {{ request('used_as_daily') === 'yes' ? 'selected' : '' }}>Used as daily</option>
+                <option value="no"  {{ request('used_as_daily') === 'no'  ? 'selected' : '' }}>Never used</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+        </div>
+        @if(request()->hasAny(['search','status','difficulty','category','has_reveal','used_as_daily']))
         <div class="col-auto">
             <a href="/admin/challenges" class="btn btn-outline-secondary btn-sm">Clear</a>
         </div>
@@ -49,14 +70,13 @@
         <table class="table table-hover mb-0 align-middle">
             <thead class="table-light">
                 <tr>
-                    <th style="width:80px">Hidden</th>
-                    <th style="width:80px">Reveal</th>
+                    <th style="width:72px">Hidden</th>
+                    <th style="width:72px">Reveal</th>
                     <th>Title</th>
-                    <th>Category</th>
+                    <th>Readiness</th>
                     <th>Difficulty</th>
                     <th>Status</th>
-                    <th>Ball position</th>
-                    <th>Created</th>
+                    <th>Ball</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -66,21 +86,46 @@
                     <td>
                         @if($challenge->hidden_image_path)
                         <img src="{{ asset('storage/' . $challenge->hidden_image_path) }}"
-                             alt="hidden" style="width:64px;height:48px;object-fit:cover;border-radius:4px;">
+                             alt="hidden" style="width:60px;height:44px;object-fit:cover;border-radius:4px;">
                         @else
-                        <span class="text-muted small">—</span>
+                        <span class="text-danger small">Missing</span>
                         @endif
                     </td>
                     <td>
                         @if($challenge->original_image_path)
                         <img src="{{ asset('storage/' . $challenge->original_image_path) }}"
-                             alt="reveal" style="width:64px;height:48px;object-fit:cover;border-radius:4px;">
+                             alt="reveal" style="width:60px;height:44px;object-fit:cover;border-radius:4px;">
                         @else
                         <span class="text-muted small">—</span>
                         @endif
                     </td>
-                    <td class="fw-semibold">{{ $challenge->title }}</td>
-                    <td class="small text-muted">{{ $challenge->category?->name ?? '—' }}</td>
+                    <td>
+                        <div class="fw-semibold">{{ $challenge->title }}</div>
+                        <div class="text-muted small">
+                            {{ $challenge->category?->name ?? '—' }}
+                            @if($challenge->isDemoContent())
+                                <span class="badge bg-warning text-dark ms-1" title="This is placeholder demo content">Demo</span>
+                            @endif
+                            @if($challenge->used_as_daily)
+                                <span class="badge bg-info text-dark ms-1">Used as daily</span>
+                            @endif
+                        </div>
+                    </td>
+                    <td>
+                        @if($challenge->isReady())
+                            <span class="badge bg-success">Ready</span>
+                        @else
+                            @php
+                                $missing = [];
+                                if(empty($challenge->hidden_image_path)) $missing[] = 'image';
+                                if($challenge->ball_x_ratio === null) $missing[] = 'ball pos';
+                                if(empty($challenge->title)) $missing[] = 'title';
+                            @endphp
+                            <span class="badge bg-danger" title="Missing: {{ implode(', ', $missing) }}">
+                                Incomplete
+                            </span>
+                        @endif
+                    </td>
                     <td>
                         <span class="badge badge-{{ $challenge->difficulty }}">{{ ucfirst($challenge->difficulty) }}</span>
                     </td>
@@ -88,24 +133,52 @@
                         <span class="badge badge-{{ $challenge->status }}">{{ ucfirst($challenge->status) }}</span>
                     </td>
                     <td class="small text-muted">
-                        x {{ round($challenge->ball_x_ratio * 100) }}%
-                        · y {{ round($challenge->ball_y_ratio * 100) }}%
+                        @if($challenge->ball_x_ratio !== null)
+                            {{ round($challenge->ball_x_ratio * 100) }}%,
+                            {{ round($challenge->ball_y_ratio * 100) }}%
+                        @else
+                            <span class="text-danger">—</span>
+                        @endif
                     </td>
-                    <td class="small text-muted">{{ $challenge->created_at->format('d M Y') }}</td>
                     <td>
-                        <a href="/admin/challenges/{{ $challenge->id }}/edit" class="btn btn-outline-secondary btn-sm me-1">Edit</a>
-                        <form action="/admin/challenges/{{ $challenge->id }}" method="POST" class="d-inline"
-                              onsubmit="return confirm('Delete this challenge?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-outline-danger btn-sm">Delete</button>
-                        </form>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <a href="/admin/challenges/{{ $challenge->id }}/edit"
+                               class="btn btn-outline-secondary btn-sm">Edit</a>
+                            <a href="/admin/challenges/{{ $challenge->id }}/preview"
+                               class="btn btn-outline-info btn-sm">Preview</a>
+
+                            {{-- Quick status actions --}}
+                            @if($challenge->status !== 'archived')
+                            <form action="/admin/challenges/{{ $challenge->id }}/status" method="POST" class="d-inline">
+                                @csrf
+                                <input type="hidden" name="status" value="archived">
+                                <button type="submit" class="btn btn-outline-warning btn-sm"
+                                        onclick="return confirm('Archive this challenge?')">Archive</button>
+                            </form>
+                            @endif
+
+                            @if($challenge->status === 'archived' || $challenge->status === 'active')
+                            <form action="/admin/challenges/{{ $challenge->id }}/status" method="POST" class="d-inline">
+                                @csrf
+                                <input type="hidden" name="status" value="draft">
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">→ Draft</button>
+                            </form>
+                            @endif
+
+                            @if($challenge->status !== 'active' && $challenge->isReady())
+                            <form action="/admin/challenges/{{ $challenge->id }}/status" method="POST" class="d-inline">
+                                @csrf
+                                <input type="hidden" name="status" value="active">
+                                <button type="submit" class="btn btn-outline-success btn-sm">Activate</button>
+                            </form>
+                            @endif
+                        </div>
                     </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="text-center text-muted py-4">
-                        No challenges yet. <a href="/admin/challenges/create">Create one.</a>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        No challenges found. <a href="/admin/challenges/create">Create one.</a>
                     </td>
                 </tr>
                 @endforelse

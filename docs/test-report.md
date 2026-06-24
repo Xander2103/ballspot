@@ -1,10 +1,24 @@
-# BallSpot v1.5.1 — Test Report
+# BallSpot v1.5.2 — Test Report
 
 Build date: 2026-06-24
 
 ---
 
 ## What Was Implemented
+
+### Backend (Laravel 12) — v1.5.2
+
+- **Challenge model helpers:** `isReady()`, `isReadyForDaily()`, `isDemoContent()`, `dailyChallenges()` relationship
+- **Activation guard:** `update()` and `updateStatus()` block activating a challenge without a hidden image
+- **Quick status actions:** `POST /admin/challenges/{id}/status` — archive/activate/draft without full edit form
+- **Preview route:** `GET /admin/challenges/{id}/preview` — shows hidden image with ball marker, readiness status, set-as-daily shortcut
+- **Set-as-daily route:** `POST /admin/challenges/{id}/set-as-daily` — assigns challenge to a date, guards against replacing a daily with existing guesses
+- **Index overhaul:** new filters (title search, has_reveal, used_as_daily), readiness badges, demo content badges, daily-used badges, archive quick action replaces delete button in UI
+- **Edit view:** readiness indicator at top, set-as-daily shortcut when ready, Preview link
+- **Daily admin views:** readiness column, warn about missing image, link to challenge edit, demo badge
+- **Admin nav:** Daily link added
+- **Error flash:** `session('error')` rendered in layout alongside success
+- **AdminChallengeWorkflowTest:** 17 new tests covering readiness helpers, activation guard, quick actions, archive-not-delete, preview route, ball position persistence, index filters, set-as-daily
 
 ### Backend (Laravel 12) — v1.5.1
 
@@ -224,12 +238,29 @@ php artisan ballspot:recover-challenges
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    61 passed (210 assertions)
-Duration: ~1.63s
+Tests:    78 passed (243 assertions)
+Duration: ~2.05s
 ```
 
 | Test File | Test | Status |
 |-----------|------|--------|
+| **AdminChallengeWorkflowTest** | is ready true when all fields set | ✅ |
+| **AdminChallengeWorkflowTest** | is ready false when hidden image missing | ✅ |
+| **AdminChallengeWorkflowTest** | is ready for daily requires active status | ✅ |
+| **AdminChallengeWorkflowTest** | is demo content returns true for known titles | ✅ |
+| **AdminChallengeWorkflowTest** | is demo content returns false for custom title | ✅ |
+| **AdminChallengeWorkflowTest** | cannot activate challenge without hidden image | ✅ |
+| **AdminChallengeWorkflowTest** | can save draft challenge without hidden image | ✅ |
+| **AdminChallengeWorkflowTest** | quick status archive works | ✅ |
+| **AdminChallengeWorkflowTest** | quick activate blocked without hidden image | ✅ |
+| **AdminChallengeWorkflowTest** | archive does not delete the challenge | ✅ |
+| **AdminChallengeWorkflowTest** | preview route loads for existing challenge | ✅ |
+| **AdminChallengeWorkflowTest** | ball position persists through update | ✅ |
+| **AdminChallengeWorkflowTest** | index filter by status | ✅ |
+| **AdminChallengeWorkflowTest** | index filter by title search | ✅ |
+| **AdminChallengeWorkflowTest** | index filter no reveal image | ✅ |
+| **AdminChallengeWorkflowTest** | set as daily creates daily challenge record | ✅ |
+| **AdminChallengeWorkflowTest** | set as daily blocked when not active | ✅ |
 | **ContentSafetyTest** | backup command creates manifest | ✅ |
 | **ContentSafetyTest** | backup command exports challenges json | ✅ |
 | **ContentSafetyTest** | recover dry run does not create records | ✅ |

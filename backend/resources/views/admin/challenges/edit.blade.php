@@ -4,10 +4,33 @@
 
 @section('content')
 @include('admin.partials.backup-reminder')
-<div class="mb-3">
-    <a href="/admin/challenges" class="text-muted small">&larr; Back to Challenges</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <a href="/admin/challenges" class="text-muted small">&larr; Back to Challenges</a>
+        <h1 class="h3 mb-0 mt-1">Edit Challenge</h1>
+    </div>
+    <a href="/admin/challenges/{{ $challenge->id }}/preview" class="btn btn-outline-info btn-sm">Preview</a>
 </div>
-<h1 class="h3 mb-4">Edit Challenge</h1>
+
+{{-- Readiness indicator --}}
+<div class="mb-3">
+    @if($challenge->isReadyForDaily())
+        <span class="badge bg-success">Ready for daily challenge</span>
+    @elseif($challenge->isReady())
+        <span class="badge bg-warning text-dark">Ready — activate to use as daily</span>
+    @else
+        @php
+            $missing = [];
+            if(empty($challenge->hidden_image_path)) $missing[] = 'hidden image';
+            if($challenge->ball_x_ratio === null) $missing[] = 'ball position';
+            if(empty($challenge->title)) $missing[] = 'title';
+        @endphp
+        <span class="badge bg-danger">Incomplete — missing: {{ implode(', ', $missing) }}</span>
+    @endif
+    @if($challenge->isDemoContent())
+        <span class="badge bg-warning text-dark ms-1">Demo placeholder</span>
+    @endif
+</div>
 
 <div class="card shadow-sm" style="max-width: 740px;">
     <div class="card-body">
@@ -152,6 +175,24 @@
         </form>
     </div>
 </div>
+
+{{-- Set as daily shortcut (only if ready for daily) --}}
+@if($challenge->isReadyForDaily())
+<div class="card shadow-sm mt-3" style="max-width:740px;">
+    <div class="card-header fw-semibold">Set as daily challenge</div>
+    <div class="card-body">
+        <form action="/admin/challenges/{{ $challenge->id }}/set-as-daily" method="POST" class="d-flex gap-2 align-items-end">
+            @csrf
+            <div>
+                <label class="form-label small mb-1">Date</label>
+                <input type="date" name="date" value="{{ date('Y-m-d') }}"
+                       class="form-control form-control-sm" required style="width:160px;">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Set as Daily</button>
+        </form>
+    </div>
+</div>
+@endif
 
 <style>
 .image-picker-container {
