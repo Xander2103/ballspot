@@ -22,6 +22,7 @@ export function GuessScreen({ route, navigation }: Props) {
   const { leagueId, roundId, leagueName } = route.params;
   const [round, setRound] = useState<LeagueRound | null>(null);
   const [progress, setProgress] = useState<CurrentRoundProgress | null>(null);
+  const [dailyContext, setDailyContext] = useState<{ roundsPerDay: number; playedToday: number; remainingToday: number } | null>(null);
   const [guessX, setGuessX] = useState<number | null>(null);
   const [guessY, setGuessY] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +42,11 @@ export function GuessScreen({ route, navigation }: Props) {
         if (res.current_round && res.current_round.id === roundId) {
           setRound(res.current_round);
           setProgress(res.progress ?? null);
+          setDailyContext({
+            roundsPerDay: res.rounds_per_day,
+            playedToday: res.played_today_count,
+            remainingToday: res.remaining_today_count,
+          });
         } else {
           Alert.alert('No Round', 'This round is no longer available.', [
             { text: 'OK', onPress: () => navigation.goBack() },
@@ -129,6 +135,12 @@ export function GuessScreen({ route, navigation }: Props) {
               : progress.remaining === 0 && progress.total > 0
                 ? '  ·  Bonus round'
                 : `  ·  ${progress.remaining - 1} more round${progress.remaining - 1 !== 1 ? 's' : ''} after this`}
+          </Text>
+        )}
+        {dailyContext && dailyContext.roundsPerDay > 1 && (
+          <Text style={styles.dailyContext}>
+            Today: {dailyContext.playedToday}/{dailyContext.roundsPerDay} played
+            {' · '}{dailyContext.remainingToday === 1 ? 'Last round available today' : `${dailyContext.remainingToday} rounds left today`}
           </Text>
         )}
         <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
@@ -227,6 +239,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.primary,
     fontWeight: '600',
+    marginBottom: 2,
+  },
+  dailyContext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
     marginBottom: 2,
   },
   instruction: {

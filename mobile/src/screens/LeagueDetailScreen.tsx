@@ -22,6 +22,8 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   const [hasRound, setHasRound] = useState(false);
   const [roundId, setRoundId] = useState<number | null>(null);
   const [progress, setProgress] = useState<{ completed: number; total: number; pct: number } | null>(null);
+  const [dailyLimitReached, setDailyLimitReached] = useState(false);
+  const [dailyContext, setDailyContext] = useState<{ playedToday: number; roundsPerDay: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
@@ -45,13 +47,17 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
 
       if (l.status === 'active') {
         const cr = await roundApi.currentRound(leagueId);
-        setHasRound(!cr.completed && cr.current_round !== null);
+        setHasRound(!cr.completed && cr.current_round !== null && cr.reason !== 'daily_limit_reached');
+        setDailyLimitReached(cr.reason === 'daily_limit_reached');
+        setDailyContext({ playedToday: cr.played_today_count, roundsPerDay: cr.rounds_per_day });
         if (cr.current_round) setRoundId(cr.current_round.id);
         if (cr.progress) setProgress(cr.progress);
       } else {
         setHasRound(false);
         setRoundId(null);
         setProgress(null);
+        setDailyLimitReached(false);
+        setDailyContext(null);
       }
     } catch (e) {
       if (e && typeof e === 'object' && 'status' in e && (e as { status: number }).status === 403) {
@@ -191,7 +197,12 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
 
       {league?.status === 'active' && (
         <View style={styles.section}>
-          {hasRound && roundId ? (
+          {dailyLimitReached ? (
+            <View style={styles.doneBox}>
+              <Text style={styles.doneText}>✓ You've played all rounds for today</Text>
+              <Text style={styles.doneSubText}>Come back tomorrow for more rounds.</Text>
+            </View>
+          ) : hasRound && roundId ? (
             <AppButton
               title="▶ Play Current Round"
               onPress={() => navigation.navigate('Guess', { leagueId, roundId, leagueName })}
@@ -201,6 +212,11 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
             <View style={styles.doneBox}>
               <Text style={styles.doneText}>✓ All rounds completed for now</Text>
             </View>
+          )}
+          {dailyContext && dailyContext.roundsPerDay > 1 && (
+            <Text style={styles.dailyProgress}>
+              Today: {dailyContext.playedToday}/{dailyContext.roundsPerDay} rounds played
+            </Text>
           )}
           {progress && (
             <View style={styles.progressBox}>
@@ -326,6 +342,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneText: { color: colors.success, fontWeight: '600' },
+  doneSubText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  dailyProgress: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
+  },
   progressBox: { marginTop: 4 },
   progressBarBg: { height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' },
   progressBarFill: { height: 6, backgroundColor: colors.primary, borderRadius: 3 },
