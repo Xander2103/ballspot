@@ -9,6 +9,7 @@ import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { GuessResult } from '../types/guess';
+import { CurrentRoundResponse } from '../types/challenge';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
@@ -44,6 +45,7 @@ export function ResultScreen({ route, navigation }: Props) {
   const { roundId, leagueId, imageUrl, leagueName, categoryName } = route.params;
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [nextRound, setNextRound] = useState<CurrentRoundResponse | null>(null);
 
   useEffect(() => {
     if (!roundId) { setLoading(false); return; }
@@ -52,6 +54,13 @@ export function ResultScreen({ route, navigation }: Props) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [roundId]);
+
+  useEffect(() => {
+    if (!leagueId) return;
+    roundApi.currentRound(leagueId)
+      .then(setNextRound)
+      .catch(() => {}); // silent — worst case: show no next round info
+  }, [leagueId]);
 
   if (loading) {
     return (
@@ -151,11 +160,23 @@ export function ResultScreen({ route, navigation }: Props) {
         </>
       ) : null}
 
-      <AppButton
-        title="Play Next Round"
-        onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
-        style={styles.nextBtn}
-      />
+      {nextRound?.has_current_round && nextRound.reason !== 'daily_limit_reached' ? (
+        <AppButton
+          title="Play Next Round"
+          onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
+          style={styles.nextBtn}
+        />
+      ) : (
+        <View style={styles.doneForTodayBox}>
+          <Text style={styles.doneForTodayText}>
+            {nextRound?.reason === 'daily_limit_reached'
+              ? "You're done for today! Come back tomorrow."
+              : nextRound?.completed
+                ? "You've completed all rounds!"
+                : "No more rounds available right now."}
+          </Text>
+        </View>
+      )}
       <AppButton
         title="Back to League"
         onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
@@ -299,5 +320,16 @@ const styles = StyleSheet.create({
   },
   nextBtn: {
     marginBottom: spacing.sm,
+  },
+  doneForTodayBox: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  doneForTodayText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

@@ -37,9 +37,38 @@ export function GuessScreen({ route, navigation }: Props) {
       setLoading(false);
       return;
     }
+
+    let cancelled = false;
+
     roundApi.currentRound(leagueId)
-      .then((res) => {
-        if (res.current_round && res.current_round.id === roundId) {
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.current_round || res.current_round.id !== roundId) {
+          Alert.alert('No Round', 'This round is no longer available.', [
+            { text: 'OK', onPress: () => navigation.goBack() },
+          ]);
+          setLoading(false);
+          return;
+        }
+
+        // Check if already guessed — redirect to Result if so
+        try {
+          const existing = await roundApi.result(roundId);
+          if (!cancelled && existing) {
+            navigation.replace('Result', {
+              roundId,
+              leagueId,
+              imageUrl: res.current_round.challenge.hidden_image_url,
+              leagueName,
+              categoryName: res.current_round.challenge.category?.name ?? null,
+            });
+            return;
+          }
+        } catch {
+          // 404 means not yet guessed — proceed normally
+        }
+
+        if (!cancelled) {
           setRound(res.current_round);
           setProgress(res.progress ?? null);
           setDailyContext({
@@ -47,14 +76,17 @@ export function GuessScreen({ route, navigation }: Props) {
             playedToday: res.played_today_count,
             remainingToday: res.remaining_today_count,
           });
-        } else {
-          Alert.alert('No Round', 'This round is no longer available.', [
-            { text: 'OK', onPress: () => navigation.goBack() },
-          ]);
+          setLoading(false);
         }
       })
-      .catch(() => Alert.alert('Error', 'Failed to load round'))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) Alert.alert('Error', 'Failed to load round');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [leagueId, roundId]);
 
   function handleGuess(x: number, y: number) {
