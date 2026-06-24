@@ -1,5 +1,6 @@
 <?php
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\DailyChallengeController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\RoundController;
 use App\Http\Controllers\Api\LeaderboardController;
@@ -28,4 +29,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/rounds/{round}/guess', [RoundController::class, 'submitGuess']);
     Route::get('/rounds/{round}/result', [RoundController::class, 'result']);
+
+    Route::prefix('daily')->group(function () {
+        Route::get('/today', [DailyChallengeController::class, 'today']);
+        Route::get('/leaderboard/weekly', [DailyChallengeController::class, 'weeklyLeaderboard']);
+        Route::get('/stats', [DailyChallengeController::class, 'stats']);
+        Route::post('/{dailyChallenge}/guess', [DailyChallengeController::class, 'guess']);
+        Route::get('/{dailyChallenge}/result', [DailyChallengeController::class, 'result']);
+    });
 });
