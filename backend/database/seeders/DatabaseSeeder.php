@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             SportSeeder::class,
             ChallengeCategorySeeder::class,
             ChallengeSeeder::class,
+            DailyChallengeSeeder::class,
         ]);
     }
 }

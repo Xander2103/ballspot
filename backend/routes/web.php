@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\DailyChallengeAdminController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -17,4 +18,11 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::resource('categories', \App\Http\Controllers\Admin\ChallengeCategoryController::class);
     Route::post('categories/{category}/toggle', [\App\Http\Controllers\Admin\ChallengeCategoryController::class, 'toggle'])
         ->name('admin.categories.toggle');
+
+    Route::prefix('daily')->name('admin.daily.')->group(function () {
+        Route::get('/', [DailyChallengeAdminController::class, 'index'])->name('index');
+        Route::get('/create', [DailyChallengeAdminController::class, 'create'])->name('create');
+        Route::post('/', [DailyChallengeAdminController::class, 'store'])->name('store');
+        Route::patch('/{dailyChallenge}/status', [DailyChallengeAdminController::class, 'updateStatus'])->name('updateStatus');
+    });
 });
