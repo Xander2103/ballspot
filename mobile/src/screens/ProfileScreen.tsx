@@ -3,10 +3,14 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
+import { AppButton } from '../components/AppButton';
 import { authApi } from '../api/authApi';
+import { tokenStorage } from '../storage/tokenStorage';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { User, ProfileStats } from '../types/auth';
+
+const APP_VERSION = '1.0.0';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -19,7 +23,7 @@ function StatBox({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-export function ProfileScreen({ navigation: _navigation }: Props) {
+export function ProfileScreen({ navigation }: Props) {
   const [user, setUser] = useState<User | null>(null);
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,6 +34,12 @@ export function ProfileScreen({ navigation: _navigation }: Props) {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  async function handleLogout() {
+    try { await authApi.logout(); } catch {}
+    await tokenStorage.remove();
+    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+  }
 
   if (loading) {
     return (
@@ -59,6 +69,20 @@ export function ProfileScreen({ navigation: _navigation }: Props) {
           </View>
         </>
       ) : null}
+
+      <View style={styles.dailySection}>
+        <Text style={styles.sectionTitle}>Daily Challenge Stats</Text>
+        <Text style={styles.comingSoon}>Coming soon…</Text>
+      </View>
+
+      <AppButton
+        title="Logout"
+        onPress={handleLogout}
+        variant="secondary"
+        style={styles.logoutBtn}
+      />
+
+      <Text style={styles.versionText}>v{APP_VERSION}</Text>
     </Screen>
   );
 }
@@ -110,6 +134,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+    marginBottom: spacing.xl,
   },
   statBox: {
     backgroundColor: colors.surface,
@@ -131,5 +156,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  dailySection: {
+    marginBottom: spacing.xl,
+  },
+  comingSoon: {
+    fontSize: 14,
+    color: colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
+  },
+  logoutBtn: {
+    marginBottom: spacing.md,
+  },
+  versionText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
 });

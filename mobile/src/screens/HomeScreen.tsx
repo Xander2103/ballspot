@@ -9,7 +9,6 @@ import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
-import { tokenStorage } from '../storage/tokenStorage';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
@@ -91,12 +90,6 @@ export function HomeScreen({ navigation }: Props) {
     return unsub;
   }, [navigation, load]);
 
-  async function handleLogout() {
-    try { await authApi.logout(); } catch {}
-    await tokenStorage.remove();
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  }
-
   async function handleCancel() {
     if (!cancelTarget) return;
     setCancelling(true);
@@ -126,15 +119,13 @@ export function HomeScreen({ navigation }: Props) {
     <Screen padding={false}>
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
+          <Text style={styles.appTitle}>⚽ BallSpot</Text>
           <Text style={styles.greeting}>Hey, {user?.name || '…'}</Text>
           <Text style={styles.sub}>@{user?.username || '…'}</Text>
         </View>
-        <View style={styles.topBarRight}>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileBtn}>
-            <Text style={styles.profileBtnText}>Profile</Text>
-          </TouchableOpacity>
-          <AppButton title="Logout" onPress={handleLogout} variant="secondary" style={styles.logoutBtn} />
-        </View>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileIconBtn}>
+          <Text style={styles.profileIconText}>👤</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -200,12 +191,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   topBarLeft: { flex: 1 },
-  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  appTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
   greeting: { fontSize: 18, fontWeight: '700', color: colors.text },
   sub: { fontSize: 13, color: colors.textSecondary },
-  profileBtn: { paddingHorizontal: spacing.sm, paddingVertical: 6 },
-  profileBtnText: { color: colors.primary, fontWeight: '600', fontSize: 13 },
-  logoutBtn: { height: 36, paddingHorizontal: spacing.md },
+  profileIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  profileIconText: {
+    fontSize: 18,
+  },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
   sectionHeader: { paddingBottom: spacing.xs, paddingTop: spacing.sm },
