@@ -164,4 +164,47 @@ class DailyLimitTest extends TestCase
         $resB->assertJsonPath('has_current_round', true);
         $resB->assertJsonPath('reason', 'has_pending_round');
     }
+
+    public function test_duplicate_guess_is_rejected_with_clear_message(): void
+    {
+        [$sport, $challenge] = $this->makeSportWithChallenge();
+        [$user, $token, $league] = $this->makeLeagueWithMember($sport, 3);
+
+        $round = $this->createRound($league, $challenge, 1);
+
+        // Submit first guess via API
+        $res = $this->withToken($token)->postJson("/api/rounds/{$round->id}/guess", [
+            'guess_x_ratio' => 0.5,
+            'guess_y_ratio' => 0.5,
+        ]);
+        $res->assertSuccessful();
+
+        // Try to guess again — should be rejected
+        $res2 = $this->withToken($token)->postJson("/api/rounds/{$round->id}/guess", [
+            'guess_x_ratio' => 0.6,
+            'guess_y_ratio' => 0.6,
+        ]);
+        $res2->assertStatus(422);
+        // Check there's a message key in the response
+        $res2->assertJsonStructure(['message']);
+    }
+
+    public function test_result_available_after_guessing(): void
+    {
+        [$sport, $challenge] = $this->makeSportWithChallenge();
+        [$user, $token, $league] = $this->makeLeagueWithMember($sport, 3);
+
+        $round = $this->createRound($league, $challenge, 1);
+
+        // Submit guess
+        $this->withToken($token)->postJson("/api/rounds/{$round->id}/guess", [
+            'guess_x_ratio' => 0.5,
+            'guess_y_ratio' => 0.5,
+        ])->assertSuccessful();
+
+        // Result should be available
+        $res = $this->withToken($token)->getJson("/api/rounds/{$round->id}/result");
+        $res->assertOk();
+        $res->assertJsonStructure(['data' => ['score', 'distance', 'ball_x_ratio', 'ball_y_ratio']]);
+    }
 }
