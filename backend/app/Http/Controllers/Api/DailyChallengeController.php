@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\DailyChallenge;
+use App\Models\Challenge;
 use App\Models\DailyChallengeGuess;
 use App\Services\ScoreService;
 use Carbon\Carbon;
@@ -178,7 +179,7 @@ class DailyChallengeController extends Controller
         ]);
     }
 
-    private function buildGuessResult(DailyChallengeGuess $guess, $challenge): array
+    private function buildGuessResult(DailyChallengeGuess $guess, Challenge $challenge): array
     {
         return [
             'id'               => $guess->id,
