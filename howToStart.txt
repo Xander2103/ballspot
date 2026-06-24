@@ -1,0 +1,11 @@
+cd backend
+php artisan serve --host=127.0.0.1 --port=8000
+
+cd mobile
+npx expo start
+
+admin : 
+http://127.0.0.1:8000/admin/login
+
+admin@ballspot.local
+password
