@@ -9,10 +9,12 @@ import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
+import { dailyApi } from '../api/dailyApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
 import { User } from '../types/auth';
+import { TodayResponse, DailyStats } from '../types/daily';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -27,6 +29,77 @@ const STATUS_COLOR: Record<string, string> = {
   active: colors.primary,
   completed: colors.textMuted,
 };
+
+function todayDateFormatted(): string {
+  return new Date().toLocaleDateString('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function DailyCard({
+  today,
+  stats,
+  navigation,
+}: {
+  today: TodayResponse | null;
+  stats: DailyStats | null;
+  navigation: Props['navigation'];
+}) {
+  if (!today?.has_daily) {
+    return (
+      <View style={styles.dailyCard}>
+        <Text style={styles.dailyCardTitle}>⚽ Daily Ball Challenge</Text>
+        <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
+        <Text style={styles.dailyCardEmpty}>No challenge today. Check back tomorrow!</Text>
+      </View>
+    );
+  }
+
+  if (today.already_played) {
+    return (
+      <View style={styles.dailyCard}>
+        <Text style={styles.dailyCardTitle}>⚽ Daily Ball Challenge</Text>
+        <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
+        {!!stats?.current_streak && (
+          <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>
+        )}
+        <AppButton
+          title="View Today's Result"
+          onPress={() => navigation.navigate('DailyResult', { dailyChallengeId: today.daily_challenge!.id })}
+          variant="secondary"
+          style={styles.dailyBtn}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.dailyCard}>
+      <Text style={styles.dailyCardTitle}>⚽ Daily Ball Challenge</Text>
+      <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
+      {today.daily_challenge?.challenge && (
+        <Text style={styles.dailyChallengeInfo}>
+          {today.daily_challenge.challenge.title}
+          {today.daily_challenge.challenge.category
+            ? ` · ${today.daily_challenge.challenge.category.name}`
+            : ''}
+          {' · '}{today.daily_challenge.challenge.difficulty}
+        </Text>
+      )}
+      {!!stats?.current_streak && (
+        <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>
+      )}
+      <AppButton
+        title="Play Daily Challenge"
+        onPress={() => navigation.navigate('DailyChallenge', { dailyChallengeId: today.daily_challenge!.id })}
+        style={styles.dailyBtn}
+      />
+    </View>
+  );
+}
 
 function TournamentCard({
   item,
@@ -72,6 +145,10 @@ export function HomeScreen({ navigation }: Props) {
   const [cancelTarget, setCancelTarget] = useState<League | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
+  const [todayDaily, setTodayDaily] = useState<TodayResponse | null>(null);
+  const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
+  const [dailyLoading, setDailyLoading] = useState(true);
+
   const load = useCallback(async () => {
     try {
       const [me, list] = await Promise.all([authApi.me(), leagueApi.list()]);
@@ -82,6 +159,14 @@ export function HomeScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
+
+    const [todayRes, statsRes] = await Promise.allSettled([
+      dailyApi.today(),
+      dailyApi.stats(),
+    ]);
+    if (todayRes.status === 'fulfilled') setTodayDaily(todayRes.value);
+    if (statsRes.status === 'fulfilled') setDailyStats(statsRes.value);
+    setDailyLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -149,6 +234,17 @@ export function HomeScreen({ navigation }: Props) {
             />
           )}
           contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <View style={styles.dailySection}>
+              {dailyLoading ? (
+                <View style={[styles.dailyCard, styles.dailyCardLoading]}>
+                  <Text style={styles.dailyCardLoadingText}>Loading daily challenge…</Text>
+                </View>
+              ) : (
+                <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} />
+              )}
+            </View>
+          }
           ListEmptyComponent={
             isEmpty ? (
               <View style={styles.emptyWrap}>
@@ -238,4 +334,55 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
   actions: { gap: spacing.sm, marginTop: spacing.md },
   actionBtn: { marginBottom: 0 },
+  // Daily Challenge card
+  dailySection: {},
+  dailyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  dailyCardLoading: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  dailyCardLoadingText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  dailyCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  dailyCardDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  dailyChallengeInfo: {
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  dailyStreak: {
+    fontSize: 13,
+    color: colors.warning,
+    fontWeight: '700',
+    marginBottom: spacing.sm,
+  },
+  dailyBtn: {
+    marginTop: spacing.xs,
+  },
+  dailyCardEmpty: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+  },
 });
