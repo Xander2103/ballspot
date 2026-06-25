@@ -13,6 +13,7 @@
         .badge-medium { background: #fd7e14; }
         .badge-hard { background: #dc3545; }
         .badge-draft { background: #6c757d; }
+        .badge-scheduled { background: #6f42c1; }
         .badge-active { background: #0d6efd; }
         .badge-archived { background: #adb5bd; color: #343a40; }
     </style>
