@@ -74,7 +74,7 @@ export function ResultScreen({ route, navigation }: Props) {
     return (
       <Screen padding>
         <Text style={{ color: colors.text }}>No result found.</Text>
-        <AppButton title="Back to League" onPress={() => navigation.goBack()} style={{ marginTop: spacing.lg }} />
+        <AppButton title="Back to Tournament" onPress={() => navigation.goBack()} style={{ marginTop: spacing.lg }} />
       </Screen>
     );
   }
