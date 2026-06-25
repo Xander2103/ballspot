@@ -46,7 +46,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 78 feature tests
+cd backend && php artisan test          # 85 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 
@@ -57,6 +57,36 @@ cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 3. Go to `/admin/daily` and create a daily challenge for today (or run `php artisan db:seed --class=DailyChallengeSeeder`)
 4. Open the mobile app — the Daily Ball Challenge card appears on the Home screen
 5. Tap **Play Daily Challenge** to guess, then see your score and the weekly leaderboard
+
+## Scheduling Daily Challenges
+
+Fill the next 14 days automatically using the least-recently-used eligible challenges:
+
+```bash
+cd backend
+
+# Dry-run first — see what would be scheduled without writing:
+php artisan ballspot:schedule-daily-challenges --days=14 --dry-run
+
+# Run backup before scheduling real content:
+php artisan ballspot:backup-content
+
+# Schedule 14 days from today (skips dates that already have a challenge):
+php artisan ballspot:schedule-daily-challenges --days=14
+
+# Force-replace existing scheduled challenges:
+php artisan ballspot:schedule-daily-challenges --days=14 --force
+
+# Start from a specific date:
+php artisan ballspot:schedule-daily-challenges --days=7 --start=2026-07-01
+```
+
+**Notes:**
+- Only `active` challenges with a hidden image and ball position are eligible.
+- Demo challenges are used as fallback if no real content exists (a warning is printed).
+- New challenges are created with `status=scheduled`. Change to `active` in the daily admin when ready to go live.
+- The command never deletes challenges or images.
+- Run a backup before bulk-scheduling real content.
 
 ## Tournament Daily Round Limits
 

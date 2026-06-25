@@ -116,3 +116,34 @@ cd backend && php artisan ballspot:backup-content
 ```
 
 See [docs/content-safety.md](content-safety.md) for the full backup, restore, and recovery guide.
+
+---
+
+## Scheduling daily challenges in bulk
+
+Instead of manually creating each day in the admin panel, use the schedule command:
+
+```bash
+# Dry-run: preview what would be scheduled
+php artisan ballspot:schedule-daily-challenges --days=14 --dry-run
+
+# Write 14 days (run backup first!)
+php artisan ballspot:backup-content
+php artisan ballspot:schedule-daily-challenges --days=14
+
+# Replace existing scheduled entries
+php artisan ballspot:schedule-daily-challenges --days=14 --force
+
+# Start from a specific future date
+php artisan ballspot:schedule-daily-challenges --days=7 --start=2026-07-01
+```
+
+**How challenge selection works:**
+- Only `active` challenges that pass `isReadyForDaily()` are eligible (must have hidden image + ball position).
+- Demo challenges are used as fallback only (a warning is printed).
+- The command picks challenges in least-recently-used order — challenges never used come first.
+- Within the generated range, the same challenge is not reused if the pool has enough variety.
+- New rows are created with `status=scheduled`. Promote to `active` in `/admin/daily` when you are ready for players to see them.
+- The command **never deletes challenges or images**.
+
+**Warning:** Always run `php artisan ballspot:backup-content` before bulk-scheduling real production content.

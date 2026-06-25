@@ -1,10 +1,24 @@
-# BallSpot v1.5.2 — Test Report
+# BallSpot v1.5.3 — Test Report
 
-Build date: 2026-06-24
+Build date: 2026-06-25
 
 ---
 
 ## What Was Implemented
+
+### Backend (Laravel 12) — v1.5.3
+
+- **`ballspot:schedule-daily-challenges` command:** schedules eligible active challenges for N days using LRU selection; `--dry-run`, `--force`, `--start=YYYY-MM-DD` options; demo-only fallback with warning; never deletes challenges or images
+- **Daily `today()` guard:** returns `has_daily: false` if linked challenge was archived or deleted after scheduling, instead of crashing
+- **Daily admin index:** shows upcoming 14-day schedule table, artisan helper text, and warning banner when fewer than 7 ready challenges exist
+- **ScheduleDailyChallengesTest:** 7 new tests (dry-run, creates N days, skips existing, ignores draft/incomplete, avoids duplicates in range, force-replace, no-eligible-failure)
+- **DailyChallengeTest:** 1 new test (archived challenge guard in today endpoint)
+
+### Mobile (Expo 56) — v1.5.3
+
+- **ResultScreen:** "Back to League" renamed to "Back to Tournament"; when no next round available, "Back to Tournament" is shown as primary button; done-for-today flavour text shown as subtitle rather than styled box
+
+---
 
 ### Backend (Laravel 12) — v1.5.2
 
