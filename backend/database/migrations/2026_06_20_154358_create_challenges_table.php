@@ -15,10 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('sport_id')->constrained()->cascadeOnDelete();
             $table->string('title');
-            $table->string('hidden_image_path');
+            $table->string('hidden_image_path')->nullable();
             $table->string('original_image_path')->nullable();
-            $table->decimal('ball_x_ratio', 8, 6);
-            $table->decimal('ball_y_ratio', 8, 6);
+            $table->decimal('ball_x_ratio', 8, 6)->nullable();
+            $table->decimal('ball_y_ratio', 8, 6)->nullable();
             $table->string('difficulty')->default('medium'); // easy|medium|hard
             $table->string('status')->default('active'); // draft|active|archived
             $table->timestamps();

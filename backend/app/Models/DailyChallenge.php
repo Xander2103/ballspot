@@ -11,7 +11,7 @@ class DailyChallenge extends Model
 {
     protected $fillable = ['challenge_id', 'challenge_date', 'status'];
 
-    protected $casts = ['challenge_date' => 'date'];
+    protected $casts = ['challenge_date' => 'date:Y-m-d'];
 
     public function challenge(): BelongsTo
     {
