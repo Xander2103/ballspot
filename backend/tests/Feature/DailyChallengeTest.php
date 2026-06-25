@@ -161,4 +161,18 @@ class DailyChallengeTest extends TestCase
             'average_score', 'best_score', 'weekly_rank',
         ]);
     }
+
+    public function test_today_returns_safe_response_when_challenge_is_archived(): void
+    {
+        [$user, $token] = $this->createUser();
+        $challenge = $this->createActiveChallenge();
+        $this->createDailyChallenge($challenge);
+
+        // Archive the linked challenge after scheduling
+        $challenge->update(['status' => 'archived']);
+
+        $response = $this->withToken($token)->getJson('/api/daily/today');
+        $response->assertOk();
+        $response->assertJsonPath('has_daily', false);
+    }
 }

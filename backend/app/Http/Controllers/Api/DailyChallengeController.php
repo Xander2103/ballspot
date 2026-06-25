@@ -29,6 +29,11 @@ class DailyChallengeController extends Controller
             return response()->json(['has_daily' => false, 'reason' => 'no_daily_challenge']);
         }
 
+        // Guard: linked challenge was deleted or archived after scheduling
+        if (!$dc->challenge || $dc->challenge->status === 'archived') {
+            return response()->json(['has_daily' => false, 'reason' => 'no_daily_challenge']);
+        }
+
         $alreadyPlayed = $dc->guesses()->where('user_id', $request->user()->id)->exists();
 
         $challengeData = [
