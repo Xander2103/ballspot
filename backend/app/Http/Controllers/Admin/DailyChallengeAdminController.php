@@ -15,7 +15,23 @@ class DailyChallengeAdminController extends Controller
             ->withCount('guesses')
             ->orderBy('challenge_date', 'desc')
             ->paginate(20);
-        return view('admin.daily.index', compact('dailyChallenges'));
+
+        $upcoming = DailyChallenge::with('challenge')
+            ->where('challenge_date', '>=', today()->toDateString())
+            ->orderBy('challenge_date')
+            ->take(14)
+            ->get();
+
+        $readyCount = Challenge::where('status', 'active')
+            ->get()
+            ->filter->isReadyForDaily()
+            ->count();
+
+        $showReadyWarning = $readyCount < 7;
+
+        return view('admin.daily.index', compact(
+            'dailyChallenges', 'upcoming', 'readyCount', 'showReadyWarning'
+        ));
     }
 
     public function create()
