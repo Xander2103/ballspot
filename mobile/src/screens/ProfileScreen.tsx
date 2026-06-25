@@ -67,22 +67,18 @@ export function ProfileScreen({ navigation }: Props) {
             <StatBox label="Total Score" value={stats.total_score} />
             <StatBox label="Avg Score" value={stats.average_score} />
           </View>
+
+          <View style={styles.dailySection}>
+            <Text style={styles.sectionTitle}>Daily Challenge Stats</Text>
+            <View style={styles.statsGrid}>
+              <StatBox label="Streak" value={`${stats.current_daily_streak}d (best: ${stats.best_daily_streak})`} />
+              <StatBox label="Played" value={stats.daily_challenges_played} />
+              <StatBox label="Avg Score" value={stats.average_daily_score} />
+              <StatBox label="Best Score" value={stats.best_daily_score} />
+            </View>
+          </View>
         </>
       ) : null}
-
-      <View style={styles.dailySection}>
-        <Text style={styles.sectionTitle}>Daily Challenge Stats</Text>
-        {stats ? (
-          <View style={styles.statsGrid}>
-            <StatBox label="Streak" value={`${stats.current_daily_streak}d (best: ${stats.best_daily_streak})`} />
-            <StatBox label="Played" value={stats.daily_challenges_played} />
-            <StatBox label="Avg Score" value={stats.average_daily_score} />
-            <StatBox label="Best Score" value={stats.best_daily_score} />
-          </View>
-        ) : (
-          <Text style={styles.comingSoon}>Coming soon…</Text>
-        )}
-      </View>
 
       <AppButton
         title="Logout"
@@ -168,12 +164,6 @@ const styles = StyleSheet.create({
   },
   dailySection: {
     marginBottom: spacing.xl,
-  },
-  comingSoon: {
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    paddingVertical: spacing.md,
   },
   logoutBtn: {
     marginBottom: spacing.md,

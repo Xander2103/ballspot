@@ -9,3 +9,11 @@ http://127.0.0.1:8000/admin/login
 
 admin@ballspot.local
 password
+
+backup content challenges :
+cd backend
+php artisan ballspot:backup-content
+
+database updates :
+php artisan migrate
+NIET php artisan migrate:fresh --seed!!!!
