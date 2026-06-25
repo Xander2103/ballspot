@@ -160,28 +160,40 @@ export function ResultScreen({ route, navigation }: Props) {
         </>
       ) : null}
 
-      {nextRound?.has_current_round && nextRound.reason !== 'daily_limit_reached' ? (
-        <AppButton
-          title="Play Next Round"
-          onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
-          style={styles.nextBtn}
-        />
-      ) : (
-        <View style={styles.doneForTodayBox}>
-          <Text style={styles.doneForTodayText}>
-            {nextRound?.reason === 'daily_limit_reached'
-              ? "You're done for today! Come back tomorrow."
-              : nextRound?.completed
-                ? "You've completed all rounds!"
-                : "No more rounds available right now."}
-          </Text>
-        </View>
-      )}
-      <AppButton
-        title="Back to League"
-        onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
-        variant="secondary"
-      />
+      {(() => {
+        const hasNextRound =
+          nextRound?.has_current_round === true &&
+          nextRound?.reason !== 'daily_limit_reached';
+
+        const doneMessage = nextRound?.reason === 'daily_limit_reached'
+          ? "You're done for today — come back tomorrow."
+          : nextRound?.completed
+            ? "You've completed all rounds!"
+            : nextRound !== null
+              ? "No more rounds available right now."
+              : null;
+
+        return (
+          <>
+            {!hasNextRound && doneMessage ? (
+              <Text style={styles.doneForTodayText}>{doneMessage}</Text>
+            ) : null}
+            {hasNextRound ? (
+              <AppButton
+                title="Play Next Round"
+                onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
+                style={styles.nextBtn}
+              />
+            ) : null}
+            <AppButton
+              title="Back to Tournament"
+              onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
+              variant={hasNextRound ? 'secondary' : 'primary'}
+              style={hasNextRound ? undefined : styles.nextBtn}
+            />
+          </>
+        );
+      })()}
     </Screen>
   );
 }
@@ -321,15 +333,11 @@ const styles = StyleSheet.create({
   nextBtn: {
     marginBottom: spacing.sm,
   },
-  doneForTodayBox: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
-  },
   doneForTodayText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
     fontStyle: 'italic',
+    marginBottom: spacing.sm,
   },
 });
