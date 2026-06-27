@@ -11,7 +11,7 @@ Build date: 2026-06-25
 - **`ballspot:schedule-daily-challenges` command:** schedules eligible active challenges for N days using LRU selection; `--dry-run`, `--force`, `--start=YYYY-MM-DD` options; demo-only fallback with warning; never deletes challenges or images
 - **Daily `today()` guard:** returns `has_daily: false` if linked challenge was archived or deleted after scheduling, instead of crashing
 - **Daily admin index:** shows upcoming 14-day schedule table, artisan helper text, and warning banner when fewer than 7 ready challenges exist
-- **ScheduleDailyChallengesTest:** 7 new tests (dry-run, creates N days, skips existing, ignores draft/incomplete, avoids duplicates in range, force-replace, no-eligible-failure)
+- **ScheduleDailyChallengesTest:** 8 new tests (dry-run, creates N days, skips existing, ignores draft/incomplete, avoids duplicates in range, force-replace, no-eligible-failure, invalid-start-date validation)
 - **DailyChallengeTest:** 1 new test (archived challenge guard in today endpoint)
 
 ### Mobile (Expo 56) — v1.5.3
@@ -252,8 +252,8 @@ php artisan ballspot:recover-challenges
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    78 passed (243 assertions)
-Duration: ~2.05s
+Tests:    87 passed (262 assertions)
+Duration: ~18s
 ```
 
 | Test File | Test | Status |
@@ -335,6 +335,14 @@ Duration: ~2.05s
 | LeagueTournamentLifecycleTest | league resource includes enriched fields | ✅ |
 | ProfileStatsTest | profile stats returns expected fields | ✅ |
 | ProfileStatsTest | profile stats requires auth | ✅ |
+| ScheduleDailyChallengesTest | dry run does not create daily challenges | ✅ |
+| ScheduleDailyChallengesTest | command creates daily challenges for requested days | ✅ |
+| ScheduleDailyChallengesTest | command skips existing daily challenges | ✅ |
+| ScheduleDailyChallengesTest | command does not use incomplete or draft challenges | ✅ |
+| ScheduleDailyChallengesTest | command avoids duplicate challenge use within range | ✅ |
+| ScheduleDailyChallengesTest | force replaces existing daily challenge without duplication | ✅ |
+| ScheduleDailyChallengesTest | no eligible challenges prints error and fails | ✅ |
+| ScheduleDailyChallengesTest | invalid start date shows friendly error and fails | ✅ |
 | Unit\ExampleTest | that true is true | ✅ |
 
 ## Mobile TypeScript Check
@@ -370,7 +378,7 @@ The `GET /leagues/{id}/current-round` and `GET /api/daily/today` endpoints delib
 
 1. **Timezone:** All date logic (daily challenge date, daily round limit reset, weekly leaderboard week) uses UTC (server time). Users in other timezones will see the daily challenge reset at a local time that differs from midnight local time.
 
-2. **Daily challenge must be manually created** — No auto-scheduling. Use the admin panel at `/admin/daily/create` or run `php artisan db:seed --class=DailyChallengeSeeder` to seed today's challenge.
+2. **Daily challenge bulk scheduling via Artisan** — Use `php artisan ballspot:schedule-daily-challenges --days=14` to fill the schedule automatically (LRU selection). Individual challenges can also be created via `/admin/daily/create` or `php artisan db:seed --class=DailyChallengeSeeder`. No cron wiring yet — the command must be run manually or scheduled via server cron.
 
 3. **`next_available_at` is always null** — The API includes this field in all `current-round` responses but always returns `null`. Future implementation would return "tomorrow at midnight UTC" or a specific time.
 
@@ -396,7 +404,7 @@ The `GET /leagues/{id}/current-round` and `GET /api/daily/today` endpoints delib
 
 ### High Priority
 - [ ] Replace SVG demo images with JPEG/PNG for broad React Native compatibility
-- [ ] Auto-schedule daily challenges (cron job or admin scheduling UI)
+- [x] Auto-schedule daily challenges — `ballspot:schedule-daily-challenges` Artisan command (v1.5.3)
 - [ ] Completed league status auto-trigger — currently `completed` must be set manually; add auto-complete when all rounds played by all members
 - [ ] Round time windows (`opens_at`/`closes_at` enforced in API)
 

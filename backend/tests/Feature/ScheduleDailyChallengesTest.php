@@ -131,4 +131,14 @@ class ScheduleDailyChallengesTest extends TestCase
 
         $this->assertDatabaseCount('daily_challenges', 0);
     }
+
+    public function test_invalid_start_date_shows_friendly_error_and_fails(): void
+    {
+        $this->makeReadyChallenge();
+
+        $this->artisan('ballspot:schedule-daily-challenges', ['--start' => 'not-a-date', '--days' => 3])
+            ->assertExitCode(1);
+
+        $this->assertDatabaseCount('daily_challenges', 0);
+    }
 }

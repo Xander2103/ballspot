@@ -46,7 +46,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 86 feature tests
+cd backend && php artisan test          # 87 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 

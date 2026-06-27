@@ -24,7 +24,19 @@ class ScheduleDailyChallenges extends Command
         $force  = (bool) $this->option('force');
 
         $startRaw = $this->option('start');
-        $start    = $startRaw ? Carbon::parse($startRaw) : Carbon::today();
+        if ($startRaw !== null) {
+            try {
+                $start = Carbon::createFromFormat('Y-m-d', $startRaw);
+            } catch (\Exception $e) {
+                $start = null;
+            }
+            if (!$start || $start->format('Y-m-d') !== $startRaw) {
+                $this->error("Invalid --start date \"{$startRaw}\". Expected format: YYYY-MM-DD (e.g. 2026-07-01).");
+                return self::FAILURE;
+            }
+        } else {
+            $start = Carbon::today();
+        }
 
         if ($dryRun) {
             $this->warn('DRY RUN — no changes will be written.');
