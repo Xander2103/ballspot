@@ -1,10 +1,28 @@
-# BallSpot v1.5.3 — Test Report
+# BallSpot v1.5.5 — Test Report
 
-Build date: 2026-06-25
+Build date: 2026-06-27
 
 ---
 
 ## What Was Implemented
+
+### Backend (Laravel 12) — v1.5.5
+
+- **`DELETE /api/account`:** anonymizes and deactivates current user's account (name→"Deleted User", email→deleted-{id}@ballspot.deleted, username→deleted-{id}, password randomized, all Sanctum tokens revoked). Row preserved for leaderboard FK integrity.
+- **Public legal pages:** `/privacy`, `/terms`, `/support` — Blade views with dark mobile-first theme, no auth required
+- **`PublicController`:** renders privacy/terms/support views with `support_email` and `web_url` from `config/ballspot.php`
+- **`config/ballspot.php`:** reads `BALLSPOT_SUPPORT_EMAIL` and `BALLSPOT_WEB_URL` env vars with sensible defaults
+- **`AccountController@delete`:** API endpoint for account deletion via Sanctum auth
+- **`AccountDeletionTest`:** 5 tests (unauthenticated→401, authenticated→200+message, all tokens revoked in DB, data anonymized, row not hard-deleted)
+- **`ballspot:store-readiness-check` command:** read-only report covering env config, content readiness, daily challenge schedule, storage symlink, backups .gitignore, public legal routes. FAIL only for broken infrastructure; content gaps are WARN.
+- **`StoreReadinessCheckTest`:** 5 tests (runs successfully, warns on no challenges, passes with 7 challenges, warns on demo content, reports public routes as passing)
+
+### Mobile (Expo 56) — v1.5.5
+
+- **ProfileScreen Settings section:** Privacy Policy / Terms of Service / Support links — opens in device browser via `Linking.openURL` with URL derived from `EXPO_PUBLIC_WEB_URL`
+- **ProfileScreen Delete account:** "Delete account" button → ConfirmModal (destructive) → `DELETE /api/account` → clear token → navigate to Login; error message shown inline without crash
+- **`authApi.deleteAccount()`:** `DELETE /account` typed method added
+- **`mobile/.env.example`:** `EXPO_PUBLIC_WEB_URL` variable added
 
 ### Backend (Laravel 12) — v1.5.3
 
@@ -252,13 +270,24 @@ php artisan ballspot:recover-challenges
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    87 passed (262 assertions)
-Duration: ~18s
+Tests:    97 passed (285 assertions)
+Duration: ~2s
 ```
 
 | Test File | Test | Status |
 |-----------|------|--------|
+| **AccountDeletionTest** | unauthenticated request returns 401 | ✅ |
+| **AccountDeletionTest** | authenticated user can delete account | ✅ |
+| **AccountDeletionTest** | all tokens are deleted after deletion | ✅ |
+| **AccountDeletionTest** | user data is anonymized after deletion | ✅ |
+| **AccountDeletionTest** | user row is not hard deleted | ✅ |
+| **StoreReadinessCheckTest** | command runs successfully | ✅ |
+| **StoreReadinessCheckTest** | warns when no active ready challenges | ✅ |
+| **StoreReadinessCheckTest** | passes when enough active ready challenges exist | ✅ |
+| **StoreReadinessCheckTest** | warns about demo content when present | ✅ |
+| **StoreReadinessCheckTest** | reports public routes as passing | ✅ |
 | **AdminChallengeWorkflowTest** | is ready true when all fields set | ✅ |
+
 | **AdminChallengeWorkflowTest** | is ready false when hidden image missing | ✅ |
 | **AdminChallengeWorkflowTest** | is ready for daily requires active status | ✅ |
 | **AdminChallengeWorkflowTest** | is demo content returns true for known titles | ✅ |

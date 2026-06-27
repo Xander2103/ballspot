@@ -1,4 +1,5 @@
 <?php
+use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DailyChallengeController;
 use App\Http\Controllers\Api\LeagueController;
@@ -15,6 +16,7 @@ Route::post('/login',    [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout',       [AuthController::class, 'logout']);
     Route::get('/me',            [AuthController::class, 'me']);
+    Route::delete('/account',    [AccountController::class, 'delete']);
     Route::get('/profile/stats', [ProfileController::class, 'stats']);
 
     Route::get('/leagues',                        [LeagueController::class, 'index']);

@@ -1,11 +1,17 @@
 <?php
 
 use App\Http\Controllers\Admin\DailyChallengeAdminController;
+use App\Http\Controllers\PublicController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Public legal / info pages
+Route::get('/privacy', [PublicController::class, 'privacy'])->name('privacy');
+Route::get('/terms',   [PublicController::class, 'terms'])->name('terms');
+Route::get('/support', [PublicController::class, 'support'])->name('support');
 
 // Admin auth (unguarded)
 Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'showLogin'])->name('admin.login');

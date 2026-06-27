@@ -22,4 +22,7 @@ export const authApi = {
 
   stats: () =>
     apiClient.request<ProfileStats>('/profile/stats'),
+
+  deleteAccount: () =>
+    apiClient.request<{ message: string }>('/account', { method: 'DELETE' }),
 };

@@ -40,6 +40,22 @@ Protected routes require: `Authorization: Bearer <token>`
 { "data": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com" } }
 ```
 
+### DELETE /account  *(auth required)*
+
+Anonymizes and deactivates the current user's account. All tokens are revoked immediately. The user row is preserved (not hard-deleted) to maintain leaderboard integrity. Name, email, and username are overwritten with placeholder values.
+
+```json
+// Response 200
+{ "message": "Your account has been deleted." }
+
+// Response 401 — not authenticated
+{ "message": "Unauthenticated." }
+```
+
+After this call the bearer token is invalid. The mobile app clears the stored token and navigates to Login.
+
+---
+
 ### GET /profile/stats  *(auth required)*
 Returns aggregate stats for the current user (tournaments + daily challenge stats).
 ```json

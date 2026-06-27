@@ -46,7 +46,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 87 feature tests
+cd backend && php artisan test          # 97 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 
@@ -106,6 +106,37 @@ cd backend && php artisan ballspot:backup-content
 
 The `backups/` folder is listed in `.gitignore` — backups are never committed. See [docs/content-safety.md](docs/content-safety.md) for full backup, restore, and recovery instructions.
 
+## Account Deletion
+
+Users can delete their account from the Profile screen (Settings → Delete account). A confirmation modal is shown before deletion. On confirm:
+
+1. `DELETE /api/account` is called — account is anonymized, all tokens revoked
+2. The stored token is cleared from the device
+3. The app navigates back to the Login screen
+
+This satisfies Google Play and Apple App Store account deletion requirements.
+
+## Legal Pages
+
+The backend serves three public legal pages (no auth required):
+
+| URL | Content |
+|-----|---------|
+| `/privacy` | Privacy Policy |
+| `/terms` | Terms of Service |
+| `/support` | Support & Contact |
+
+Set `BALLSPOT_WEB_URL` in `backend/.env` (and `EXPO_PUBLIC_WEB_URL` in `mobile/.env`) to your deployed domain so the mobile app's legal links point to the correct URLs.
+
+## Store Readiness Check
+
+```bash
+cd backend
+php artisan ballspot:store-readiness-check
+```
+
+Prints a read-only report covering environment config, content readiness, daily challenge schedule, storage setup, and public legal routes. Exit code 0 = OK for internal testing; exit code 1 = infrastructure failures that must be fixed. See [docs/store-readiness.md](docs/store-readiness.md) for the full checklist.
+
 ## Docs
 
 - [API Contract](docs/api-contract.md)
@@ -113,6 +144,7 @@ The `backups/` folder is listed in `.gitignore` — backups are never committed.
 - [Test Report](docs/test-report.md)
 - [Content Safety Guide](docs/content-safety.md)
 - [Challenge Content Guide](docs/challenge-content-guide.md)
+- [Store Readiness](docs/store-readiness.md)
 
 ## Constraints
 
