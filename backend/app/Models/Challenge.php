@@ -2,6 +2,7 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Challenge extends Model
@@ -23,6 +24,7 @@ class Challenge extends Model
     public function sport(): BelongsTo { return $this->belongsTo(Sport::class); }
     public function category(): BelongsTo { return $this->belongsTo(ChallengeCategory::class, 'challenge_category_id'); }
     public function dailyChallenges(): HasMany { return $this->hasMany(DailyChallenge::class); }
+    public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class, 'challenge_tag'); }
 
     /** Challenge has everything required to be playable. */
     public function isReady(): bool

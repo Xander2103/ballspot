@@ -125,6 +125,11 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         <View style={styles.infoRow}>
           <Text style={styles.dateLabel}>{todayLabel}</Text>
           <View style={styles.badges}>
+            {challenge.challenge.sport ? (
+              <View style={[styles.catBadge, { backgroundColor: (challenge.challenge.sport.primary_color ?? colors.primary) + '26' }]}>
+                <Text style={styles.catText}>{challenge.challenge.sport.emoji} {challenge.challenge.sport.name}</Text>
+              </View>
+            ) : null}
             {categoryName ? (
               <View style={styles.catBadge}>
                 <Text style={styles.catText}>{categoryName}</Text>
@@ -139,6 +144,15 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         </View>
         <Text style={styles.challengeTitle}>{challenge.challenge.title}</Text>
         <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
+        {challenge.challenge.tags && challenge.challenge.tags.length > 0 ? (
+          <View style={styles.tagRow}>
+            {challenge.challenge.tags.slice(0, 4).map((t) => (
+              <View key={t.slug} style={styles.tagChip}>
+                <Text style={styles.tagText}>#{t.name}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       {/* Image card */}
@@ -240,6 +254,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     fontStyle: 'italic',
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: spacing.sm,
+  },
+  tagChip: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  tagText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   imageCard: {
     paddingHorizontal: spacing.md,

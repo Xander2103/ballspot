@@ -26,7 +26,7 @@ class DailyChallengeController extends Controller
     public function today(Request $request): JsonResponse
     {
         $today = Carbon::today()->toDateString();
-        $dc = DailyChallenge::active()->forDate($today)->with('challenge.category')->first();
+        $dc = DailyChallenge::active()->forDate($today)->with(['challenge.category', 'challenge.sport', 'challenge.tags'])->first();
 
         if (!$dc) {
             return response()->json(['has_daily' => false, 'reason' => 'no_daily_challenge']);
@@ -51,6 +51,17 @@ class DailyChallengeController extends Controller
                 'name' => $dc->challenge->category->name,
                 'slug' => $dc->challenge->category->slug,
             ] : null,
+            'sport'            => $dc->challenge->sport ? [
+                'slug'          => $dc->challenge->sport->slug,
+                'name'          => $dc->challenge->sport->name,
+                'emoji'         => $dc->challenge->sport->emoji,
+                'primary_color' => $dc->challenge->sport->primary_color,
+            ] : null,
+            'tags'             => $dc->challenge->tags->map(fn($t) => [
+                'name' => $t->name,
+                'slug' => $t->slug,
+                'type' => $t->type,
+            ])->values(),
         ];
 
         return response()->json([

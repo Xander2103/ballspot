@@ -6,6 +6,7 @@ use App\Models\Challenge;
 use App\Models\ChallengeCategory;
 use App\Models\DailyChallenge;
 use App\Models\Sport;
+use App\Models\Tag;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -13,11 +14,13 @@ class ChallengeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Challenge::with(['sport', 'category'])
+        $query = Challenge::with(['sport', 'category', 'tags'])
             ->withExists(['dailyChallenges as used_as_daily'])
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->difficulty, fn ($q, $v) => $q->where('difficulty', $v))
             ->when($request->category, fn ($q, $v) => $q->where('challenge_category_id', $v))
+            ->when($request->sport, fn ($q, $v) => $q->where('sport_id', $v))
+            ->when($request->tag, fn ($q, $v) => $q->whereHas('tags', fn ($t) => $t->where('tags.id', $v)))
             ->when($request->has_reveal === 'yes', fn ($q) => $q->whereNotNull('original_image_path'))
             ->when($request->has_reveal === 'no',  fn ($q) => $q->whereNull('original_image_path'))
             ->when($request->used_as_daily === 'yes', fn ($q) => $q->whereHas('dailyChallenges'))
@@ -28,13 +31,16 @@ class ChallengeController extends Controller
             ->withQueryString();
 
         $categories = ChallengeCategory::orderBy('sort_order')->orderBy('name')->get();
-        return view('admin.challenges.index', compact('query', 'categories'))->with('challenges', $query);
+        $sports     = Sport::orderBy('sort_order')->get();
+        $tags       = Tag::orderBy('name')->get();
+        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags'))->with('challenges', $query);
     }
 
     public function create()
     {
         $categories = ChallengeCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        return view('admin.challenges.create', compact('categories'));
+        $sports     = Sport::orderBy('sort_order')->get();
+        return view('admin.challenges.create', compact('categories', 'sports'));
     }
 
     public function store(Request $request)
@@ -43,21 +49,24 @@ class ChallengeController extends Controller
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
             'status'                 => ['required', 'in:draft,active,archived'],
+            'sport_id'               => ['nullable', 'exists:sports,id'],
             'challenge_category_id'  => ['nullable', 'exists:challenge_categories,id'],
             'ball_x_ratio'           => ['required', 'numeric', 'between:0,1'],
             'ball_y_ratio'           => ['required', 'numeric', 'between:0,1'],
             'hidden_image'           => ['required', 'image', 'max:5120'],
             'original_image'         => ['nullable', 'image', 'max:5120'],
+            'tags'                   => ['nullable', 'string', 'max:500'],
         ]);
 
-        $sport      = Sport::where('slug', 'football')->firstOrFail();
+        // Default to football to preserve existing behaviour.
+        $sportId    = $data['sport_id'] ?? Sport::where('slug', 'football')->value('id');
         $hiddenPath = $request->file('hidden_image')->store('challenges/hidden', 'public');
         $originalPath = $request->hasFile('original_image')
             ? $request->file('original_image')->store('challenges/original', 'public')
             : null;
 
-        Challenge::create([
-            'sport_id'               => $sport->id,
+        $challenge = Challenge::create([
+            'sport_id'               => $sportId,
             'challenge_category_id'  => $data['challenge_category_id'] ?? null,
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
@@ -68,13 +77,17 @@ class ChallengeController extends Controller
             'original_image_path'    => $originalPath,
         ]);
 
+        $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
+
         return redirect('/admin/challenges')->with('success', 'Challenge created.');
     }
 
     public function edit(Challenge $challenge)
     {
         $categories = ChallengeCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
-        return view('admin.challenges.edit', compact('challenge', 'categories'));
+        $sports     = Sport::orderBy('sort_order')->get();
+        $challenge->load('tags');
+        return view('admin.challenges.edit', compact('challenge', 'categories', 'sports'));
     }
 
     public function update(Request $request, Challenge $challenge)
@@ -83,11 +96,13 @@ class ChallengeController extends Controller
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
             'status'                 => ['required', 'in:draft,active,archived'],
+            'sport_id'               => ['nullable', 'exists:sports,id'],
             'challenge_category_id'  => ['nullable', 'exists:challenge_categories,id'],
             'ball_x_ratio'           => ['required', 'numeric', 'between:0,1'],
             'ball_y_ratio'           => ['required', 'numeric', 'between:0,1'],
             'hidden_image'           => ['nullable', 'image', 'max:5120'],
             'original_image'         => ['nullable', 'image', 'max:5120'],
+            'tags'                   => ['nullable', 'string', 'max:500'],
         ]);
 
         // Guard: cannot activate a challenge that has no hidden image
@@ -105,6 +120,7 @@ class ChallengeController extends Controller
         }
 
         $challenge->update([
+            'sport_id'               => $data['sport_id'] ?? $challenge->sport_id,
             'challenge_category_id'  => $data['challenge_category_id'] ?? null,
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
@@ -115,7 +131,30 @@ class ChallengeController extends Controller
             'original_image_path'    => $data['original_image_path'] ?? $challenge->original_image_path,
         ]);
 
+        $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
+
         return redirect('/admin/challenges')->with('success', 'Challenge updated.');
+    }
+
+    /**
+     * Turn a comma-separated tag string into tag IDs, creating missing tags.
+     * Text tags only — no copyrighted logos/imagery.
+     *
+     * @return int[]
+     */
+    private function resolveTagIds(?string $tagString): array
+    {
+        if (empty($tagString)) {
+            return [];
+        }
+
+        return collect(explode(',', $tagString))
+            ->map(fn ($name) => trim($name))
+            ->filter()
+            ->unique()
+            ->map(fn ($name) => Tag::findOrCreateByName($name)->id)
+            ->values()
+            ->all();
     }
 
     /** Quick status change from the index page. */

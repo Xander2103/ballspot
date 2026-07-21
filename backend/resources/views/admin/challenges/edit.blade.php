@@ -67,18 +67,42 @@
                 </div>
             </div>
 
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label for="sport_id" class="form-label fw-semibold">Sport</label>
+                    <select id="sport_id" name="sport_id" class="form-select @error('sport_id') is-invalid @enderror">
+                        @foreach($sports as $sport)
+                        <option value="{{ $sport->id }}"
+                            {{ (string) old('sport_id', $challenge->sport_id) === (string) $sport->id ? 'selected' : '' }}>
+                            {{ $sport->emoji }} {{ $sport->name }}{{ $sport->is_active ? '' : ' (inactive)' }}
+                        </option>
+                        @endforeach
+                    </select>
+                    @error('sport_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <label for="challenge_category_id" class="form-label fw-semibold">Category</label>
+                    <select id="challenge_category_id" name="challenge_category_id" class="form-select @error('challenge_category_id') is-invalid @enderror">
+                        <option value="">— Uncategorised —</option>
+                        @foreach($categories as $cat)
+                        <option value="{{ $cat->id }}" {{ old('challenge_category_id', $challenge->challenge_category_id) == $cat->id ? 'selected' : '' }}>
+                            {{ $cat->name }}
+                        </option>
+                        @endforeach
+                    </select>
+                    <div class="form-text">Optional. Used for grouping and future pack filtering.</div>
+                    @error('challenge_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+            </div>
+
             <div class="mb-3">
-                <label for="challenge_category_id" class="form-label fw-semibold">Category</label>
-                <select id="challenge_category_id" name="challenge_category_id" class="form-select @error('challenge_category_id') is-invalid @enderror">
-                    <option value="">— Uncategorised —</option>
-                    @foreach($categories as $cat)
-                    <option value="{{ $cat->id }}" {{ old('challenge_category_id', $challenge->challenge_category_id) == $cat->id ? 'selected' : '' }}>
-                        {{ $cat->name }}
-                    </option>
-                    @endforeach
-                </select>
-                <div class="form-text">Optional. Used for grouping and future pack filtering.</div>
-                @error('challenge_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                <label for="tags" class="form-label fw-semibold">Tags <span class="text-muted fw-normal">(optional)</span></label>
+                <input type="text" id="tags" name="tags" class="form-control @error('tags') is-invalid @enderror"
+                       value="{{ old('tags', $challenge->tags->pluck('name')->join(', ')) }}" maxlength="500"
+                       placeholder="e.g. Premier League, England, corner kick">
+                <div class="form-text">Comma-separated text tags. Text only — never use copyrighted logos.</div>
+                @error('tags')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
 
             {{-- Section: Hidden image --}}

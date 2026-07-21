@@ -1,5 +1,18 @@
 import type { Badge } from './badge';
 
+export interface SportSummary {
+  slug: string;
+  name: string;
+  emoji: string;
+  primary_color: string;
+}
+
+export interface ChallengeTag {
+  name: string;
+  slug: string;
+  type: string | null;
+}
+
 export interface DailyChallengeEntry {
   id: number;
   challenge_date: string;
@@ -9,6 +22,8 @@ export interface DailyChallengeEntry {
     difficulty: string;
     hidden_image_url: string | null;
     category: { id: number; name: string; slug: string } | null;
+    sport?: SportSummary | null;
+    tags?: ChallengeTag[];
   };
 }
 
