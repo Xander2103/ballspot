@@ -2,9 +2,43 @@
 
 A social football guessing game. Spot the hidden ball. Beat your friends. Play the daily challenge.
 
+> **BallSpot → BallPicker:** the backend now carries a multi-sport foundation so
+> the app can broaden beyond football later. Football remains the only *active*
+> sport and the default everywhere; the UI is unchanged. See "New in v1.6" below.
+
 ## What it is
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
+
+## New in v1.6 — Gamification, Leaderboards, Password Reset, Multi-Sport Foundation
+
+- **Password reset** — `POST /api/forgot-password` and `POST /api/reset-password`
+  (Laravel password broker). Forgot-password always returns a generic success (no
+  email enumeration); reset revokes existing API tokens. Mobile Forgot/Reset
+  screens. With `MAIL_MAILER=log` the reset link is written to
+  `storage/logs/laravel.log` for local dev.
+- **Leaderboard rank + percentile** — daily & tournament results return `rank`,
+  `total_players`, `better_than_percentage` ("closer than X% of players"). Weekly
+  and tournament leaderboards return a `meta` block (current-user rank/score,
+  better-than-%, top & nearby users). Mobile: "You are #X of Y" card and a
+  Top / My-rank toggle.
+- **Trophy Room & virtual badges** — `badges` / `user_badges`, idempotent
+  `BadgeService`, `GET /api/badges` + `GET /api/me/badges`. 11 seeded virtual
+  trophies (emoji, no copyrighted assets). Awarded on guesses; "New badge
+  unlocked!" card on result screens; Trophy Room in Profile. **Virtual only — no
+  real prizes.**
+- **Multi-sport foundation** — `sports` gains emoji/color/active/scoring_profile;
+  7 sports seeded (football active, others inactive scaffolding). Admin challenge
+  create/edit gains a sport picker. `ScoreService` documents the future
+  per-sport scoring hook.
+- **Tags / subcategories** — `tags` + `challenge_tag`; admin comma-separated text
+  tags; daily API exposes challenge sport + tags; mobile shows sport badge + tag chips.
+- **Free tournament limits** — configurable max created (3) & max players (8) with
+  premium placeholders. **No payments/IAP.**
+
+See [docs/notifications-plan.md](docs/notifications-plan.md) and
+[docs/prizes-and-trophy-room.md](docs/prizes-and-trophy-room.md) for
+foundation-only plans (not implemented this sprint).
 
 ## Structure
 
@@ -46,7 +80,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 97 feature tests
+cd backend && php artisan test          # 119 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 
@@ -145,12 +179,25 @@ Prints a read-only report covering environment config, content readiness, daily 
 - [Content Safety Guide](docs/content-safety.md)
 - [Challenge Content Guide](docs/challenge-content-guide.md)
 - [Store Readiness](docs/store-readiness.md)
+- [Notifications Plan (foundation only)](docs/notifications-plan.md)
+- [Prizes & Trophy Room](docs/prizes-and-trophy-room.md)
+
+## Password Reset (local dev)
+
+`MAIL_MAILER=log` by default, so reset emails are written to
+`backend/storage/logs/laravel.log` rather than sent. To test the flow locally:
+
+1. `POST /api/forgot-password` with `{ "email": "..." }` — always returns a generic success.
+2. Open `storage/logs/laravel.log` and copy the reset link (contains `token` + `email`).
+3. `POST /api/reset-password` with `email`, `token`, `password`, `password_confirmation`
+   (or use the mobile Reset Password screen). Old API tokens are revoked on success.
 
 ## Constraints
 
-- No real money, no gambling, no subscriptions, no ads
+- No real money, no gambling, no subscriptions, no ads, no in-app purchases
 - No chat, no AI, no realtime/websockets
-- Football only (v1)
+- Football is the only **active** sport (multi-sport foundation exists in the backend)
+- Trophies are **virtual only** — no real prizes
 - Score calculation backend-only (never trust client)
 - Positions stored as ratios 0..1 (device-independent)
 - All date/day logic uses UTC

@@ -4,6 +4,22 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.6 store-relevant notes
+
+- **Account recovery:** password reset is implemented (`/api/forgot-password`,
+  `/api/reset-password`). For production, configure a real `MAIL_MAILER` (SMTP) so
+  reset emails are delivered — locally `log` writes the link to `laravel.log`.
+- **No monetization surfaces:** no payments, in-app purchases, ads, or real prizes
+  are present. Trophies/badges are virtual only. This keeps the current store
+  listing category (no gambling, no IAP) intact.
+- **Multi-sport:** only football is active. Inactive sports are backend scaffolding
+  and are not surfaced as playable content, so no additional store content review
+  is needed.
+- **Tags & badge icons:** text-only tags and emoji badge icons — no copyrighted
+  logos or imagery introduced.
+
+---
+
 ## Content Rights Checklist
 
 Before submitting to any app store, verify every challenge image you use:

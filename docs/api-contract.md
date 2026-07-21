@@ -482,3 +482,81 @@ WHERE league_rounds.league_id = :id
 ```
 
 If `count >= rounds_per_day`, the endpoint returns `reason: "daily_limit_reached"` without revealing any round. This check is per-user — other users in the same league are unaffected.
+
+---
+
+## v1.6 additions
+
+### POST /forgot-password (public)
+```json
+// Request
+{ "email": "x@example.com" }
+// Response 200 — ALWAYS generic (no email enumeration)
+{ "message": "If an account exists for that email, a password reset link has been sent." }
+```
+With `MAIL_MAILER=log`, the reset link (token + email) is written to `storage/logs/laravel.log`.
+
+### POST /reset-password (public)
+```json
+// Request
+{ "email": "x@example.com", "token": "<from email>", "password": "newpass123", "password_confirmation": "newpass123" }
+// Response 200
+{ "message": "Your password has been reset. Please log in." }
+// Response 422 (invalid/expired token, or validation failure)
+{ "message": "This password reset link is invalid or has expired." }
+```
+Password rules match registration (`min:8`, `confirmed`). On success all existing Sanctum tokens are revoked.
+
+### Rank / percentile on results
+Daily guess/result (`data`) and tournament round result now include:
+```json
+{ "rank": 3, "total_players": 128, "better_than_percentage": 82 }
+```
+`better_than_percentage` = "closer than X% of players" (from score). Tournament round rank is within that round's guesses.
+
+### Leaderboard meta
+`GET /daily/leaderboard/weekly` and `GET /leagues/{id}/leaderboard` now return a `meta` block:
+```json
+{
+  "meta": {
+    "total_players": 128,
+    "current_user_rank": 3,
+    "current_user_score": 940,
+    "current_user_average": 78.3,
+    "better_than_percentage": 97,
+    "top_users": [ /* top 3 entries */ ],
+    "nearby_users": [ /* current user + neighbours */ ]
+  }
+}
+```
+(Weekly keeps `data`, `week_start`, `week_end`; tournament keeps `data`.)
+
+### GET /badges (auth)
+```json
+{ "data": [ { "id": 1, "code": "first_daily", "name": "Daily Debut", "description": "...", "icon": "📅", "category": "daily", "rarity": "common", "sort_order": 2 }, ... ] }
+```
+
+### GET /me/badges (auth)
+```json
+{
+  "earned_count": 3,
+  "total_count": 11,
+  "badges": [ { "code": "first_daily", "name": "Daily Debut", "icon": "📅", "rarity": "common", "category": "daily", "earned": true, "earned_at": "2026-07-21T..." }, ... ]
+}
+```
+
+### new_badges on guesses
+Daily guess response (`data.new_badges`) and tournament guess response (top-level `new_badges`) return any freshly-earned badges (empty array if none) for a "New badge unlocked!" UI. Awarding is idempotent.
+
+### Daily challenge sport + tags
+`GET /daily/today` challenge object now includes:
+```json
+{ "sport": { "slug": "football", "name": "Football", "emoji": "⚽", "primary_color": "#00c853" },
+  "tags": [ { "name": "Premier League", "slug": "premier-league", "type": "league" } ] }
+```
+
+### Tournament limit errors (422)
+- Create over limit: `{ "message": "You have reached the free tournament limit. Finish or cancel an existing tournament to create a new one." }`
+- Join when full: `{ "message": "This tournament is full." }`
+
+No payment/purchase endpoints exist. Badges and trophies are virtual only.

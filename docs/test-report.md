@@ -1,6 +1,51 @@
-# BallSpot v1.5.5 — Test Report
+# BallSpot v1.6 — Test Report
 
-Build date: 2026-06-27
+Build date: 2026-07-21
+
+**Backend:** 119 feature tests passing (390 assertions). **Mobile:** `tsc --noEmit` clean.
+
+---
+
+## v1.6 — Gamification, Leaderboards, Password Reset, Multi-Sport Foundation
+
+### Backend
+
+- **Password reset** (`PasswordResetController`, `ResetPasswordNotification`): forgot
+  returns generic success; reset validates token, revokes tokens, enforces
+  registration password rules. `PasswordResetTest` — 6 tests (generic success, no
+  enumeration, invalid token fails, valid token changes password + old fails/new
+  works, tokens revoked, password rules).
+- **Rank / percentile**: daily result + weekly/tournament leaderboards return
+  rank/`better_than_percentage` + `meta` block. `DailyRankMetaTest` — 3 tests.
+- **Badges** (`badges`, `user_badges`, `BadgeService`, `BadgeController`): idempotent
+  awarding, `GET /badges`, `GET /me/badges`, `new_badges` on guesses.
+  `BadgeTest` — 6 tests (seeded, awarded once, first-daily, top-10%, me/badges
+  earned+locked, catalogue).
+- **Multi-sport + tags** (`sports` columns, 7 seeded; `tags`/`challenge_tag`):
+  `SportAndTagTest` — 3 tests (all sports seeded/football active, tags attach,
+  findOrCreate idempotent). Admin challenge create/edit gains sport + tags.
+- **Tournament limits** (`config/ballspot.php` → `tournaments`; enforced in
+  `LeagueService`): `TournamentLimitsTest` — 4 tests (create limit, archived/
+  cancelled excluded, full blocks join, member under limit joins).
+
+### Mobile
+
+- ForgotPassword + ResetPassword screens; Forgot link on Login.
+- RankInsight + YourPositionCard on results/leaderboards; weekly Top/My-rank toggle.
+- TrophyRoom in Profile; NewBadgesCard on daily + tournament results.
+- Sport badge + tag chips on daily challenge; free-plan note on Create Tournament.
+
+### Foundation-only (docs, not implemented)
+
+- `docs/notifications-plan.md` — push notification plan (opt-in, privacy).
+- `docs/prizes-and-trophy-room.md` — virtual trophies now; real prizes gated behind
+  legal review, no gambling, no purchase-to-enter.
+
+### Constraints honored
+
+No payments/IAP/ads/chat/realtime/betting/real-prizes. `migrate:fresh --seed` not
+run. Storage, git, and uploaded images untouched. Football Daily Challenge flow
+unchanged; football remains the only active sport.
 
 ---
 

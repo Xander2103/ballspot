@@ -23,7 +23,16 @@ Database: SQLite (dev) / MySQL (production)
 | id | bigint PK auto |
 | name | varchar(255) |
 | slug | varchar(255) unique | e.g. 'football' |
+| emoji | varchar(255) | default '⚽' — display icon (no copyrighted assets) |
+| object_name | varchar(255) | default 'ball' — e.g. 'ball' / 'puck' |
+| primary_color | varchar(255) | default '#00c853' — sport accent color |
+| is_active | boolean | default false — **only football is active in v1.6** |
+| sort_order | int | default 0 |
+| scoring_profile | varchar(255) | default 'default' — foundation for future per-sport scoring |
 | created_at / updated_at | timestamp |
+
+Seeded sports (v1.6): football (active), golf, tennis, hockey, cricket,
+american_football, basketball (all inactive scaffolding).
 
 ## challenge_categories
 | Column | Type | Notes |
@@ -182,3 +191,79 @@ Daily challenge streaks are computed on demand in `DailyStreakService::getStreak
 2. Walk the list and track the longest consecutive-day run.
 
 Streaks are not stored — computed fresh each call. No caching in v1.
+
+---
+
+## badges (v1.6)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK auto |
+| code | varchar(255) unique | stable identifier, e.g. 'first_daily' |
+| name | varchar(255) | display name |
+| description | varchar(255) | short description |
+| icon | varchar(255) | emoji, default '🏅' (no copyrighted assets) |
+| category | varchar(255) | general\|daily\|tournament\|streak\|skill\|sport |
+| rarity | varchar(255) | common\|rare\|epic\|legendary |
+| sort_order | int | default 0 |
+| created_at / updated_at | timestamp |
+
+Seeded codes: first_guess, first_daily, seven_day_streak, thirty_day_streak,
+perfect_guess, top_10_percent_daily, tournament_winner, daily_champion,
+weekly_top_10, football_rookie, football_expert. **Virtual only — no real value.**
+
+## user_badges (v1.6)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK auto |
+| user_id | bigint FK users cascade |
+| badge_id | bigint FK badges cascade |
+| earned_at | timestamp nullable |
+| context | json nullable | e.g. {"daily_challenge_id":1,"score":100} |
+| created_at / updated_at | timestamp |
+| — | unique(user_id, badge_id) | idempotent — a badge is earned once |
+
+## tags (v1.6)
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK auto |
+| name | varchar(255) | text label |
+| slug | varchar(255) unique | slugified name |
+| type | varchar(255) nullable | team\|country\|league\|moment_type\|difficulty_label\|custom |
+| created_at / updated_at | timestamp |
+
+Text tags only — never store copyrighted logos or imagery.
+
+## challenge_tag (v1.6)
+| Column | Type | Notes |
+|--------|------|-------|
+| challenge_id | bigint FK challenges cascade |
+| tag_id | bigint FK tags cascade |
+| — | primary(challenge_id, tag_id) | pivot |
+
+## password_reset_tokens
+| Column | Type | Notes |
+|--------|------|-------|
+| email | varchar(255) PK |
+| token | varchar(255) | hashed reset token |
+| created_at | timestamp nullable |
+
+Laravel's standard broker table (present since the initial users migration).
+Used by `POST /api/forgot-password` and `POST /api/reset-password` in v1.6.
+
+---
+
+## Tournament Limits (v1.6, config-driven)
+
+Enforced in `LeagueService`, values from `config/ballspot.php` → `tournaments`:
+
+- `max_created_per_user` (default 3) — only **lobby/active** tournaments count;
+  archived/completed/cancelled do not.
+- `max_players_per_tournament` (default 8) — checked on join (idempotent for
+  existing members).
+- `premium_max_*` placeholders exist but are **not enforced** — no billing system.
+
+## Badge Awarding (v1.6)
+
+`BadgeService` evaluates and awards badges after each guess/result (idempotent via
+the `user_badges` unique index). Rank-based badges (top-10%, daily champion) use a
+snapshot of standings at submission time — an accepted MVP simplification.
