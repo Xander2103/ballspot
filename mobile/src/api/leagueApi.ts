@@ -1,9 +1,10 @@
 import { apiClient } from './client';
 import { League } from '../types/league';
 import { LeaderboardEntry } from '../types/guess';
+import type { LeaderboardMeta } from '../types/daily';
 
 interface ResourceResponse<T> { data: T; }
-interface LeaderboardResponse { data: LeaderboardEntry[]; }
+interface LeaderboardResponse { data: LeaderboardEntry[]; meta?: LeaderboardMeta<LeaderboardEntry>; }
 
 export const leagueApi = {
   list: () =>

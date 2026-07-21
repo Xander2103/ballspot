@@ -98,7 +98,7 @@ class DailyChallengeController extends Controller
             'submitted_at'       => now(),
         ]);
 
-        return response()->json(['data' => $this->buildGuessResult($guess, $challenge)]);
+        return response()->json(['data' => $this->buildGuessResult($guess, $challenge, $dailyChallenge)]);
     }
 
     // GET /api/daily/{dailyChallenge}/result
@@ -111,7 +111,7 @@ class DailyChallengeController extends Controller
         }
 
         $challenge = $dailyChallenge->challenge;
-        return response()->json(['data' => $this->buildGuessResult($guess, $challenge)]);
+        return response()->json(['data' => $this->buildGuessResult($guess, $challenge, $dailyChallenge)]);
     }
 
     // GET /api/daily/leaderboard/weekly
@@ -151,7 +151,48 @@ class DailyChallengeController extends Controller
             'data'       => $entries,
             'week_start' => $weekStart,
             'week_end'   => $weekEnd,
+            'meta'       => $this->buildLeaderboardMeta($entries, $request->user()->id),
         ]);
+    }
+
+    /**
+     * Rank metadata for a ranked leaderboard collection (already sorted, 1-indexed rank).
+     * Provides the "You are #X of Y / better than Z%" data plus a small nearby slice.
+     */
+    private function buildLeaderboardMeta($entries, int $userId): array
+    {
+        $total = $entries->count();
+        $me    = $entries->firstWhere('user_id', $userId);
+
+        if (!$me) {
+            return [
+                'total_players'          => $total,
+                'current_user_rank'      => null,
+                'current_user_score'     => null,
+                'current_user_average'   => null,
+                'better_than_percentage' => null,
+                'top_users'              => $entries->take(3)->values(),
+                'nearby_users'           => [],
+            ];
+        }
+
+        $rank       = $me['rank'];
+        $betterThan = $total > 1 ? (int) round(($total - $rank) / $total * 100) : 0;
+
+        // Nearby slice: one above and one below the current user.
+        $index  = $rank - 1;
+        $start  = max(0, $index - 1);
+        $nearby = $entries->slice($start, 3)->values();
+
+        return [
+            'total_players'          => $total,
+            'current_user_rank'      => $rank,
+            'current_user_score'     => $me['total_score'] ?? null,
+            'current_user_average'   => $me['avg_score'] ?? null,
+            'better_than_percentage' => $betterThan,
+            'top_users'              => $entries->take(3)->values(),
+            'nearby_users'           => $nearby,
+        ];
     }
 
     // GET /api/daily/stats
@@ -181,9 +222,9 @@ class DailyChallengeController extends Controller
         ]);
     }
 
-    private function buildGuessResult(DailyChallengeGuess $guess, Challenge $challenge): array
+    private function buildGuessResult(DailyChallengeGuess $guess, Challenge $challenge, DailyChallenge $dailyChallenge): array
     {
-        return [
+        return array_merge([
             'id'               => $guess->id,
             'score'            => $guess->score,
             'distance'         => $guess->distance,
@@ -194,6 +235,28 @@ class DailyChallengeController extends Controller
             'reveal_image_url' => $challenge->original_image_path
                 ? asset('storage/' . $challenge->original_image_path)
                 : null,
+        ], $this->buildRankMeta($dailyChallenge, $guess));
+    }
+
+    /**
+     * Rank / percentile insight for a single daily challenge.
+     * "Closer than X% of players" is derived from score (higher score = closer).
+     * Simple aggregate count queries — fine for MVP scale.
+     */
+    private function buildRankMeta(DailyChallenge $dailyChallenge, DailyChallengeGuess $guess): array
+    {
+        $myScore = $guess->score;
+        $total   = $dailyChallenge->guesses()->count();
+        $rank    = $dailyChallenge->guesses()->where('score', '>', $myScore)->count() + 1;
+        $beaten  = $dailyChallenge->guesses()->where('score', '<', $myScore)->count();
+
+        // Percentage of the field this player scored strictly better than.
+        $betterThan = $total > 1 ? (int) round($beaten / $total * 100) : 0;
+
+        return [
+            'rank'                   => $rank,
+            'total_players'          => $total,
+            'better_than_percentage' => $betterThan,
         ];
     }
 

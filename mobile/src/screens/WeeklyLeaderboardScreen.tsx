@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
+import { YourPositionCard } from '../components/YourPositionCard';
 import { dailyApi } from '../api/dailyApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -54,6 +55,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
   const [leaderboard, setLeaderboard] = useState<WeeklyLeaderboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [view, setView] = useState<'top' | 'me'>('top');
 
   useEffect(() => {
     let cancelled = false;
@@ -96,7 +98,9 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
     );
   }
 
-  const entries = leaderboard.data;
+  const meta = leaderboard.meta;
+  const hasRank = !!meta?.current_user_rank;
+  const entries = view === 'me' && hasRank ? meta.nearby_users : leaderboard.data;
 
   return (
     <Screen scroll={false} padding={false}>
@@ -106,6 +110,34 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
           Week of {leaderboard.week_start} – {leaderboard.week_end}
         </Text>
       </View>
+
+      {/* Your position summary */}
+      {hasRank ? (
+        <YourPositionCard
+          rank={meta.current_user_rank}
+          totalPlayers={meta.total_players}
+          betterThanPercentage={meta.better_than_percentage}
+          score={meta.current_user_score}
+        />
+      ) : null}
+
+      {/* Top / My rank toggle */}
+      {hasRank ? (
+        <View style={styles.toggleRow}>
+          <Pressable
+            onPress={() => setView('top')}
+            style={[styles.toggleBtn, view === 'top' && styles.toggleBtnActive]}
+          >
+            <Text style={[styles.toggleText, view === 'top' && styles.toggleTextActive]}>🏆 Top</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setView('me')}
+            style={[styles.toggleBtn, view === 'me' && styles.toggleBtnActive]}
+          >
+            <Text style={[styles.toggleText, view === 'me' && styles.toggleTextActive]}>📍 My rank</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Column headers */}
       <View style={styles.columnHeader}>
@@ -166,6 +198,32 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 3,
+    gap: 3,
+  },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  toggleBtnActive: {
+    backgroundColor: colors.surfaceElevated,
+  },
+  toggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  toggleTextActive: {
+    color: colors.text,
   },
   columnHeader: {
     flexDirection: 'row',

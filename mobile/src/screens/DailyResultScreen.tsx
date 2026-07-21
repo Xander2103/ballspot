@@ -5,6 +5,7 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
+import { RankInsight } from '../components/RankInsight';
 import { dailyApi } from '../api/dailyApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -129,6 +130,15 @@ export function DailyResultScreen({ route, navigation }: Props) {
           </View>
         ) : null}
       </View>
+
+      {/* Rank / percentile insight */}
+      {typeof result.total_players === 'number' ? (
+        <RankInsight
+          rank={result.rank}
+          totalPlayers={result.total_players}
+          betterThanPercentage={result.better_than_percentage}
+        />
+      ) : null}
 
       {/* Image with markers */}
       {displayImageUrl ? (

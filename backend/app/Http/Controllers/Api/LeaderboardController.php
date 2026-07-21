@@ -36,6 +36,42 @@ class LeaderboardController extends Controller
                 'is_current_user' => (int) $row->user_id === $currentUserId,
             ]));
 
-        return LeaderboardEntryResource::collection($entries);
+        return LeaderboardEntryResource::collection($entries)
+            ->additional(['meta' => $this->buildMeta($entries, $currentUserId)]);
+    }
+
+    /**
+     * "You are #X of Y / better than Z%" metadata for a ranked (sorted) collection.
+     */
+    private function buildMeta($entries, int $userId): array
+    {
+        $total = $entries->count();
+        $me    = $entries->firstWhere('user_id', $userId);
+
+        if (!$me) {
+            return [
+                'total_players'          => $total,
+                'current_user_rank'      => null,
+                'current_user_score'     => null,
+                'current_user_average'   => null,
+                'better_than_percentage' => null,
+                'top_users'              => $entries->take(3)->values(),
+                'nearby_users'           => [],
+            ];
+        }
+
+        $rank       = $me['rank'];
+        $betterThan = $total > 1 ? (int) round(($total - $rank) / $total * 100) : 0;
+        $start      = max(0, $rank - 2);
+
+        return [
+            'total_players'          => $total,
+            'current_user_rank'      => $rank,
+            'current_user_score'     => $me['total_score'] ?? null,
+            'current_user_average'   => $me['avg_score'] ?? null,
+            'better_than_percentage' => $betterThan,
+            'top_users'              => $entries->take(3)->values(),
+            'nearby_users'           => $entries->slice($start, 3)->values(),
+        ];
     }
 }
