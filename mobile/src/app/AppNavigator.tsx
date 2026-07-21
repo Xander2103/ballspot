@@ -7,6 +7,8 @@ import { tokenStorage } from '../storage/tokenStorage';
 
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
+import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { CreateLeagueScreen } from '../screens/CreateLeagueScreen';
 import { JoinLeagueScreen } from '../screens/JoinLeagueScreen';
@@ -22,6 +24,8 @@ import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { email?: string; token?: string } | undefined;
   Home: undefined;
   Profile: undefined;
   CreateLeague: undefined;
@@ -64,6 +68,8 @@ export function AppNavigator() {
       <Stack.Navigator initialRouteName={isLoggedIn ? 'Home' : 'Login'} screenOptions={screenOptions}>
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'BallSpot', headerLeft: () => null }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />

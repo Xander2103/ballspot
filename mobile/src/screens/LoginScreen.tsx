@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -40,6 +40,9 @@ export function LoginScreen({ navigation }: Props) {
       <AppInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
       <AppInput label="Password" value={password} onChangeText={setPassword} secureTextEntry />
       <AppButton title="Login" onPress={handleLogin} loading={loading} style={styles.btn} />
+      <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgot} hitSlop={8}>
+        <Text style={styles.forgotText}>Forgot password?</Text>
+      </Pressable>
       <AppButton title="Create Account" onPress={() => navigation.navigate('Register')} variant="secondary" />
     </Screen>
   );
@@ -50,4 +53,6 @@ const styles = StyleSheet.create({
   logo: { fontSize: 36, fontWeight: '800', color: colors.primary, marginBottom: spacing.sm },
   tagline: { fontSize: 16, color: colors.textSecondary },
   btn: { marginBottom: spacing.sm },
+  forgot: { alignSelf: 'center', paddingVertical: spacing.sm, marginBottom: spacing.sm },
+  forgotText: { color: colors.accent, fontSize: 14, fontWeight: '600' },
 });
