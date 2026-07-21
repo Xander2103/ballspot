@@ -10,8 +10,23 @@ use Illuminate\Support\Str;
 
 class LeagueService
 {
+    /** Statuses that count as an "in-use" tournament for the free create limit. */
+    private const ACTIVE_STATUSES = ['lobby', 'active'];
+
     public function create(array $data, int $userId): League
     {
+        // Free-tier limit — foundation only, no payments. Archived/completed/
+        // cancelled tournaments do not count.
+        $activeOwned = League::where('owner_user_id', $userId)
+            ->whereIn('status', self::ACTIVE_STATUSES)
+            ->count();
+
+        abort_if(
+            $activeOwned >= $this->maxCreatedPerUser($userId),
+            422,
+            'You have reached the free tournament limit. Finish or cancel an existing tournament to create a new one.'
+        );
+
         $sport = Sport::where('slug', 'football')->firstOrFail();
 
         $league = League::create([
@@ -75,12 +90,44 @@ class LeagueService
             'This tournament is no longer accepting players.'
         );
 
-        LeagueMember::firstOrCreate([
-            'league_id' => $league->id,
-            'user_id'   => $userId,
-        ], ['joined_at' => now()]);
+        // Already a member? Idempotent — never block re-joining your own lobby.
+        $alreadyMember = $league->members()->where('user_id', $userId)->exists();
+
+        if (!$alreadyMember) {
+            abort_if(
+                $league->members()->count() >= $this->maxPlayersPerTournament($league->owner_user_id),
+                422,
+                'This tournament is full.'
+            );
+
+            LeagueMember::firstOrCreate([
+                'league_id' => $league->id,
+                'user_id'   => $userId,
+            ], ['joined_at' => now()]);
+        }
 
         return $league;
+    }
+
+    /**
+     * Max tournaments a user may have in lobby/active at once.
+     *
+     * TODO(premium): return the premium limit for premium users once a billing/
+     * entitlement system exists. No payments are implemented — everyone is free.
+     */
+    private function maxCreatedPerUser(int $userId): int
+    {
+        return config('ballspot.tournaments.max_created_per_user');
+    }
+
+    /**
+     * Max players allowed in a single tournament.
+     *
+     * TODO(premium): premium owners could unlock a larger cap. Not enforced yet.
+     */
+    private function maxPlayersPerTournament(int $ownerUserId): int
+    {
+        return config('ballspot.tournaments.max_players_per_tournament');
     }
 
     private function generateJoinCode(): string

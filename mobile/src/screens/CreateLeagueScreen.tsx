@@ -59,6 +59,10 @@ export function CreateLeagueScreen({ navigation }: Props) {
         Total rounds: {durationDays * roundsPerDay}
       </Text>
       <AppButton title="Create Tournament" onPress={handleCreate} loading={loading} />
+      <Text style={styles.freeNote}>
+        Free plan: up to 3 active tournaments, 8 players each.
+      </Text>
+      <Text style={styles.comingSoon}>More tournament options coming soon.</Text>
     </Screen>
   );
 }
@@ -70,4 +74,6 @@ const styles = StyleSheet.create({
   optionRow: { flexDirection: 'row', gap: spacing.sm },
   optBtn: { flex: 1 },
   summary: { textAlign: 'center', color: colors.primary, fontWeight: '700', marginBottom: spacing.lg, fontSize: 15 },
+  freeNote: { textAlign: 'center', color: colors.textSecondary, fontSize: 12, marginTop: spacing.lg },
+  comingSoon: { textAlign: 'center', color: colors.textMuted, fontSize: 12, marginTop: 4, fontStyle: 'italic' },
 });
