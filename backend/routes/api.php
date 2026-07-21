@@ -1,6 +1,7 @@
 <?php
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\DailyChallengeController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\RoundController;
@@ -21,6 +22,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me',            [AuthController::class, 'me']);
     Route::delete('/account',    [AccountController::class, 'delete']);
     Route::get('/profile/stats', [ProfileController::class, 'stats']);
+
+    Route::get('/badges',    [BadgeController::class, 'index']);
+    Route::get('/me/badges', [BadgeController::class, 'mine']);
 
     Route::get('/leagues',                        [LeagueController::class, 'index']);
     Route::post('/leagues',                       [LeagueController::class, 'store']);

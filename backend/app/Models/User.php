@@ -34,4 +34,11 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(League::class, 'league_members')->withPivot('joined_at');
     }
+
+    public function badges(): BelongsToMany
+    {
+        return $this->belongsToMany(Badge::class, 'user_badges')
+            ->withPivot('earned_at', 'context')
+            ->withTimestamps();
+    }
 }

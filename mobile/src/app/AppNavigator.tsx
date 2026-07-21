@@ -5,6 +5,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { colors } from '../theme/colors';
 import { tokenStorage } from '../storage/tokenStorage';
 
+import type { Badge } from '../types/badge';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
@@ -32,10 +33,10 @@ export type RootStackParamList = {
   JoinLeague: undefined;
   LeagueDetail: { leagueId: number; leagueName: string };
   Guess: { leagueId: number; roundId: number; leagueName: string };
-  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null };
+  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null; newBadges?: Badge[] };
   Leaderboard: { leagueId: number; leagueName: string };
   DailyChallenge: { dailyChallengeId: number };
-  DailyResult: { dailyChallengeId: number };
+  DailyResult: { dailyChallengeId: number; newBadges?: Badge[] };
   WeeklyLeaderboard: undefined;
 };
 

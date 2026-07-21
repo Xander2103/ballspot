@@ -5,6 +5,7 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { TrophyRoom } from '../components/TrophyRoom';
 import { authApi } from '../api/authApi';
 import { tokenStorage } from '../storage/tokenStorage';
 import { colors } from '../theme/colors';
@@ -120,6 +121,9 @@ export function ProfileScreen({ navigation }: Props) {
           </View>
         </>
       ) : null}
+
+      {/* Trophy Room */}
+      <TrophyRoom />
 
       {/* Account actions */}
       <AppButton

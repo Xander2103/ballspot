@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\DailyChallenge;
 use App\Models\Challenge;
 use App\Models\DailyChallengeGuess;
+use App\Http\Resources\BadgeResource;
+use App\Services\BadgeService;
 use App\Services\DailyStreakService;
 use App\Services\ScoreService;
 use Carbon\Carbon;
@@ -17,6 +19,7 @@ class DailyChallengeController extends Controller
     public function __construct(
         private ScoreService $scoreService,
         private DailyStreakService $streakService,
+        private BadgeService $badgeService,
     ) {}
 
     // GET /api/daily/today
@@ -98,7 +101,13 @@ class DailyChallengeController extends Controller
             'submitted_at'       => now(),
         ]);
 
-        return response()->json(['data' => $this->buildGuessResult($guess, $challenge, $dailyChallenge)]);
+        // Award any newly-earned virtual trophies (idempotent).
+        $newBadges = $this->badgeService->evaluateDailyGuess($request->user(), $guess, $dailyChallenge);
+
+        $result = $this->buildGuessResult($guess, $challenge, $dailyChallenge);
+        $result['new_badges'] = BadgeResource::collection($newBadges)->resolve();
+
+        return response()->json(['data' => $result]);
     }
 
     // GET /api/daily/{dailyChallenge}/result

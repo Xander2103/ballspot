@@ -106,13 +106,14 @@ export function GuessScreen({ route, navigation }: Props) {
     setSubmitting(true);
     setSubmitError('');
     try {
-      await roundApi.submitGuess(roundId, { guess_x_ratio: guessX, guess_y_ratio: guessY });
+      const { newBadges } = await roundApi.submitGuess(roundId, { guess_x_ratio: guessX, guess_y_ratio: guessY });
       navigation.replace('Result', {
         roundId,
         leagueId,
         imageUrl: round!.challenge.hidden_image_url,
         leagueName,
         categoryName: round!.challenge.category?.name ?? null,
+        newBadges,
       });
     } catch (e: any) {
       setSubmitError(e?.message || 'Failed to submit guess. Please try again.');

@@ -2,15 +2,20 @@
 namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SubmitGuessRequest;
+use App\Http\Resources\BadgeResource;
 use App\Http\Resources\GuessResultResource;
 use App\Models\Guess;
 use App\Models\LeagueRound;
+use App\Services\BadgeService;
 use App\Services\ScoreService;
 use Illuminate\Http\Request;
 
 class RoundController extends Controller
 {
-    public function __construct(private ScoreService $scoreService) {}
+    public function __construct(
+        private ScoreService $scoreService,
+        private BadgeService $badgeService,
+    ) {}
 
     public function submitGuess(SubmitGuessRequest $request, LeagueRound $round)
     {
@@ -47,7 +52,12 @@ class RoundController extends Controller
         ]);
 
         $guess->load('round.challenge');
-        return new GuessResultResource($guess);
+
+        // Award any newly-earned virtual trophies (idempotent).
+        $newBadges = $this->badgeService->evaluateTournamentGuess($request->user(), $guess);
+
+        return (new GuessResultResource($guess))
+            ->additional(['new_badges' => BadgeResource::collection($newBadges)->resolve()]);
     }
 
     public function result(Request $request, LeagueRound $round)

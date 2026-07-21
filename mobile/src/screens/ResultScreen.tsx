@@ -6,6 +6,7 @@ import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
 import { RankInsight } from '../components/RankInsight';
+import { NewBadgesCard } from '../components/NewBadgesCard';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -43,7 +44,7 @@ function pct(ratio: number): string {
 }
 
 export function ResultScreen({ route, navigation }: Props) {
-  const { roundId, leagueId, imageUrl, leagueName, categoryName } = route.params;
+  const { roundId, leagueId, imageUrl, leagueName, categoryName, newBadges } = route.params;
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [nextRound, setNextRound] = useState<CurrentRoundResponse | null>(null);
@@ -110,6 +111,9 @@ export function ResultScreen({ route, navigation }: Props) {
           ) : null}
         </View>
       </View>
+
+      {/* New badges unlocked */}
+      {newBadges && newBadges.length > 0 ? <NewBadgesCard badges={newBadges} /> : null}
 
       {/* Rank / percentile insight */}
       {typeof result.total_players === 'number' ? (

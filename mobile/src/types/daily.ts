@@ -1,4 +1,4 @@
-import type { EarnedBadge } from './badge';
+import type { Badge } from './badge';
 
 export interface DailyChallengeEntry {
   id: number;
@@ -33,7 +33,7 @@ export interface DailyGuessResult {
   total_players: number;
   better_than_percentage: number;
   // Optional: badges newly unlocked by this guess (see gamification).
-  new_badges?: EarnedBadge[];
+  new_badges?: Badge[];
 }
 
 export interface WeeklyLeaderboardEntry {
