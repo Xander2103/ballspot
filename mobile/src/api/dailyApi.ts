@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import type { TodayResponse, DailyGuessResult, WeeklyLeaderboard, DailyStats } from '../types/daily';
+import type { RankProgress } from '../types/auth';
 
 export const dailyApi = {
   // Optionally scope to a sport slug; omitted uses the user's saved preference.
@@ -9,7 +10,7 @@ export const dailyApi = {
     ),
 
   guess: (dailyChallengeId: number, guessXRatio: number, guessYRatio: number) =>
-    apiClient.request<{ data: DailyGuessResult }>(`/daily/${dailyChallengeId}/guess`, {
+    apiClient.request<{ data: DailyGuessResult; rank_progress?: RankProgress }>(`/daily/${dailyChallengeId}/guess`, {
       method: 'POST',
       body: JSON.stringify({ guess_x_ratio: guessXRatio, guess_y_ratio: guessYRatio }),
     }),

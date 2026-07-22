@@ -28,8 +28,8 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::post('categories/{category}/toggle', [\App\Http\Controllers\Admin\ChallengeCategoryController::class, 'toggle'])
         ->name('admin.categories.toggle');
     Route::get('sports', [\App\Http\Controllers\Admin\SportController::class, 'index'])->name('admin.sports.index');
-    Route::post('sports/{sport}/toggle', [\App\Http\Controllers\Admin\SportController::class, 'toggle'])
-        ->name('admin.sports.toggle');
+    Route::post('sports/{sport}/status', [\App\Http\Controllers\Admin\SportController::class, 'updateStatus'])
+        ->name('admin.sports.status');
 
     Route::prefix('daily')->name('admin.daily.')->group(function () {
         Route::get('/', [DailyChallengeAdminController::class, 'index'])->name('index');

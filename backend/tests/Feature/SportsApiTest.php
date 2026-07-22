@@ -19,9 +19,11 @@ class SportsApiTest extends TestCase
     private function seedSports(): void
     {
         Sport::create(['name' => 'Football', 'slug' => 'football', 'emoji' => '⚽',
-            'object_name' => 'ball', 'primary_color' => '#00c853', 'is_active' => true, 'sort_order' => 1]);
+            'object_name' => 'ball', 'primary_color' => '#00c853', 'status' => Sport::STATUS_ACTIVE, 'sort_order' => 1]);
         Sport::create(['name' => 'Tennis', 'slug' => 'tennis', 'emoji' => '🎾',
-            'object_name' => 'ball', 'primary_color' => '#cddc39', 'is_active' => false, 'sort_order' => 2]);
+            'object_name' => 'ball', 'primary_color' => '#cddc39', 'status' => Sport::STATUS_COMING_SOON, 'sort_order' => 2]);
+        Sport::create(['name' => 'Cricket', 'slug' => 'cricket', 'emoji' => '🏏',
+            'object_name' => 'ball', 'primary_color' => '#f44336', 'status' => Sport::STATUS_HIDDEN, 'sort_order' => 3]);
     }
 
     public function test_sports_requires_auth(): void
@@ -29,7 +31,7 @@ class SportsApiTest extends TestCase
         $this->getJson('/api/sports')->assertUnauthorized();
     }
 
-    public function test_returns_only_active_sports_by_default(): void
+    public function test_returns_active_and_coming_soon_but_not_hidden(): void
     {
         $token = $this->auth();
         $this->seedSports();
@@ -37,22 +39,32 @@ class SportsApiTest extends TestCase
         $res = $this->withToken($token)->getJson('/api/sports');
 
         $res->assertOk();
-        $res->assertJsonCount(1, 'data');
-        $res->assertJsonPath('data.0.slug', 'football');
+        $res->assertJsonCount(2, 'data'); // football + tennis, cricket (hidden) excluded
+
+        $slugs = collect($res->json('data'))->pluck('slug');
+        $this->assertTrue($slugs->contains('football'));
+        $this->assertTrue($slugs->contains('tennis'));
+        $this->assertFalse($slugs->contains('cricket'));
+
         $res->assertJsonStructure([
-            'data' => [['id', 'name', 'slug', 'emoji', 'object_name', 'primary_color', 'is_active']],
+            'data' => [['id', 'name', 'slug', 'emoji', 'object_name', 'primary_color', 'status', 'is_playable', 'is_coming_soon']],
         ]);
     }
 
-    public function test_can_include_inactive_sports(): void
+    public function test_exposes_status_flags(): void
     {
         $token = $this->auth();
         $this->seedSports();
 
-        $res = $this->withToken($token)->getJson('/api/sports?include_inactive=1');
+        $data = collect($this->withToken($token)->getJson('/api/sports')->json('data'))->keyBy('slug');
 
-        $res->assertOk();
-        $res->assertJsonCount(2, 'data');
+        $this->assertSame('active', $data['football']['status']);
+        $this->assertTrue($data['football']['is_playable']);
+        $this->assertFalse($data['football']['is_coming_soon']);
+
+        $this->assertSame('coming_soon', $data['tennis']['status']);
+        $this->assertFalse($data['tennis']['is_playable']);
+        $this->assertTrue($data['tennis']['is_coming_soon']);
     }
 
     public function test_unverified_user_can_load_sports_for_onboarding(): void
@@ -65,7 +77,6 @@ class SportsApiTest extends TestCase
         $res = $this->withToken($token)->getJson('/api/sports');
 
         $res->assertOk();
-        $res->assertJsonCount(1, 'data');
-        $res->assertJsonPath('data.0.slug', 'football');
+        $res->assertJsonCount(2, 'data');
     }
 }

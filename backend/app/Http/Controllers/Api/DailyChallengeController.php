@@ -21,6 +21,7 @@ class DailyChallengeController extends Controller
         private ScoreService $scoreService,
         private DailyStreakService $streakService,
         private BadgeService $badgeService,
+        private \App\Services\PlayerRankService $rankService,
     ) {}
 
     // GET /api/daily/today
@@ -152,7 +153,13 @@ class DailyChallengeController extends Controller
         $result = $this->buildGuessResult($guess, $challenge, $dailyChallenge);
         $result['new_badges'] = BadgeResource::collection($newBadges)->resolve();
 
-        return response()->json(['data' => $result]);
+        return response()->json([
+            'data'          => $result,
+            'rank_progress' => [
+                'xp_gained' => $guess->score,
+                'rank'      => $this->rankService->forUser($request->user()),
+            ],
+        ]);
     }
 
     // GET /api/daily/{dailyChallenge}/result

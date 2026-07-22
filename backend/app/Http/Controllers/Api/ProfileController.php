@@ -4,11 +4,21 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Guess;
 use App\Services\DailyStreakService;
+use App\Services\PlayerRankService;
 use Illuminate\Http\Request;
 
 class ProfileController extends Controller
 {
-    public function __construct(private DailyStreakService $streakService) {}
+    public function __construct(
+        private DailyStreakService $streakService,
+        private PlayerRankService $rankService,
+    ) {}
+
+    // GET /api/me/rank — personal rank/level/XP progression.
+    public function rank(Request $request)
+    {
+        return response()->json(['rank' => $this->rankService->forUser($request->user())]);
+    }
 
     public function stats(Request $request)
     {
@@ -43,6 +53,8 @@ class ProfileController extends Controller
             'best_daily_score'            => $dailyStats['best_score'],
             'current_daily_streak'        => $dailyStats['current_streak'],
             'best_daily_streak'           => $dailyStats['best_streak'],
+            // Personal progression (distinct from leaderboard position).
+            'rank'                        => $this->rankService->forUser($user),
         ]);
     }
 }

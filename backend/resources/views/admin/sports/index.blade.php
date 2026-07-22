@@ -7,6 +7,12 @@
     <h1 class="h3 mb-0">Sports</h1>
 </div>
 
+<p class="text-muted small mb-3">
+    <strong>Active</strong> = playable and selectable ·
+    <strong>Coming soon</strong> = shown in the app but disabled ·
+    <strong>Hidden</strong> = not shown to players.
+</p>
+
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover mb-0 align-middle">
@@ -18,7 +24,7 @@
                     <th>Slug</th>
                     <th>Object</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th>Set status</th>
                 </tr>
             </thead>
             <tbody>
@@ -33,21 +39,26 @@
                     <td class="small text-muted font-monospace">{{ $sport->slug }}</td>
                     <td class="small text-muted">{{ $sport->object_name ?? '—' }}</td>
                     <td>
-                        @if($sport->is_active)
+                        @if($sport->status === \App\Models\Sport::STATUS_ACTIVE)
                             <span class="badge badge-active">Active</span>
+                        @elseif($sport->status === \App\Models\Sport::STATUS_COMING_SOON)
+                            <span class="badge bg-warning text-dark">Coming soon</span>
                         @else
-                            <span class="badge badge-draft">Inactive</span>
+                            <span class="badge badge-draft">Hidden</span>
                         @endif
                     </td>
                     <td>
                         @if($sport->slug === 'football')
                             <span class="text-muted small">🔒 Always active</span>
                         @else
-                            <form action="/admin/sports/{{ $sport->id }}/toggle" method="POST" class="d-inline">
+                            <form action="/admin/sports/{{ $sport->id }}/status" method="POST" class="d-inline-flex gap-1">
                                 @csrf
-                                <button type="submit" class="btn btn-sm {{ $sport->is_active ? 'btn-outline-warning' : 'btn-outline-success' }}">
-                                    {{ $sport->is_active ? 'Deactivate' : 'Activate' }}
-                                </button>
+                                <select name="status" class="form-select form-select-sm" style="width:auto">
+                                    <option value="active" @selected($sport->status === 'active')>Active</option>
+                                    <option value="coming_soon" @selected($sport->status === 'coming_soon')>Coming soon</option>
+                                    <option value="hidden" @selected($sport->status === 'hidden')>Hidden</option>
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Save</button>
                             </form>
                         @endif
                     </td>

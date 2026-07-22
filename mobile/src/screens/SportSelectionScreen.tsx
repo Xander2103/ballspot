@@ -40,7 +40,12 @@ export function SportSelectionScreen({ route, navigation }: Props) {
   }, []);
 
   async function choose(sport: Sport) {
-    if (!sport.is_active || savingId) return;
+    if (savingId) return;
+    // Coming soon: visible but not selectable — show a fun message instead.
+    if (!sport.is_playable) {
+      setError(`${sport.name} is coming soon.`);
+      return;
+    }
     setSavingId(sport.id);
     setError(null);
     try {
@@ -71,19 +76,19 @@ export function SportSelectionScreen({ route, navigation }: Props) {
         <View style={styles.grid}>
           {sports.map((sport) => {
             const selected = sport.id === currentId;
-            const disabled = !sport.is_active;
+            const comingSoon = sport.is_coming_soon;
             return (
               <TouchableOpacity
                 key={sport.id}
-                activeOpacity={disabled ? 1 : 0.8}
+                activeOpacity={0.8}
                 onPress={() => choose(sport)}
-                disabled={disabled || savingId !== null}
+                disabled={savingId !== null}
                 style={[
                   styles.card,
                   {
                     backgroundColor: theme.surface,
                     borderColor: selected ? sport.primary_color : theme.border,
-                    opacity: disabled ? 0.55 : 1,
+                    opacity: comingSoon ? 0.65 : 1,
                   },
                 ]}
               >
@@ -91,9 +96,16 @@ export function SportSelectionScreen({ route, navigation }: Props) {
                   <Text style={styles.emoji}>{sport.emoji}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.sportName, { color: theme.text }]}>{sport.name}</Text>
+                  <View style={styles.nameRow}>
+                    <Text style={[styles.sportName, { color: theme.text }]}>{sport.name}</Text>
+                    {comingSoon ? (
+                      <View style={[styles.soonBadge, { backgroundColor: sport.primary_color + '2e', borderColor: sport.primary_color }]}>
+                        <Text style={[styles.soonBadgeText, { color: sport.primary_color }]}>SOON</Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={[styles.sportLabel, { color: theme.textMuted }]}>
-                    {disabled ? 'Coming soon' : `Guess the ${sport.object_name}`}
+                    {comingSoon ? 'Coming soon' : `Guess the ${sport.object_name}`}
                   </Text>
                 </View>
                 {savingId === sport.id ? (
@@ -132,7 +144,11 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   emoji: { fontSize: 28 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   sportName: { fontSize: 18, fontWeight: '700' },
   sportLabel: { fontSize: 13, marginTop: 2 },
+  soonBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 1 },
+  soonBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   check: { fontSize: 22, fontWeight: '800', marginLeft: spacing.sm },
 });
+

@@ -21,7 +21,7 @@ class PreferencesTest extends TestCase
     {
         return Sport::create([
             'name' => $name, 'slug' => $slug, 'emoji' => '⚽',
-            'object_name' => 'ball', 'primary_color' => '#00c853', 'is_active' => true,
+            'object_name' => 'ball', 'primary_color' => '#00c853', 'status' => Sport::STATUS_ACTIVE,
         ]);
     }
 
@@ -57,16 +57,32 @@ class PreferencesTest extends TestCase
         $this->assertSame($sport->id, $user->fresh()->preferred_sport_id);
     }
 
-    public function test_cannot_set_inactive_sport(): void
+    public function test_cannot_set_coming_soon_sport(): void
     {
         [, $token] = $this->auth();
-        $inactive = Sport::create([
+        $comingSoon = Sport::create([
             'name' => 'Tennis', 'slug' => 'tennis', 'emoji' => '🎾',
-            'object_name' => 'ball', 'primary_color' => '#cddc39', 'is_active' => false,
+            'object_name' => 'ball', 'primary_color' => '#cddc39', 'status' => Sport::STATUS_COMING_SOON,
         ]);
 
         $res = $this->withToken($token)->patchJson('/api/me/preferences', [
-            'preferred_sport_id' => $inactive->id,
+            'preferred_sport_id' => $comingSoon->id,
+        ]);
+
+        $res->assertStatus(422);
+        $res->assertJsonValidationErrors('preferred_sport_id');
+    }
+
+    public function test_cannot_set_hidden_sport(): void
+    {
+        [, $token] = $this->auth();
+        $hidden = Sport::create([
+            'name' => 'Cricket', 'slug' => 'cricket', 'emoji' => '🏏',
+            'object_name' => 'ball', 'primary_color' => '#f44336', 'status' => Sport::STATUS_HIDDEN,
+        ]);
+
+        $res = $this->withToken($token)->patchJson('/api/me/preferences', [
+            'preferred_sport_id' => $hidden->id,
         ]);
 
         $res->assertStatus(422);

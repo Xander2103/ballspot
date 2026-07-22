@@ -16,6 +16,23 @@ return [
     | must be verified before any API token is issued. Codes are stored hashed,
     | expire, and are attempt-limited. Resend is cooldown-limited.
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Player rank / level / XP progression
+    |--------------------------------------------------------------------------
+    | Personal long-term progression (distinct from leaderboard position). XP
+    | currently equals a player's lifetime score total (tournament + daily
+    | guesses). Ranks are ordered by min_xp ascending; the last is the max rank.
+    */
+    'ranks' => [
+        ['name' => 'Rookie',      'level' => 1, 'min_xp' => 0],
+        ['name' => 'Amateur',     'level' => 2, 'min_xp' => 2500],
+        ['name' => 'Pro',         'level' => 3, 'min_xp' => 10000],
+        ['name' => 'Elite',       'level' => 4, 'min_xp' => 25000],
+        ['name' => 'Legend',      'level' => 5, 'min_xp' => 50000],
+        ['name' => 'Ball Master', 'level' => 6, 'min_xp' => 100000],
+    ],
+
     'auth' => [
         'login_code_expiry_minutes'          => (int) env('BALLSPOT_LOGIN_CODE_EXPIRY_MINUTES', 10),
         'login_code_max_attempts'            => (int) env('BALLSPOT_LOGIN_CODE_MAX_ATTEMPTS', 5),

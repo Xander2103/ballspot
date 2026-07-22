@@ -10,6 +10,47 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.7.2 — Sport Availability, Avatar Upload Fix, and User Rank XP Progression
+
+- **Avatar upload fixed cross-platform.** Uploading a profile photo previously failed on
+  Expo **web** with "The avatar field must be a file." — appending a React Native
+  `{ uri, name, type }` descriptor to `FormData` on web stringifies to `"[object Object]"`,
+  so Laravel saw a string, not a file. `src/api/avatarApi.ts` is now platform-aware: on web
+  the picked `blob:`/`data:` URI is fetched into a real `Blob` and appended as a proper
+  multipart file part (with a filename); on native the RN descriptor is used. Field name is
+  exactly `avatar`; supported types are **JPEG, PNG, WebP** (max 2 MB, SVG rejected). The
+  backend `POST /api/me/avatar` behaviour is unchanged — only the friendly error message was
+  unified to **"Please choose a JPG, PNG or WebP image under 2MB."**
+- **Sport availability statuses.** A new `sports.status` column replaces the old
+  activate/deactivate toggle with three states — the **source of truth** for visibility:
+  - **`active`** — visible + selectable/playable;
+  - **`coming_soon`** — visible in the app but disabled (shows a "SOON" badge and
+    "Coming soon");
+  - **`hidden`** — never shown to normal users.
+  The legacy `is_active` boolean is kept and **mirrored** (`is_active == (status === 'active')`)
+  via a model mutator so existing queries keep working. `GET /api/sports` now returns only
+  **visible** sports (active + coming_soon; hidden excluded) with `status`, `is_playable`,
+  `is_coming_soon`, and `is_active` flags. Setting a preferred sport or creating a tournament
+  for a non-active sport returns **422 "This sport is not available yet."** Seeded: Football =
+  active; Golf, Tennis, Hockey, Cricket, American Football, Basketball = coming_soon.
+- **Admin sport status control.** `POST /admin/sports/{sport}/status` sets a sport's status
+  (active/coming_soon/hidden) via a dropdown on the admin Sports page (replaces the old
+  toggle). **Football is protected** — it cannot be moved off active ("Football must stay
+  active."). Invalid status values are rejected.
+- **Personal rank / level / XP progression (distinct from leaderboard rank).** This is
+  long-term **personal** progression — how far a player has come overall — *not* the
+  leaderboard rank (your position vs. other players), which is separate and unchanged. Six
+  ranks are defined in `config('ballspot.ranks')` by minimum lifetime XP: **Rookie** (L1, 0),
+  **Amateur** (L2, 2,500), **Pro** (L3, 10,000), **Elite** (L4, 25,000), **Legend** (L5,
+  50,000), **Ball Master** (L6, 100,000). `total_xp` currently **equals lifetime score total**
+  (sum of tournament `guesses.score` + daily `daily_challenge_guesses.score`); badges do **not**
+  add XP. `GET /api/profile/stats` now includes a `rank` object, `GET /api/me/rank` returns it
+  standalone, and fresh guess responses (daily + tournament round) include a top-level
+  `rank_progress`. Mobile Profile shows a premium **RankCard**; result screens show a small
+  **RankProgressCard** ("+N XP") only right after a fresh guess. **Known limitation:** there is
+  **no XP transaction/ledger table** — XP is derived on read.
+- Backend tests: **189 passing** (was 173; +16). See [docs/test-report.md](docs/test-report.md).
+
 ## New in v1.6.2 — Email Verification at Registration + Configurable Login 2FA
 
 This sprint **adjusts** the always-on email 2FA introduced in v1.6.1. Email
@@ -189,7 +230,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 172 feature tests
+cd backend && php artisan test          # 189 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 

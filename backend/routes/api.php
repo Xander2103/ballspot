@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Full app access requires a verified email.
     Route::middleware('verified')->group(function () {
         Route::get('/profile/stats', [ProfileController::class, 'stats']);
+        Route::get('/me/rank',       [ProfileController::class, 'rank']);
 
         // User preferences (sport / theme) + avatar
         Route::get('/me/preferences',   [PreferenceController::class, 'show']);

@@ -19,6 +19,30 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.7.2 store-relevant notes
+
+- **Avatar upload now works cross-platform (web + native).** The Expo **web** upload bug
+  ("The avatar field must be a file.") is fixed — the client now sends a real `Blob` file part
+  on web and the RN descriptor on native (`POST /api/me/avatar`; JPEG/PNG/WebP, max 2 MB, SVG
+  rejected). This does **not** change the UGC posture from v1.7: avatars are still
+  user-supplied imagery, so keep a reporting/removal path and Terms language for objectionable
+  content, and the same photo-library permission string applies. No new permissions are added
+  in v1.7.2. Invalid uploads return a clear message: "Please choose a JPG, PNG or WebP image
+  under 2MB."
+- **Sport "coming soon" is a roadmap teaser — no purchasable content.** The new `coming_soon`
+  status makes non-football sports **visible but disabled** ("Coming soon" / "SOON" badge) so
+  users can see what's planned. These are **not** playable, **not** purchasable, and carry no
+  IAP, unlocks, or paywalls — only football is `active`/playable. `hidden` sports are not shown
+  at all. This does not add a store content-review surface or monetization.
+- **Personal rank / XP is cosmetic progression — no real rewards or money.** The new
+  rank/level/XP system (Rookie → Ball Master) is a **cosmetic** long-term progression display
+  derived from the player's lifetime score. There are **no real prizes, no currency, no
+  purchases, and no gambling** — XP cannot be bought, sold, or redeemed. It is distinct from
+  leaderboard rank (position vs. other players). This keeps the store listing category (no IAP,
+  no gambling, no real money) intact.
+
+---
+
 ## v1.7 store-relevant notes
 
 - **Profile avatar upload = user-generated content (UGC).** Users can upload a photo

@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Sport;
+use Illuminate\Http\Request;
 
 class SportController extends Controller
 {
@@ -13,15 +14,32 @@ class SportController extends Controller
         return view('admin.sports.index', compact('sports'));
     }
 
-    public function toggle(Sport $sport)
+    /**
+     * Set a sport's availability status: active / coming_soon / hidden.
+     * Football is protected — it must stay active (the live experience).
+     */
+    public function updateStatus(Request $request, Sport $sport)
     {
-        // Safety: football is the current live sport and must always stay active.
-        if ($sport->slug === 'football' && $sport->is_active) {
-            return redirect('/admin/sports')->with('error', 'Football cannot be deactivated.');
+        $data = $request->validate([
+            'status' => ['required', 'in:' . implode(',', Sport::STATUSES)],
+        ]);
+
+        if ($sport->slug === 'football' && $data['status'] !== Sport::STATUS_ACTIVE) {
+            return redirect('/admin/sports')->with('error', 'Football must stay active.');
         }
 
-        $sport->update(['is_active' => !$sport->is_active]);
-        $state = $sport->is_active ? 'activated' : 'deactivated';
-        return redirect('/admin/sports')->with('success', "Sport {$state}.");
+        $sport->update(['status' => $data['status']]);
+
+        return redirect('/admin/sports')->with('success', "\u{201C}{$sport->name}\u{201D} is now {$this->label($data['status'])}.");
+    }
+
+    private function label(string $status): string
+    {
+        return match ($status) {
+            Sport::STATUS_ACTIVE      => 'Active',
+            Sport::STATUS_COMING_SOON => 'Coming soon',
+            Sport::STATUS_HIDDEN      => 'Hidden',
+            default                   => $status,
+        };
     }
 }

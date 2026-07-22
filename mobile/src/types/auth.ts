@@ -50,6 +50,24 @@ export function isEmailVerificationRequired(result: LoginResult): result is Emai
   return (result as EmailVerificationRequired).requires_email_verification === true;
 }
 
+export interface PlayerRank {
+  name: string;
+  level: number;
+  total_xp: number;
+  current_rank_min_xp: number;
+  next_rank_name: string | null;
+  next_rank_xp: number | null;
+  xp_to_next_rank: number | null;
+  progress_to_next_rank_pct: number;
+  is_max_rank: boolean;
+}
+
+/** Rank feedback returned right after submitting a guess. */
+export interface RankProgress {
+  xp_gained: number;
+  rank: PlayerRank;
+}
+
 export interface ProfileStats {
   tournaments_count: number;
   completed_tournaments_count: number;
@@ -61,4 +79,5 @@ export interface ProfileStats {
   best_daily_score: number;
   current_daily_streak: number;
   best_daily_streak: number;
+  rank: PlayerRank;
 }

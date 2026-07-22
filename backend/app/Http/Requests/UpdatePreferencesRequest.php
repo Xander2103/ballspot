@@ -14,13 +14,13 @@ class UpdatePreferencesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Must reference an existing, ACTIVE sport. Null explicitly clears
-            // the preference (falls back to football-first flow).
+            // Must reference an existing, playable (status = active) sport. Null
+            // explicitly clears the preference (falls back to football-first).
             'preferred_sport_id' => [
                 'sometimes',
                 'nullable',
                 'integer',
-                Rule::exists('sports', 'id')->where('is_active', true),
+                Rule::exists('sports', 'id')->where('status', \App\Models\Sport::STATUS_ACTIVE),
             ],
             // Must be one of the extensible allow-listed themes.
             'selected_theme' => [
@@ -34,7 +34,7 @@ class UpdatePreferencesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'preferred_sport_id.exists' => 'That sport is not available yet. Pick an active sport.',
+            'preferred_sport_id.exists' => 'This sport is not available yet.',
             'selected_theme.in'         => 'That theme is not available.',
         ];
     }

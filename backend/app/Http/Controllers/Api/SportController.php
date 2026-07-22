@@ -11,20 +11,18 @@ class SportController extends Controller
     /**
      * GET /api/sports
      *
-     * Returns selectable sports/categories for onboarding and settings.
-     * By default only active sports are returned (football ships active;
-     * others are activated by an admin once content exists). Pass
-     * ?include_inactive=1 to also list inactive sports (used by UIs that
-     * want to show "Coming soon" cards).
+     * Returns sports for app selection: active (selectable) and coming_soon
+     * (visible but disabled). Hidden sports are never returned to normal users.
+     * No admin-sensitive fields are exposed.
      */
     public function index(Request $request)
     {
-        $query = Sport::query()->orderBy('sort_order')->orderBy('name');
+        $sports = Sport::query()
+            ->visible()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
 
-        if (!$request->boolean('include_inactive')) {
-            $query->where('is_active', true);
-        }
-
-        return SportResource::collection($query->get());
+        return SportResource::collection($sports);
     }
 }

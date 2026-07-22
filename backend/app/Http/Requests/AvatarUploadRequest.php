@@ -30,13 +30,15 @@ class AvatarUploadRequest extends FormRequest
 
     public function messages(): array
     {
-        $maxKb = (int) config('ballspot.avatar.max_kb');
+        $maxMb = round(((int) config('ballspot.avatar.max_kb')) / 1024);
+        $friendly = "Please choose a JPG, PNG or WebP image under {$maxMb}MB.";
 
         return [
             'avatar.required' => 'Please choose an image.',
-            'avatar.image'    => 'The file must be a JPEG, PNG or WebP image.',
-            'avatar.mimes'    => 'Only JPEG, PNG or WebP images are allowed (no SVG).',
-            'avatar.max'      => 'The image is too large. Max size is ' . $maxKb . ' KB.',
+            'avatar.file'     => $friendly,
+            'avatar.image'    => $friendly,
+            'avatar.mimes'    => $friendly,
+            'avatar.max'      => $friendly,
         ];
     }
 }

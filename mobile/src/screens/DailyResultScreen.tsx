@@ -7,6 +7,7 @@ import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
 import { RankInsight } from '../components/RankInsight';
 import { NewBadgesCard } from '../components/NewBadgesCard';
+import { RankProgressCard } from '../components/RankProgressCard';
 import { dailyApi } from '../api/dailyApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -43,7 +44,7 @@ function pct(ratio: number): string {
 }
 
 export function DailyResultScreen({ route, navigation }: Props) {
-  const { dailyChallengeId, newBadges } = route.params;
+  const { dailyChallengeId, newBadges, rankProgress } = route.params;
 
   const [result, setResult] = useState<DailyGuessResult | null>(null);
   const [today, setToday] = useState<TodayResponse | null>(null);
@@ -133,6 +134,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
       </View>
 
       {/* New badges unlocked */}
+      {rankProgress ? <RankProgressCard progress={rankProgress} /> : null}
       {newBadges && newBadges.length > 0 ? <NewBadgesCard badges={newBadges} /> : null}
 
       {/* Rank / percentile insight */}

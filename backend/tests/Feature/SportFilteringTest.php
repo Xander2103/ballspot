@@ -18,7 +18,8 @@ class SportFilteringTest extends TestCase
     {
         return Sport::create([
             'name' => $name, 'slug' => $slug, 'emoji' => '⚽',
-            'object_name' => 'ball', 'primary_color' => '#00c853', 'is_active' => $active,
+            'object_name' => 'ball', 'primary_color' => '#00c853',
+            'status' => $active ? Sport::STATUS_ACTIVE : Sport::STATUS_COMING_SOON,
         ]);
     }
 

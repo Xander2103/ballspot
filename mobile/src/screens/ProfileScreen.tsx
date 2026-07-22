@@ -8,6 +8,7 @@ import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { TrophyRoom } from '../components/TrophyRoom';
 import { Avatar } from '../components/Avatar';
+import { RankCard } from '../components/RankCard';
 import { authApi } from '../api/authApi';
 import { avatarApi } from '../api/avatarApi';
 import { tokenStorage } from '../storage/tokenStorage';
@@ -119,6 +120,9 @@ export function ProfileScreen({ navigation }: Props) {
       {avatarError ? <Text style={styles.inlineError}>{avatarError}</Text> : null}
       <Text style={styles.name}>{user?.name ?? '—'}</Text>
       <Text style={styles.username}>@{user?.username ?? '—'}</Text>
+
+      {/* Personal rank / level / XP progression */}
+      {stats?.rank ? <RankCard rank={stats.rank} /> : null}
 
       {/* Sport preference */}
       <Text style={styles.sectionTitle}>Your sport</Text>

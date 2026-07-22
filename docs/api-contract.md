@@ -202,6 +202,9 @@ After this call the bearer token is invalid. The mobile app clears the stored to
 
 ### GET /profile/stats  *(auth required)*
 Returns aggregate stats for the current user (tournaments + daily challenge stats).
+As of **v1.7.2** the response also includes a `rank` object — the user's **personal**
+long-term rank/level/XP progression (see [User Rank / XP](#user-rank--xp-progression-v172)).
+This is distinct from **leaderboard rank** (position vs. other players), which is unchanged.
 ```json
 // Response 200
 {
@@ -214,9 +217,69 @@ Returns aggregate stats for the current user (tournaments + daily challenge stat
   "best_streak": 7,
   "total_daily_challenges_played": 12,
   "average_daily_score": 74.5,
-  "best_daily_score": 98
+  "best_daily_score": 98,
+  // v1.7.2 — personal rank/XP progression:
+  "rank": {
+    "name": "Amateur",
+    "level": 2,
+    "total_xp": 3120,
+    "current_rank_min_xp": 2500,
+    "next_rank_name": "Pro",
+    "next_rank_xp": 10000,
+    "xp_to_next_rank": 6880,
+    "progress_to_next_rank_pct": 8,
+    "is_max_rank": false
+  }
 }
 ```
+
+### GET /api/me/rank  *(auth required)*  *(new v1.7.2)*
+
+Returns the current user's personal rank object standalone (same shape as the `rank` field on
+`/profile/stats`).
+
+```json
+// Response 200
+{ "rank": {
+  "name": "Amateur", "level": 2, "total_xp": 3120,
+  "current_rank_min_xp": 2500,
+  "next_rank_name": "Pro", "next_rank_xp": 10000, "xp_to_next_rank": 6880,
+  "progress_to_next_rank_pct": 8, "is_max_rank": false
+} }
+
+// At max rank (Ball Master), the "next_*" fields are null and is_max_rank is true:
+{ "rank": {
+  "name": "Ball Master", "level": 6, "total_xp": 120000,
+  "current_rank_min_xp": 100000,
+  "next_rank_name": null, "next_rank_xp": null, "xp_to_next_rank": null,
+  "progress_to_next_rank_pct": 100, "is_max_rank": true
+} }
+```
+
+#### User Rank / XP progression (v1.7.2)
+
+`PlayerRankService` computes **personal** progression — long-term, distinct from leaderboard
+rank (which is position relative to other players).
+
+- **`total_xp`** = lifetime score total = `sum(guesses.score)` (tournaments) +
+  `sum(daily_challenge_guesses.score)` (daily). **XP currently equals the lifetime score
+  total.** Badges do **not** add XP.
+- Ranks come from `config('ballspot.ranks')` — 6 ranks by minimum XP:
+
+  | Level | Rank | Min XP |
+  |-------|------|--------|
+  | 1 | Rookie | 0 |
+  | 2 | Amateur | 2,500 |
+  | 3 | Pro | 10,000 |
+  | 4 | Elite | 25,000 |
+  | 5 | Legend | 50,000 |
+  | 6 | Ball Master | 100,000 |
+
+- Fields returned: `name`, `level`, `total_xp`, `current_rank_min_xp`, `next_rank_name`
+  (nullable), `next_rank_xp` (nullable), `xp_to_next_rank` (nullable),
+  `progress_to_next_rank_pct`, `is_max_rank`.
+- **Known limitation:** there is **no XP transaction/ledger table** — XP is derived on read from
+  the score sums each time.
 
 ---
 
@@ -389,8 +452,20 @@ When the daily limit is reached, this endpoint returns `reason: "daily_limit_rea
     "ball_x_ratio": 0.45,
     "ball_y_ratio": 0.71,
     "reveal_image_url": "http://.../storage/challenges/original/corner-kick.jpg"
+  },
+  // v1.7.2 — top-level personal rank progress for THIS guess (alongside data):
+  "rank_progress": {
+    "xp_gained": 87,
+    "rank": {
+      "name": "Amateur", "level": 2, "total_xp": 3120,
+      "current_rank_min_xp": 2500,
+      "next_rank_name": "Pro", "next_rank_xp": 10000, "xp_to_next_rank": 6880,
+      "progress_to_next_rank_pct": 8, "is_max_rank": false
+    }
   }
 }
+// rank_progress.xp_gained equals this guess's score. The GET /rounds/{id}/result endpoint is
+// UNCHANGED — it does NOT include rank_progress (no xp_gained on old results).
 // reveal_image_url is null when no reveal image exists for this challenge.
 // Response 422 — duplicate guess
 { "message": "You have already guessed this round." }
@@ -495,8 +570,20 @@ Submit a guess for today's daily challenge. One guess per user per daily challen
     "ball_x_ratio": 0.45,
     "ball_y_ratio": 0.71,
     "reveal_image_url": "http://..."
+  },
+  // v1.7.2 — top-level personal rank progress for THIS guess (alongside data):
+  "rank_progress": {
+    "xp_gained": 87,
+    "rank": {
+      "name": "Amateur", "level": 2, "total_xp": 3120,
+      "current_rank_min_xp": 2500,
+      "next_rank_name": "Pro", "next_rank_xp": 10000, "xp_to_next_rank": 6880,
+      "progress_to_next_rank_pct": 8, "is_max_rank": false
+    }
   }
 }
+// rank_progress.xp_gained equals this guess's score. The GET /api/daily/{id}/result endpoint is
+// UNCHANGED — it does NOT include rank_progress.
 
 // Response 422 — already played
 { "message": "You have already played today's challenge." }
@@ -610,8 +697,8 @@ Login at `/admin/login` with `admin@ballspot.local / password`. All admin routes
 | GET | /admin/daily/create | Create daily challenge form (select challenge + date) |
 | POST | /admin/daily | Store new daily challenge |
 | PATCH | /admin/daily/{id}/status | Update status (scheduled/active/archived) |
-| GET | /admin/sports | **v1.7** — List all sports (active/inactive) |
-| POST | /admin/sports/{sport}/toggle | **v1.7** — Activate/deactivate a sport. Football cannot be deactivated (protected). |
+| GET | /admin/sports | **v1.7** — List all sports with a status dropdown (active/coming_soon/hidden) |
+| POST | /admin/sports/{sport}/status | **v1.7.2** — Set a sport's status (active/coming_soon/hidden) via dropdown; replaces the old `/toggle`. Football is protected — it cannot be moved off active ("Football must stay active."). Invalid status rejected. |
 
 ---
 
@@ -735,24 +822,49 @@ No payment/purchase endpoints exist. Badges and trophies are virtual only.
 
 All endpoints below require `auth:sanctum`.
 
-### GET /api/sports  *(auth required)*
+### GET /api/sports  *(auth required)*  *(updated v1.7.2)*
 
-Returns active sports by default. Pass `?include_inactive=1` to also return inactive
-("Coming soon") sports.
+Returns **visible** sports only — those with `status` = `active` or `coming_soon`. Sports with
+`status = hidden` are excluded and never shown to normal users. **The old
+`?include_inactive=1` parameter has been removed.**
+
+Each sport carries the new `status` field plus convenience booleans. No admin-sensitive fields
+are exposed.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `status` | string | `active` \| `coming_soon` (`hidden` never returned here) |
+| `is_playable` | bool | `true` only when `status = active` |
+| `is_coming_soon` | bool | `true` when `status = coming_soon` |
+| `is_active` | bool | back-compat mirror of `status === 'active'` |
 
 ```json
 // GET /api/sports
-// Response 200
+// Response 200 — active + coming_soon (hidden excluded)
 { "data": [
-  { "id": 1, "name": "Football", "slug": "football", "emoji": "⚽", "object_name": "ball", "primary_color": "#00c853", "is_active": true }
-] }
-
-// GET /api/sports?include_inactive=1 — also includes inactive sports
-{ "data": [
-  { "id": 1, "name": "Football", "slug": "football", "emoji": "⚽", "object_name": "ball", "primary_color": "#00c853", "is_active": true },
-  { "id": 3, "name": "Tennis", "slug": "tennis", "emoji": "🎾", "object_name": "ball", "primary_color": "#c6ff00", "is_active": false }
+  { "id": 1, "name": "Football", "slug": "football", "emoji": "⚽", "object_name": "ball",
+    "primary_color": "#00c853",
+    "status": "active", "is_playable": true, "is_coming_soon": false, "is_active": true },
+  { "id": 3, "name": "Tennis", "slug": "tennis", "emoji": "🎾", "object_name": "ball",
+    "primary_color": "#c6ff00",
+    "status": "coming_soon", "is_playable": false, "is_coming_soon": true, "is_active": false }
 ] }
 ```
+
+**Sport status meanings:**
+- **`active`** — visible + selectable/playable.
+- **`coming_soon`** — visible in the app but disabled ("Coming soon"); cannot be selected as a
+  preference or used to create a tournament.
+- **`hidden`** — not shown to normal users (excluded from `GET /api/sports`).
+
+`status` is the source of truth; `is_active` is a mirrored boolean (`is_active == (status ===
+'active')`) kept for backward compatibility. Seeded (v1.7.2): Football = `active`; Golf, Tennis,
+Hockey, Cricket, American Football, Basketball = `coming_soon`.
+
+**Non-active sports are rejected (422).** Setting `preferred_sport_id` (`PATCH
+/api/me/preferences`) or creating a tournament (`POST /leagues`) for a `coming_soon` or `hidden`
+sport returns **422 "This sport is not available yet."** Only `active` sports are playable, so
+daily challenges and tournaments effectively use active sports only.
 
 ### GET /api/me/preferences  *(auth required)*
 
@@ -774,7 +886,8 @@ Partial updates supported — send either or both fields.
 ```json
 // Request (any subset)
 { "preferred_sport_id": 1, "selected_theme": "tournament_blue" }
-// preferred_sport_id: must exist AND be an ACTIVE sport; null clears the preference.
+// preferred_sport_id: must exist AND have status = ACTIVE (coming_soon/hidden are rejected);
+//   null clears the preference.
 // selected_theme: must be in the config allow-list
 //   (classic | tournament_blue | pitch_green | sunset_orange | high_contrast).
 
@@ -782,19 +895,31 @@ Partial updates supported — send either or both fields.
 { "preferred_sport": { ... }, "selected_theme": "tournament_blue", "avatar_url": null,
   "available_themes": [ ... ] }
 
-// Response 422 — validation error (unknown theme, or inactive/nonexistent sport)
+// Response 422 — unknown theme
 { "message": "The selected theme is invalid.", "errors": { "selected_theme": ["..."] } }
+
+// Response 422 — non-active sport (v1.7.2)
+{ "message": "This sport is not available yet.",
+  "errors": { "preferred_sport_id": ["This sport is not available yet."] } }
 ```
 
 ### POST /api/me/avatar  *(auth required)*
 
-Multipart form upload. Field name: `avatar`.
+Multipart form upload. Field name is **exactly** `avatar`.
 
-- Accepts `jpeg` / `jpg` / `png` / `webp`; **max 2048 KB (2 MB)**. SVG is rejected (the
-  `image` rule + mimes allow-list).
+- Accepts **`image/jpeg` / `image/png` / `image/webp`** (rules: `required|file|image|mimes:
+  jpeg,jpg,png,webp|max:2048`); **max 2048 KB (2 MB)**. SVG is rejected.
 - Stored on the `public` disk under `avatars/` with a randomized filename.
 - Replaces (and best-effort deletes) the previous avatar **only if** it lives under
   `avatars/` — challenge images and other files are never deleted.
+- Behaviour is unchanged in v1.7.2; only the friendly validation message was unified (below).
+
+> **Cross-platform note (v1.7.2 client fix):** on Expo **web** the client must send a real
+> `Blob` file part — appending a React Native `{ uri, name, type }` descriptor to `FormData`
+> on web stringifies to `"[object Object]"`, which the server rejects as
+> "The avatar field must be a file." The mobile client (`src/api/avatarApi.ts`) now fetches
+> the picked `blob:`/`data:` URI into a `Blob` on web and uses the RN descriptor on native.
+> The `Content-Type`/boundary is left to the runtime; the auth header is preserved.
 
 ```
 POST /api/me/avatar
@@ -805,8 +930,9 @@ avatar: <binary jpeg/png/webp, ≤2 MB>
 // Response 200
 { "avatar_url": "http://.../storage/avatars/ab12cd34.jpg" }
 
-// Response 422 — invalid file (wrong type / too large / SVG)
-{ "message": "The avatar must be an image.", "errors": { "avatar": ["..."] } }
+// Response 422 — invalid file (wrong type / too large / SVG). Friendly message (v1.7.2):
+{ "message": "Please choose a JPG, PNG or WebP image under 2MB.",
+  "errors": { "avatar": ["Please choose a JPG, PNG or WebP image under 2MB."] } }
 ```
 
 ### DELETE /api/me/avatar  *(auth required)*

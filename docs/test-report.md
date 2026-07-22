@@ -1,9 +1,82 @@
-# BallSpot v1.6.2 — Test Report
+# BallSpot v1.7.2 — Test Report
 
 Build date: 2026-07-22
 
-**Backend:** 172 feature tests passing (was 161; +11 in v1.6.2).
+**Backend:** 189 feature tests passing (was 173; +16 in v1.7.2).
 **Mobile:** `npx tsc --noEmit` clean.
+
+---
+
+## v1.7.2 — Sport Availability, Avatar Upload Fix, and User Rank XP Progression
+
+This sprint adds sport availability statuses (`active` / `coming_soon` / `hidden`), fixes
+cross-platform avatar upload, and introduces **personal** rank/level/XP progression (distinct
+from leaderboard rank). See the [API contract](api-contract.md),
+[database schema](database-schema.md), and [store readiness](store-readiness.md) for details.
+
+### Backend (189 passing, +16)
+
+New / updated test files:
+
+- **PlayerRankTest** (new) — personal rank/XP progression: Rookie at 0 XP; both tournament
+  (`guesses.score`) and daily (`daily_challenge_guesses.score`) scores count toward `total_xp`;
+  crossing a rank threshold promotes the user; `progress_to_next_rank_pct` is computed; max rank
+  (Ball Master) returns null `next_*` fields and `is_max_rank: true`; `GET /api/profile/stats`
+  includes the `rank` object; `GET /api/me/rank` returns `{ rank: {...} }`.
+- **SportStatusTest** (new) — tournament creation is rejected (422) for `coming_soon`/`hidden`
+  sports; `is_active` stays synced with `status`; admin can set status via
+  `POST /admin/sports/{sport}/status`; football cannot be moved off `active` ("Football must
+  stay active."); an invalid status value is rejected.
+- **SportsApiTest** (rewritten) — `GET /api/sports` returns **visible** sports (`active` +
+  `coming_soon`) and **excludes** `hidden`; each sport carries `status`, `is_playable`,
+  `is_coming_soon`, and the back-compat `is_active` flag. (The old `?include_inactive=1`
+  parameter is gone.)
+- **AvatarTest** (updated) — added a **valid PNG** upload case alongside the existing
+  jpeg/webp/oversized/SVG/wrong-type coverage; still verifies storage under `avatars/` and
+  that replacing/deleting only removes files under `avatars/`.
+- **PreferencesTest** (updated) — setting `preferred_sport_id` to a `coming_soon` **or**
+  `hidden` sport is rejected (422 "This sport is not available yet."); active sport succeeds;
+  null clears the preference.
+- **SportFilteringTest** (updated) — sport filtering now uses the status-based helper
+  (`status = active`) rather than the raw `is_active` boolean.
+
+Rank/XP is **derived on read** (sum of tournament + daily scores) — there is **no XP
+transaction/ledger table** (documented limitation). `POST /api/me/avatar` backend behaviour is
+unchanged; only the friendly validation message was unified to "Please choose a JPG, PNG or
+WebP image under 2MB."
+
+### Mobile
+
+- `npx tsc --noEmit` passes clean.
+- `src/api/avatarApi.ts` is now platform-aware: on web the picked `blob:`/`data:` URI is fetched
+  into a real `Blob` and appended as a proper multipart file part (fixes "The avatar field must
+  be a file." on Expo web); on native the RN `{ uri, name, type }` descriptor is used. Field
+  name is exactly `avatar`.
+- New types: `PlayerRank`, `RankProgress`; `Sport` gained `status`, `is_playable`,
+  `is_coming_soon`.
+- ProfileScreen shows a premium **RankCard** (rank name · level, total XP, progress bar,
+  "N XP to <NextRank>", or "Max level" at the top). DailyResultScreen and tournament
+  ResultScreen show a small **RankProgressCard** ("+N XP", "<Rank> progress: N%") **only** when
+  rank progress is passed from a fresh guess — viewing an old result shows no card (no broken
+  placeholder).
+- Choose Sport / Profile "change sport": `active` sports are selectable (checkmark when
+  selected); `coming_soon` sports are visible-but-dimmed with a "SOON" badge (tapping shows
+  "<Sport> is coming soon."); `hidden` sports are never shown.
+
+### Constraints honored (v1.7.2)
+
+No payments/IAP/ads/chat/realtime/betting/real-prizes. No migrations or tests were run as part
+of documenting this release. Football remains the only `active` sport; other sports are
+`coming_soon` roadmap teasers with no purchasable content. Rank/XP is cosmetic progression with
+no real rewards or money.
+
+### Known limitations (v1.7.2)
+
+1. **No XP transaction/ledger table** — `total_xp` is derived on read from the sum of tournament
+   + daily scores each call. Non-score XP sources (badges, bonuses) would warrant a ledger.
+2. **XP equals lifetime score total** — badges do not add XP yet.
+3. Prior v1.7 limitations still apply (one global daily per date; avatars not shown in
+   leaderboards/lobbies; per-screen theming still partial).
 
 ---
 

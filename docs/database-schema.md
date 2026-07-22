@@ -31,13 +31,27 @@ Added by migration `2026_07_22_000001_add_preferences_to_users.php` (v1.7).
 | emoji | varchar(255) | default '⚽' — display icon (no copyrighted assets) |
 | object_name | varchar(255) | default 'ball' — e.g. 'ball' / 'puck' |
 | primary_color | varchar(255) | default '#00c853' — sport accent color |
-| is_active | boolean | default false — **only football is active in v1.6** |
+| status | varchar(20) | **v1.7.2** — `active` \| `coming_soon` \| `hidden`; default `coming_soon`. **Source of truth** for availability (mirrors `is_active`) |
+| is_active | boolean | default false — **mirrored** from `status` (`is_active == (status === 'active')`) via a model mutator; kept for back-compat so existing queries keep working |
 | sort_order | int | default 0 |
 | scoring_profile | varchar(255) | default 'default' — foundation for future per-sport scoring |
 | created_at / updated_at | timestamp |
 
-Seeded sports (v1.6): football (active), golf, tennis, hockey, cricket,
-american_football, basketball (all inactive scaffolding).
+**`status` meanings (v1.7.2):**
+- `active` — visible + selectable/playable.
+- `coming_soon` — visible in the app but disabled ("Coming soon"); not selectable as a
+  preference and not usable to create a tournament (`GET /api/sports` returns it; API rejects
+  it with 422 "This sport is not available yet.").
+- `hidden` — not shown to normal users (excluded from `GET /api/sports`).
+
+`status` was added by a migration; the legacy `is_active` boolean is retained and kept in sync
+via a model mutator, so `is_active` always equals `status === 'active'`. Preference and
+tournament validation require `status = active`.
+
+Seeded sports (v1.7.2, via `SportSeeder`): football = `active`; golf, tennis, hockey, cricket,
+american_football, basketball = `coming_soon`. Admin sets status through the dropdown at
+`/admin/sports` (`POST /admin/sports/{sport}/status`); football is protected and cannot be
+moved off `active`.
 
 ## challenge_categories
 | Column | Type | Notes |
@@ -298,3 +312,24 @@ challenge per date. `GET /api/daily/today` is sport-aware (it filters by the res
 sport), but true simultaneous per-sport dailies on the same date would require a schema
 change: a composite unique on (`challenge_date`, `sport_id`). This is a documented future
 enhancement.
+
+---
+
+## User Rank / Level / XP (v1.7.2) — config-driven & derived, no ledger table
+
+**Personal** long-term progression (rank/level/XP), computed by `PlayerRankService`. This is
+distinct from **leaderboard rank** (a user's position relative to others), which is unchanged
+and computed separately.
+
+- **No new tables and no columns were added for XP.** Rank thresholds live in
+  `config('ballspot.ranks')` (6 ranks by minimum XP): Rookie (L1, 0), Amateur (L2, 2,500),
+  Pro (L3, 10,000), Elite (L4, 25,000), Legend (L5, 50,000), Ball Master (L6, 100,000).
+- **`total_xp` is derived on read** = lifetime score total = `SUM(guesses.score)` +
+  `SUM(daily_challenge_guesses.score)` for the user. **XP currently equals the lifetime score
+  total; badges do not add XP.**
+- **Known limitation — no XP transaction/ledger table.** XP is recomputed from the score sums
+  on every read; there is no per-event XP ledger. Adding non-score XP sources (e.g. badges,
+  bonuses) later would warrant an `xp_transactions` table.
+
+Exposed via `GET /api/me/rank`, the `rank` object on `GET /api/profile/stats`, and the
+`rank_progress` block on fresh daily/round guess responses.

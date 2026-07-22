@@ -42,6 +42,20 @@ class AvatarTest extends TestCase
         Storage::disk('public')->assertExists($path);
     }
 
+    public function test_user_can_upload_valid_png(): void
+    {
+        Storage::fake('public');
+        [$user, $token] = $this->auth();
+
+        $res = $this->withToken($token)->post('/api/me/avatar', [
+            'avatar' => UploadedFile::fake()->image('me.png', 200, 200),
+        ]);
+
+        $res->assertOk()->assertJsonStructure(['avatar_url']);
+        $this->assertNotNull($res->json('avatar_url'));
+        Storage::disk('public')->assertExists($user->fresh()->avatar_path);
+    }
+
     public function test_upload_rejects_non_image_file(): void
     {
         Storage::fake('public');

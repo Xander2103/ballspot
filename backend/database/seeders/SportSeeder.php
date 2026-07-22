@@ -14,14 +14,19 @@ class SportSeeder extends Seeder
      */
     public function run(): void
     {
+        // Football is playable now; the rest are visible "Coming soon" so players
+        // can see the roadmap and get excited, but cannot select them yet.
+        $active     = Sport::STATUS_ACTIVE;
+        $comingSoon = Sport::STATUS_COMING_SOON;
+
         $sports = [
-            ['slug' => 'football',          'name' => 'Football',         'emoji' => '⚽', 'object_name' => 'ball', 'primary_color' => '#00c853', 'is_active' => true],
-            ['slug' => 'golf',              'name' => 'Golf',             'emoji' => '⛳', 'object_name' => 'ball', 'primary_color' => '#4caf50', 'is_active' => false],
-            ['slug' => 'tennis',            'name' => 'Tennis',           'emoji' => '🎾', 'object_name' => 'ball', 'primary_color' => '#cddc39', 'is_active' => false],
-            ['slug' => 'hockey',            'name' => 'Hockey',           'emoji' => '🏒', 'object_name' => 'puck', 'primary_color' => '#03a9f4', 'is_active' => false],
-            ['slug' => 'cricket',           'name' => 'Cricket',          'emoji' => '🏏', 'object_name' => 'ball', 'primary_color' => '#f44336', 'is_active' => false],
-            ['slug' => 'american_football', 'name' => 'American Football', 'emoji' => '🏈', 'object_name' => 'ball', 'primary_color' => '#795548', 'is_active' => false],
-            ['slug' => 'basketball',        'name' => 'Basketball',       'emoji' => '🏀', 'object_name' => 'ball', 'primary_color' => '#ff9800', 'is_active' => false],
+            ['slug' => 'football',          'name' => 'Football',         'emoji' => '⚽', 'object_name' => 'ball', 'primary_color' => '#00c853', 'status' => $active],
+            ['slug' => 'golf',              'name' => 'Golf',             'emoji' => '⛳', 'object_name' => 'ball', 'primary_color' => '#4caf50', 'status' => $comingSoon],
+            ['slug' => 'tennis',            'name' => 'Tennis',           'emoji' => '🎾', 'object_name' => 'ball', 'primary_color' => '#cddc39', 'status' => $comingSoon],
+            ['slug' => 'hockey',            'name' => 'Hockey',           'emoji' => '🏒', 'object_name' => 'puck', 'primary_color' => '#03a9f4', 'status' => $comingSoon],
+            ['slug' => 'cricket',           'name' => 'Cricket',          'emoji' => '🏏', 'object_name' => 'ball', 'primary_color' => '#f44336', 'status' => $comingSoon],
+            ['slug' => 'american_football', 'name' => 'American Football', 'emoji' => '🏈', 'object_name' => 'ball', 'primary_color' => '#795548', 'status' => $comingSoon],
+            ['slug' => 'basketball',        'name' => 'Basketball',       'emoji' => '🏀', 'object_name' => 'ball', 'primary_color' => '#ff9800', 'status' => $comingSoon],
         ];
 
         foreach ($sports as $i => $sport) {

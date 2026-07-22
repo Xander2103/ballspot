@@ -83,7 +83,11 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
     setSubmitError('');
     try {
       const res = await dailyApi.guess(dailyChallengeId, guessX, guessY);
-      navigation.replace('DailyResult', { dailyChallengeId, newBadges: res.data.new_badges ?? [] });
+      navigation.replace('DailyResult', {
+        dailyChallengeId,
+        newBadges: res.data.new_badges ?? [],
+        rankProgress: res.rank_progress,
+      });
     } catch (e: unknown) {
       const err = e as { status?: number; message?: string };
       if (err?.status === 422) {

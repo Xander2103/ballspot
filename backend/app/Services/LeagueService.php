@@ -57,7 +57,7 @@ class LeagueService
     private function resolveSport(array $data, int $userId): Sport
     {
         if (!empty($data['sport_id'])) {
-            $sport = Sport::where('id', $data['sport_id'])->where('is_active', true)->first();
+            $sport = Sport::where('id', $data['sport_id'])->where('status', Sport::STATUS_ACTIVE)->first();
             if ($sport) {
                 return $sport;
             }
@@ -65,7 +65,7 @@ class LeagueService
 
         $user = \App\Models\User::find($userId);
         if ($user && $user->preferred_sport_id) {
-            $preferred = Sport::where('id', $user->preferred_sport_id)->where('is_active', true)->first();
+            $preferred = Sport::where('id', $user->preferred_sport_id)->where('status', Sport::STATUS_ACTIVE)->first();
             if ($preferred) {
                 return $preferred;
             }

@@ -3,9 +3,7 @@ import type { Sport } from '../types/sport';
 
 export const sportApi = {
   // GET /sports → JsonResource collection { data: Sport[] }.
-  // includeInactive lists "Coming soon" sports too (for onboarding cards).
-  list: (includeInactive = false) =>
-    apiClient
-      .request<{ data: Sport[] }>(`/sports${includeInactive ? '?include_inactive=1' : ''}`)
-      .then((r) => r.data),
+  // Returns active (selectable) + coming_soon (visible, disabled) sports.
+  list: () =>
+    apiClient.request<{ data: Sport[] }>('/sports').then((r) => r.data),
 };

@@ -7,6 +7,7 @@ use App\Http\Resources\GuessResultResource;
 use App\Models\Guess;
 use App\Models\LeagueRound;
 use App\Services\BadgeService;
+use App\Services\PlayerRankService;
 use App\Services\ScoreService;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,7 @@ class RoundController extends Controller
     public function __construct(
         private ScoreService $scoreService,
         private BadgeService $badgeService,
+        private PlayerRankService $rankService,
     ) {}
 
     public function submitGuess(SubmitGuessRequest $request, LeagueRound $round)
@@ -57,7 +59,13 @@ class RoundController extends Controller
         $newBadges = $this->badgeService->evaluateTournamentGuess($request->user(), $guess);
 
         return (new GuessResultResource($guess))
-            ->additional(['new_badges' => BadgeResource::collection($newBadges)->resolve()]);
+            ->additional([
+                'new_badges'    => BadgeResource::collection($newBadges)->resolve(),
+                'rank_progress' => [
+                    'xp_gained' => $guess->score,
+                    'rank'      => $this->rankService->forUser($request->user()),
+                ],
+            ]);
     }
 
     public function result(Request $request, LeagueRound $round)
