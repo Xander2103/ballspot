@@ -7,6 +7,7 @@ export interface Sport {
   emoji: string;
   object_name: string;
   primary_color: string;
+  tagline?: string;
   status: SportStatus;
   is_playable: boolean;
   is_coming_soon: boolean;

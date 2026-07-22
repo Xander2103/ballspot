@@ -33,6 +33,62 @@ return [
         ['name' => 'Ball Master', 'level' => 6, 'min_xp' => 100000],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | XP awards (ledger source amounts)
+    |--------------------------------------------------------------------------
+    | Guess XP equals the guess score. These are the BONUS awards on top.
+    */
+    'xp' => [
+        'badge' => [
+            'common'    => 100,
+            'rare'      => 250,
+            'epic'      => 500,
+            'legendary' => 1000,
+            'default'   => 100,
+        ],
+        // Daily-streak milestone (days => bonus XP), awarded once per milestone.
+        'streak' => [
+            3  => 150,
+            7  => 500,
+            30 => 2500,
+        ],
+        // Tournament finish bonuses (rank => XP). Awarded on completion when
+        // winner logic is available (see docs — MVP may not award these yet).
+        'tournament_win' => [
+            1 => 1000,
+            2 => 500,
+            3 => 250,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Per-sport onboarding taglines ("guess the …")
+    |--------------------------------------------------------------------------
+    */
+    'sport_taglines' => [
+        'football'          => 'Guess the ball',
+        'tennis'            => 'Find the tennis ball',
+        'golf'              => 'Spot the golf ball',
+        'hockey'            => 'Find the puck',
+        'cricket'           => 'Spot the cricket ball',
+        'american_football' => 'Find the ball',
+        'basketball'        => 'Spot the ball',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Second-sport readiness thresholds
+    |--------------------------------------------------------------------------
+    | Guidance for moving a sport from coming_soon to active. Not hard-enforced
+    | — admin sees a warning; activation is still allowed.
+    */
+    'sport_readiness' => [
+        'min_ready_challenges' => (int) env('BALLPICKER_SPORT_MIN_READY_CHALLENGES', 5),
+        'min_scheduled_dailies' => (int) env('BALLPICKER_SPORT_MIN_SCHEDULED_DAILIES', 1),
+    ],
+
     'auth' => [
         'login_code_expiry_minutes'          => (int) env('BALLSPOT_LOGIN_CODE_EXPIRY_MINUTES', 10),
         'login_code_max_attempts'            => (int) env('BALLSPOT_LOGIN_CODE_MAX_ATTEMPTS', 5),

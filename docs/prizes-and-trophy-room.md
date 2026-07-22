@@ -12,6 +12,19 @@ and are out of scope until a full legal/compliance review is done.**
 - Awarding is idempotent (a badge is earned once) and happens after guess/result
   calculation via `BadgeService`.
 
+## XP & rank progression (v1.7.3) — still virtual, still no prizes
+
+- **XP is now ledger-backed.** Every XP award is recorded as an append-only row in `xp_events`
+  (the new source of truth), and `PlayerRankService` derives a player's rank/level from the ledger
+  sum (with a lifetime-score fallback until `ballspot:backfill-xp` runs).
+- **XP can now come from multiple sources:** guess submissions (daily + tournament), badge unlocks
+  (rarity bonus), and daily-streak milestones. **Tournament-win XP is config-ready but not awarded
+  yet** (a future source, once robust tournament completion/winner logic exists).
+- **XP and rank carry no monetary value.** Like badges/trophies, XP and rank are **cosmetic**
+  progression only: XP cannot be bought, sold, earned for money, staked, or redeemed for anything.
+  There is **no XP marketplace, no currency, no payments, and no real-money rewards.** Rank-up
+  moments are a visual celebration, nothing more.
+
 ## Hall of Fame (future idea)
 
 A **Monthly Hall of Fame** would immortalize each month's top players:
@@ -58,4 +71,5 @@ available in the app.
 - ❌ Real-money gambling or betting
 - ❌ Payments, in-app purchases, or App Store purchase logic
 - ❌ Real prize claiming or fulfilment
+- ❌ XP marketplace / buying, selling, or redeeming XP for value
 - ❌ Ads

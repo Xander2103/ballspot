@@ -46,6 +46,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('verified')->group(function () {
         Route::get('/profile/stats', [ProfileController::class, 'stats']);
         Route::get('/me/rank',       [ProfileController::class, 'rank']);
+        Route::get('/me/xp-events',  [ProfileController::class, 'xpEvents']);
 
         // User preferences (sport / theme) + avatar
         Route::get('/me/preferences',   [PreferenceController::class, 'show']);

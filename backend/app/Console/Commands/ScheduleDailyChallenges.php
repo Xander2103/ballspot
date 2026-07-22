@@ -15,7 +15,8 @@ class ScheduleDailyChallenges extends Command
                             {--start= : Start date YYYY-MM-DD, defaults to today}
                             {--dry-run : Print planned schedule without writing}
                             {--force : Replace existing daily challenges}
-                            {--sport= : Only use challenges from this sport slug (e.g. football, tennis). Omit to use all active challenges.}';
+                            {--sport= : Only use challenges from this sport slug (e.g. football, tennis). Omit to use all active challenges.}
+                            {--allow-coming-soon : Allow scheduling for a coming_soon/hidden sport (admin content prep).}';
 
     protected $description = 'Schedule daily challenges for the next N days using eligible active challenges';
 
@@ -59,6 +60,13 @@ class ScheduleDailyChallenges extends Command
             }
             $sportId = $sport->id;
             $this->line("Scheduling for sport: <fg=cyan>{$sport->name}</> ({$sport->slug})");
+
+            // Only playable (active) sports schedule by default. Preparing daily
+            // content for a coming_soon/hidden sport requires an explicit opt-in.
+            if ($sport->status !== Sport::STATUS_ACTIVE && !$this->option('allow-coming-soon')) {
+                $this->warn("Sport \"{$sport->slug}\" is {$sport->status}, not active. Re-run with --allow-coming-soon to prepare content anyway.");
+                return self::SUCCESS;
+            }
         }
 
         // --- Pool selection ---

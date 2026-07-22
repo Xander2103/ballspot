@@ -22,7 +22,26 @@ class DailyChallengeController extends Controller
         private DailyStreakService $streakService,
         private BadgeService $badgeService,
         private \App\Services\PlayerRankService $rankService,
+        private \App\Services\XpService $xpService,
     ) {}
+
+    /** Award any newly-reached daily-streak milestone bonuses (once each). */
+    private function awardStreakXp(\App\Models\User $user): void
+    {
+        $current = $this->streakService->getStreakForUser($user)['current'];
+        foreach ((array) config('ballspot.xp.streak') as $days => $bonus) {
+            if ($current >= (int) $days) {
+                $this->xpService->awardXp(
+                    $user,
+                    \App\Models\XpEvent::SOURCE_STREAK_BONUS,
+                    (int) $days,
+                    (int) $bonus,
+                    "{$days}-day streak bonus",
+                    ['streak_days' => (int) $days],
+                );
+            }
+        }
+    }
 
     // GET /api/daily/today
     public function today(Request $request): JsonResponse
@@ -137,6 +156,9 @@ class DailyChallengeController extends Controller
             $challenge->ball_y_ratio,
         );
 
+        $user     = $request->user();
+        $xpBefore = $this->xpService->getTotalXp($user);
+
         $guess = DailyChallengeGuess::create([
             'daily_challenge_id' => $dailyChallenge->id,
             'user_id'            => $userId,
@@ -147,8 +169,25 @@ class DailyChallengeController extends Controller
             'submitted_at'       => now(),
         ]);
 
-        // Award any newly-earned virtual trophies (idempotent).
-        $newBadges = $this->badgeService->evaluateDailyGuess($request->user(), $guess, $dailyChallenge);
+        // XP: the guess score (deduped so reopening the result never re-awards).
+        $this->xpService->awardXp(
+            $user,
+            \App\Models\XpEvent::SOURCE_DAILY_GUESS,
+            $guess->id,
+            (int) $guess->score,
+            'Daily challenge completed',
+            ['daily_challenge_id' => $dailyChallenge->id],
+        );
+
+        // Award any newly-earned virtual trophies (idempotent; grants badge XP).
+        $newBadges = $this->badgeService->evaluateDailyGuess($user, $guess, $dailyChallenge);
+
+        // Streak milestone bonuses (once each).
+        $this->awardStreakXp($user);
+
+        $xpAfter  = $this->xpService->getTotalXp($user);
+        $xpGained = $xpAfter - $xpBefore;
+        $rankUp   = $this->rankService->rankUp($xpBefore, $xpAfter);
 
         $result = $this->buildGuessResult($guess, $challenge, $dailyChallenge);
         $result['new_badges'] = BadgeResource::collection($newBadges)->resolve();
@@ -156,9 +195,10 @@ class DailyChallengeController extends Controller
         return response()->json([
             'data'          => $result,
             'rank_progress' => [
-                'xp_gained' => $guess->score,
-                'rank'      => $this->rankService->forUser($request->user()),
+                'xp_gained' => $xpGained,
+                'rank'      => $this->rankService->forXp($xpAfter),
             ],
+            'rank_up'       => $rankUp,
         ]);
     }
 

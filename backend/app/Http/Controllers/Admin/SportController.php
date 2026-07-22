@@ -2,16 +2,22 @@
 namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Sport;
+use App\Services\SportReadinessService;
 use Illuminate\Http\Request;
 
 class SportController extends Controller
 {
+    public function __construct(private SportReadinessService $readiness) {}
+
     public function index()
     {
         $sports = Sport::orderBy('sort_order')
             ->orderBy('name')
             ->get();
-        return view('admin.sports.index', compact('sports'));
+
+        $readiness = $sports->mapWithKeys(fn (Sport $s) => [$s->id => $this->readiness->for($s)]);
+
+        return view('admin.sports.index', compact('sports', 'readiness'));
     }
 
     /**

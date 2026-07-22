@@ -18,6 +18,8 @@ class SportResource extends JsonResource
             'emoji'          => $this->emoji,
             'object_name'    => $this->object_name,
             'primary_color'  => $this->primary_color,
+            // Onboarding tagline ("Guess the ball", "Find the tennis ball", …).
+            'tagline'        => config('ballspot.sport_taglines.' . $this->slug, 'Guess the ' . $this->object_name),
             'status'         => $this->status,
             'is_playable'    => $this->isPlayable(),
             'is_coming_soon' => $this->isComingSoon(),

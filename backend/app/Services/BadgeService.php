@@ -8,6 +8,7 @@ use App\Models\DailyChallengeGuess;
 use App\Models\Guess;
 use App\Models\League;
 use App\Models\User;
+use App\Models\XpEvent;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 
@@ -27,7 +28,10 @@ class BadgeService
     /** Football challenges played before earning the expert badge. */
     private const FOOTBALL_EXPERT_PLAYS = 25;
 
-    public function __construct(private DailyStreakService $streakService) {}
+    public function __construct(
+        private DailyStreakService $streakService,
+        private XpService $xpService,
+    ) {}
 
     /**
      * Award a badge by code if the user does not already have it.
@@ -54,7 +58,24 @@ class BadgeService
             return null; // Lost a race on the unique index — treat as already earned.
         }
 
+        // Bonus XP for the unlock (once per badge per user; deduped by the ledger).
+        $this->xpService->awardXp(
+            $user,
+            XpEvent::SOURCE_BADGE_UNLOCK,
+            $badge->id,
+            $this->badgeXp($badge),
+            'Badge unlocked: ' . $badge->name,
+            ['badge_code' => $badge->code, 'rarity' => $badge->rarity],
+        );
+
         return $badge;
+    }
+
+    /** XP bonus for unlocking a badge, keyed by rarity (config-driven). */
+    private function badgeXp(Badge $badge): int
+    {
+        $amounts = config('ballspot.xp.badge');
+        return (int) ($amounts[$badge->rarity] ?? $amounts['default']);
     }
 
     /**

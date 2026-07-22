@@ -87,6 +87,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         dailyChallengeId,
         newBadges: res.data.new_badges ?? [],
         rankProgress: res.rank_progress,
+        rankUp: res.rank_up ?? null,
       });
     } catch (e: unknown) {
       const err = e as { status?: number; message?: string };

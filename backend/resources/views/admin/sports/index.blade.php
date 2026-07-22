@@ -24,6 +24,7 @@
                     <th>Slug</th>
                     <th>Object</th>
                     <th>Status</th>
+                    <th>Content readiness</th>
                     <th>Set status</th>
                 </tr>
             </thead>
@@ -47,6 +48,18 @@
                             <span class="badge badge-draft">Hidden</span>
                         @endif
                     </td>
+                    @php($r = $readiness[$sport->id])
+                    <td class="small">
+                        <div>{{ $r['ready_challenges'] }}/{{ $r['min_ready_challenges'] }} ready challenges</div>
+                        <div>{{ $r['scheduled_dailies'] }}/{{ $r['min_scheduled_dailies'] }} scheduled dailies</div>
+                        @if($sport->status !== \App\Models\Sport::STATUS_ACTIVE)
+                            @if($r['is_ready'])
+                                <span class="badge bg-success">Ready to activate</span>
+                            @else
+                                <span class="badge bg-secondary">Not enough content yet</span>
+                            @endif
+                        @endif
+                    </td>
                     <td>
                         @if($sport->slug === 'football')
                             <span class="text-muted small">🔒 Always active</span>
@@ -65,7 +78,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="7" class="text-center text-muted py-4">
+                    <td colspan="8" class="text-center text-muted py-4">
                         No sports yet.
                     </td>
                 </tr>

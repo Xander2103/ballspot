@@ -10,6 +10,57 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.7.3 — XP Ledger, Rank-Up Moments, and Second Sport Launch Prep
+
+- **XP is now ledger-backed (new source of truth).** A new `xp_events` table records every XP
+  award as an append-only row (`user_id`, `source_type`, `source_id`, signed `amount`, `reason`,
+  `metadata`). `XpService.awardXp(...)` de-duplicates on `(user, source_type, source_id)` so
+  replays never double-count, and `getTotalXp()` is a pure ledger sum. `PlayerRankService` now
+  derives `total_xp` from the ledger. **Fallback:** a user with **no** ledger events yet still
+  shows XP from lifetime guess scores (tournament + daily) so early players never see 0 XP before
+  the backfill runs; once any event exists, the ledger is authoritative. XP rows are **never**
+  deleted on account anonymization (rank/leaderboard history is preserved).
+- **XP sources (v1.7.3):**
+  - **Guess XP** — awarded when a guess is **submitted** (not when the result is viewed). Daily
+    guess → `+score` ("Daily challenge completed"); tournament round guess → `+score` ("Tournament
+    round completed"). Deduped per guess id, so reopening a result never re-awards.
+  - **Badge XP** — on unlock, a rarity bonus (`config('ballspot.xp.badge')`): common 100, rare
+    250, epic 500, legendary 1000. Awarded once per badge per user.
+  - **Streak XP** — daily-streak milestones (`config('ballspot.xp.streak')`): 3-day +150, 7-day
+    +500, 30-day +2500. Awarded once per milestone per user.
+  - **Tournament-win XP** — config exists (`config('ballspot.xp.tournament_win')`: winner 1000 /
+    2nd 500 / 3rd 250) but **is not awarded yet** — deferred until robust tournament
+    completion/winner logic exists (config-ready-but-not-awarded).
+- **Rank-up moments.** Both guess responses now carry a nullable `rank_up` field. When a
+  submission crosses a rank threshold: `rank_up: { from_rank, to_rank, new_level }` (else `null`).
+  Both responses also include `rank_progress: { xp_gained, rank: {...} }`, where `xp_gained` is the
+  **total** XP earned in that submission (guess + any badge/streak bonus), not just the guess score.
+- **XP history API.** New `GET /api/me/xp-events?limit=N` (default 20, max 50; auth + verified)
+  returns `{ data: [ { id, amount, reason, source_type, metadata, created_at } ], total_xp,
+  rank }`, most-recent first.
+- **Backfill command.** Run `php artisan ballspot:backfill-xp` **once after deploy** to create
+  missing `daily_guess` + `tournament_guess` XP events for existing guesses. Idempotent (never
+  duplicates); supports `--dry-run` (writes nothing), `--user=ID`, and `--force` (intentionally a
+  NO-OP — history is never deleted/rebuilt). Never touches guesses/challenges/images.
+- **Second sport launch prep.**
+  - **Per-sport taglines** in `config('ballspot.sport_taglines')` (football "Guess the ball",
+    tennis "Find the tennis ball", golf "Spot the golf ball", hockey "Find the puck", cricket
+    "Spot the cricket ball", american_football "Find the ball", basketball "Spot the ball"),
+    returned by `GET /api/sports` as a new `tagline` field (falls back to "Guess the {object_name}").
+  - **`SportReadinessService`** + the admin Sports page show content readiness per sport (ready
+    challenge count = active + hidden image + ball position, scheduled daily count) with a "Ready
+    to activate" / "Not enough content yet" badge for non-active sports. Thresholds in
+    `config('ballspot.sport_readiness')` (min_ready_challenges=5, min_scheduled_dailies=1).
+    **Advisory only** — activation is not hard-blocked.
+  - **Scheduler polish** — `php artisan ballspot:schedule-daily-challenges --sport=tennis` now
+    **warns and does nothing** if the sport is `coming_soon`/`hidden`, unless `--allow-coming-soon`
+    is passed (admin content prep). Default (no `--sport`) behaviour is unchanged; nothing is
+    deleted/overwritten.
+  - **Mobile** — Choose Sport shows each sport's tagline; `coming_soon` sports stay
+    visible-but-disabled with a SOON badge and become selectable with **no new mobile code** once
+    an admin flips them to `active` (data-driven).
+- Backend tests: **207 passing** (was 189; +18). See [docs/test-report.md](docs/test-report.md).
+
 ## New in v1.7.2 — Sport Availability, Avatar Upload Fix, and User Rank XP Progression
 
 - **Avatar upload fixed cross-platform.** Uploading a profile photo previously failed on
@@ -230,7 +281,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 189 feature tests
+cd backend && php artisan test          # 207 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 
@@ -267,6 +318,10 @@ php artisan ballspot:schedule-daily-challenges --days=7 --start=2026-07-01
 # Restrict the schedule to a single sport's active challenges (v1.7):
 php artisan ballspot:schedule-daily-challenges --days=14 --sport=football
 php artisan ballspot:schedule-daily-challenges --days=14 --sport=tennis
+
+# Prep content for a not-yet-live sport (v1.7.3) — coming_soon/hidden sports warn and
+# do nothing unless --allow-coming-soon is passed:
+php artisan ballspot:schedule-daily-challenges --days=14 --sport=tennis --allow-coming-soon
 ```
 
 **Notes:**
@@ -274,6 +329,10 @@ php artisan ballspot:schedule-daily-challenges --days=14 --sport=tennis
   When provided, only that sport's active challenges fill the schedule; an unknown slug
   fails with a friendly error. Default (no flag) is football-safe because football is the
   only active sport with content.
+- `--allow-coming-soon` (v1.7.3): scheduling for a `coming_soon`/`hidden` sport otherwise
+  **warns and does nothing** (guards against filling the schedule from a sport users can't
+  play yet). Pass this flag to prepare content ahead of activation. Default (no `--sport`)
+  behaviour is unchanged; nothing is ever deleted or overwritten.
 - Only `active` challenges with a hidden image and ball position are eligible.
 - Demo challenges are used as fallback if no real content exists (a warning is printed).
 - New challenges are created with `status=scheduled`. Change to `active` in the daily admin when ready to go live.

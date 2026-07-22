@@ -8,7 +8,7 @@ import { tokenStorage } from '../storage/tokenStorage';
 import { authApi } from '../api/authApi';
 
 import type { Badge } from '../types/badge';
-import type { RankProgress } from '../types/auth';
+import type { RankProgress, RankUp } from '../types/auth';
 import { LoginScreen } from '../screens/LoginScreen';
 import { LoginVerificationScreen } from '../screens/LoginVerificationScreen';
 import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
@@ -42,10 +42,10 @@ export type RootStackParamList = {
   JoinLeague: undefined;
   LeagueDetail: { leagueId: number; leagueName: string };
   Guess: { leagueId: number; roundId: number; leagueName: string };
-  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null; newBadges?: Badge[]; rankProgress?: RankProgress };
+  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null };
   Leaderboard: { leagueId: number; leagueName: string };
   DailyChallenge: { dailyChallengeId: number };
-  DailyResult: { dailyChallengeId: number; newBadges?: Badge[]; rankProgress?: RankProgress };
+  DailyResult: { dailyChallengeId: number; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null };
   WeeklyLeaderboard: undefined;
 };
 

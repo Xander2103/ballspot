@@ -278,8 +278,56 @@ rank (which is position relative to other players).
 - Fields returned: `name`, `level`, `total_xp`, `current_rank_min_xp`, `next_rank_name`
   (nullable), `next_rank_xp` (nullable), `xp_to_next_rank` (nullable),
   `progress_to_next_rank_pct`, `is_max_rank`.
-- **Known limitation:** there is **no XP transaction/ledger table** — XP is derived on read from
-  the score sums each time.
+
+> **Updated in v1.7.3:** `total_xp` now derives from the **XP ledger** (`xp_events`), not from
+> the score sums. See [XP Ledger](#user-xp-ledger-v173) below. The old "no ledger table"
+> limitation no longer applies.
+
+### GET /api/me/xp-events  *(auth + verified required)*  *(new v1.7.3)*
+
+Returns the current user's recent XP ledger events, most-recent first, plus their `total_xp`
+(pure ledger sum) and `rank` object.
+
+```json
+// GET /api/me/xp-events?limit=6
+// limit: default 20, max 50
+// Response 200
+{
+  "data": [
+    { "id": 42, "amount": 511, "reason": "Daily challenge completed",
+      "source_type": "daily_guess", "metadata": null, "created_at": "2026-07-22T09:00:00Z" },
+    { "id": 41, "amount": 250, "reason": "Badge unlocked: Perfect Guess",
+      "source_type": "badge_unlock", "metadata": { "badge_code": "perfect_guess" },
+      "created_at": "2026-07-22T09:00:00Z" }
+  ],
+  "total_xp": 3120,
+  "rank": {
+    "name": "Amateur", "level": 2, "total_xp": 3120,
+    "current_rank_min_xp": 2500,
+    "next_rank_name": "Pro", "next_rank_xp": 10000, "xp_to_next_rank": 6880,
+    "progress_to_next_rank_pct": 8, "is_max_rank": false
+  }
+}
+```
+
+#### User XP ledger (v1.7.3)
+
+`XpService` records every XP award as an append-only row in `xp_events`, de-duplicated on
+`(user, source_type, source_id)` so replays never double-count. `PlayerRankService` derives
+`total_xp` as the ledger sum.
+
+- **`source_type`** values: `daily_guess`, `tournament_guess`, `badge_unlock`, `streak_bonus`,
+  `tournament_win`, `weekly_finish`, `admin_adjustment`.
+- **XP sources awarded today:** guess submission (`+score`), badge unlock (rarity bonus:
+  common 100 / rare 250 / epic 500 / legendary 1000), and daily-streak milestones (3-day +150,
+  7-day +500, 30-day +2500). **Tournament-win XP is config-ready but NOT awarded yet.**
+- **Fallback:** a user with **no** ledger events yet still shows XP from lifetime guess scores
+  (tournament + daily) so early players never see 0 XP before the backfill runs. Once any event
+  exists, the ledger is authoritative. Run `php artisan ballspot:backfill-xp` **once after
+  deploy** to create the missing guess events (idempotent; `--dry-run` writes nothing;
+  `--force` is a NO-OP).
+- Ledger rows are **append-only** and are **never deleted** on account anonymization, so
+  rank/leaderboard history is preserved.
 
 ---
 
@@ -453,7 +501,9 @@ When the daily limit is reached, this endpoint returns `reason: "daily_limit_rea
     "ball_y_ratio": 0.71,
     "reveal_image_url": "http://.../storage/challenges/original/corner-kick.jpg"
   },
-  // v1.7.2 — top-level personal rank progress for THIS guess (alongside data):
+  // v1.7.2 — top-level personal rank progress for THIS guess (alongside data);
+  // v1.7.3 — rank now derives from the XP ledger and xp_gained includes ALL XP earned
+  // in this submission (guess score + any badge/streak bonus), not just the guess score:
   "rank_progress": {
     "xp_gained": 87,
     "rank": {
@@ -462,10 +512,13 @@ When the daily limit is reached, this endpoint returns `reason: "daily_limit_rea
       "next_rank_name": "Pro", "next_rank_xp": 10000, "xp_to_next_rank": 6880,
       "progress_to_next_rank_pct": 8, "is_max_rank": false
     }
-  }
+  },
+  // v1.7.3 — nullable rank-up moment; present only when THIS submission crossed a rank threshold:
+  "rank_up": { "from_rank": "Rookie", "to_rank": "Amateur", "new_level": 2 }
+  // else: "rank_up": null
 }
-// rank_progress.xp_gained equals this guess's score. The GET /rounds/{id}/result endpoint is
-// UNCHANGED — it does NOT include rank_progress (no xp_gained on old results).
+// rank_up is null when the submission did not cross a rank threshold. The GET /rounds/{id}/result
+// endpoint is UNCHANGED — it does NOT include rank_progress or rank_up (no xp_gained on old results).
 // reveal_image_url is null when no reveal image exists for this challenge.
 // Response 422 — duplicate guess
 { "message": "You have already guessed this round." }
@@ -571,7 +624,9 @@ Submit a guess for today's daily challenge. One guess per user per daily challen
     "ball_y_ratio": 0.71,
     "reveal_image_url": "http://..."
   },
-  // v1.7.2 — top-level personal rank progress for THIS guess (alongside data):
+  // v1.7.2 — top-level personal rank progress for THIS guess (alongside data);
+  // v1.7.3 — rank now derives from the XP ledger and xp_gained includes ALL XP earned
+  // in this submission (guess score + any badge/streak bonus), not just the guess score:
   "rank_progress": {
     "xp_gained": 87,
     "rank": {
@@ -580,10 +635,13 @@ Submit a guess for today's daily challenge. One guess per user per daily challen
       "next_rank_name": "Pro", "next_rank_xp": 10000, "xp_to_next_rank": 6880,
       "progress_to_next_rank_pct": 8, "is_max_rank": false
     }
-  }
+  },
+  // v1.7.3 — nullable rank-up moment; present only when THIS submission crossed a rank threshold:
+  "rank_up": { "from_rank": "Rookie", "to_rank": "Amateur", "new_level": 2 }
+  // else: "rank_up": null
 }
-// rank_progress.xp_gained equals this guess's score. The GET /api/daily/{id}/result endpoint is
-// UNCHANGED — it does NOT include rank_progress.
+// rank_up is null when the submission did not cross a rank threshold. The GET /api/daily/{id}/result
+// endpoint is UNCHANGED — it does NOT include rank_progress or rank_up.
 
 // Response 422 — already played
 { "message": "You have already played today's challenge." }
@@ -837,19 +895,37 @@ are exposed.
 | `is_playable` | bool | `true` only when `status = active` |
 | `is_coming_soon` | bool | `true` when `status = coming_soon` |
 | `is_active` | bool | back-compat mirror of `status === 'active'` |
+| `tagline` | string | **v1.7.3** — per-sport onboarding tagline from `config('ballspot.sport_taglines')`; falls back to "Guess the {object_name}" |
 
 ```json
 // GET /api/sports
-// Response 200 — active + coming_soon (hidden excluded)
+// Response 200 — active + coming_soon (hidden excluded); tagline added in v1.7.3
 { "data": [
   { "id": 1, "name": "Football", "slug": "football", "emoji": "⚽", "object_name": "ball",
-    "primary_color": "#00c853",
+    "primary_color": "#00c853", "tagline": "Guess the ball",
     "status": "active", "is_playable": true, "is_coming_soon": false, "is_active": true },
   { "id": 3, "name": "Tennis", "slug": "tennis", "emoji": "🎾", "object_name": "ball",
-    "primary_color": "#c6ff00",
+    "primary_color": "#c6ff00", "tagline": "Find the tennis ball",
     "status": "coming_soon", "is_playable": false, "is_coming_soon": true, "is_active": false }
 ] }
 ```
+
+**Taglines (v1.7.3):** `config('ballspot.sport_taglines')` — football "Guess the ball", tennis
+"Find the tennis ball", golf "Spot the golf ball", hockey "Find the puck", cricket "Spot the
+cricket ball", american_football "Find the ball", basketball "Spot the ball". Any sport without a
+configured tagline falls back to "Guess the {object_name}". The mobile Choose Sport screen shows
+each sport's tagline.
+
+**Second-sport launch prep (v1.7.3, admin/CLI — not public API):**
+- `SportReadinessService` and the admin Sports page report per-sport content readiness (ready
+  challenge count = active + hidden image + ball position, scheduled daily count) with a "Ready to
+  activate" / "Not enough content yet" badge for non-active sports. Thresholds live in
+  `config('ballspot.sport_readiness')` (min_ready_challenges=5, min_scheduled_dailies=1).
+  **Advisory only** — activation is not hard-blocked.
+- `php artisan ballspot:schedule-daily-challenges --sport=<slug>` now **warns and does nothing**
+  when the target sport is `coming_soon`/`hidden`, unless `--allow-coming-soon` is passed (for
+  admin content prep ahead of activation). Default (no `--sport`) behaviour is unchanged; nothing
+  is deleted or overwritten.
 
 **Sport status meanings:**
 - **`active`** — visible + selectable/playable.

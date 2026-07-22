@@ -106,7 +106,7 @@ export function GuessScreen({ route, navigation }: Props) {
     setSubmitting(true);
     setSubmitError('');
     try {
-      const { newBadges, rankProgress } = await roundApi.submitGuess(roundId, { guess_x_ratio: guessX, guess_y_ratio: guessY });
+      const { newBadges, rankProgress, rankUp } = await roundApi.submitGuess(roundId, { guess_x_ratio: guessX, guess_y_ratio: guessY });
       navigation.replace('Result', {
         roundId,
         leagueId,
@@ -115,6 +115,7 @@ export function GuessScreen({ route, navigation }: Props) {
         categoryName: round!.challenge.category?.name ?? null,
         newBadges,
         rankProgress,
+        rankUp,
       });
     } catch (e: any) {
       setSubmitError(e?.message || 'Failed to submit guess. Please try again.');

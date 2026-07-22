@@ -315,21 +315,54 @@ enhancement.
 
 ---
 
-## User Rank / Level / XP (v1.7.2) — config-driven & derived, no ledger table
+## xp_events (v1.7.3) — XP ledger (new source of truth)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK auto |
+| user_id | bigint FK → users | **cascade delete** |
+| source_type | varchar(255) | `daily_guess` \| `tournament_guess` \| `badge_unlock` \| `streak_bonus` \| `tournament_win` \| `weekly_finish` \| `admin_adjustment` |
+| source_id | bigint nullable | id of the originating row (guess/badge/milestone); nullable for source-less awards (e.g. admin_adjustment) |
+| amount | integer (signed) | XP delta; MVP awards positive values only |
+| reason | varchar(255) | human-readable label, e.g. "Daily challenge completed" |
+| metadata | json nullable | optional context, e.g. `{ "badge_code": "perfect_guess" }` |
+| created_at / updated_at | timestamp |
+| | index(user_id, created_at) | recent-events / history queries |
+| | unique(user_id, source_type, source_id) | de-dupe; **NULL `source_id` rows are exempt**, so unlimited `admin_adjustment` rows are allowed |
+
+- **Append-only.** Rows are inserted, never mutated or deleted in normal operation.
+- **Anonymization-safe.** XP rows are **never deleted on account anonymization** (`DELETE
+  /account`), so rank/leaderboard history is preserved even after a user is anonymized.
+- **De-duplication.** `XpService.awardXp(user, source_type, source_id, amount, reason, metadata)`
+  relies on the `unique(user_id, source_type, source_id)` index, so replays (e.g. reopening a
+  result) never double-count. NULL `source_id` is exempt from the constraint on purpose.
+- Written by `XpService` for: guess submission (`daily_guess` / `tournament_guess`, `+score`),
+  `badge_unlock` (rarity bonus), and `streak_bonus` (milestone). `tournament_win` is config-ready
+  but **not awarded yet**. `weekly_finish` is reserved.
+
+## User Rank / Level / XP (v1.7.3) — ledger-backed, with lifetime-score fallback
 
 **Personal** long-term progression (rank/level/XP), computed by `PlayerRankService`. This is
 distinct from **leaderboard rank** (a user's position relative to others), which is unchanged
 and computed separately.
 
-- **No new tables and no columns were added for XP.** Rank thresholds live in
-  `config('ballspot.ranks')` (6 ranks by minimum XP): Rookie (L1, 0), Amateur (L2, 2,500),
-  Pro (L3, 10,000), Elite (L4, 25,000), Legend (L5, 50,000), Ball Master (L6, 100,000).
-- **`total_xp` is derived on read** = lifetime score total = `SUM(guesses.score)` +
-  `SUM(daily_challenge_guesses.score)` for the user. **XP currently equals the lifetime score
-  total; badges do not add XP.**
-- **Known limitation — no XP transaction/ledger table.** XP is recomputed from the score sums
-  on every read; there is no per-event XP ledger. Adding non-score XP sources (e.g. badges,
-  bonuses) later would warrant an `xp_transactions` table.
+- Rank thresholds live in `config('ballspot.ranks')` (6 ranks by minimum XP): Rookie (L1, 0),
+  Amateur (L2, 2,500), Pro (L3, 10,000), Elite (L4, 25,000), Legend (L5, 50,000),
+  Ball Master (L6, 100,000).
+- **`total_xp` now derives from the `xp_events` ledger** (sum of `amount`), not from a live score
+  sum. This is the source of truth as of v1.7.3.
+- **Fallback (documented):** if a user has **no** ledger events yet, `total_xp` **falls back** to
+  the lifetime score total = `SUM(guesses.score)` + `SUM(daily_challenge_guesses.score)` so early
+  players don't show 0 XP before backfill. Once **any** ledger event exists, the ledger is
+  authoritative and the fallback no longer applies.
+- **XP bonus config:** badge XP (`config('ballspot.xp.badge')` — common 100 / rare 250 / epic 500
+  / legendary 1000) and streak XP (`config('ballspot.xp.streak')` — 3-day +150 / 7-day +500 /
+  30-day +2500) are awarded to the ledger, so XP can now exceed the raw score sum. Tournament-win
+  XP config exists but is not awarded yet.
+- **Backfill:** run `php artisan ballspot:backfill-xp` **once after deploy** to create the missing
+  `daily_guess` + `tournament_guess` events for existing guesses. Idempotent; `--dry-run` writes
+  nothing; `--user=ID` scopes to one user; `--force` is intentionally a NO-OP (never
+  deletes/rebuilds history). It never touches guesses/challenges/images.
 
-Exposed via `GET /api/me/rank`, the `rank` object on `GET /api/profile/stats`, and the
-`rank_progress` block on fresh daily/round guess responses.
+Exposed via `GET /api/me/rank`, the `rank` object on `GET /api/profile/stats`, the `rank_progress`
++ nullable `rank_up` blocks on fresh daily/round guess responses, and `GET /api/me/xp-events`.

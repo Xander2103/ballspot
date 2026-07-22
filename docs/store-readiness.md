@@ -19,6 +19,36 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.7.3 store-relevant notes
+
+- **XP / rank stays cosmetic progression — no rewards, currency, or money.** v1.7.3 moves XP to a
+  ledger (`xp_events`) and adds new XP sources (guesses, badges, streaks) plus rank-up moments and
+  an XP history screen. This is still a **cosmetic** long-term progression display: XP **cannot be
+  bought, sold, earned for money, or redeemed** for anything of value, and there is no marketplace,
+  currency, or gambling. It is distinct from leaderboard rank (position vs. other players). The
+  store listing category (no IAP, no gambling, no real money) is unchanged.
+- **No new permissions or content-review surfaces.** The XP ledger, rank-up cards, `/me/xp-events`
+  screen, and per-sport taglines add no device permissions, no IAP, no ads, and no user-facing
+  content review surface.
+- **Second-sport prep is admin-facing, not player-facing monetization.** A `SportReadinessService`
+  and admin Sports readiness badges help admins decide when a `coming_soon` sport has enough
+  content to go live; the daily scheduler now guards `coming_soon`/`hidden` sports (opt-in
+  `--allow-coming-soon` for content prep). Non-football sports remain visible-but-disabled roadmap
+  teasers — **not** playable, **not** purchasable. Only football is `active`.
+
+### Second-sport activation checklist (advisory)
+
+Thresholds live in `config('ballspot.sport_readiness')` (advisory only — activation is **not**
+hard-blocked). Before moving a sport `coming_soon → active`:
+
+- [ ] ≥ 5 **ready** active challenges (active + hidden image + ball position)
+- [ ] ≥ 1 scheduled daily challenge for the sport
+- [ ] No placeholder / copyright-risk content (rights confirmed per the Content Rights Checklist)
+- [ ] Sport has `object_name`, `emoji`, and a `tagline`
+- [ ] The mobile flow (Choose Sport → Home → Daily/Tournament) has been tested for the sport
+
+---
+
 ## v1.7.2 store-relevant notes
 
 - **Avatar upload now works cross-platform (web + native).** The Expo **web** upload bug

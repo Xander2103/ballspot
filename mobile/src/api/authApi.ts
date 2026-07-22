@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import { User, ProfileStats, AuthResponse, LoginResult } from '../types/auth';
+import { User, ProfileStats, AuthResponse, LoginResult, XpEventsResponse } from '../types/auth';
 
 export const authApi = {
   register: (data: { name: string; username: string; email: string; password: string }) =>
@@ -43,6 +43,9 @@ export const authApi = {
 
   stats: () =>
     apiClient.request<ProfileStats>('/profile/stats'),
+
+  xpEvents: (limit = 10) =>
+    apiClient.request<XpEventsResponse>(`/me/xp-events?limit=${limit}`),
 
   deleteAccount: () =>
     apiClient.request<{ message: string }>('/account', { method: 'DELETE' }),

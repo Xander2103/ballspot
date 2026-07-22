@@ -68,6 +68,28 @@ export interface RankProgress {
   rank: PlayerRank;
 }
 
+/** Present in a guess response when the guess pushed the player to a new rank. */
+export interface RankUp {
+  from_rank: string;
+  to_rank: string;
+  new_level: number;
+}
+
+export interface XpEvent {
+  id: number;
+  amount: number;
+  reason: string;
+  source_type: string;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface XpEventsResponse {
+  data: XpEvent[];
+  total_xp: number;
+  rank: PlayerRank;
+}
+
 export interface ProfileStats {
   tournaments_count: number;
   completed_tournaments_count: number;

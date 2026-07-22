@@ -2,9 +2,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\XpEventResource;
 use App\Models\Guess;
 use App\Services\DailyStreakService;
 use App\Services\PlayerRankService;
+use App\Services\XpService;
 use Illuminate\Http\Request;
 
 class ProfileController extends Controller
@@ -12,12 +14,26 @@ class ProfileController extends Controller
     public function __construct(
         private DailyStreakService $streakService,
         private PlayerRankService $rankService,
+        private XpService $xpService,
     ) {}
 
     // GET /api/me/rank — personal rank/level/XP progression.
     public function rank(Request $request)
     {
         return response()->json(['rank' => $this->rankService->forUser($request->user())]);
+    }
+
+    // GET /api/me/xp-events — recent XP ledger activity + total + current rank.
+    public function xpEvents(Request $request)
+    {
+        $user  = $request->user();
+        $limit = min(50, max(1, (int) $request->integer('limit', 20)));
+
+        return response()->json([
+            'data'     => XpEventResource::collection($this->xpService->getRecentXpEvents($user, $limit)),
+            'total_xp' => $this->rankService->totalXpForUser($user),
+            'rank'     => $this->rankService->forUser($user),
+        ]);
     }
 
     public function stats(Request $request)

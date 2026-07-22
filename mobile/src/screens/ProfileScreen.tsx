@@ -9,13 +9,14 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { TrophyRoom } from '../components/TrophyRoom';
 import { Avatar } from '../components/Avatar';
 import { RankCard } from '../components/RankCard';
+import { RecentXpCard } from '../components/RecentXpCard';
 import { authApi } from '../api/authApi';
 import { avatarApi } from '../api/avatarApi';
 import { tokenStorage } from '../storage/tokenStorage';
 import { useTheme } from '../theme/useTheme';
 import { THEME_META, ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import { User, ProfileStats } from '../types/auth';
+import { User, ProfileStats, XpEvent } from '../types/auth';
 
 const APP_VERSION = '1.0.0';
 
@@ -36,10 +37,11 @@ export function ProfileScreen({ navigation }: Props) {
   const [deleteError, setDeleteError] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState('');
+  const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
 
   const loadProfile = useCallback(() => {
-    return Promise.all([authApi.me(), authApi.stats()])
-      .then(([me, s]) => { setUser(me); setStats(s); })
+    return Promise.all([authApi.me(), authApi.stats(), authApi.xpEvents(6).catch(() => null)])
+      .then(([me, s, xp]) => { setUser(me); setStats(s); if (xp) setXpEvents(xp.data); })
       .catch(() => {});
   }, []);
 
@@ -123,6 +125,14 @@ export function ProfileScreen({ navigation }: Props) {
 
       {/* Personal rank / level / XP progression */}
       {stats?.rank ? <RankCard rank={stats.rank} /> : null}
+
+      {/* Recent XP activity */}
+      {xpEvents.length > 0 ? (
+        <>
+          <Text style={styles.sectionTitle}>Recent XP</Text>
+          <RecentXpCard events={xpEvents} />
+        </>
+      ) : null}
 
       {/* Sport preference */}
       <Text style={styles.sectionTitle}>Your sport</Text>

@@ -105,7 +105,7 @@ export function SportSelectionScreen({ route, navigation }: Props) {
                     ) : null}
                   </View>
                   <Text style={[styles.sportLabel, { color: theme.textMuted }]}>
-                    {comingSoon ? 'Coming soon' : `Guess the ${sport.object_name}`}
+                    {comingSoon ? 'Coming soon' : (sport.tagline ?? `Guess the ${sport.object_name}`)}
                   </Text>
                 </View>
                 {savingId === sport.id ? (

@@ -6,9 +6,11 @@ use App\Http\Resources\BadgeResource;
 use App\Http\Resources\GuessResultResource;
 use App\Models\Guess;
 use App\Models\LeagueRound;
+use App\Models\XpEvent;
 use App\Services\BadgeService;
 use App\Services\PlayerRankService;
 use App\Services\ScoreService;
+use App\Services\XpService;
 use Illuminate\Http\Request;
 
 class RoundController extends Controller
@@ -17,6 +19,7 @@ class RoundController extends Controller
         private ScoreService $scoreService,
         private BadgeService $badgeService,
         private PlayerRankService $rankService,
+        private XpService $xpService,
     ) {}
 
     public function submitGuess(SubmitGuessRequest $request, LeagueRound $round)
@@ -43,6 +46,9 @@ class RoundController extends Controller
             $challenge->ball_y_ratio,
         );
 
+        $user     = $request->user();
+        $xpBefore = $this->xpService->getTotalXp($user);
+
         $guess = Guess::create([
             'league_round_id' => $round->id,
             'user_id' => $userId,
@@ -55,16 +61,30 @@ class RoundController extends Controller
 
         $guess->load('round.challenge');
 
-        // Award any newly-earned virtual trophies (idempotent).
-        $newBadges = $this->badgeService->evaluateTournamentGuess($request->user(), $guess);
+        // XP: the guess score (deduped per guess).
+        $this->xpService->awardXp(
+            $user,
+            XpEvent::SOURCE_TOURNAMENT_GUESS,
+            $guess->id,
+            (int) $guess->score,
+            'Tournament round completed',
+            ['league_round_id' => $round->id, 'league_id' => $round->league_id],
+        );
+
+        // Award any newly-earned virtual trophies (idempotent; grants badge XP).
+        $newBadges = $this->badgeService->evaluateTournamentGuess($user, $guess);
+
+        $xpAfter  = $this->xpService->getTotalXp($user);
+        $rankUp   = $this->rankService->rankUp($xpBefore, $xpAfter);
 
         return (new GuessResultResource($guess))
             ->additional([
                 'new_badges'    => BadgeResource::collection($newBadges)->resolve(),
                 'rank_progress' => [
-                    'xp_gained' => $guess->score,
-                    'rank'      => $this->rankService->forUser($request->user()),
+                    'xp_gained' => $xpAfter - $xpBefore,
+                    'rank'      => $this->rankService->forXp($xpAfter),
                 ],
+                'rank_up'       => $rankUp,
             ]);
     }
 

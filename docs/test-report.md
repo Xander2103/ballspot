@@ -1,9 +1,79 @@
-# BallSpot v1.7.2 — Test Report
+# BallSpot v1.7.3 — Test Report
 
 Build date: 2026-07-22
 
-**Backend:** 189 feature tests passing (was 173; +16 in v1.7.2).
+**Backend:** 207 feature tests passing (was 189; +18 in v1.7.3).
 **Mobile:** `npx tsc --noEmit` clean.
+
+---
+
+## v1.7.3 — XP Ledger, Rank-Up Moments, and Second Sport Launch Prep
+
+This sprint introduces the **XP ledger** (`xp_events`) as the new source of truth for personal
+rank/XP, adds **rank-up** moments and an **XP history** endpoint, and lays **second-sport launch
+prep** (per-sport taglines, a readiness service, and a guarded daily scheduler). See the
+[API contract](api-contract.md), [database schema](database-schema.md),
+[store readiness](store-readiness.md), and
+[prizes & trophy room](prizes-and-trophy-room.md) for details.
+
+### Backend (207 passing, +18)
+
+New test files:
+
+- **XpLedgerTest** (new) — covers:
+  - an XP event is created for an award;
+  - a duplicate `(user, source_type, source_id)` is **not** awarded twice;
+  - `getRecentXpEvents()` returns most-recent events;
+  - `PlayerRankService` uses the **ledger** over the lifetime score when events exist;
+  - **falls back** to lifetime score when the user has **no** ledger events;
+  - a **daily guess** creates a `daily_guess` XP event (`+score`);
+  - **reopening a result does not double-award** (deduped per guess id);
+  - a **badge unlock** awards rarity XP **once** (deduped by badge id);
+  - a **streak milestone** awards XP **once** (deduped by milestone day);
+  - a guess that crosses a threshold returns the **`rank_up`** payload; otherwise `rank_up: null`;
+  - `GET /api/me/xp-events` returns events + `total_xp` + `rank`;
+  - **backfill dry-run** writes nothing;
+  - **backfill** creates missing events without duplicates (idempotent).
+- **SportReadinessTest** (new) — covers:
+  - readiness counts **ready** challenges (active + hidden image + ball position);
+  - a sport reports **ready** when the configured thresholds are met;
+  - `ballspot:schedule-daily-challenges --sport=<coming_soon>` **warns and skips**;
+  - the same command **proceeds** when `--allow-coming-soon` is passed.
+
+Rank/XP is now **ledger-backed** (`xp_events`, append-only, anonymization-safe) with a
+lifetime-score fallback until `ballspot:backfill-xp` runs. `GET /api/sports` gained a `tagline`
+field. No migrations or tests were run as part of documenting this release.
+
+### Mobile
+
+- `npx tsc --noEmit` passes clean.
+- New types: `RankUp`, `XpEvent`, `XpEventsResponse`; `Sport` gained `tagline`.
+- Result screens (DailyResultScreen + tournament ResultScreen): new **RankUpCard** (premium
+  static "RANK UP! You reached <Rank> · Level N", gold accent, no animation dependency) shown
+  **only** when `rank_up` is present; the existing **RankProgressCard** shows "+N XP" and the
+  progress bar. Both are optional — no broken placeholder when absent (e.g. viewing an old result).
+- ProfileScreen: new "Recent XP" section (compact **RecentXpCard**) listing recent ledger events
+  ("+511 Daily challenge completed", "+250 Badge unlocked: …"), fetched from
+  `GET /me/xp-events` (limit 6); hidden when empty.
+- Choose Sport shows each sport's **tagline**; `coming_soon` sports stay visible-but-disabled with
+  a SOON badge and become selectable with **no new mobile code** once an admin flips them to
+  `active` (data-driven).
+
+### Constraints honored (v1.7.3)
+
+No payments/IAP/ads/chat/realtime/betting/real-prizes. Rank/XP remains **cosmetic** progression —
+XP cannot be bought, sold, or redeemed for anything of value. Football remains the only `active`
+sport; other sports are `coming_soon` roadmap teasers with no purchasable content.
+
+### Known limitations (v1.7.3)
+
+1. **Tournament-win XP is config-ready but not awarded yet** — deferred until robust tournament
+   completion/winner logic exists (`config('ballspot.xp.tournament_win')` exists but is unused).
+2. **XP fallback (lifetime score) applies only until `ballspot:backfill-xp` runs** — run it once
+   after deploy so the ledger becomes authoritative for all existing guesses.
+3. **No anti-cheat beyond existing guess validation**, and **no full sport-specific scoring** yet.
+4. Prior v1.7.x limitations still apply (one global daily per date; avatars not shown in
+   leaderboards/lobbies; per-screen theming still partial).
 
 ---
 
