@@ -1,17 +1,21 @@
 import { apiClient } from './client';
-import { User, ProfileStats } from '../types/auth';
-
-interface AuthResponse {
-  user: User;
-  token: string;
-}
+import { User, ProfileStats, AuthResponse, LoginResult } from '../types/auth';
 
 export const authApi = {
   register: (data: { name: string; username: string; email: string; password: string }) =>
     apiClient.request<AuthResponse>('/register', { method: 'POST', body: JSON.stringify(data) }),
 
+  // Step 1: returns { requires_2fa, verification_id, ... } on success — no token yet.
   login: (data: { email: string; password: string }) =>
-    apiClient.request<AuthResponse>('/login', { method: 'POST', body: JSON.stringify(data) }),
+    apiClient.request<LoginResult>('/login', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Step 2: exchange the emailed code for a token.
+  verifyLoginCode: (data: { verification_id: string; code: string }) =>
+    apiClient.request<AuthResponse>('/login/verify', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Request a fresh code for an in-flight verification (cooldown-limited server-side).
+  resendLoginCode: (data: { verification_id: string }) =>
+    apiClient.request<{ message: string }>('/login/resend-code', { method: 'POST', body: JSON.stringify(data) }),
 
   logout: () =>
     apiClient.request<{ message: string }>('/logout', { method: 'POST' }),

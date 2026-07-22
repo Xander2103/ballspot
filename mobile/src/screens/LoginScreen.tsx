@@ -6,9 +6,9 @@ import { Screen } from '../components/Screen';
 import { AppInput } from '../components/AppInput';
 import { AppButton } from '../components/AppButton';
 import { authApi } from '../api/authApi';
-import { tokenStorage } from '../storage/tokenStorage';
+import { isTwoFactorRequired } from '../types/auth';
+import { completeLogin } from '../app/authFlow';
 import { useTheme } from '../theme/useTheme';
-import { isThemeName } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
@@ -23,18 +23,17 @@ export function LoginScreen({ navigation }: Props) {
     if (!email || !password) { Alert.alert('Error', 'Please fill in all fields'); return; }
     setLoading(true);
     try {
-      const { token } = await authApi.login({ email, password });
-      await tokenStorage.save(token);
-      // Fetch profile to apply the saved theme and decide onboarding vs home.
-      try {
-        const me = await authApi.me();
-        if (me.selected_theme && isThemeName(me.selected_theme)) {
-          setTheme(me.selected_theme, { sync: false });
-        }
-        navigation.reset({ index: 0, routes: [{ name: me.preferred_sport ? 'Home' : 'SportSelection' }] });
-      } catch {
-        navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+      const result = await authApi.login({ email, password });
+
+      // Step 1: valid credentials → a code was emailed. Go verify it.
+      if (isTwoFactorRequired(result)) {
+        navigation.navigate('LoginVerification', { verificationId: result.verification_id, email });
+        return;
       }
+
+      // Fallback: a direct token (if 2FA is ever disabled server-side).
+      const target = await completeLogin(result.token, setTheme);
+      navigation.reset({ index: 0, routes: [{ name: target }] });
     } catch (e: any) {
       Alert.alert('Login Failed', e?.message || 'Invalid credentials');
     } finally {

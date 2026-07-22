@@ -9,6 +9,7 @@ import { authApi } from '../api/authApi';
 
 import type { Badge } from '../types/badge';
 import { LoginScreen } from '../screens/LoginScreen';
+import { LoginVerificationScreen } from '../screens/LoginVerificationScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
@@ -27,6 +28,7 @@ import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
 
 export type RootStackParamList = {
   Login: undefined;
+  LoginVerification: { verificationId: string; email?: string };
   Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { email?: string; token?: string } | undefined;
@@ -92,6 +94,7 @@ export function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="LoginVerification" component={LoginVerificationScreen} options={{ title: 'Verify Login' }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />

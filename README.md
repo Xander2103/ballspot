@@ -10,6 +10,19 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.6.1 — Email Two-Factor Login
+
+- **Login now requires an emailed code.** A correct password no longer returns a
+  token — `POST /api/login` emails a one-time **6-digit code** and returns
+  `{ requires_2fa: true, verification_id, message }`. The user submits that code to
+  `POST /api/login/verify` to receive their token; `POST /api/login/resend-code`
+  re-issues a code (60s cooldown). Codes are stored **hashed only**, expire after
+  10 minutes, lock after 5 wrong attempts, and errors are generic (no email
+  enumeration). Registration is unchanged (no 2FA on register).
+- **Local dev:** with `MAIL_MAILER=log`, the full verification email (including the
+  code) is written to `backend/storage/logs/laravel.log`.
+- See **[docs/security-auth.md](docs/security-auth.md)** for the full write-up.
+
 ## New in v1.7 — Sport Selection, Themes, and Profile Avatar
 
 - **Sport selection & onboarding** — new `sports` API (`GET /api/sports`) and per-user
@@ -125,7 +138,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 146 feature tests
+cd backend && php artisan test          # 161 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 
@@ -227,6 +240,7 @@ Prints a read-only report covering environment config, content readiness, daily 
 ## Docs
 
 - [API Contract](docs/api-contract.md)
+- [Security & Authentication](docs/security-auth.md)
 - [Database Schema](docs/database-schema.md)
 - [Test Report](docs/test-report.md)
 - [Content Safety Guide](docs/content-safety.md)

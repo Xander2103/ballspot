@@ -4,6 +4,21 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.6.1 store-relevant notes
+
+- **Login is now email two-factor.** Signing in requires a one-time 6-digit code
+  emailed to the account address; a valid password alone no longer logs the user
+  in. **A valid, deliverable email is therefore required to sign in.** For
+  production, configure a real transactional `MAIL_MAILER` (SMTP) so login-code
+  emails are delivered reliably — locally `log` writes the code to `laravel.log`.
+  Registration is unchanged (no 2FA on register). See
+  [security-auth.md](security-auth.md).
+- **No new mobile permissions.** The `LoginVerificationScreen` uses a normal
+  numeric text input — no new device permissions, IAP, ads, or tracking are
+  introduced. This does not change the store listing category or content rating.
+
+---
+
 ## v1.7 store-relevant notes
 
 - **Profile avatar upload = user-generated content (UGC).** Users can upload a photo

@@ -96,11 +96,12 @@ class PasswordResetTest extends TestCase
             'password' => 'oldpassword123',
         ])->assertStatus(422);
 
-        // Login with new password succeeds.
+        // Login with new password succeeds (now starts email 2FA instead of
+        // returning a token directly).
         $this->postJson('/api/login', [
             'email'    => 'reset@example.com',
             'password' => 'brandnewpass123',
-        ])->assertOk()->assertJsonStructure(['user', 'token']);
+        ])->assertOk()->assertJsonPath('requires_2fa', true);
     }
 
     public function test_reset_revokes_existing_api_tokens(): void

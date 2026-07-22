@@ -4,6 +4,24 @@ return [
     'support_email' => env('BALLSPOT_SUPPORT_EMAIL', 'support@ballspot.app'),
     'web_url'       => env('BALLSPOT_WEB_URL', env('APP_URL', 'http://localhost')),
 
+    // User-facing brand name for emails/notifications (config('app.name') stays
+    // the framework name). Kept configurable as the product is renamed.
+    'app_name'      => env('BALLSPOT_APP_NAME', 'BallPicker'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Email two-factor login
+    |--------------------------------------------------------------------------
+    | After a correct email/password, a one-time 6-digit code is emailed and
+    | must be verified before any API token is issued. Codes are stored hashed,
+    | expire, and are attempt-limited. Resend is cooldown-limited.
+    */
+    'auth' => [
+        'login_code_expiry_minutes'          => (int) env('BALLSPOT_LOGIN_CODE_EXPIRY_MINUTES', 10),
+        'login_code_max_attempts'            => (int) env('BALLSPOT_LOGIN_CODE_MAX_ATTEMPTS', 5),
+        'login_code_resend_cooldown_seconds' => (int) env('BALLSPOT_LOGIN_CODE_RESEND_COOLDOWN_SECONDS', 60),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | App themes

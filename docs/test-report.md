@@ -1,9 +1,61 @@
-# BallSpot v1.7 — Test Report
+# BallSpot v1.6.1 — Test Report
 
 Build date: 2026-07-22
 
-**Backend:** 146 feature tests passing (was 119 in v1.6; +27 new in v1.7).
+**Backend:** 161 feature tests passing (was 146; +15 net in v1.6.1).
 **Mobile:** `npx tsc --noEmit` clean.
+
+---
+
+## v1.6.1 — Secure Email Two-Factor Login
+
+### Backend (161 passing, +15 net)
+
+Login is now email two-factor: a correct password emails a one-time 6-digit code
+and returns a `verification_id` instead of a token; the token is only issued after
+the code is verified. See [security-auth.md](security-auth.md) for the design.
+
+New test file:
+
+- **EmailTwoFactorLoginTest** — covers:
+  - valid login starts 2FA and returns **no token**;
+  - invalid credentials send **no code**;
+  - unknown email returns the generic error and sends **no code** (no enumeration);
+  - the code is stored **hashed**, not in plain text;
+  - `/me` is blocked before verification;
+  - verify returns a token and grants `/me` access;
+  - a wrong code fails and **increments the attempt counter**;
+  - an expired code fails;
+  - a consumed code cannot be reused;
+  - reaching max attempts **locks** the code (even the correct value is rejected);
+  - resend creates a new code and invalidates the old one;
+  - resend is **cooldown-limited** (60s);
+  - resend on an unknown/expired session responds "Please login again.";
+  - account deletion still works after a verified login;
+  - the `ballspot:cleanup-login-codes` command removes stale (expired + consumed) codes.
+
+Updated test files:
+
+- **AuthTest** — login now asserts `requires_2fa` and that **no token** is returned.
+- **PasswordResetTest** — after a password reset, the subsequent login asserts
+  `requires_2fa` (post-reset login also goes through 2FA).
+
+### Mobile
+
+- `npx tsc --noEmit` passes clean.
+- `authApi.login` now returns a `LoginResult` union (`AuthResponse` |
+  `TwoFactorRequired`) with an `isTwoFactorRequired` type guard; new
+  `authApi.verifyLoginCode` and `authApi.resendLoginCode`.
+- New `LoginVerificationScreen` ("Check your email"): 6-digit autofocus input,
+  "Verify and continue", "Resend code" with a 60s cooldown countdown, and "Back to
+  login". The token is stored **only** after successful verification, then the app
+  resets to Home (or SportSelection for users with no sport).
+
+### Constraints honored (v1.6.1)
+
+Email-only 2FA (no SMS/TOTP/passkeys this sprint). No migrations or tests were run
+as part of documenting this release. No payments/IAP/ads/chat/realtime/betting.
+Registration is unchanged (no 2FA on register).
 
 ---
 

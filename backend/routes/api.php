@@ -1,6 +1,7 @@
 <?php
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\LoginVerificationController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\DailyChallengeController;
 use App\Http\Controllers\Api\LeagueController;
@@ -16,7 +17,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/health', fn() => response()->json(['status' => 'ok', 'timestamp' => now()]));
 
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login',    [AuthController::class, 'login']);
+
+// Email two-factor login (step 1: credentials -> emailed code; step 2: verify -> token)
+Route::post('/login',              [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/login/verify',       [LoginVerificationController::class, 'verify'])->middleware('throttle:login-verify');
+Route::post('/login/resend-code',  [LoginVerificationController::class, 'resend'])->middleware('throttle:login-resend');
+
 Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
 Route::post('/reset-password',  [PasswordResetController::class, 'reset']);
 

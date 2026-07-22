@@ -20,13 +20,78 @@ Protected routes require: `Authorization: Bearer <token>`
 { "user": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com" }, "token": "1|..." }
 ```
 
-### POST /login
+### POST /login  *(email two-factor — v1.6.1)*
+
+Login is a **two-step, email-2FA** flow. A correct password does **not** return a
+token — it emails a one-time 6-digit code and returns a `verification_id`. See
+[docs/security-auth.md](security-auth.md) for the full design.
+
 ```json
 // Request
 { "email": "x@example.com", "password": "password123" }
-// Response 200
-{ "user": { "id": 1, "name": "Xander", "username": "xander" }, "token": "1|..." }
+
+// Response 200 — valid credentials: code emailed, NO token returned
+{
+  "requires_2fa": true,
+  "verification_id": "<uuid>",
+  "message": "We sent a verification code to your email."
+}
+
+// Response 422 — invalid credentials OR unknown email (generic, no email sent, no enumeration)
+{ "message": "Invalid credentials." }
 ```
+
+The unknown-email path runs a dummy hash to equalize response timing
+(anti-enumeration). Complete the login with `POST /login/verify`.
+
+### POST /login/verify  *(v1.6.1)*
+
+Exchanges a valid 6-digit code for a Sanctum token. The token is issued **only**
+here, on success.
+
+```json
+// Request
+{ "verification_id": "<uuid>", "code": "123456" }
+
+// Response 200 — success: token issued (same shape login used to return)
+{ "user": { "id": 1, "name": "Xander", "username": "xander" }, "token": "1|..." }
+
+// Response 422 — generic failure (wrong / expired / consumed / locked are indistinguishable)
+{ "message": "Invalid or expired verification code." }
+```
+
+- A wrong code **increments the attempt counter**.
+- Codes expire after **10 minutes** and lock after **5** wrong attempts (a locked
+  code rejects even the correct value — the user must log in again).
+- A successful verify consumes the code and deletes any other pending codes for the
+  user; consumed codes cannot be reused.
+
+### POST /login/resend-code  *(v1.6.1)*
+
+Re-issues a code on the **same** verification session (resets code/attempts/expiry).
+Cooldown-limited to 60s.
+
+```json
+// Request
+{ "verification_id": "<uuid>" }
+
+// Response 200 — generic success
+{ "message": "If your login is still pending, a new code has been sent to your email." }
+
+// Response 422 — expired / consumed / unknown session
+{ "message": "Please login again." }
+
+// Response 422 — within the 60s cooldown window
+{ "message": "Please wait a moment before requesting another code." }
+```
+
+**Rate limits (v1.6.1):** `throttle:login` on `/login` (5/min per email+IP, plus
+20/min per IP); `throttle:login-verify` on `/login/verify` (20/min per
+`verification_id`+IP); `throttle:login-resend` on `/login/resend-code` (5/min per
+`verification_id`+IP).
+
+**Local dev:** with `MAIL_MAILER=log`, the code appears in
+`backend/storage/logs/laravel.log`. No API response ever returns the raw code.
 
 ### POST /logout  *(auth required)*
 ```json
