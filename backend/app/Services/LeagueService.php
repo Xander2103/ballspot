@@ -27,7 +27,7 @@ class LeagueService
             'You have reached the free tournament limit. Finish or cancel an existing tournament to create a new one.'
         );
 
-        $sport = Sport::where('slug', 'football')->firstOrFail();
+        $sport = $this->resolveSport($data, $userId);
 
         $league = League::create([
             'name'           => $data['name'],
@@ -46,6 +46,32 @@ class LeagueService
         ]);
 
         return $league;
+    }
+
+    /**
+     * Decide which sport a new tournament belongs to.
+     * Precedence: explicit request sport_id -> user's preferred sport -> football.
+     * Only active sports are ever used; falls back to football if a stale
+     * preference points at a now-inactive sport.
+     */
+    private function resolveSport(array $data, int $userId): Sport
+    {
+        if (!empty($data['sport_id'])) {
+            $sport = Sport::where('id', $data['sport_id'])->where('is_active', true)->first();
+            if ($sport) {
+                return $sport;
+            }
+        }
+
+        $user = \App\Models\User::find($userId);
+        if ($user && $user->preferred_sport_id) {
+            $preferred = Sport::where('id', $user->preferred_sport_id)->where('is_active', true)->first();
+            if ($preferred) {
+                return $preferred;
+            }
+        }
+
+        return Sport::where('slug', 'football')->firstOrFail();
     }
 
     public function start(League $league, int $userId): League

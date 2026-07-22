@@ -31,6 +31,13 @@ class LeagueResource extends JsonResource
             'duration_days'          => $this->duration_days,
             'rounds_per_day'         => $this->rounds_per_day,
             'status'                 => $this->status,
+            'sport'                  => $this->sport ? [
+                'id'            => $this->sport->id,
+                'slug'          => $this->sport->slug,
+                'name'          => $this->sport->name,
+                'emoji'         => $this->sport->emoji,
+                'primary_color' => $this->sport->primary_color,
+            ] : null,
             'owner_user_id'          => $this->owner_user_id,
             'is_owner'               => $userId === $this->owner_user_id,
             'members_count'          => $this->members()->count(),

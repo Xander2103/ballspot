@@ -10,6 +10,51 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.7 — Sport Selection, Themes, and Profile Avatar
+
+- **Sport selection & onboarding** — new `sports` API (`GET /api/sports`) and per-user
+  preferences (`GET`/`PATCH /api/me/preferences`). A **Sport Selection** screen is shown
+  after register (always) and after login/app-start when the user has no preferred sport.
+  Active sports are selectable; inactive sports show "Coming soon" and are disabled. The
+  chosen sport persists to the backend and can be changed again from Profile ("Change
+  sport") and the Home sport chip. Football remains the default when no preference is set.
+- **App themes** — an extensible allow-list of 5 themes (`classic`, `tournament_blue`,
+  `pitch_green`, `sunset_orange`, `high_contrast`) defined in `config/ballspot.php` and a
+  mobile `ThemeProvider` (React context). The selected theme is persisted to AsyncStorage
+  (`ballspot_theme`), synced to the backend via `PATCH /api/me/preferences`, and re-applied
+  from the server on login. A theme picker lives in Profile with 5 theme cards applied
+  immediately. **"Tournament Blue" disclaimer:** this theme is original styling inspired by
+  the general energy/vibe of televised European sport nights (deep navy, turquoise, vivid
+  red accent, cool silver). It is **NOT UEFA branding** and uses no UEFA logos, names, or
+  protected assets.
+- **Profile avatar upload** — `POST`/`DELETE /api/me/avatar`. Users can upload a photo
+  (jpeg/jpg/png/webp, max 2 MB; SVG rejected) stored on the public disk under `avatars/`
+  with a randomized name. Uploading replaces (and best-effort deletes) the previous avatar
+  only if it lives under `avatars/` — challenge images are never touched. Profile shows the
+  avatar (or initials) with "Change photo" (via `expo-image-picker`); Home shows a small
+  avatar in the top bar.
+- **Sport-aware daily challenge** — `GET /api/daily/today` resolves the sport from
+  `?sport=<slug>`, else the user's preferred sport, else football. If today's (single
+  global) daily challenge does not match the requested sport, it returns a clean no-daily
+  payload so the app can say e.g. "No daily challenge for Tennis today. Try Football."
+  Football-first behaviour is unchanged for users with no preference. **Limitation:** there
+  is still only ONE global daily challenge per date; true simultaneous per-sport dailies is
+  a future enhancement requiring a schema change.
+- **Sport-aware tournaments** — `POST /api/leagues` accepts an optional `sport_id` (must be
+  active); precedence is explicit `sport_id` → user's preferred sport → football. Rounds
+  only draw challenges from the tournament's sport, and `LeagueResource` now includes a
+  `sport` object.
+- **Schedule command `--sport`** — `php artisan ballspot:schedule-daily-challenges` gained
+  `--sport=<slug>`. Omitting it is unchanged (all active challenges); providing it fills the
+  schedule from only that sport's active challenges. An unknown slug fails with a friendly
+  error. Default (no flag) is football-safe.
+- **Admin sport activation** — new `GET /admin/sports` index + `POST
+  /admin/sports/{sport}/toggle` to activate/deactivate sports. **Football cannot be
+  deactivated.** Challenge create/edit label inactive sports "(inactive)" and carry a tag
+  guidance note (use text tags like country/team/league/moment type; no copyrighted logos).
+
+See "New in v1.6" below for the prior sprint.
+
 ## New in v1.6 — Gamification, Leaderboards, Password Reset, Multi-Sport Foundation
 
 - **Password reset** — `POST /api/forgot-password` and `POST /api/reset-password`
@@ -80,7 +125,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 119 feature tests
+cd backend && php artisan test          # 146 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 
@@ -113,9 +158,17 @@ php artisan ballspot:schedule-daily-challenges --days=14 --force
 
 # Start from a specific date:
 php artisan ballspot:schedule-daily-challenges --days=7 --start=2026-07-01
+
+# Restrict the schedule to a single sport's active challenges (v1.7):
+php artisan ballspot:schedule-daily-challenges --days=14 --sport=football
+php artisan ballspot:schedule-daily-challenges --days=14 --sport=tennis
 ```
 
 **Notes:**
+- `--sport=<slug>` (v1.7): when omitted, behaviour is unchanged (all active challenges).
+  When provided, only that sport's active challenges fill the schedule; an unknown slug
+  fails with a friendly error. Default (no flag) is football-safe because football is the
+  only active sport with content.
 - Only `active` challenges with a hidden image and ball position are eligible.
 - Demo challenges are used as fallback if no real content exists (a warning is printed).
 - New challenges are created with `status=scheduled`. Change to `active` in the daily admin when ready to go live.
@@ -196,7 +249,10 @@ Prints a read-only report covering environment config, content readiness, daily 
 
 - No real money, no gambling, no subscriptions, no ads, no in-app purchases
 - No chat, no AI, no realtime/websockets
-- Football is the only **active** sport (multi-sport foundation exists in the backend)
+- Football is the only **active** sport by default (multi-sport foundation exists in the
+  backend; other sports require admin activation + content before they are selectable)
+- Themes and sport selection add no new store risk; the "Tournament Blue" theme is original
+  styling and uses no UEFA logos, names, or protected assets
 - Trophies are **virtual only** — no real prizes
 - Score calculation backend-only (never trust client)
 - Positions stored as ratios 0..1 (device-independent)

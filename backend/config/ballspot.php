@@ -6,6 +6,38 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | App themes
+    |--------------------------------------------------------------------------
+    | Extensible allow-list of theme tokens the mobile app can select. The
+    | backend only validates/persists the identifier — the actual colors live
+    | in the mobile theme system (mobile/src/theme/themes.ts). To add a theme,
+    | append its slug here and define its palette in the app. "tournament_blue"
+    | is original broadcast-inspired styling; it is NOT UEFA branding.
+    */
+    'themes' => [
+        'classic',
+        'tournament_blue',
+        'pitch_green',
+        'sunset_orange',
+        'high_contrast',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Avatar uploads
+    |--------------------------------------------------------------------------
+    | Profile photos are stored on the public disk. SVG is intentionally
+    | excluded (scriptable). Max size mirrors a conservative mobile limit.
+    */
+    'avatar' => [
+        'disk'        => 'public',
+        'directory'   => 'avatars',
+        'max_kb'      => (int) env('BALLSPOT_AVATAR_MAX_KB', 2048),
+        'mimes'       => ['jpeg', 'jpg', 'png', 'webp'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Tournament limits (free tier)
     |--------------------------------------------------------------------------
     | Foundation only — NO payments or in-app purchases are implemented. Premium

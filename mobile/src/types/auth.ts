@@ -1,8 +1,13 @@
+import type { Sport } from './sport';
+
 export interface User {
   id: number;
   name: string;
   username: string;
   email?: string;
+  selected_theme?: string;
+  avatar_url?: string | null;
+  preferred_sport?: Sport | null;
 }
 
 export interface AuthState {

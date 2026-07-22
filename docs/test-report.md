@@ -1,8 +1,81 @@
-# BallSpot v1.6 — Test Report
+# BallSpot v1.7 — Test Report
 
-Build date: 2026-07-21
+Build date: 2026-07-22
 
-**Backend:** 119 feature tests passing (390 assertions). **Mobile:** `tsc --noEmit` clean.
+**Backend:** 146 feature tests passing (was 119 in v1.6; +27 new in v1.7).
+**Mobile:** `npx tsc --noEmit` clean.
+
+---
+
+## v1.7 — Sport Selection, Themes, and Profile Avatar
+
+### Backend (146 passing, +27 new)
+
+New/updated test files:
+
+- **PreferencesTest** — `GET`/`PATCH /api/me/preferences`: returns preferred sport, theme,
+  avatar URL, and the available-themes allow-list; partial updates; theme must be in the
+  allow-list (422 otherwise); `preferred_sport_id` must exist AND be active; null clears the
+  preference; clean 422 validation.
+- **AvatarTest** — `POST /api/me/avatar` accepts jpeg/jpg/png/webp up to 2 MB and rejects
+  SVG / oversized / wrong-type files (422); stores under `avatars/` on the public disk with
+  a randomized name; replacing an avatar deletes only the previous file under `avatars/`
+  (never challenge images); `DELETE /api/me/avatar` clears `avatar_path` and returns
+  `{ avatar_url: null }`.
+- **SportsApiTest** — `GET /api/sports` returns active sports by default and inactive ones
+  with `?include_inactive=1`; verifies the sport fields (id, name, slug, emoji, object_name,
+  primary_color, is_active).
+- **SportFilteringTest** — sport-aware behaviour: daily-by-sport (matching vs. mismatched
+  sport returns the clean no-daily payload with a `sport` block), tournament-by-sport
+  (`sport_id` precedence and rounds drawn only from the tournament's sport), and the
+  schedule command's `--sport=<slug>` flag (only that sport's active challenges; unknown
+  slug fails friendly).
+- **LeagueTournamentLifecycleTest** (updated) — the "no active challenges" start error now
+  asserts the **dynamic sport name** in the message.
+
+Account deletion and all prior v1.6 tests still pass. `GET /api/me` (UserResource) now also
+returns `selected_theme`, `avatar_url`, and `preferred_sport` for the authenticated user.
+
+Admin: `GET /admin/sports` index + `POST /admin/sports/{sport}/toggle` (football protected
+from deactivation).
+
+### Mobile
+
+- `npx tsc --noEmit` passes clean.
+- New theme system: `mobile/src/theme/themes.ts` (5 themes, full token set), `ThemeProvider`
+  (React context; persists to AsyncStorage `ballspot_theme`; syncs to backend via
+  `PATCH /me/preferences`; applies the server theme on login), `useTheme.ts`. App wrapped in
+  `<ThemeProvider>`.
+- New `SportSelectionScreen` (after register always; after login/app-start when no preferred
+  sport; reachable in `mode: 'change'` from Profile and the Home sport chip).
+- Home: selected-sport chip with "Change sport", sport-scoped daily fetch, sport-named empty
+  state, small avatar in the top bar.
+- Profile: avatar (photo or initials) with "Change photo" (`expo-image-picker`, permission
+  request, uploads to `POST /me/avatar`), a "Your sport" row, and a 5-card "App theme"
+  picker applied immediately and persisted.
+- `expo-image-picker` (~56.0.21) added; `app.json` plugin with a `photosPermission` string.
+- Fully themed: shared components (Screen, AppButton, AppInput) plus HomeScreen,
+  ProfileScreen, DailyChallengeScreen, LoginScreen, CreateLeagueScreen, SportSelectionScreen.
+
+### Constraints honored (v1.7)
+
+No payments/IAP/ads/chat/realtime/betting/real-prizes. No migrations or tests were run as
+part of documenting this release. The "Tournament Blue" theme is original styling and uses
+no UEFA logos, names, or protected assets. Football remains the only active sport by default.
+
+### Known limitations (v1.7)
+
+1. **One global daily challenge per date** — `daily_challenges.challenge_date` is unique.
+   Simultaneous per-sport dailies on the same date need a schema change (composite unique on
+   `challenge_date` + sport).
+2. **Only football is active by default** — other sports need admin activation + content
+   before they appear as selectable.
+3. **Avatars not shown in leaderboards / tournament lobbies** — those payloads don't include
+   `avatar_url` yet.
+4. **Full per-screen theming pending** — core screens + shared components are themed; other
+   secondary screens still use the classic palette for inline text/cards (functional, with a
+   themed background).
+5. **No payments/ads/chat/realtime/gambling** — unchanged.
 
 ---
 
@@ -468,7 +541,9 @@ The `GET /leagues/{id}/current-round` and `GET /api/daily/today` endpoints delib
 
 9. **Rounds are always open** — `opens_at`/`closes_at` are nullable and unused in v1. All rounds are playable immediately after `POST /start`.
 
-10. **No avatar** — Profile screen shows stats only; no avatar/photo upload.
+10. **Avatar (v1.7)** — Profile avatar upload is now implemented (`POST`/`DELETE
+    /api/me/avatar`, `expo-image-picker`). Avatars are not yet shown in leaderboards or
+    tournament lobbies (those payloads don't include `avatar_url`).
 
 11. **Token storage on web** — expo-secure-store has no web implementation. Tokens are stored in `sessionStorage` on web (cleared on tab close). For production web, migrate to HttpOnly+Secure+SameSite cookies.
 
@@ -486,7 +561,7 @@ The `GET /leagues/{id}/current-round` and `GET /api/daily/today` endpoints delib
 - [ ] Push notifications when new daily challenge is available
 - [ ] `next_available_at` in current-round response (return tomorrow UTC midnight)
 - [ ] Cache streak and weekly rank for performance
-- [ ] Profile avatar upload
+- [x] Profile avatar upload — implemented in v1.7 (`POST`/`DELETE /api/me/avatar`)
 - [ ] Join tournament by link / QR code (not just manual code entry)
 
 ### Quality / Infra

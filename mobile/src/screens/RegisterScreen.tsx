@@ -51,7 +51,8 @@ export function RegisterScreen({ navigation }: Props) {
     try {
       const { token } = await authApi.register({ name: name.trim(), username: username.trim(), email: email.trim(), password });
       await tokenStorage.save(token);
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+      // Brand-new accounts have no preferred sport yet → onboarding first.
+      navigation.reset({ index: 0, routes: [{ name: 'SportSelection' }] });
     } catch (e: any) {
       if (e?.errors) {
         const apiErrors: FieldErrors = {};

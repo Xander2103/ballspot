@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 
 interface Props {
@@ -13,8 +13,9 @@ interface Props {
 }
 
 export function AppButton({ title, onPress, loading, disabled, variant = 'primary', style }: Props) {
-  const bg = variant === 'primary' ? colors.primary : variant === 'danger' ? colors.error : colors.surfaceElevated;
-  const textColor = variant === 'primary' ? '#000' : colors.text;
+  const { theme } = useTheme();
+  const bg = variant === 'primary' ? theme.primary : variant === 'danger' ? theme.danger : theme.surfaceElevated;
+  const textColor = variant === 'primary' ? theme.onPrimary : theme.text;
 
   return (
     <TouchableOpacity

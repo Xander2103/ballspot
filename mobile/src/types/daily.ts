@@ -32,6 +32,8 @@ export interface TodayResponse {
   already_played: boolean;
   reason?: string;
   daily_challenge?: DailyChallengeEntry;
+  // Present on a no-daily response so the empty state can name the sport.
+  sport?: SportSummary | null;
 }
 
 export interface DailyGuessResult {

@@ -21,7 +21,7 @@ class LeagueController extends Controller
         $leagues = $request->user()
             ->leagues()
             ->where('status', '!=', 'cancelled')
-            ->with(['rounds', 'members'])
+            ->with(['rounds', 'members', 'sport'])
             ->get();
 
         return LeagueResource::collection($leagues);
@@ -30,14 +30,14 @@ class LeagueController extends Controller
     public function store(CreateLeagueRequest $request)
     {
         $league = $this->leagueService->create($request->validated(), $request->user()->id);
-        return new LeagueResource($league->load('members'));
+        return new LeagueResource($league->load('members', 'sport'));
     }
 
     public function join(Request $request)
     {
         $request->validate(['join_code' => ['required', 'string', 'size:6']]);
         $league = $this->leagueService->join($request->join_code, $request->user()->id);
-        return new LeagueResource($league->load('members'));
+        return new LeagueResource($league->load('members', 'sport'));
     }
 
     public function show(Request $request, League $league)
@@ -45,7 +45,7 @@ class LeagueController extends Controller
         if (!$league->members()->where('user_id', $request->user()->id)->exists()) {
             return response()->json(['message' => 'Not a member of this league'], 403);
         }
-        return new LeagueResource($league->load('members'));
+        return new LeagueResource($league->load('members', 'sport'));
     }
 
     public function start(Request $request, League $league)
@@ -69,13 +69,13 @@ class LeagueController extends Controller
 
         if (!$hasChallenges) {
             return response()->json(
-                ['message' => 'No active football challenges available. Add challenges in admin.'],
+                ['message' => "No active {$sport->name} challenges available. Add challenges in admin."],
                 422
             );
         }
 
         $league = $this->leagueService->start($league, $userId);
-        return new LeagueResource($league->load('members'));
+        return new LeagueResource($league->load('members', 'sport'));
     }
 
     public function destroy(Request $request, League $league)

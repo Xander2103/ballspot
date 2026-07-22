@@ -10,7 +10,7 @@ export const leagueApi = {
   list: () =>
     apiClient.request<ResourceResponse<League[]>>('/leagues').then(r => r.data),
 
-  create: (data: { name: string; duration_days: number; rounds_per_day: number }) =>
+  create: (data: { name: string; duration_days: number; rounds_per_day: number; sport_id?: number | null }) =>
     apiClient.request<ResourceResponse<League>>('/leagues', { method: 'POST', body: JSON.stringify(data) }).then(r => r.data),
 
   join: (join_code: string) =>

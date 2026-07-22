@@ -6,7 +6,8 @@ import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { dailyApi } from '../api/dailyApi';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/useTheme';
+import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { DailyChallengeEntry } from '../types/daily';
 
@@ -20,6 +21,8 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 
 export function DailyChallengeScreen({ route, navigation }: Props) {
   const { dailyChallengeId } = route.params;
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
 
   const [challenge, setChallenge] = useState<DailyChallengeEntry | null>(null);
   const [guessX, setGuessX] = useState<number | null>(null);
@@ -84,7 +87,6 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
     } catch (e: unknown) {
       const err = e as { status?: number; message?: string };
       if (err?.status === 422) {
-        // Duplicate guess — already played
         navigation.replace('DailyResult', { dailyChallengeId });
         return;
       }
@@ -96,7 +98,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.primary} size="large" />
       </View>
     );
   }
@@ -104,15 +106,11 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   if (!challenge) return null;
 
   const hasGuess = guessX !== null && guessY !== null;
-  const diffColor = DIFFICULTY_COLOR[challenge.challenge.difficulty] ?? colors.textSecondary;
+  const diffColor = DIFFICULTY_COLOR[challenge.challenge.difficulty] ?? theme.textSecondary;
   const categoryName = challenge.challenge.category?.name ?? null;
   const imageUrl = challenge.challenge.hidden_image_url;
 
-  const todayLabel = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const guessLabel = hasGuess
     ? `Guess locked at ${Math.round(guessX! * 100)}%, ${Math.round(guessY! * 100)}%`
@@ -120,13 +118,12 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
 
   return (
     <Screen scroll={false} padding={false}>
-      {/* Challenge info card */}
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>
           <Text style={styles.dateLabel}>{todayLabel}</Text>
           <View style={styles.badges}>
             {challenge.challenge.sport ? (
-              <View style={[styles.catBadge, { backgroundColor: (challenge.challenge.sport.primary_color ?? colors.primary) + '26' }]}>
+              <View style={[styles.catBadge, { backgroundColor: (challenge.challenge.sport.primary_color ?? theme.primary) + '26' }]}>
                 <Text style={styles.catText}>{challenge.challenge.sport.emoji} {challenge.challenge.sport.name}</Text>
               </View>
             ) : null}
@@ -155,14 +152,9 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         ) : null}
       </View>
 
-      {/* Image card */}
       {imageUrl ? (
         <View style={styles.imageCard}>
-          <ImageGuessPicker
-            imageUri={imageUrl}
-            onGuess={handleGuess}
-            interactive
-          />
+          <ImageGuessPicker imageUri={imageUrl} onGuess={handleGuess} interactive />
         </View>
       ) : (
         <View style={styles.noImage}>
@@ -170,7 +162,6 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {/* Footer: guess status + submit */}
       <View style={styles.footer}>
         <View style={styles.guessStatus}>
           <Text style={[styles.guessLabel, hasGuess && styles.guessLabelActive]}>
@@ -178,142 +169,38 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
           </Text>
         </View>
         {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
-        <AppButton
-          title="Submit Guess"
-          onPress={handleSubmit}
-          loading={submitting}
-          disabled={!hasGuess || submitting}
-        />
+        <AppButton title="Submit Guess" onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
       </View>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoCard: {
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  dateLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontWeight: '600',
-  },
-  badges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  catBadge: {
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    backgroundColor: colors.surfaceElevated,
-  },
-  catText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  diffBadge: {
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  diffText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  challengeTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  instruction: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: spacing.sm,
-  },
-  tagChip: {
-    backgroundColor: colors.surfaceElevated,
-    borderRadius: 6,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-  },
-  tagText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  imageCard: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-  },
-  noImage: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xl,
-  },
-  noImageText: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontStyle: 'italic',
-  },
-  footer: {
-    padding: spacing.md,
-    gap: spacing.sm,
-    backgroundColor: colors.background,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  guessStatus: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
-  },
-  guessLabel: {
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  guessLabelActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  submitError: {
-    color: colors.error,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-});
+function createStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    center: { flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' },
+    infoCard: {
+      backgroundColor: theme.surface, paddingHorizontal: spacing.md, paddingTop: spacing.md,
+      paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.border,
+    },
+    infoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+    dateLabel: { fontSize: 12, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '600' },
+    badges: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    catBadge: { borderRadius: 6, paddingHorizontal: spacing.sm, paddingVertical: 2, backgroundColor: theme.surfaceElevated },
+    catText: { fontSize: 10, fontWeight: '600', color: theme.textSecondary, letterSpacing: 0.5 },
+    diffBadge: { borderRadius: 6, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+    diffText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+    challengeTitle: { fontSize: 20, fontWeight: '700', color: theme.text, marginBottom: 4 },
+    instruction: { fontSize: 13, color: theme.textSecondary, fontStyle: 'italic' },
+    tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
+    tagChip: { backgroundColor: theme.surfaceElevated, borderRadius: 6, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+    tagText: { fontSize: 11, color: theme.textSecondary, fontWeight: '600' },
+    imageCard: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: theme.background },
+    noImage: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xl },
+    noImageText: { color: theme.textMuted, fontSize: 14, fontStyle: 'italic' },
+    footer: { padding: spacing.md, gap: spacing.sm, backgroundColor: theme.background, borderTopWidth: 1, borderTopColor: theme.border },
+    guessStatus: { backgroundColor: theme.surface, borderRadius: 10, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, alignItems: 'center' },
+    guessLabel: { fontSize: 14, color: theme.textMuted, textAlign: 'center' },
+    guessLabelActive: { color: theme.primary, fontWeight: '600' },
+    submitError: { color: theme.danger, fontSize: 13, textAlign: 'center' },
+  });
+}

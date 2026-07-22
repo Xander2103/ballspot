@@ -10,9 +10,11 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = await tokenStorage.get();
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     Accept: 'application/json',
+    // Let the runtime set the multipart boundary itself for FormData uploads.
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
   };
   if (token) {

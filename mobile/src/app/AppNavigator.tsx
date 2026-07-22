@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/useTheme';
+import { isThemeName } from '../theme/themes';
 import { tokenStorage } from '../storage/tokenStorage';
+import { authApi } from '../api/authApi';
 
 import type { Badge } from '../types/badge';
 import { LoginScreen } from '../screens/LoginScreen';
@@ -11,6 +13,7 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { SportSelectionScreen } from '../screens/SportSelectionScreen';
 import { CreateLeagueScreen } from '../screens/CreateLeagueScreen';
 import { JoinLeagueScreen } from '../screens/JoinLeagueScreen';
 import { LeagueDetailScreen } from '../screens/LeagueDetailScreen';
@@ -28,6 +31,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   ResetPassword: { email?: string; token?: string } | undefined;
   Home: undefined;
+  SportSelection: { mode?: 'onboarding' | 'change'; currentSportId?: number | null } | undefined;
   Profile: undefined;
   CreateLeague: undefined;
   JoinLeague: undefined;
@@ -42,36 +46,57 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const screenOptions = {
-  headerStyle: { backgroundColor: colors.surface },
-  headerTintColor: colors.text,
-  headerTitleStyle: { fontWeight: '700' as const, color: colors.text },
-  contentStyle: { backgroundColor: colors.background },
-};
-
 export function AppNavigator() {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const { theme, setTheme } = useTheme();
+  const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
 
   useEffect(() => {
-    tokenStorage.get().then((token) => setIsLoggedIn(!!token)).catch(() => setIsLoggedIn(false));
+    (async () => {
+      const token = await tokenStorage.get().catch(() => null);
+      if (!token) {
+        setInitialRoute('Login');
+        return;
+      }
+      try {
+        const user = await authApi.me();
+        // Apply the server-side theme without re-syncing it back.
+        if (user.selected_theme && isThemeName(user.selected_theme)) {
+          setTheme(user.selected_theme, { sync: false });
+        }
+        // No preferred sport yet → onboarding; otherwise straight to Home.
+        setInitialRoute(user.preferred_sport ? 'Home' : 'SportSelection');
+      } catch (e: any) {
+        // 401 → stale token, send to Login. Any other error (offline) → let
+        // the user in rather than locking them out.
+        setInitialRoute(e?.status === 401 ? 'Login' : 'Home');
+      }
+    })();
   }, []);
 
-  if (isLoggedIn === null) {
+  const screenOptions = {
+    headerStyle: { backgroundColor: theme.surface },
+    headerTintColor: theme.text,
+    headerTitleStyle: { fontWeight: '700' as const, color: theme.text },
+    contentStyle: { backgroundColor: theme.background },
+  };
+
+  if (initialRoute === null) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <View style={{ flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={theme.primary} size="large" />
       </View>
     );
   }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName={isLoggedIn ? 'Home' : 'Login'} screenOptions={screenOptions}>
+      <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'BallSpot', headerLeft: () => null }} />
+        <Stack.Screen name="SportSelection" component={SportSelectionScreen} options={{ title: 'Choose Sport' }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />
         <Stack.Screen name="JoinLeague" component={JoinLeagueScreen} options={{ title: 'Join Tournament' }} />

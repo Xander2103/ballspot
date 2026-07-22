@@ -26,6 +26,8 @@
            href="/admin/challenges">Challenges</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/categories*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/categories">Categories</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/sports*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/sports">Sports</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/daily*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/daily">Daily</a>
         <span class="text-secondary small ms-auto me-3">v1</span>

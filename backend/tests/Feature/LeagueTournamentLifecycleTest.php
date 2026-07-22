@@ -100,7 +100,7 @@ class LeagueTournamentLifecycleTest extends TestCase
 
         $res = $this->withToken($token)->postJson("/api/leagues/{$leagueId}/start");
         $res->assertStatus(422);
-        $res->assertJsonPath('message', 'No active football challenges available. Add challenges in admin.');
+        $res->assertJsonPath('message', 'No active Football challenges available. Add challenges in admin.');
     }
 
     public function test_users_can_join_lobby_tournament(): void

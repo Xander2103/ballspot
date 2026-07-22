@@ -7,10 +7,12 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { Avatar } from '../components/Avatar';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
 import { dailyApi } from '../api/dailyApi';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/useTheme';
+import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
 import { User } from '../types/auth';
@@ -18,54 +20,47 @@ import { TodayResponse, DailyStats } from '../types/daily';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
-const STATUS_LABEL: Record<string, string> = {
-  lobby: 'LOBBY',
-  active: 'ACTIVE',
-  completed: 'DONE',
-};
-
-const STATUS_COLOR: Record<string, string> = {
-  lobby: colors.warning,
-  active: colors.primary,
-  completed: colors.textMuted,
-};
+const STATUS_LABEL: Record<string, string> = { lobby: 'LOBBY', active: 'ACTIVE', completed: 'DONE' };
 
 function todayDateFormatted(): string {
-  return new Date().toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function DailyCard({
-  today,
-  stats,
-  navigation,
+  today, stats, navigation, styles, theme,
 }: {
   today: TodayResponse | null;
   stats: DailyStats | null;
   navigation: Props['navigation'];
+  styles: Styles;
+  theme: ThemeTokens;
 }) {
   if (!today?.has_daily) {
+    const sportName = today?.sport?.name;
+    const isOtherSport = sportName && today?.sport?.slug !== 'football';
     return (
       <View style={styles.dailyCard}>
-        <Text style={styles.dailyCardTitle}>⚽ Daily Ball Challenge</Text>
+        <Text style={styles.dailyCardTitle}>
+          {today?.sport?.emoji ?? '⚽'} Daily {sportName ?? 'Ball'} Challenge
+        </Text>
         <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
-        <Text style={styles.dailyCardEmpty}>No challenge today. Check back tomorrow!</Text>
+        <Text style={styles.dailyCardEmpty}>
+          {isOtherSport
+            ? `No daily challenge for ${sportName} today. Try Football or come back tomorrow.`
+            : 'No challenge today. Check back tomorrow!'}
+        </Text>
       </View>
     );
   }
 
+  const emoji = today.daily_challenge?.challenge?.sport?.emoji ?? '⚽';
+
   if (today.already_played) {
     return (
       <View style={styles.dailyCard}>
-        <Text style={styles.dailyCardTitle}>⚽ Daily Ball Challenge</Text>
+        <Text style={styles.dailyCardTitle}>{emoji} Daily Ball Challenge</Text>
         <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
-        {!!stats?.current_streak && (
-          <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>
-        )}
+        {!!stats?.current_streak && <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>}
         <AppButton
           title="View Today's Result"
           onPress={() => navigation.navigate('DailyResult', { dailyChallengeId: today.daily_challenge!.id })}
@@ -78,20 +73,16 @@ function DailyCard({
 
   return (
     <View style={styles.dailyCard}>
-      <Text style={styles.dailyCardTitle}>⚽ Daily Ball Challenge</Text>
+      <Text style={styles.dailyCardTitle}>{emoji} Daily Ball Challenge</Text>
       <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
       {today.daily_challenge?.challenge && (
         <Text style={styles.dailyChallengeInfo}>
           {today.daily_challenge.challenge.title}
-          {today.daily_challenge.challenge.category
-            ? ` · ${today.daily_challenge.challenge.category.name}`
-            : ''}
+          {today.daily_challenge.challenge.category ? ` · ${today.daily_challenge.challenge.category.name}` : ''}
           {' · '}{today.daily_challenge.challenge.difficulty}
         </Text>
       )}
-      {!!stats?.current_streak && (
-        <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>
-      )}
+      {!!stats?.current_streak && <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>}
       <AppButton
         title="Play Daily Challenge"
         onPress={() => navigation.navigate('DailyChallenge', { dailyChallengeId: today.daily_challenge!.id })}
@@ -102,27 +93,32 @@ function DailyCard({
 }
 
 function TournamentCard({
-  item,
-  onPress,
-  onDelete,
+  item, onPress, onDelete, styles, theme,
 }: {
   item: League;
   onPress: () => void;
   onDelete?: () => void;
+  styles: Styles;
+  theme: ThemeTokens;
 }) {
-  const statusColor = STATUS_COLOR[item.status] ?? colors.textMuted;
+  const STATUS_COLOR: Record<string, string> = {
+    lobby: theme.warning, active: theme.primary, completed: theme.textMuted,
+  };
+  const statusColor = STATUS_COLOR[item.status] ?? theme.textMuted;
   const statusLabel = STATUS_LABEL[item.status] ?? item.status.toUpperCase();
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {item.sport?.emoji ? `${item.sport.emoji} ` : ''}{item.name}
+        </Text>
         <View style={[styles.statusBadge, { borderColor: statusColor }]}>
           <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
       </View>
       <Text style={styles.cardMeta}>
-        Code: {item.join_code} · {item.members_count} players
+        {item.sport?.name ? `${item.sport.name} · ` : ''}Code: {item.join_code} · {item.members_count} players
         {item.rounds_count > 0 ? ` · ${item.completed_rounds_count}/${item.rounds_count} rounds` : ''}
       </Text>
       {item.is_owner && (item.status === 'lobby' || item.status === 'active') && onDelete ? (
@@ -139,6 +135,9 @@ function TournamentCard({
 }
 
 export function HomeScreen({ navigation }: Props) {
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
+
   const [leagues, setLeagues] = useState<League[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,9 +149,11 @@ export function HomeScreen({ navigation }: Props) {
   const [dailyLoading, setDailyLoading] = useState(true);
 
   const load = useCallback(async () => {
+    let me: User | null = null;
     try {
-      const [me, list] = await Promise.all([authApi.me(), leagueApi.list()]);
-      setUser(me);
+      const [meRes, list] = await Promise.all([authApi.me(), leagueApi.list()]);
+      me = meRes;
+      setUser(meRes);
       setLeagues(list);
     } catch {
       // silent
@@ -161,7 +162,7 @@ export function HomeScreen({ navigation }: Props) {
     }
 
     const [todayRes, statsRes] = await Promise.allSettled([
-      dailyApi.today(),
+      dailyApi.today(me?.preferred_sport?.slug),
       dailyApi.stats(),
     ]);
     if (todayRes.status === 'fulfilled') setTodayDaily(todayRes.value);
@@ -170,10 +171,7 @@ export function HomeScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => {
-    const unsub = navigation.addListener('focus', load);
-    return unsub;
-  }, [navigation, load]);
+  useEffect(() => navigation.addListener('focus', load), [navigation, load]);
 
   async function handleCancel() {
     if (!cancelTarget) return;
@@ -183,7 +181,6 @@ export function HomeScreen({ navigation }: Props) {
       setCancelTarget(null);
       await load();
     } catch {
-      // silent — will reload on next focus anyway
       setCancelTarget(null);
     } finally {
       setCancelling(false);
@@ -192,13 +189,12 @@ export function HomeScreen({ navigation }: Props) {
 
   const active = leagues.filter(l => l.status === 'lobby' || l.status === 'active');
   const completed = leagues.filter(l => l.status === 'completed');
-
   const sections = [
     ...(active.length > 0 ? [{ title: 'Your Tournaments', data: active }] : []),
     ...(completed.length > 0 ? [{ title: 'Completed', data: completed }] : []),
   ];
-
   const isEmpty = leagues.length === 0;
+  const sport = user?.preferred_sport ?? null;
 
   return (
     <Screen padding={false}>
@@ -208,14 +204,14 @@ export function HomeScreen({ navigation }: Props) {
           <Text style={styles.greeting}>Hey, {user?.name || '…'}</Text>
           <Text style={styles.sub}>@{user?.username || '…'}</Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} style={styles.profileIconBtn}>
-          <Text style={styles.profileIconText}>👤</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
+          <Avatar uri={user?.avatar_url} name={user?.name} size={42} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.primary} size="large" />
         </View>
       ) : (
         <SectionList
@@ -229,19 +225,33 @@ export function HomeScreen({ navigation }: Props) {
           renderItem={({ item }) => (
             <TournamentCard
               item={item}
+              styles={styles}
+              theme={theme}
               onPress={() => navigation.navigate('LeagueDetail', { leagueId: item.id, leagueName: item.name })}
               onDelete={() => setCancelTarget(item)}
             />
           )}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
-            <View style={styles.dailySection}>
+            <View>
+              {/* Selected sport chip */}
+              <TouchableOpacity
+                style={styles.sportChip}
+                activeOpacity={0.8}
+                onPress={() => navigation.navigate('SportSelection', { mode: 'change', currentSportId: sport?.id ?? null })}
+              >
+                <Text style={styles.sportChipText}>
+                  {sport ? `${sport.emoji} ${sport.name}` : '🎯 Pick a sport'}
+                </Text>
+                <Text style={styles.sportChipAction}>Change sport ›</Text>
+              </TouchableOpacity>
+
               {dailyLoading ? (
                 <View style={[styles.dailyCard, styles.dailyCardLoading]}>
                   <Text style={styles.dailyCardLoadingText}>Loading daily challenge…</Text>
                 </View>
               ) : (
-                <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} />
+                <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} styles={styles} theme={theme} />
               )}
             </View>
           }
@@ -278,111 +288,57 @@ export function HomeScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-  },
-  topBarLeft: { flex: 1 },
-  appTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  greeting: { fontSize: 18, fontWeight: '700', color: colors.text },
-  sub: { fontSize: 13, color: colors.textSecondary },
-  profileIconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  profileIconText: {
-    fontSize: 18,
-  },
-  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
-  sectionHeader: { paddingBottom: spacing.xs, paddingTop: spacing.sm },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: colors.textSecondary, letterSpacing: 1, textTransform: 'uppercase' },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: spacing.sm,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  cardName: { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1, marginRight: spacing.sm },
-  statusBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
-  statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-  cardMeta: { fontSize: 13, color: colors.textSecondary },
-  deleteBtn: { marginTop: spacing.sm, alignSelf: 'flex-start' },
-  deleteBtnText: { fontSize: 12, color: colors.error, fontWeight: '600' },
-  emptyWrap: { paddingVertical: spacing.xxl, alignItems: 'center' },
-  emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
-  emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center' },
-  actions: { gap: spacing.sm, marginTop: spacing.md },
-  actionBtn: { marginBottom: 0 },
-  // Daily Challenge card
-  dailySection: {},
-  dailyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dailyCardLoading: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
-  dailyCardLoadingText: {
-    color: colors.textMuted,
-    fontSize: 13,
-    fontStyle: 'italic',
-  },
-  dailyCardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  dailyCardDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  dailyChallengeInfo: {
-    fontSize: 13,
-    color: colors.text,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  dailyStreak: {
-    fontSize: 13,
-    color: colors.warning,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  dailyBtn: {
-    marginTop: spacing.xs,
-  },
-  dailyCardEmpty: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-  },
-});
+type Styles = ReturnType<typeof createStyles>;
+
+function createStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    topBar: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      padding: spacing.md, backgroundColor: theme.surface,
+    },
+    topBarLeft: { flex: 1 },
+    appTitle: { fontSize: 13, fontWeight: '700', color: theme.primary, letterSpacing: 0.5, marginBottom: 2 },
+    greeting: { fontSize: 18, fontWeight: '700', color: theme.text },
+    sub: { fontSize: 13, color: theme.textSecondary },
+    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
+    sportChip: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: theme.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md,
+    },
+    sportChipText: { fontSize: 15, fontWeight: '700', color: theme.text },
+    sportChipAction: { fontSize: 13, fontWeight: '700', color: theme.accent },
+    sectionHeader: { paddingBottom: spacing.xs, paddingTop: spacing.sm },
+    sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase' },
+    card: {
+      backgroundColor: theme.surface, borderRadius: 14, padding: spacing.md,
+      borderWidth: 1, borderColor: theme.border, marginBottom: spacing.sm,
+    },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+    cardName: { fontSize: 16, fontWeight: '700', color: theme.text, flex: 1, marginRight: spacing.sm },
+    statusBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
+    statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+    cardMeta: { fontSize: 13, color: theme.textSecondary },
+    deleteBtn: { marginTop: spacing.sm, alignSelf: 'flex-start' },
+    deleteBtnText: { fontSize: 12, color: theme.danger, fontWeight: '600' },
+    emptyWrap: { paddingVertical: spacing.xxl, alignItems: 'center' },
+    emptyIcon: { fontSize: 48, marginBottom: spacing.md },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: theme.text, marginBottom: spacing.sm },
+    emptyText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center' },
+    actions: { gap: spacing.sm, marginTop: spacing.md },
+    actionBtn: { marginBottom: 0 },
+    dailyCard: {
+      backgroundColor: theme.surface, borderRadius: 16, padding: spacing.md,
+      marginBottom: spacing.md, borderWidth: 1, borderColor: theme.border,
+    },
+    dailyCardLoading: { alignItems: 'center', paddingVertical: spacing.lg },
+    dailyCardLoadingText: { color: theme.textMuted, fontSize: 13, fontStyle: 'italic' },
+    dailyCardTitle: { fontSize: 14, fontWeight: '800', color: theme.primary, letterSpacing: 0.5, marginBottom: 2 },
+    dailyCardDate: { fontSize: 12, color: theme.textSecondary, marginBottom: spacing.sm },
+    dailyChallengeInfo: { fontSize: 13, color: theme.text, fontWeight: '600', marginBottom: spacing.xs },
+    dailyStreak: { fontSize: 13, color: theme.warning, fontWeight: '700', marginBottom: spacing.sm },
+    dailyBtn: { marginTop: spacing.xs },
+    dailyCardEmpty: { fontSize: 13, color: theme.textMuted, fontStyle: 'italic' },
+  });
+}

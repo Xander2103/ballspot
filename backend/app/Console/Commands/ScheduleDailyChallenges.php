@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Challenge;
 use App\Models\DailyChallenge;
+use App\Models\Sport;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -13,7 +14,8 @@ class ScheduleDailyChallenges extends Command
                             {--days=14 : Number of days to schedule}
                             {--start= : Start date YYYY-MM-DD, defaults to today}
                             {--dry-run : Print planned schedule without writing}
-                            {--force : Replace existing daily challenges}';
+                            {--force : Replace existing daily challenges}
+                            {--sport= : Only use challenges from this sport slug (e.g. football, tennis). Omit to use all active challenges.}';
 
     protected $description = 'Schedule daily challenges for the next N days using eligible active challenges';
 
@@ -43,8 +45,28 @@ class ScheduleDailyChallenges extends Command
             $this->newLine();
         }
 
+        // --- Sport filter (optional) ---
+        // When --sport is omitted we keep the original behaviour (all active
+        // challenges) so existing schedules are unaffected. When provided, only
+        // that sport's challenges are used, enabling per-sport daily rotations.
+        $sportSlug = $this->option('sport');
+        $sportId   = null;
+        if ($sportSlug !== null && $sportSlug !== '') {
+            $sport = Sport::where('slug', $sportSlug)->first();
+            if (!$sport) {
+                $this->error("Unknown sport \"{$sportSlug}\". Use a valid sport slug (e.g. football, tennis).");
+                return self::FAILURE;
+            }
+            $sportId = $sport->id;
+            $this->line("Scheduling for sport: <fg=cyan>{$sport->name}</> ({$sport->slug})");
+        }
+
         // --- Pool selection ---
-        $allEligible = Challenge::where('status', 'active')->get()->filter->isReadyForDaily();
+        $poolQuery = Challenge::where('status', 'active');
+        if ($sportId !== null) {
+            $poolQuery->where('sport_id', $sportId);
+        }
+        $allEligible = $poolQuery->get()->filter->isReadyForDaily();
         $realContent = $allEligible->reject->isDemoContent();
         $demoContent = $allEligible->filter->isDemoContent();
 

@@ -4,6 +4,32 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.7 store-relevant notes
+
+- **Profile avatar upload = user-generated content (UGC).** Users can upload a photo
+  (`POST /api/me/avatar`; jpeg/jpg/png/webp, max 2 MB; SVG rejected). This introduces
+  user-supplied imagery, which both stores treat as UGC. **Moderation consideration:** have
+  a reporting/removal path and Terms language covering objectionable content before opening
+  avatars to a wide audience. Files are stored on the public disk under `avatars/` with
+  randomized names; deleting/replacing an avatar only removes files under `avatars/`
+  (challenge images are never touched). Avatars are not surfaced in leaderboards or
+  tournament lobbies yet, limiting exposure for now.
+- **Photo permission string.** The avatar picker uses `expo-image-picker`; `app.json`
+  declares the plugin with a `photosPermission` string. Ensure this string is user-friendly
+  and accurate — Apple requires a clear purpose string for photo-library access
+  (`NSPhotoLibraryUsageDescription`), and Google Play surfaces the media permission. This is
+  the only new permission added in v1.7.
+- **Themes & sport selection add no new store risk.** Themes are a local styling choice
+  (allow-list of 5); sport selection only chooses which active sport's content is shown.
+  Neither adds IAP, ads, gambling, tracking, or new content-review surfaces. Inactive sports
+  remain backend scaffolding ("Coming soon", disabled) and are not playable.
+- **"Tournament Blue" theme.** Original styling inspired by the general energy/vibe of
+  televised European sport nights (deep navy, turquoise, vivid red accent, cool silver). It
+  is **NOT UEFA branding** and uses no UEFA logos, names, or protected assets — no
+  trademark/IP review is triggered.
+
+---
+
 ## v1.6 store-relevant notes
 
 - **Account recovery:** password reset is implemented (`/api/forgot-password`,
@@ -73,7 +99,7 @@ Before submitting a build for internal testing (Play Store internal track / Test
 - [ ] Account deletion: users can delete their account from inside the app (Profile → Delete account). See `DELETE /api/account`.
 - [ ] Privacy Policy URL submitted in Play Console: `https://yourdomain.com/privacy`
 - [ ] Support email submitted: `BALLSPOT_SUPPORT_EMAIL`
-- [ ] App does not request more permissions than needed (no location, camera, microphone in v1)
+- [ ] App does not request more permissions than needed (no location, camera, microphone; **photo-library access added in v1.7** for avatar upload — verify the `photosPermission` string is clear and accurate)
 - [ ] Content rating questionnaire completed (no violence, no gambling, no real money)
 
 ### Required by Apple TestFlight / App Store

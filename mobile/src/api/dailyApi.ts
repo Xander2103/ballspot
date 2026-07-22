@@ -2,8 +2,11 @@ import { apiClient } from './client';
 import type { TodayResponse, DailyGuessResult, WeeklyLeaderboard, DailyStats } from '../types/daily';
 
 export const dailyApi = {
-  today: () =>
-    apiClient.request<TodayResponse>('/daily/today'),
+  // Optionally scope to a sport slug; omitted uses the user's saved preference.
+  today: (sportSlug?: string) =>
+    apiClient.request<TodayResponse>(
+      `/daily/today${sportSlug ? `?sport=${encodeURIComponent(sportSlug)}` : ''}`
+    ),
 
   guess: (dailyChallengeId: number, guessXRatio: number, guessYRatio: number) =>
     apiClient.request<{ data: DailyGuessResult }>(`/daily/${dailyChallengeId}/guess`, {

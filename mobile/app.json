@@ -23,7 +23,13 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BallPicker needs access to your photos so you can choose a profile picture."
+        }
+      ]
     ]
   }
 }

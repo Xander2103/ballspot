@@ -37,7 +37,13 @@ Protected routes require: `Authorization: Bearer <token>`
 ### GET /me  *(auth required)*
 ```json
 // Response 200
-{ "data": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com" } }
+{ "data": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com",
+  // v1.7 — returned for the authenticated user themselves:
+  "selected_theme": "classic",
+  "avatar_url": "http://.../storage/avatars/ab12cd34.jpg",
+  "preferred_sport": { "id": 1, "slug": "football", "name": "Football", "emoji": "⚽", "primary_color": "#00c853" }
+} }
+// avatar_url is null when no avatar; preferred_sport is null when no preference.
 ```
 
 ### DELETE /account  *(auth required)*
@@ -89,10 +95,13 @@ Returns leagues the current user is a member of (excludes cancelled).
 Creates a new tournament in **lobby** status. No rounds are generated until `/start` is called.
 ```json
 // Request
-{ "name": "Friday Squad", "duration_days": 3, "rounds_per_day": 1 }
+{ "name": "Friday Squad", "duration_days": 3, "rounds_per_day": 1, "sport_id": 1 }
 // duration_days: 1|3|7, rounds_per_day: 1|3
-// Response 200
-{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", "status": "lobby", "is_owner": true, "rounds_count": 0, ... } }
+// sport_id (v1.7): optional, must be an ACTIVE sport. Precedence:
+//   explicit sport_id → user's preferred sport → football.
+// Response 200 — LeagueResource now includes a sport object (v1.7)
+{ "data": { "id": 1, "name": "Friday Squad", "join_code": "ABC123", "status": "lobby", "is_owner": true, "rounds_count": 0,
+  "sport": { "id": 1, "slug": "football", "name": "Football", "emoji": "⚽", "primary_color": "#00c853" }, ... } }
 ```
 
 ### POST /leagues/join  *(auth required)*
@@ -133,8 +142,9 @@ Transitions a lobby tournament to active. Generates all rounds from available ch
 { "data": { "id": 1, "status": "active", "rounds_count": 3, "starts_at": "2026-06-23T...", "ends_at": "2026-06-24T...", ... } }
 // Response 403 — not the owner
 { "message": "Only the owner can start this tournament." }
-// Response 422 — no active challenges available
+// Response 422 — no active challenges available (sport name is dynamic, v1.7)
 { "message": "No active football challenges available. Add challenges in admin." }
+// Tournament rounds only draw challenges from the tournament's own sport.
 ```
 
 ### DELETE /leagues/{id}  *(auth required, must be owner)*
@@ -281,6 +291,17 @@ The daily challenge is a single shared challenge published each day. All users p
 Returns today's daily challenge. Ball position is **never** exposed before the user has guessed.
 After guessing, `already_played: true` is returned — call `/result` for score details.
 
+**Sport-aware (v1.7):** the sport is resolved from `?sport=<slug>`, else the authenticated
+user's preferred sport, else football. If today's (single global) daily challenge's sport
+does not match the requested sport, a clean no-daily payload is returned so the app can say
+e.g. "No daily challenge for Tennis today. Try Football." Football-first behaviour is
+unchanged for users with no preference.
+
+> **Limitation:** there is still only ONE global daily challenge per date
+> (`daily_challenges.challenge_date` is unique). True simultaneous per-sport dailies on the
+> same date is a future enhancement requiring a schema change (composite unique on
+> `challenge_date` + `sport`).
+
 ```json
 // Response 200 — challenge available, not yet played
 {
@@ -308,6 +329,13 @@ After guessing, `already_played: true` is returned — call `/result` for score 
 
 // Response 200 — no challenge today
 { "has_daily": false, "reason": "no_daily_challenge" }
+
+// Response 200 — a daily exists but not for the requested sport (v1.7)
+{
+  "has_daily": false,
+  "reason": "no_daily_challenge",
+  "sport": { "slug": "tennis", "name": "Tennis", "emoji": "🎾", "primary_color": "#c6ff00" }
+}
 ```
 
 ### POST /api/daily/{dailyChallenge}/guess  *(auth required)*
@@ -444,6 +472,8 @@ Login at `/admin/login` with `admin@ballspot.local / password`. All admin routes
 | GET | /admin/daily/create | Create daily challenge form (select challenge + date) |
 | POST | /admin/daily | Store new daily challenge |
 | PATCH | /admin/daily/{id}/status | Update status (scheduled/active/archived) |
+| GET | /admin/sports | **v1.7** — List all sports (active/inactive) |
+| POST | /admin/sports/{sport}/toggle | **v1.7** — Activate/deactivate a sport. Football cannot be deactivated (protected). |
 
 ---
 
@@ -560,3 +590,98 @@ Daily guess response (`data.new_badges`) and tournament guess response (top-leve
 - Join when full: `{ "message": "This tournament is full." }`
 
 No payment/purchase endpoints exist. Badges and trophies are virtual only.
+
+---
+
+## v1.7 additions — Sports, Preferences, Themes & Avatar
+
+All endpoints below require `auth:sanctum`.
+
+### GET /api/sports  *(auth required)*
+
+Returns active sports by default. Pass `?include_inactive=1` to also return inactive
+("Coming soon") sports.
+
+```json
+// GET /api/sports
+// Response 200
+{ "data": [
+  { "id": 1, "name": "Football", "slug": "football", "emoji": "⚽", "object_name": "ball", "primary_color": "#00c853", "is_active": true }
+] }
+
+// GET /api/sports?include_inactive=1 — also includes inactive sports
+{ "data": [
+  { "id": 1, "name": "Football", "slug": "football", "emoji": "⚽", "object_name": "ball", "primary_color": "#00c853", "is_active": true },
+  { "id": 3, "name": "Tennis", "slug": "tennis", "emoji": "🎾", "object_name": "ball", "primary_color": "#c6ff00", "is_active": false }
+] }
+```
+
+### GET /api/me/preferences  *(auth required)*
+
+```json
+// Response 200
+{
+  "preferred_sport": { "id": 1, "slug": "football", "name": "Football", "emoji": "⚽", "primary_color": "#00c853" },
+  "selected_theme": "classic",
+  "avatar_url": "http://.../storage/avatars/ab12cd34.jpg",
+  "available_themes": ["classic", "tournament_blue", "pitch_green", "sunset_orange", "high_contrast"]
+}
+// preferred_sport is null when the user has no preference; avatar_url is null when no avatar.
+```
+
+### PATCH /api/me/preferences  *(auth required)*
+
+Partial updates supported — send either or both fields.
+
+```json
+// Request (any subset)
+{ "preferred_sport_id": 1, "selected_theme": "tournament_blue" }
+// preferred_sport_id: must exist AND be an ACTIVE sport; null clears the preference.
+// selected_theme: must be in the config allow-list
+//   (classic | tournament_blue | pitch_green | sunset_orange | high_contrast).
+
+// Response 200 — same shape as GET /api/me/preferences
+{ "preferred_sport": { ... }, "selected_theme": "tournament_blue", "avatar_url": null,
+  "available_themes": [ ... ] }
+
+// Response 422 — validation error (unknown theme, or inactive/nonexistent sport)
+{ "message": "The selected theme is invalid.", "errors": { "selected_theme": ["..."] } }
+```
+
+### POST /api/me/avatar  *(auth required)*
+
+Multipart form upload. Field name: `avatar`.
+
+- Accepts `jpeg` / `jpg` / `png` / `webp`; **max 2048 KB (2 MB)**. SVG is rejected (the
+  `image` rule + mimes allow-list).
+- Stored on the `public` disk under `avatars/` with a randomized filename.
+- Replaces (and best-effort deletes) the previous avatar **only if** it lives under
+  `avatars/` — challenge images and other files are never deleted.
+
+```
+POST /api/me/avatar
+Content-Type: multipart/form-data
+avatar: <binary jpeg/png/webp, ≤2 MB>
+```
+```json
+// Response 200
+{ "avatar_url": "http://.../storage/avatars/ab12cd34.jpg" }
+
+// Response 422 — invalid file (wrong type / too large / SVG)
+{ "message": "The avatar must be an image.", "errors": { "avatar": ["..."] } }
+```
+
+### DELETE /api/me/avatar  *(auth required)*
+
+Clears `avatar_path` and deletes the file (only if it lives under `avatars/`).
+
+```json
+// Response 200
+{ "avatar_url": null }
+```
+
+**Config:** themes and avatar rules live in `config/ballspot.php` (`'themes'` allow-list;
+`'avatar'` → disk=public, directory=avatars, max_kb=2048, mimes jpeg/jpg/png/webp).
+
+> **Not yet included:** avatar URLs are not present in leaderboard or tournament-lobby
+> payloads yet — those responses do not include `avatar_url`.

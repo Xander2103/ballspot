@@ -15,7 +15,12 @@ Database: SQLite (dev) / MySQL (production)
 | password | varchar(255) hashed |
 | remember_token | varchar(100) nullable |
 | is_admin | boolean | default false — true grants admin Blade access |
+| preferred_sport_id | bigint FK → sports nullable | **v1.7** — user's chosen sport; `nullOnDelete`; null = no preference (defaults to football) |
+| selected_theme | varchar(255) | **v1.7** — default `'classic'`; must be in the `config/ballspot.php` themes allow-list |
+| avatar_path | varchar(255) nullable | **v1.7** — relative path on the `public` disk under `avatars/`; null = no avatar |
 | created_at / updated_at | timestamp |
+
+Added by migration `2026_07_22_000001_add_preferences_to_users.php` (v1.7).
 
 ## sports
 | Column | Type | Notes |
@@ -267,3 +272,29 @@ Enforced in `LeagueService`, values from `config/ballspot.php` → `tournaments`
 `BadgeService` evaluates and awards badges after each guess/result (idempotent via
 the `user_badges` unique index). Rank-based badges (top-10%, daily champion) use a
 snapshot of standings at submission time — an accepted MVP simplification.
+
+---
+
+## User Preferences, Themes & Avatars (v1.7)
+
+Three columns were added to `users` (see the table above): `preferred_sport_id`,
+`selected_theme`, and `avatar_path`. No new tables were introduced.
+
+- **Themes** are an **extensible allow-list** in `config/ballspot.php` → `'themes'`:
+  `classic`, `tournament_blue`, `pitch_green`, `sunset_orange`, `high_contrast`.
+  `PATCH /api/me/preferences` validates `selected_theme` against this list.
+- **Avatars** — rules in `config/ballspot.php` → `'avatar'`: `disk=public`,
+  `directory=avatars`, `max_kb=2048`, mimes `jpeg/jpg/png/webp`. Files are stored under
+  `avatars/` with a randomized name. Replacing/deleting an avatar only removes the previous
+  file if it lives under `avatars/` — challenge images are never deleted.
+- **Preferred sport** — `preferred_sport_id` must reference an **active** sport to be set
+  via the API (`nullOnDelete`; null clears it). It feeds sport resolution for the daily
+  challenge and tournament creation.
+
+### Daily challenge per-sport limitation
+
+`daily_challenges.challenge_date` remains **unique** — there is still only ONE global daily
+challenge per date. `GET /api/daily/today` is sport-aware (it filters by the resolved
+sport), but true simultaneous per-sport dailies on the same date would require a schema
+change: a composite unique on (`challenge_date`, `sport_id`). This is a documented future
+enhancement.

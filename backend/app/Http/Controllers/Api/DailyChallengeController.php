@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DailyChallenge;
 use App\Models\Challenge;
 use App\Models\DailyChallengeGuess;
+use App\Models\Sport;
 use App\Http\Resources\BadgeResource;
 use App\Services\BadgeService;
 use App\Services\DailyStreakService;
@@ -25,16 +26,30 @@ class DailyChallengeController extends Controller
     // GET /api/daily/today
     public function today(Request $request): JsonResponse
     {
+        // Which sport the player wants today: explicit ?sport=slug wins, then the
+        // user's saved preference, then football (keeps existing football-first
+        // behaviour for users who have not picked a sport).
+        $requestedSlug = $request->query('sport')
+            ?: ($request->user()->preferredSport?->slug ?? 'football');
+        $requestedSport = Sport::where('slug', $requestedSlug)->first();
+
         $today = Carbon::today()->toDateString();
         $dc = DailyChallenge::active()->forDate($today)->with(['challenge.category', 'challenge.sport', 'challenge.tags'])->first();
 
         if (!$dc) {
-            return response()->json(['has_daily' => false, 'reason' => 'no_daily_challenge']);
+            return response()->json($this->noDaily($requestedSport));
         }
 
         // Guard: linked challenge was deleted or archived after scheduling
         if (!$dc->challenge || $dc->challenge->status === 'archived') {
-            return response()->json(['has_daily' => false, 'reason' => 'no_daily_challenge']);
+            return response()->json($this->noDaily($requestedSport));
+        }
+
+        // Never silently show a different sport than the one requested. Today's
+        // challenge belongs to exactly one sport; if it does not match, report a
+        // clean "no daily for this sport" so the app can offer football instead.
+        if ($dc->challenge->sport && $dc->challenge->sport->slug !== $requestedSlug) {
+            return response()->json($this->noDaily($requestedSport));
         }
 
         $alreadyPlayed = $dc->guesses()->where('user_id', $request->user()->id)->exists();
@@ -74,6 +89,25 @@ class DailyChallengeController extends Controller
                 // SECURITY: never include ball_x_ratio, ball_y_ratio, reveal_image_url in today response
             ],
         ]);
+    }
+
+    /**
+     * Standard "no daily challenge for this sport" payload, including the
+     * requested sport badge so the app can render an on-brand empty state
+     * ("No daily challenge for Tennis today. Try Football.").
+     */
+    private function noDaily(?Sport $sport): array
+    {
+        return [
+            'has_daily' => false,
+            'reason'    => 'no_daily_challenge',
+            'sport'     => $sport ? [
+                'slug'          => $sport->slug,
+                'name'          => $sport->name,
+                'emoji'         => $sport->emoji,
+                'primary_color' => $sport->primary_color,
+            ] : null,
+        ];
     }
 
     // POST /api/daily/{dailyChallenge}/guess

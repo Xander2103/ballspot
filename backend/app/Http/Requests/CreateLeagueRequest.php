@@ -12,6 +12,14 @@ class CreateLeagueRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'duration_days' => ['required', 'integer', 'in:1,3,7'],
             'rounds_per_day' => ['required', 'integer', 'in:1,3'],
+            // Optional: which sport this tournament is for. Must be active.
+            // Omitted -> falls back to the user's preferred sport, then football.
+            'sport_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                \Illuminate\Validation\Rule::exists('sports', 'id')->where('is_active', true),
+            ],
         ];
     }
 }

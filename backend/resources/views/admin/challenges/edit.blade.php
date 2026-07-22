@@ -101,7 +101,7 @@
                 <input type="text" id="tags" name="tags" class="form-control @error('tags') is-invalid @enderror"
                        value="{{ old('tags', $challenge->tags->pluck('name')->join(', ')) }}" maxlength="500"
                        placeholder="e.g. Premier League, England, corner kick">
-                <div class="form-text">Comma-separated text tags. Text only — never use copyrighted logos.</div>
+                <div class="form-text">Comma-separated text tags (team, country, league, moment type…). Text only — never use copyrighted logos.</div>
                 @error('tags')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
 

@@ -1,4 +1,10 @@
+import type { SportSummary } from './daily';
+
 export type LeagueStatus = 'lobby' | 'active' | 'completed' | 'cancelled';
+
+export interface LeagueSport extends SportSummary {
+  id: number;
+}
 
 export interface LobbyMember {
   id: number;
@@ -15,6 +21,7 @@ export interface League {
   duration_days: number;
   rounds_per_day: number;
   status: LeagueStatus;
+  sport?: LeagueSport | null;
   owner_user_id: number;
   is_owner: boolean;
   members_count: number;
