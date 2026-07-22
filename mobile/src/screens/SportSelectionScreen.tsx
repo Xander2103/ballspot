@@ -24,7 +24,7 @@ export function SportSelectionScreen({ route, navigation }: Props) {
   useEffect(() => {
     let active = true;
     sportApi
-      .list(true) // include inactive so we can show "Coming soon"
+      .list() // active, selectable sports only (avoids inactive/admin data)
       .then((list) => {
         if (active) setSports(list);
       })

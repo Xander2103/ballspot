@@ -62,12 +62,15 @@ class EmailVerificationTest extends TestCase
         $user  = User::factory()->unverified()->create();
         $token = $user->createToken('mobile')->plainTextToken;
 
-        // Protected app endpoint is blocked...
+        // Protected app endpoints are blocked...
         $this->withToken($token)->getJson('/api/profile/stats')->assertStatus(403);
-        $this->withToken($token)->getJson('/api/sports')->assertStatus(403);
+        $this->withToken($token)->getJson('/api/leagues')->assertStatus(403);
 
-        // ...but /me still works so the app can read verification status.
+        // ...but /me still works so the app can read verification status...
         $this->withToken($token)->getJson('/api/me')->assertOk()->assertJsonPath('data.email_verified', false);
+
+        // ...and the sports list is available for onboarding sport selection.
+        $this->withToken($token)->getJson('/api/sports')->assertOk();
     }
 
     public function test_verify_with_valid_code_grants_access(): void

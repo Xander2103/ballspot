@@ -38,12 +38,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/email/verify',                    [EmailVerificationController::class, 'verify']);
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend']);
 
+    // Sport list is non-sensitive onboarding reference data — needed during
+    // sign-up before/while verifying, so it is NOT behind the verified gate.
+    Route::get('/sports', [SportController::class, 'index']);
+
     // Full app access requires a verified email.
     Route::middleware('verified')->group(function () {
         Route::get('/profile/stats', [ProfileController::class, 'stats']);
 
-        // Sport selection + user preferences (sport / theme) + avatar
-        Route::get('/sports', [SportController::class, 'index']);
+        // User preferences (sport / theme) + avatar
         Route::get('/me/preferences',   [PreferenceController::class, 'show']);
         Route::patch('/me/preferences', [PreferenceController::class, 'update']);
         Route::post('/me/avatar',       [AvatarController::class, 'store']);

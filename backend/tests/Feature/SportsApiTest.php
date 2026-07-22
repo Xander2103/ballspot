@@ -54,4 +54,18 @@ class SportsApiTest extends TestCase
         $res->assertOk();
         $res->assertJsonCount(2, 'data');
     }
+
+    public function test_unverified_user_can_load_sports_for_onboarding(): void
+    {
+        // Regression: sport selection must work during sign-up, before the
+        // email is verified — the sports list is not behind the verified gate.
+        $token = User::factory()->unverified()->create()->createToken('test')->plainTextToken;
+        $this->seedSports();
+
+        $res = $this->withToken($token)->getJson('/api/sports');
+
+        $res->assertOk();
+        $res->assertJsonCount(1, 'data');
+        $res->assertJsonPath('data.0.slug', 'football');
+    }
 }
