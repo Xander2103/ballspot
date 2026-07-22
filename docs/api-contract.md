@@ -283,14 +283,40 @@ rank (which is position relative to other players).
 > the score sums. See [XP Ledger](#user-xp-ledger-v173) below. The old "no ledger table"
 > limitation no longer applies.
 
+### GET /api/ranks  *(auth required; NOT gated by verified)*  *(new v1.7.4)*
+
+Returns the full rank ladder from `config('ballspot.ranks')` so the mobile "All ranks" overview
+shares a single source of truth with backend progression (no duplicated thresholds in the app).
+Ranks are ordered by `min_xp` ascending; the last is the max rank. Static config only (no user
+data), so it is available during onboarding (before email verification).
+
+```json
+// Response 200
+{
+  "data": [
+    { "name": "Rookie",      "level": 1, "min_xp": 0 },
+    { "name": "Amateur",     "level": 2, "min_xp": 2500 },
+    { "name": "Pro",         "level": 3, "min_xp": 10000 },
+    { "name": "Elite",       "level": 4, "min_xp": 25000 },
+    { "name": "Legend",      "level": 5, "min_xp": 50000 },
+    { "name": "Ball Master", "level": 6, "min_xp": 100000 }
+  ]
+}
+```
+
+The mobile RankOverviewScreen combines this with `/profile/stats` (for `total_xp`/`level`) to mark
+each rank **completed** (below current), **current rank**, or **future** (showing "N XP needed"),
+and tags the highest as **Max rank**.
+
 ### GET /api/me/xp-events  *(auth + verified required)*  *(new v1.7.3)*
 
 Returns the current user's recent XP ledger events, most-recent first, plus their `total_xp`
 (pure ledger sum) and `rank` object.
 
 ```json
-// GET /api/me/xp-events?limit=6
-// limit: default 20, max 50
+// GET /api/me/xp-events?limit=5
+// limit: default 20, max 50 (clamped server-side; excessive values are capped)
+// The Profile screen requests limit=5 and renders at most 5 rows (v1.7.4).
 // Response 200
 {
   "data": [
@@ -853,13 +879,39 @@ Daily guess/result (`data`) and tournament round result now include:
 ```json
 {
   "earned_count": 3,
-  "total_count": 11,
-  "badges": [ { "code": "first_daily", "name": "Daily Debut", "icon": "📅", "rarity": "common", "category": "daily", "earned": true, "earned_at": "2026-07-21T..." }, ... ]
+  "total_count": 19,
+  "badges": [ { "code": "first_daily_win", "name": "Daily Debut", "icon": "🌅", "rarity": "common", "category": "daily", "earned": true, "earned_at": "2026-07-21T..." }, ... ]
 }
 ```
 
+### Badge catalogue (v1.7.4)
+
+The catalogue holds **19** virtual badges (`total_count`). v1.7.4 added a canonical taxonomy on
+top of the original set (legacy codes are retained so already-earned badges stay valid):
+
+| Code | Name | Icon | Category | Rarity | Auto-awarded? |
+|------|------|------|----------|--------|---------------|
+| `perfect_picker` | Perfect Picker | 🎯 | skill | legendary | ✅ on a perfect 100 guess (daily + tournament) |
+| `almost_perfect` | Almost Perfect | 🔥 | skill | epic | ✅ on a score ≥ 95 (daily + tournament) |
+| `first_daily_win` | Daily Debut | 🌅 | daily | common | ✅ on first daily completion |
+| `streak_3` | On a Roll | ⚡ | streak | common | ✅ at a 3-day streak |
+| `streak_7` | Week Warrior | 🗓️ | streak | rare | ✅ at a 7-day streak |
+| `streak_30` | Monthly Machine | 🚀 | streak | legendary | ✅ at a 30-day streak (streak data permitting) |
+| `top_10_daily` | Top 10% | 🥇 | leaderboard | rare | ✅ finishing top 10% of a daily (field ≥ 10, snapshot at submit) |
+| `multi_sport_starter` | Multi-Sport Starter | 🌍 | sport | rare | ✅ on first non-football challenge |
+| `tournament_winner` | Tournament Winner | 🏆 | tournament | epic | ⚠️ seeded; awarded only when winner logic runs (see limitations) |
+
+Perfect / almost-perfect thresholds live in **one place** — `config('ballspot.scoring')`
+(`max_score` = 100, `almost_perfect_threshold` = 95) via `ScoreService::isPerfectScore()` /
+`isAlmostPerfect()`. Badge XP is written to the **XP ledger** (`xp_events`, source `badge_unlock`)
+by rarity, exactly once per badge per user.
+
+> **Legacy overlap:** some legacy codes (`perfect_guess`, `first_daily`, `seven_day_streak`,
+> `thirty_day_streak`, `top_10_percent_daily`) map to the same moments as the new canonical
+> codes and are still awarded for backward compatibility. A future sprint may consolidate them.
+
 ### new_badges on guesses
-Daily guess response (`data.new_badges`) and tournament guess response (top-level `new_badges`) return any freshly-earned badges (empty array if none) for a "New badge unlocked!" UI. Awarding is idempotent.
+Daily guess response (`data.new_badges`) and tournament guess response (top-level `new_badges`) return any freshly-earned badges (empty array if none) for a "New badge unlocked!" UI. Awarding is idempotent — **reopening a result endpoint never re-awards or returns `new_badges`**, and any badge XP earned in the same submission is included in that response's `rank_progress`.
 
 ### Daily challenge sport + tags
 `GET /daily/today` challenge object now includes:

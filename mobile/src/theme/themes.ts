@@ -193,7 +193,7 @@ export interface ThemeMeta {
 }
 
 export const THEME_META: ThemeMeta[] = [
-  { name: 'classic', label: 'Classic', description: 'The original BallSpot look.', swatches: [classic.background, classic.primary, classic.accent] },
+  { name: 'classic', label: 'Classic', description: 'The original BallPicker look.', swatches: [classic.background, classic.primary, classic.accent] },
   { name: 'tournament_blue', label: 'Tournament Blue', description: 'European night — navy, turquoise & red.', swatches: [tournament_blue.background, tournament_blue.primary, tournament_blue.accent] },
   { name: 'pitch_green', label: 'Pitch Green', description: 'Stadium grass focus.', swatches: [pitch_green.background, pitch_green.primary, pitch_green.accent] },
   { name: 'sunset_orange', label: 'Sunset Orange', description: 'Warm & energetic.', swatches: [sunset_orange.background, sunset_orange.primary, sunset_orange.accent] },

@@ -1,9 +1,56 @@
-# BallSpot v1.7.3 — Test Report
+# BallSpot v1.7.4 — Test Report
 
-Build date: 2026-07-22
+Build date: 2026-07-23
 
-**Backend:** 207 feature tests passing (was 189; +18 in v1.7.3).
-**Mobile:** `npx tsc --noEmit` clean.
+**Backend:** 219 feature tests passing (was 207; +12 in v1.7.4).
+**Mobile:** `tsc --noEmit` clean.
+
+---
+
+## v1.7.4 — Branding, Rank Overview & Badge Expansion
+
+### Backend (219 passing, +12)
+
+- **`RanksApiTest` (3):** `GET /api/ranks` returns all configured ranks, ordered by `min_xp`
+  ascending, and requires authentication (mirrors existing policy; not verified-gated).
+- **`XpLedgerTest` (+2):** `GET /api/me/xp-events?limit=5` returns at most 5 rows; an excessive
+  `limit` is clamped to the server cap (50).
+- **`BadgeExpansionTest` (7):** a perfect 100 guess awards **Perfect Picker** (and Almost Perfect);
+  reopening the result does **not** re-award or return `new_badges`; a score of 97 awards
+  **Almost Perfect** but not Perfect Picker; **Daily Debut** on first daily; badge XP is written to
+  `xp_events`; **streak_3** and **streak_7** award on a 7-day streak; **Multi-Sport Starter** on a
+  first non-football challenge.
+- **`BadgeTest` updated:** catalogue is now **19** badges; `perfect_picker` seeded; seeder is
+  idempotent (`updateOrCreate` on `code`); legacy awarding still verified.
+
+### Mobile (`tsc --noEmit` clean)
+
+- Home renders the horizontal **BallPickerHeader.png** hero (`resizeMode="contain"`, height 120,
+  rounded bottom); the old "⚽ BallSpot" text header is gone. Native Home title is now "BallPicker".
+- New **RankOverviewScreen** (`/ranks` + `/profile/stats`): completed / current / future / max-rank
+  states, back button, typed route. Reached from a new "View all ranks" card on Profile.
+- Profile Recent XP is capped at 5 with a clean "No XP activity yet." empty state.
+- **NewBadgesCard** shows rarity and a distinct "Legendary badge unlocked" headline; renders
+  cleanly alongside the rank-up card and with 1 or many badges.
+- Visible "BallSpot" copy replaced with "BallPicker" (Home, Login, theme label). Internal
+  identifiers (`ballspot:*` commands, `ballspot_*` storage keys, namespaces, config) unchanged.
+
+### Constraints honored (v1.7.4)
+
+- No gambling / prizes / money / payments / ads / chat / realtime.
+- Did **not** run `migrate:fresh --seed`; `BadgeSeeder` is idempotent and was run standalone
+  (`db:seed --class=BadgeSeeder`) — existing `user_badges` preserved.
+- Existing Daily, Tournament, XP ledger and rank flows unchanged; no new XP table.
+
+### Known limitations (v1.7.4)
+
+1. **`tournament_winner`** is seeded and has idempotent awarding logic
+   (`BadgeService::evaluateTournamentWin`), but nothing invokes it on tournament completion this
+   sprint — treated as future.
+2. **`streak_30`** relies on 30 days of real streak data; correct but only observable at scale.
+3. **Legacy/canonical overlap:** some legacy badge codes still fire alongside the new canonical
+   ones (kept so earned badges stay valid); a future sprint may consolidate.
+4. Prior v1.7.x limitations still apply.
 
 ---
 

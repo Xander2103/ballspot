@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator, Image,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -17,6 +17,9 @@ import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
 import { User } from '../types/auth';
 import { TodayResponse, DailyStats } from '../types/daily';
+
+// Horizontal BallPicker brand header (wordmark). Rendered as the Home hero.
+const brandHeader = require('../../assets/BallPickerHeader.png');
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -198,9 +201,19 @@ export function HomeScreen({ navigation }: Props) {
 
   return (
     <Screen padding={false}>
+      {/* Branded hero header — the horizontal BallPicker wordmark. */}
+      <View style={styles.brandHeader}>
+        <Image
+          source={brandHeader}
+          style={styles.brandImage}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel="BallPicker"
+        />
+      </View>
+
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
-          <Text style={styles.appTitle}>⚽ BallSpot</Text>
           <Text style={styles.greeting}>Hey, {user?.name || '…'}</Text>
           <Text style={styles.sub}>@{user?.username || '…'}</Text>
         </View>
@@ -292,12 +305,23 @@ type Styles = ReturnType<typeof createStyles>;
 
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
+    brandHeader: {
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderBottomLeftRadius: 20,
+      borderBottomRightRadius: 20,
+      borderBottomWidth: 1,
+      borderColor: theme.border,
+    },
+    brandImage: { width: '100%', height: 120 },
     topBar: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       padding: spacing.md, backgroundColor: theme.surface,
     },
     topBarLeft: { flex: 1 },
-    appTitle: { fontSize: 13, fontWeight: '700', color: theme.primary, letterSpacing: 0.5, marginBottom: 2 },
     greeting: { fontSize: 18, fontWeight: '700', color: theme.text },
     sub: { fontSize: 13, color: theme.textSecondary },
     loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },

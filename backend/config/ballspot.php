@@ -35,6 +35,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scoring convention
+    |--------------------------------------------------------------------------
+    | A guess score runs 0..max_score (distance-based, see ScoreService). These
+    | are the single source of truth for "perfect" / "almost perfect" so the
+    | thresholds are never scattered across controllers. A perfect pick equals
+    | max_score; an almost-perfect pick is >= almost_perfect_threshold.
+    */
+    'scoring' => [
+        'max_score'                => (int) env('BALLPICKER_MAX_SCORE', 100),
+        'almost_perfect_threshold' => (int) env('BALLPICKER_ALMOST_PERFECT_THRESHOLD', 95),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | XP awards (ledger source amounts)
     |--------------------------------------------------------------------------
     | Guess XP equals the guess score. These are the BONUS awards on top.

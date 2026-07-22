@@ -134,6 +134,37 @@ class XpLedgerTest extends TestCase
         $this->assertSame(1, XpEvent::where('user_id', $user->id)->where('source_type', 'daily_guess')->count());
     }
 
+    // --- xp-events limit ---
+
+    public function test_xp_events_limit_returns_at_most_the_requested_rows(): void
+    {
+        $user  = User::factory()->create();
+        $token = $user->createToken('t')->plainTextToken;
+
+        for ($i = 1; $i <= 12; $i++) {
+            $this->xp()->awardXp($user, XpEvent::SOURCE_ADMIN_ADJUSTMENT, $i, 10, "event {$i}");
+        }
+
+        $res = $this->withToken($token)->getJson('/api/me/xp-events?limit=5');
+        $res->assertOk();
+        $this->assertCount(5, $res->json('data'));
+    }
+
+    public function test_xp_events_limit_is_capped_safely(): void
+    {
+        $user  = User::factory()->create();
+        $token = $user->createToken('t')->plainTextToken;
+
+        for ($i = 1; $i <= 60; $i++) {
+            $this->xp()->awardXp($user, XpEvent::SOURCE_ADMIN_ADJUSTMENT, $i, 10, "event {$i}");
+        }
+
+        // Excessive requested limit is clamped to the server cap (50).
+        $res = $this->withToken($token)->getJson('/api/me/xp-events?limit=9999');
+        $res->assertOk();
+        $this->assertLessThanOrEqual(50, count($res->json('data')));
+    }
+
     // --- Badge XP ---
 
     public function test_badge_unlock_awards_xp_once(): void

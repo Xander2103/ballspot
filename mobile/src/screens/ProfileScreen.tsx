@@ -40,8 +40,9 @@ export function ProfileScreen({ navigation }: Props) {
   const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
 
   const loadProfile = useCallback(() => {
-    return Promise.all([authApi.me(), authApi.stats(), authApi.xpEvents(6).catch(() => null)])
-      .then(([me, s, xp]) => { setUser(me); setStats(s); if (xp) setXpEvents(xp.data); })
+    // Profile shows at most 5 recent XP events.
+    return Promise.all([authApi.me(), authApi.stats(), authApi.xpEvents(5).catch(() => null)])
+      .then(([me, s, xp]) => { setUser(me); setStats(s); if (xp) setXpEvents(xp.data.slice(0, 5)); })
       .catch(() => {});
   }, []);
 
@@ -126,13 +127,31 @@ export function ProfileScreen({ navigation }: Props) {
       {/* Personal rank / level / XP progression */}
       {stats?.rank ? <RankCard rank={stats.rank} /> : null}
 
-      {/* Recent XP activity */}
+      {/* View all ranks */}
+      <TouchableOpacity
+        style={styles.ranksCard}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('RankOverview')}
+      >
+        <View style={styles.ranksLeft}>
+          <Text style={styles.ranksIcon}>🏅</Text>
+          <View style={styles.ranksTextWrap}>
+            <Text style={styles.ranksTitle}>View all ranks</Text>
+            <Text style={styles.ranksSubtitle}>See every rank and how much XP you need to reach the next level.</Text>
+          </View>
+        </View>
+        <Text style={styles.ranksAction}>View ranks ›</Text>
+      </TouchableOpacity>
+
+      {/* Recent XP activity — capped at 5 items */}
+      <Text style={styles.sectionTitle}>Recent XP</Text>
       {xpEvents.length > 0 ? (
-        <>
-          <Text style={styles.sectionTitle}>Recent XP</Text>
-          <RecentXpCard events={xpEvents} />
-        </>
-      ) : null}
+        <RecentXpCard events={xpEvents} />
+      ) : (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No XP activity yet.</Text>
+        </View>
+      )}
 
       {/* Sport preference */}
       <Text style={styles.sectionTitle}>Your sport</Text>
@@ -262,6 +281,22 @@ function createStyles(theme: ThemeTokens) {
     name: { fontSize: 24, fontWeight: '800', color: theme.text, textAlign: 'center', marginBottom: 4 },
     username: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', marginBottom: spacing.xl },
     sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.md },
+    ranksCard: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
+      padding: spacing.md, marginBottom: spacing.xl,
+    },
+    ranksLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1, marginRight: spacing.sm },
+    ranksIcon: { fontSize: 24 },
+    ranksTextWrap: { flex: 1 },
+    ranksTitle: { fontSize: 16, fontWeight: '700', color: theme.text },
+    ranksSubtitle: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+    ranksAction: { fontSize: 13, fontWeight: '700', color: theme.accent },
+    emptyCard: {
+      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
+      padding: spacing.md, marginBottom: spacing.xl, alignItems: 'center',
+    },
+    emptyText: { fontSize: 13, color: theme.textMuted, fontStyle: 'italic' },
     rowCard: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,

@@ -25,6 +25,29 @@ and are out of scope until a full legal/compliance review is done.**
   There is **no XP marketplace, no currency, no payments, and no real-money rewards.** Rank-up
   moments are a visual celebration, nothing more.
 
+## Badge expansion (v1.7.4) — still virtual, still no prizes
+
+- The catalogue grew to **19 badges** with a canonical taxonomy layered on the original set.
+  New badges: **Perfect Picker** (🎯 legendary — a perfect 100 guess), **Almost Perfect**
+  (🔥 epic — score ≥ 95), **Daily Debut** (🌅), **On a Roll** / **Week Warrior** /
+  **Monthly Machine** (streak 3/7/30), **Top 10%** (🥇), **Multi-Sport Starter** (🌍) and an
+  updated **Tournament Winner** (🏆 epic).
+- Perfect / almost-perfect thresholds are centralized in `config('ballspot.scoring')` and read
+  through `ScoreService::isPerfectScore()` / `isAlmostPerfect()` — never scattered in controllers.
+- **Badge XP uses the existing XP ledger** (`xp_events`, source `badge_unlock`), keyed by rarity
+  (common 100 / rare 250 / epic 500 / legendary 1000), awarded exactly once per badge per user.
+- **Auto-awarded now:** Perfect Picker, Almost Perfect, Daily Debut, streak 3/7/30 (streak data
+  permitting), Top 10% daily, Multi-Sport Starter.
+- **Seeded but not fully automatic yet:** `tournament_winner` (needs robust tournament winner
+  logic — `BadgeService::evaluateTournamentWin()` exists and is idempotent, but nothing calls it
+  on completion in this sprint). Legacy `weekly_top_10` remains snapshot-based.
+- **Legacy overlap:** some legacy codes still fire alongside the new canonical codes (e.g.
+  `perfect_guess`, `first_daily`, `seven_day_streak`) so already-earned badges stay valid. A
+  future sprint may consolidate these.
+- **Result screens** show a "Badge unlocked!" card; a legendary unlock (Perfect Picker) gets a
+  distinct "Legendary badge unlocked" treatment. Rank-up and badge cards render together cleanly.
+- Everything here is **cosmetic** — no monetary value, no redemption, no payments.
+
 ## Hall of Fame (future idea)
 
 A **Monthly Hall of Fame** would immortalize each month's top players:

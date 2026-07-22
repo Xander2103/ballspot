@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\LeaderboardController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\RankController;
 use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\SportController;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Sport list is non-sensitive onboarding reference data — needed during
     // sign-up before/while verifying, so it is NOT behind the verified gate.
     Route::get('/sports', [SportController::class, 'index']);
+    // Static rank ladder (config-driven, no user data) — available pre-verification
+    // so the "All ranks" overview works during onboarding.
+    Route::get('/ranks', [RankController::class, 'index']);
 
     // Full app access requires a verified email.
     Route::middleware('verified')->group(function () {

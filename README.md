@@ -10,6 +10,35 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.7.4 — Branding, Rank Overview & Badge Expansion
+
+- **BallPicker branding.** The Home screen now leads with the horizontal
+  `mobile/assets/BallPickerHeader.png` wordmark as its hero header (scales with
+  `resizeMode="contain"`, compact height, rounded bottom). Visible app copy reads
+  **BallPicker** (Home, Login, native title, theme label). **BallSpot still exists
+  internally** — `ballspot:*` artisan commands, `ballspot_*` storage keys, namespaces
+  and config keys are intentionally unchanged for backward compatibility.
+- **Rank overview.** Profile has a new **"View all ranks"** card → a `RankOverviewScreen`
+  listing every rank, its level and minimum XP, with the user's current rank highlighted,
+  completed ranks checked, future ranks showing "N XP needed", and the top marked "Max rank".
+  Thresholds come from the backend via **`GET /api/ranks`** (source of truth =
+  `config('ballspot.ranks')`), so the app never duplicates rank logic.
+- **Recent XP is capped at 5** on Profile (`GET /api/me/xp-events?limit=5`, clamped
+  server-side), with a clean "No XP activity yet." empty state.
+- **Badge expansion (19 badges).** New canonical badges, all **virtual only**:
+  **Perfect Picker** (🎯 legendary — a perfect 100% guess), **Almost Perfect** (🔥 epic —
+  ≥ 95), **Daily Debut**, **On a Roll / Week Warrior / Monthly Machine** (streak 3/7/30),
+  **Top 10%**, **Multi-Sport Starter**, and an updated **Tournament Winner** (🏆 epic).
+  Perfect / almost-perfect thresholds are centralized in `config('ballspot.scoring')`
+  (`ScoreService::isPerfectScore()` / `isAlmostPerfect()`). Badge XP uses the existing
+  **XP ledger** (`xp_events`, source `badge_unlock`), once per badge per user.
+- **Badge unlock feedback.** Result screens return `new_badges` after a *fresh* guess
+  (never on result reopen) and show a "Badge unlocked!" card; a legendary unlock gets a
+  distinct "Legendary badge unlocked" treatment. Rank-up + badge cards render together.
+- **Auto-awarded now:** Perfect Picker, Almost Perfect, Daily Debut, streak 3/7/30, Top 10%
+  daily, Multi-Sport Starter. **Seeded but future:** `tournament_winner` (awaits robust
+  tournament winner logic). No real prizes, money, or payments — everything is cosmetic.
+
 ## New in v1.7.3 — XP Ledger, Rank-Up Moments, and Second Sport Launch Prep
 
 - **XP is now ledger-backed (new source of truth).** A new `xp_events` table records every XP

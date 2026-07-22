@@ -22,15 +22,13 @@ use Illuminate\Database\QueryException;
  */
 class BadgeService
 {
-    /** Score at or above which a guess counts as "near perfect". */
-    private const PERFECT_SCORE = 95;
-
     /** Football challenges played before earning the expert badge. */
     private const FOOTBALL_EXPERT_PLAYS = 25;
 
     public function __construct(
         private DailyStreakService $streakService,
         private XpService $xpService,
+        private ScoreService $scoreService,
     ) {}
 
     /**
@@ -94,13 +92,11 @@ class BadgeService
         }
         if (DailyChallengeGuess::where('user_id', $user->id)->count() <= 1) {
             $awarded[] = $this->award($user, 'first_daily', $context);
+            $awarded[] = $this->award($user, 'first_daily_win', $context); // canonical (v1.7.4)
         }
 
         $awarded = array_merge($awarded, $this->evaluateSport($user, $dailyChallenge->challenge?->sport?->slug));
-
-        if ($guess->score >= self::PERFECT_SCORE) {
-            $awarded[] = $this->award($user, 'perfect_guess', $context);
-        }
+        $awarded = array_merge($awarded, $this->evaluateScore($user, (int) $guess->score, $context));
 
         // Rank within this daily challenge (snapshot at submission time).
         $total = $dailyChallenge->guesses()->count();
@@ -110,7 +106,9 @@ class BadgeService
             $awarded[] = $this->award($user, 'daily_champion', array_merge($context, ['rank' => $rank, 'total' => $total]));
         }
         if ($total >= 10 && $rank <= (int) ceil($total * 0.1)) {
-            $awarded[] = $this->award($user, 'top_10_percent_daily', array_merge($context, ['rank' => $rank, 'total' => $total]));
+            $meta = array_merge($context, ['rank' => $rank, 'total' => $total]);
+            $awarded[] = $this->award($user, 'top_10_percent_daily', $meta);
+            $awarded[] = $this->award($user, 'top_10_daily', $meta); // canonical (v1.7.4)
         }
 
         $awarded = array_merge($awarded, $this->evaluateStreak($user));
@@ -135,12 +133,30 @@ class BadgeService
 
         $sportSlug = $guess->round?->challenge?->sport?->slug;
         $awarded = array_merge($awarded, $this->evaluateSport($user, $sportSlug));
-
-        if ($guess->score >= self::PERFECT_SCORE) {
-            $awarded[] = $this->award($user, 'perfect_guess', $context);
-        }
+        $awarded = array_merge($awarded, $this->evaluateScore($user, (int) $guess->score, $context));
 
         return $this->clean($awarded);
+    }
+
+    /**
+     * Score-based skill badges, shared by daily & tournament guesses so the
+     * perfect / almost-perfect thresholds live in exactly one place.
+     *
+     * @return array<Badge|null>
+     */
+    private function evaluateScore(User $user, int $score, array $context): array
+    {
+        $awarded = [];
+
+        if ($this->scoreService->isPerfectScore($score)) {
+            $awarded[] = $this->award($user, 'perfect_picker', $context); // canonical (v1.7.4)
+        }
+        if ($this->scoreService->isAlmostPerfect($score)) {
+            $awarded[] = $this->award($user, 'almost_perfect', $context); // canonical (v1.7.4)
+            $awarded[] = $this->award($user, 'perfect_guess', $context);  // legacy near-perfect
+        }
+
+        return $awarded;
     }
 
     /**
@@ -159,8 +175,14 @@ class BadgeService
     /** @return Badge[] */
     private function evaluateSport(User $user, ?string $sportSlug): array
     {
+        if ($sportSlug === null) {
+            return [];
+        }
+
         if ($sportSlug !== 'football') {
-            return []; // Only football badges exist for now.
+            // First non-football challenge unlocks the multi-sport starter.
+            // award() is idempotent, so only the first ever non-football play grants it.
+            return $this->clean([$this->award($user, 'multi_sport_starter', ['sport' => $sportSlug])]);
         }
 
         $awarded = [];
@@ -182,11 +204,16 @@ class BadgeService
         $current = $this->streakService->getStreakForUser($user)['current'];
         $awarded = [];
 
+        if ($current >= 3) {
+            $awarded[] = $this->award($user, 'streak_3'); // canonical (v1.7.4)
+        }
         if ($current >= 7) {
-            $awarded[] = $this->award($user, 'seven_day_streak');
+            $awarded[] = $this->award($user, 'seven_day_streak'); // legacy
+            $awarded[] = $this->award($user, 'streak_7');         // canonical (v1.7.4)
         }
         if ($current >= 30) {
-            $awarded[] = $this->award($user, 'thirty_day_streak');
+            $awarded[] = $this->award($user, 'thirty_day_streak'); // legacy
+            $awarded[] = $this->award($user, 'streak_30');         // canonical (v1.7.4)
         }
 
         return $awarded;

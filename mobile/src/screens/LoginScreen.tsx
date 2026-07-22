@@ -52,7 +52,7 @@ export function LoginScreen({ navigation }: Props) {
   return (
     <Screen scroll padding>
       <View style={styles.header}>
-        <Text style={[styles.logo, { color: theme.primary }]}>⚽ BallSpot</Text>
+        <Text style={[styles.logo, { color: theme.primary }]}>⚽ BallPicker</Text>
         <Text style={[styles.tagline, { color: theme.textSecondary }]}>Find the ball. Beat your friends.</Text>
       </View>
       <AppInput label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
