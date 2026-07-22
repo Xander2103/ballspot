@@ -51,8 +51,8 @@ export function RegisterScreen({ navigation }: Props) {
     try {
       const { token } = await authApi.register({ name: name.trim(), username: username.trim(), email: email.trim(), password });
       await tokenStorage.save(token);
-      // Brand-new accounts have no preferred sport yet → onboarding first.
-      navigation.reset({ index: 0, routes: [{ name: 'SportSelection' }] });
+      // New accounts must verify their email before full access.
+      navigation.reset({ index: 0, routes: [{ name: 'EmailVerification', params: { email: email.trim() } }] });
     } catch (e: any) {
       if (e?.errors) {
         const apiErrors: FieldErrors = {};

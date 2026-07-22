@@ -6,8 +6,9 @@ import { Screen } from '../components/Screen';
 import { AppInput } from '../components/AppInput';
 import { AppButton } from '../components/AppButton';
 import { authApi } from '../api/authApi';
-import { isTwoFactorRequired } from '../types/auth';
+import { isTwoFactorRequired, isEmailVerificationRequired } from '../types/auth';
 import { completeLogin } from '../app/authFlow';
+import { tokenStorage } from '../storage/tokenStorage';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 
@@ -25,13 +26,20 @@ export function LoginScreen({ navigation }: Props) {
     try {
       const result = await authApi.login({ email, password });
 
-      // Step 1: valid credentials → a code was emailed. Go verify it.
+      // Email not verified yet → finish verification first (token already issued).
+      if (isEmailVerificationRequired(result)) {
+        await tokenStorage.save(result.token);
+        navigation.reset({ index: 0, routes: [{ name: 'EmailVerification', params: { email } }] });
+        return;
+      }
+
+      // Forced 2FA (config/admin): a login code was emailed. Go verify it.
       if (isTwoFactorRequired(result)) {
         navigation.navigate('LoginVerification', { verificationId: result.verification_id, email });
         return;
       }
 
-      // Fallback: a direct token (if 2FA is ever disabled server-side).
+      // Normal login — a token was returned directly.
       const target = await completeLogin(result.token, setTheme);
       navigation.reset({ index: 0, routes: [{ name: target }] });
     } catch (e: any) {

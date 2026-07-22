@@ -14,8 +14,17 @@ class EmailTwoFactorLoginTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These tests exercise the forced-2FA login path, which is off by
+        // default now that accounts are email-verified at registration.
+        config(['ballspot.auth.force_login_2fa' => true]);
+    }
+
     private function user(): User
     {
+        // Verified so login reaches the 2FA path (not email verification).
         return User::factory()->create(['password' => bcrypt('password123')]);
     }
 

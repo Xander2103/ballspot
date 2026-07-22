@@ -10,15 +10,66 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
-## New in v1.6.1 — Email Two-Factor Login
+## New in v1.6.2 — Email Verification at Registration + Configurable Login 2FA
 
-- **Login now requires an emailed code.** A correct password no longer returns a
-  token — `POST /api/login` emails a one-time **6-digit code** and returns
-  `{ requires_2fa: true, verification_id, message }`. The user submits that code to
-  `POST /api/login/verify` to receive their token; `POST /api/login/resend-code`
-  re-issues a code (60s cooldown). Codes are stored **hashed only**, expire after
-  10 minutes, lock after 5 wrong attempts, and errors are generic (no email
-  enumeration). Registration is unchanged (no 2FA on register).
+This sprint **adjusts** the always-on email 2FA introduced in v1.6.1. Email
+verification now happens at **registration**, and normal login is plain
+email+password once the email is verified. The 6-digit login 2FA still exists but
+is **off by default** and opt-in via config; admins always get login 2FA.
+
+- **Email verification at registration.** `POST /api/register` creates an
+  **unverified** account, emails a one-time **6-digit verification code**, and
+  returns `{ user, token, email_verified: false }` (HTTP 201). The token lets the
+  app drive verification and read `/me`, but full app endpoints are gated until the
+  email is verified.
+- **New email endpoints (auth required):**
+  - `POST /api/email/verify` — body `{ code }`; on success marks the email verified
+    and returns `{ email_verified: true, user, message }`. Wrong/expired/consumed
+    codes return a generic **422**. 5-attempt lock, hash-only storage, expires after
+    **60 minutes**.
+  - `POST /api/email/verification-notification` — resends a code (60s cooldown);
+    already-verified accounts get a friendly no-op.
+- **Access gating.** The `User` model implements `MustVerifyEmail`. Protected app
+  endpoints (profile/stats, sports, preferences, avatar, badges, leagues, rounds,
+  daily) are behind the `verified` middleware and return **HTTP 403 "Your email
+  address is not verified."** for unverified users. An unverified user can still hit
+  `/me`, `/logout`, `/account` (delete), and the two email endpoints — inspect,
+  verify, or delete, but not play. `GET /api/me` now includes `email_verified`.
+- **Login is now email+password.** `POST /api/login` with valid credentials has
+  three outcomes:
+  1. **Email not verified** → `{ requires_email_verification: true, email_verified:
+     false, user, token, message }` (a verification code is re-sent);
+  2. **Verified + forced 2FA** (config `force_login_2fa=true` OR the user is an
+     admin) → `{ requires_2fa: true, verification_id, message }` (login code emailed;
+     complete via `POST /api/login/verify`);
+  3. **Verified + no forced 2FA (DEFAULT)** → `{ user, token }` directly.
+  Invalid credentials still return a single generic 422 (no enumeration).
+- **Login 2FA is opt-in** via `BALLPICKER_FORCE_LOGIN_2FA` (default false). Admins
+  always get login 2FA regardless of the flag. Toggle auto-verify + email
+  requirement with `BALLPICKER_REQUIRE_EMAIL_VERIFICATION` (default true); the
+  verification-code lifetime is `BALLPICKER_EMAIL_CODE_EXPIRY_MINUTES` (default 60).
+- **Mail — local dev vs production:**
+  - **Local dev:** `MAIL_MAILER=log` writes the full verification/login email
+    (**including the code**) to `backend/storage/logs/laravel.log`. Copy the code
+    from there when testing. Automated tests use `MAIL_MAILER=array` (faked).
+  - **Production:** a deliverable email is **required** to activate an account, so
+    real transactional mail is mandatory. Configure `MAIL_MAILER=smtp`, `MAIL_HOST`,
+    `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`/`MAIL_SCHEME`,
+    and `MAIL_FROM_ADDRESS`/`MAIL_FROM_NAME` (or an API mailer).
+- See **[docs/security-auth.md](docs/security-auth.md)** for the full write-up.
+
+## New in v1.6.1 — Email Two-Factor Login (superseded by v1.6.2)
+
+> The always-on login 2FA below is now **opt-in** (see v1.6.2). Login 2FA is off by
+> default; when `force_login_2fa` is enabled (or the user is an admin), login uses
+> the same 6-digit code flow described here.
+
+- **Login could require an emailed code.** When forced, `POST /api/login` emails a
+  one-time **6-digit code** and returns `{ requires_2fa: true, verification_id,
+  message }`. The user submits that code to `POST /api/login/verify` to receive their
+  token; `POST /api/login/resend-code` re-issues a code (60s cooldown). Codes are
+  stored **hashed only**, expire after 10 minutes, lock after 5 wrong attempts, and
+  errors are generic (no email enumeration).
 - **Local dev:** with `MAIL_MAILER=log`, the full verification email (including the
   code) is written to `backend/storage/logs/laravel.log`.
 - See **[docs/security-auth.md](docs/security-auth.md)** for the full write-up.
@@ -138,7 +189,7 @@ npx expo start
 ## Tests
 
 ```bash
-cd backend && php artisan test          # 161 feature tests
+cd backend && php artisan test          # 172 feature tests
 cd mobile && npx tsc --noEmit          # 0 TypeScript errors
 ```
 

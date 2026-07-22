@@ -17,16 +17,13 @@ class AuthTest extends TestCase
         $response->assertStatus(201)->assertJsonStructure(['user', 'token']);
     }
 
-    public function test_valid_login_requires_2fa_and_returns_no_token(): void
+    public function test_verified_user_login_returns_token(): void
     {
+        // Default flow: a verified email logs in with email + password only.
         $user = User::factory()->create(['password' => bcrypt('password123')]);
         $response = $this->postJson('/api/login', ['email' => $user->email, 'password' => 'password123']);
 
-        // Step 1 no longer issues a token — it starts email 2FA.
-        $response->assertOk()
-            ->assertJsonPath('requires_2fa', true)
-            ->assertJsonStructure(['requires_2fa', 'verification_id', 'message']);
-        $this->assertArrayNotHasKey('token', $response->json());
+        $response->assertOk()->assertJsonStructure(['user', 'token']);
     }
 
     public function test_invalid_login_fails(): void

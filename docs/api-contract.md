@@ -8,43 +8,114 @@ All requests: `Content-Type: application/json`, `Accept: application/json`
 
 Protected routes require: `Authorization: Bearer <token>`
 
+**Email verification gate (v1.6.2):** most protected app endpoints (profile/stats,
+sports, preferences, avatar, badges, leagues, rounds, daily) are behind the
+`verified` middleware and return **HTTP 403 `{ "message": "Your email address is not
+verified." }`** for an authenticated-but-unverified user. Endpoints reachable while
+unverified: `GET /me`, `POST /logout`, `DELETE /account`, `POST /email/verify`, and
+`POST /email/verification-notification`.
+
 ---
 
 ## Auth
 
-### POST /register
+### POST /register  *(email verification — v1.6.2)*
+
+Creates an **unverified** account, emails a 6-digit verification code, and returns a
+token. The token lets the app complete verification and read `/me`, but protected
+app endpoints are gated (403) until the email is verified via `POST /email/verify`.
+When `require_email_verification` is `false`, the account is auto-verified.
+
 ```json
 // Request
 { "name": "Xander", "username": "xander", "email": "x@example.com", "password": "password123" }
 // Response 201
-{ "user": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com" }, "token": "1|..." }
+{ "user": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com" },
+  "token": "1|...", "email_verified": false }
 ```
 
-### POST /login  *(email two-factor — v1.6.1)*
+### POST /email/verify  *(auth required; NOT gated by verified — v1.6.2)*
 
-Login is a **two-step, email-2FA** flow. A correct password does **not** return a
-token — it emails a one-time 6-digit code and returns a `verification_id`. See
+Submits the 6-digit registration verification code. On success the email is marked
+verified and protected endpoints unlock.
+
+```json
+// Request
+{ "code": "123456" }
+
+// Response 200 — success
+{ "email_verified": true, "user": { ... }, "message": "..." }
+
+// Response 422 — wrong / expired / consumed code (generic)
+{ "message": "Invalid or expired verification code." }
+
+// Response 401 — no bearer token
+{ "message": "Unauthenticated." }
+```
+
+- A wrong code **increments the attempt counter**; after **5** wrong attempts the
+  code locks. Codes are stored **hashed only** and expire after **60 minutes**.
+
+### POST /email/verification-notification  *(auth required — v1.6.2)*
+
+Resends a verification code, cooldown-limited to 60s.
+
+```json
+// Response 200 — code (re)sent
+{ "email_verified": false, "message": "..." }
+
+// Response 200 — already verified
+{ "email_verified": true, "message": "Your email is already verified." }
+
+// Response 401 — no bearer token
+{ "message": "Unauthenticated." }
+```
+
+Both email endpoints require authentication but are **not** behind the `verified`
+middleware, so an authenticated-but-unverified user can reach them. With
+`MAIL_MAILER=log` the code appears in `backend/storage/logs/laravel.log`.
+
+### POST /login  *(email+password, configurable 2FA — v1.6.2)*
+
+Normal login is **email + password** once the email is verified. On valid
+credentials there are **three** outcomes (all HTTP **200**). See
 [docs/security-auth.md](security-auth.md) for the full design.
 
 ```json
 // Request
 { "email": "x@example.com", "password": "password123" }
 
-// Response 200 — valid credentials: code emailed, NO token returned
+// Response 200 (a) — email NOT verified: verification code (re)sent, token returned
+{
+  "requires_email_verification": true,
+  "email_verified": false,
+  "user": { ... },
+  "token": "1|...",
+  "message": "..."
+}
+
+// Response 200 (b) — verified + forced 2FA (force_login_2fa=true OR admin): login code emailed, NO token
 {
   "requires_2fa": true,
   "verification_id": "<uuid>",
   "message": "We sent a verification code to your email."
 }
 
+// Response 200 (c) — verified + no forced 2FA (DEFAULT): token returned directly
+{ "user": { ... }, "token": "1|..." }
+
 // Response 422 — invalid credentials OR unknown email (generic, no email sent, no enumeration)
 { "message": "Invalid credentials." }
 ```
 
-The unknown-email path runs a dummy hash to equalize response timing
-(anti-enumeration). Complete the login with `POST /login/verify`.
+- **(a)** The returned token lets the app drive the verify screen; complete via
+  `POST /email/verify`. Protected endpoints stay 403 until verified.
+- **(b)** Forced-2FA / admin path only; complete via `POST /login/verify`.
+- **(c)** Default path — email+password is enough.
+- The unknown-email path runs a dummy hash to equalize response timing
+  (anti-enumeration).
 
-### POST /login/verify  *(v1.6.1)*
+### POST /login/verify  *(forced-2FA / admin path — v1.6.1)*
 
 Exchanges a valid 6-digit code for a Sanctum token. The token is issued **only**
 here, on success.
@@ -99,10 +170,12 @@ Cooldown-limited to 60s.
 { "message": "Logged out" }
 ```
 
-### GET /me  *(auth required)*
+### GET /me  *(auth required; available even when unverified)*
 ```json
 // Response 200
 { "data": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com",
+  // v1.6.2 — returned for the authenticated user themselves:
+  "email_verified": true,
   // v1.7 — returned for the authenticated user themselves:
   "selected_theme": "classic",
   "avatar_url": "http://.../storage/avatars/ab12cd34.jpg",

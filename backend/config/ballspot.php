@@ -20,6 +20,14 @@ return [
         'login_code_expiry_minutes'          => (int) env('BALLSPOT_LOGIN_CODE_EXPIRY_MINUTES', 10),
         'login_code_max_attempts'            => (int) env('BALLSPOT_LOGIN_CODE_MAX_ATTEMPTS', 5),
         'login_code_resend_cooldown_seconds' => (int) env('BALLSPOT_LOGIN_CODE_RESEND_COOLDOWN_SECONDS', 60),
+
+        // Require email verification at registration before full app access.
+        'require_email_verification'         => (bool) env('BALLPICKER_REQUIRE_EMAIL_VERIFICATION', true),
+        'email_code_expiry_minutes'          => (int) env('BALLPICKER_EMAIL_CODE_EXPIRY_MINUTES', 60),
+
+        // Force the 6-digit code on EVERY normal login. Off by default now that
+        // accounts are email-verified at registration. Admins always get 2FA.
+        'force_login_2fa'                    => (bool) env('BALLPICKER_FORCE_LOGIN_2FA', false),
     ],
 
     /*

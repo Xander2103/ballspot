@@ -17,6 +17,17 @@ export const authApi = {
   resendLoginCode: (data: { verification_id: string }) =>
     apiClient.request<{ message: string }>('/login/resend-code', { method: 'POST', body: JSON.stringify(data) }),
 
+  // Email verification (registration step 2). Requires the auth token.
+  verifyEmail: (data: { code: string }) =>
+    apiClient.request<{ email_verified: boolean; user: User; message: string }>(
+      '/email/verify', { method: 'POST', body: JSON.stringify(data) }
+    ),
+
+  resendEmailVerification: () =>
+    apiClient.request<{ email_verified: boolean; message: string }>(
+      '/email/verification-notification', { method: 'POST' }
+    ),
+
   logout: () =>
     apiClient.request<{ message: string }>('/logout', { method: 'POST' }),
 

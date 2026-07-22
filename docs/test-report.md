@@ -1,19 +1,79 @@
-# BallSpot v1.6.1 — Test Report
+# BallSpot v1.6.2 — Test Report
 
 Build date: 2026-07-22
 
-**Backend:** 161 feature tests passing (was 146; +15 net in v1.6.1).
+**Backend:** 172 feature tests passing (was 161; +11 in v1.6.2).
 **Mobile:** `npx tsc --noEmit` clean.
 
 ---
 
-## v1.6.1 — Secure Email Two-Factor Login
+## v1.6.2 — Email Verification at Registration + Configurable Login 2FA
+
+This sprint **adjusts** the always-on email 2FA from v1.6.1. Email verification now
+happens at **registration**; normal login is email+password once verified; the
+6-digit login 2FA is **off by default** and opt-in via `force_login_2fa` (admins
+always get 2FA). See [security-auth.md](security-auth.md) for the design.
+
+### Backend (172 passing, +11)
+
+New test file:
+
+- **EmailVerificationTest** (11 tests) — covers:
+  - registration creates an **unverified** user and sends a verification code;
+  - the code is stored **hashed**, not in plain text;
+  - an unverified user gets **403** on protected endpoints but **200** on `/me`;
+  - verifying the code **grants access** to protected endpoints;
+  - a **wrong code** fails (generic 422);
+  - `POST /email/verify` and `POST /email/verification-notification` **require auth**
+    (401 without a token);
+  - resend sends a **new** code and is **cooldown-limited** (60s);
+  - login with an unverified account returns `requires_email_verification`;
+  - login with a verified account returns a **token** (no 2FA) on the default path;
+  - **forced 2FA** works when `force_login_2fa` is enabled;
+  - **admin** login always goes through 2FA.
+
+Updated test files:
+
+- **AuthTest** — a verified login now asserts a **token** is returned (email+password
+  is enough by default).
+- **PasswordResetTest** — the user is verified; after a password reset, the
+  subsequent login asserts a **token** is returned.
+- **EmailTwoFactorLoginTest** — sets `config force_login_2fa=true` in `setUp()` to
+  exercise the forced-2FA path (its existing 2FA assertions are unchanged).
+
+### Mobile
+
+- `npx tsc --noEmit` passes clean.
+- `authApi.login` now returns a **3-way** `LoginResult` union (`AuthResponse` |
+  `TwoFactorRequired` | `EmailVerificationRequired`) with `isTwoFactorRequired` and
+  `isEmailVerificationRequired` guards; new `authApi.verifyEmail` and
+  `authApi.resendEmailVerification`; `User` gains `email_verified`.
+- New `EmailVerificationScreen` ("Check your email"): 6-digit autofocus input,
+  "Verify email", resend with 60s cooldown, "Back to login" (clears the pending
+  token). RegisterScreen routes here after register; LoginScreen routes here on
+  `requires_email_verification`; AppNavigator boot routes unverified logged-in users
+  here. The existing `LoginVerificationScreen` is retained for the forced-2FA/admin
+  path.
+
+### Constraints honored (v1.6.2)
+
+Email-only codes (no SMS/TOTP/passkeys). No migrations or tests were run as part of
+documenting this release. No payments/IAP/ads/chat/realtime/betting. Account
+deletion still works for an unverified user.
+
+---
+
+## v1.6.1 — Secure Email Two-Factor Login (adjusted by v1.6.2)
+
+> **Superseded:** always-on login 2FA is now opt-in (see v1.6.2). The
+> `EmailTwoFactorLoginTest` below now runs with `force_login_2fa=true` in `setUp()`;
+> `AuthTest`/`PasswordResetTest` were updated to expect a token on verified login.
 
 ### Backend (161 passing, +15 net)
 
-Login is now email two-factor: a correct password emails a one-time 6-digit code
-and returns a `verification_id` instead of a token; the token is only issued after
-the code is verified. See [security-auth.md](security-auth.md) for the design.
+Login was email two-factor: a correct password emailed a one-time 6-digit code
+and returned a `verification_id` instead of a token; the token was only issued after
+the code was verified. See [security-auth.md](security-auth.md) for the design.
 
 New test file:
 

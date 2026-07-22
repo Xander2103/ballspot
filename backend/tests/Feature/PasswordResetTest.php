@@ -21,6 +21,7 @@ class PasswordResetTest extends TestCase
             'username' => 'resettester',
             'email'    => 'reset@example.com',
             'password' => Hash::make('oldpassword123'),
+            'email_verified_at' => now(),
         ]);
     }
 
@@ -96,12 +97,12 @@ class PasswordResetTest extends TestCase
             'password' => 'oldpassword123',
         ])->assertStatus(422);
 
-        // Login with new password succeeds (now starts email 2FA instead of
-        // returning a token directly).
+        // Login with new password succeeds — a verified account logs in
+        // normally (email + password) and receives a token.
         $this->postJson('/api/login', [
             'email'    => 'reset@example.com',
             'password' => 'brandnewpass123',
-        ])->assertOk()->assertJsonPath('requires_2fa', true);
+        ])->assertOk()->assertJsonStructure(['user', 'token']);
     }
 
     public function test_reset_revokes_existing_api_tokens(): void

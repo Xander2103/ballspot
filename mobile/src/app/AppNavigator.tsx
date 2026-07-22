@@ -10,6 +10,7 @@ import { authApi } from '../api/authApi';
 import type { Badge } from '../types/badge';
 import { LoginScreen } from '../screens/LoginScreen';
 import { LoginVerificationScreen } from '../screens/LoginVerificationScreen';
+import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
@@ -29,6 +30,7 @@ import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
 export type RootStackParamList = {
   Login: undefined;
   LoginVerification: { verificationId: string; email?: string };
+  EmailVerification: { email?: string } | undefined;
   Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { email?: string; token?: string } | undefined;
@@ -65,8 +67,13 @@ export function AppNavigator() {
         if (user.selected_theme && isThemeName(user.selected_theme)) {
           setTheme(user.selected_theme, { sync: false });
         }
-        // No preferred sport yet → onboarding; otherwise straight to Home.
-        setInitialRoute(user.preferred_sport ? 'Home' : 'SportSelection');
+        // Unverified email → verify first; no preferred sport → onboarding;
+        // otherwise straight to Home.
+        if (user.email_verified === false) {
+          setInitialRoute('EmailVerification');
+        } else {
+          setInitialRoute(user.preferred_sport ? 'Home' : 'SportSelection');
+        }
       } catch (e: any) {
         // 401 → stale token, send to Login. Any other error (offline) → let
         // the user in rather than locking them out.
@@ -95,6 +102,7 @@ export function AppNavigator() {
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="LoginVerification" component={LoginVerificationScreen} options={{ title: 'Verify Login' }} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ title: 'Verify Email', headerLeft: () => null }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />

@@ -14,6 +14,7 @@ class UserResource extends JsonResource
             'name'           => $this->name,
             'username'       => $this->username,
             'email'          => $this->when($isSelf, $this->email),
+            'email_verified' => $this->when($isSelf, fn () => $this->hasVerifiedEmail()),
             // Preferences — only meaningful for the authenticated user themselves.
             'selected_theme' => $this->when($isSelf, $this->selected_theme),
             'avatar_url'     => $this->avatarUrl(),

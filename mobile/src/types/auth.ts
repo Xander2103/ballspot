@@ -5,6 +5,7 @@ export interface User {
   name: string;
   username: string;
   email?: string;
+  email_verified?: boolean;
   selected_theme?: string;
   avatar_url?: string | null;
   preferred_sport?: Sport | null;
@@ -15,23 +16,38 @@ export interface AuthState {
   token: string | null;
 }
 
-/** Full auth result: register, or login after 2FA verification. */
+/** Full auth result: register, or login after verification. */
 export interface AuthResponse {
   user: User;
   token: string;
+  email_verified?: boolean;
 }
 
-/** Step-1 login result — a code was emailed; no token issued yet. */
+/** Login result — forced 2FA is on; a login code was emailed, no token yet. */
 export interface TwoFactorRequired {
   requires_2fa: true;
   verification_id: string;
   message: string;
 }
 
-export type LoginResult = AuthResponse | TwoFactorRequired;
+/** Login/register result — the email is not verified yet. A token IS issued so
+ * the app can drive the verification screen, but full access is gated. */
+export interface EmailVerificationRequired {
+  requires_email_verification: true;
+  email_verified: false;
+  token: string;
+  user: User;
+  message: string;
+}
+
+export type LoginResult = AuthResponse | TwoFactorRequired | EmailVerificationRequired;
 
 export function isTwoFactorRequired(result: LoginResult): result is TwoFactorRequired {
   return (result as TwoFactorRequired).requires_2fa === true;
+}
+
+export function isEmailVerificationRequired(result: LoginResult): result is EmailVerificationRequired {
+  return (result as EmailVerificationRequired).requires_email_verification === true;
 }
 
 export interface ProfileStats {
