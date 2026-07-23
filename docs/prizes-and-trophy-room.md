@@ -48,6 +48,21 @@ and are out of scope until a full legal/compliance review is done.**
   distinct "Legendary badge unlocked" treatment. Rank-up and badge cards render together cleanly.
 - Everything here is **cosmetic** — no monetary value, no redemption, no payments.
 
+## Tournament completion & finishes (v1.7.7) — still virtual, still no prizes
+
+- **When a tournament completes:** it is `active` and every member has played every round. The
+  finishing round-guess triggers an **atomic, once-only** completion (`active → completed`).
+- **Recognition:** placement 1 → `tournament_winner` + `podium_finish` badges; placements 1–3 →
+  `podium_finish` (new 🥉 rare badge). Placement XP via the **existing XP ledger**
+  (`source_type: tournament_win`, deduped per user per tournament): **1st +1000, 2nd +500, 3rd +250**.
+- **Tie rule:** total score desc → earliest completion (last-guess time) asc → user id asc.
+- **Final standings** are stored in `tournament_finishes` (one row per member) and surfaced in the
+  Trophy Room "Tournament trophies" section via `GET /api/me/tournament-finishes`.
+- **Still virtual:** placements, badges and XP carry no monetary value and cannot be redeemed. No
+  prizes, currency, or payments. Cancelled tournaments award nothing.
+- **Known limitation:** a member who never plays keeps a tournament open (owner can still cancel);
+  a scheduled time-based completion sweep is a future improvement.
+
 ## Hall of Fame (future idea)
 
 A **Monthly Hall of Fame** would immortalize each month's top players:

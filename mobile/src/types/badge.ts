@@ -19,3 +19,14 @@ export interface BadgeCollection {
   total_count: number;
   badges: EarnedBadge[];
 }
+
+/** A user's placement in a completed tournament (Trophy Room). */
+export interface TournamentFinish {
+  id: number;
+  placement: number;
+  total_score: number;
+  rounds_played: number | null;
+  total_players: number | null;
+  league: { id: number; name: string } | null;
+  completed_at: string | null;
+}

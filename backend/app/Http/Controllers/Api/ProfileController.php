@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\XpEventResource;
 use App\Models\Guess;
+use App\Models\TournamentFinish;
 use App\Services\DailyStreakService;
 use App\Services\PlayerRankService;
 use App\Services\XpService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ProfileController extends Controller
@@ -34,6 +36,26 @@ class ProfileController extends Controller
             'total_xp' => $this->rankService->totalXpForUser($user),
             'rank'     => $this->rankService->forUser($user),
         ]);
+    }
+
+    // GET /api/me/tournament-finishes — the user's tournament placements for the Trophy Room.
+    public function tournamentFinishes(Request $request): JsonResponse
+    {
+        $finishes = TournamentFinish::where('user_id', $request->user()->id)
+            ->with('league:id,name')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (TournamentFinish $f) => [
+                'id'            => $f->id,
+                'placement'     => $f->placement,
+                'total_score'   => $f->total_score,
+                'rounds_played' => $f->rounds_played,
+                'total_players' => $f->metadata['total_players'] ?? null,
+                'league'        => $f->league ? ['id' => $f->league->id, 'name' => $f->league->name] : null,
+                'completed_at'  => $f->created_at?->toISOString(),
+            ]);
+
+        return response()->json(['data' => $finishes]);
     }
 
     public function stats(Request $request)

@@ -172,6 +172,26 @@ class BadgeService
         ]);
     }
 
+    /**
+     * Badges for a final tournament placement: the winner badge (1st) and the
+     * podium badge (top 3). Idempotent — safe to call when completion replays.
+     *
+     * @return Badge[]
+     */
+    public function evaluateTournamentFinish(User $user, League $league, int $placement): array
+    {
+        $awarded = [];
+
+        if ($placement === 1) {
+            $awarded[] = $this->award($user, 'tournament_winner', ['league_id' => $league->id]);
+        }
+        if ($placement <= 3) {
+            $awarded[] = $this->award($user, 'podium_finish', ['league_id' => $league->id, 'placement' => $placement]);
+        }
+
+        return $this->clean($awarded);
+    }
+
     /** @return Badge[] */
     private function evaluateSport(User $user, ?string $sportSlug): array
     {

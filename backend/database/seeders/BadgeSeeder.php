@@ -37,6 +37,7 @@ class BadgeSeeder extends Seeder
             ['code' => 'streak_30',          'name' => 'Monthly Machine',    'icon' => '🚀', 'category' => 'streak',     'rarity' => 'legendary', 'description' => 'Reach a 30-day daily streak.'],
             ['code' => 'top_10_daily',       'name' => 'Top 10%',            'icon' => '🥇', 'category' => 'leaderboard', 'rarity' => 'rare',     'description' => 'Finish in the top 10% of a Daily Challenge.'],
             ['code' => 'multi_sport_starter', 'name' => 'Multi-Sport Starter', 'icon' => '🌍', 'category' => 'sport',    'rarity' => 'rare',      'description' => 'Play your first non-football challenge.'],
+            ['code' => 'podium_finish',      'name' => 'Podium Finish',      'icon' => '🥉', 'category' => 'tournament', 'rarity' => 'rare',      'description' => 'Finish in the top 3 of a tournament.'],
         ];
 
         foreach ($badges as $i => $badge) {

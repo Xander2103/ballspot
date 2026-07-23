@@ -1,9 +1,43 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { badgeApi } from '../api/badgeApi';
-import type { EarnedBadge } from '../types/badge';
+import type { EarnedBadge, TournamentFinish } from '../types/badge';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+
+function placementMedal(placement: number): string {
+  if (placement === 1) return '🏆';
+  if (placement === 2) return '🥈';
+  if (placement === 3) return '🥉';
+  return `#${placement}`;
+}
+
+function placementLabel(placement: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = placement % 100;
+  return `${placement}${s[(v - 20) % 10] ?? s[v] ?? s[0]} place`;
+}
+
+function FinishRow({ finish }: { finish: TournamentFinish }) {
+  const date = finish.completed_at ? new Date(finish.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+  const parts = [
+    typeof finish.total_players === 'number' ? `${finish.total_players} players` : null,
+    typeof finish.total_score === 'number' ? `${finish.total_score.toLocaleString('en-US')} pts` : null,
+    date,
+  ].filter(Boolean);
+
+  return (
+    <View style={styles.finishRow}>
+      <Text style={styles.finishMedal}>{placementMedal(finish.placement)}</Text>
+      <View style={styles.finishInfo}>
+        <Text style={styles.finishTitle} numberOfLines={1}>
+          {placementLabel(finish.placement)}{finish.league ? ` — ${finish.league.name}` : ''}
+        </Text>
+        {parts.length > 0 ? <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text> : null}
+      </View>
+    </View>
+  );
+}
 
 const RARITY_COLOR: Record<string, string> = {
   common: colors.textSecondary,
@@ -41,6 +75,7 @@ function BadgeCell({ badge }: { badge: EarnedBadge }) {
 export function TrophyRoom() {
   const [badges, setBadges] = useState<EarnedBadge[] | null>(null);
   const [counts, setCounts] = useState<{ earned: number; total: number }>({ earned: 0, total: 0 });
+  const [finishes, setFinishes] = useState<TournamentFinish[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -60,6 +95,12 @@ export function TrophyRoom() {
       })
       .catch(() => !cancelled && setError(true))
       .finally(() => !cancelled && setLoading(false));
+
+    // Tournament finishes are non-fatal — a failure just hides the section.
+    badgeApi.finishes()
+      .then((data) => !cancelled && setFinishes(data))
+      .catch(() => {});
+
     return () => {
       cancelled = true;
     };
@@ -87,6 +128,18 @@ export function TrophyRoom() {
           ))}
         </View>
       )}
+
+      {/* Tournament trophies (final placements) */}
+      {!loading && !error ? (
+        <View style={styles.finishesWrap}>
+          <Text style={styles.subHeader}>Tournament trophies</Text>
+          {finishes.length === 0 ? (
+            <Text style={styles.emptyFinishes}>No tournament trophies yet.</Text>
+          ) : (
+            finishes.map((f) => <FinishRow key={f.id} finish={f} />)
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -129,4 +182,34 @@ const styles = StyleSheet.create({
   rarity: { fontSize: 9, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
   rarityLocked: { fontSize: 9, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase', marginTop: 4 },
   textLocked: { color: colors.textMuted },
+  finishesWrap: { marginTop: spacing.lg },
+  subHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: spacing.sm,
+  },
+  emptyFinishes: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    paddingVertical: spacing.sm,
+  },
+  finishRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  finishMedal: { fontSize: 26, width: 40, textAlign: 'center' },
+  finishInfo: { flex: 1, marginLeft: spacing.sm },
+  finishTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  finishMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 });

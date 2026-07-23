@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 import { CurrentRoundResponse, CurrentRoundProgress } from '../types/challenge';
-import { GuessResult } from '../types/guess';
+import { GuessResult, TournamentCompletion } from '../types/guess';
 import type { Badge } from '../types/badge';
 import type { RankProgress, RankUp } from '../types/auth';
 
@@ -14,8 +14,8 @@ export const roundApi = {
   // GuessResultResource wraps in { data: GuessResult }; new_badges is a sibling.
   submitGuess: (roundId: number, data: { guess_x_ratio: number; guess_y_ratio: number }) =>
     apiClient
-      .request<{ data: GuessResult; new_badges?: Badge[]; rank_progress?: RankProgress; rank_up?: RankUp | null }>(`/rounds/${roundId}/guess`, { method: 'POST', body: JSON.stringify(data) })
-      .then(r => ({ result: r.data, newBadges: r.new_badges ?? [], rankProgress: r.rank_progress, rankUp: r.rank_up ?? undefined })),
+      .request<{ data: GuessResult; new_badges?: Badge[]; rank_progress?: RankProgress; rank_up?: RankUp | null; tournament_completion?: TournamentCompletion }>(`/rounds/${roundId}/guess`, { method: 'POST', body: JSON.stringify(data) })
+      .then(r => ({ result: r.data, newBadges: r.new_badges ?? [], rankProgress: r.rank_progress, rankUp: r.rank_up ?? undefined, tournamentCompletion: r.tournament_completion })),
 
   result: (roundId: number) =>
     apiClient.request<{ data: GuessResult }>(`/rounds/${roundId}/result`).then(r => r.data),

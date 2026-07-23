@@ -10,6 +10,23 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.7.7 — Tournament Completion, Winner XP & Trophy Finishes
+
+Tournaments now finish and reward players — all **virtual** (badges + XP ledger), no prizes/money:
+
+- **Completion** — a tournament completes when it is `active` and **every member has played every
+  round**. Checked after each round guess; the finishing guess completes it **exactly once**
+  (atomic `active → completed`). Standings tie-break: total score → earliest completion → user id.
+- **Winner / top-3** — placement 1 gets the `tournament_winner` badge; placements 1–3 get
+  `podium_finish` (new 🥉 badge). Placement XP via the ledger (**1st +1000, 2nd +500, 3rd +250**),
+  deduped once per user per tournament, counted toward `xp_gained` (can trigger a rank-up).
+- **Result screen** shows a completion card ("You finished 1st of 8", "+1000 XP").
+- **Trophy Room** gains a **"Tournament trophies"** section listing your placements
+  (`GET /api/me/tournament-finishes`); empty state "No tournament trophies yet." Standings are
+  stored in the new `tournament_finishes` table.
+- `POST /rounds/{id}/guess` returns a `tournament_completion` payload only on the finishing guess
+  (never on result reopen).
+
 ## New in v1.7.6 — Home Cleanup, Tournament Delete Modal & Leaderboard UX
 
 A polish/UX pass (no gameplay, XP, rank or badge logic changes):

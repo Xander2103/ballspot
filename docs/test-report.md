@@ -1,9 +1,64 @@
-# BallSpot v1.7.6 — Test Report
+# BallSpot v1.7.7 — Test Report
 
 Build date: 2026-07-23
 
-**Backend:** 221 feature tests passing.
+**Backend:** 230 feature tests passing (was 221; +9 in v1.7.7).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## v1.7.7 — Tournament Completion, Winner XP & Trophy Finishes
+
+Robust tournament completion with virtual winner/top-3 recognition. All rewards are virtual
+(badges + XP ledger) — no prizes, money or payments.
+
+### Completion rule & standings
+- A tournament is complete when it is `active` and **every member has submitted a guess for every
+  round** (each member plays each round once). Checked after each round-guess submission; the
+  finishing guess completes it via an **atomic `active → completed` transition** so awards happen
+  exactly once (idempotent even if the check re-runs).
+- **Standings/ties:** total score DESC → earliest completion (last-guess time) ASC → user id ASC.
+  Deterministic.
+
+### Rewards
+- `tournament_winner` (placement 1) + `podium_finish` (placements 1–3) badges.
+- Placement XP via the ledger (`source_type: tournament_win`, `source_id: league id`, deduped once
+  per user per league): **1st +1000, 2nd +500, 3rd +250** (`config('ballspot.xp.tournament_win')`).
+  Included in `rank_progress.xp_gained` so it can trigger a rank-up in the same response.
+- New badge `podium_finish` (🥉 rare) → catalogue is now **20** badges.
+
+### Trigger & response
+- `POST /rounds/{id}/guess` returns `tournament_completion { is_completed, placement, total_players,
+  xp_awarded }` **only on the finishing guess** (never on result reopen). Completion badges merge
+  into the existing `new_badges`.
+- Standings persisted in the new **`tournament_finishes`** table (one row per member, unique
+  `(league_id, user_id)`). New endpoint `GET /api/me/tournament-finishes` for the Trophy Room.
+
+### Backend (230 passing, +9 — `TournamentCompletionTest`)
+Incomplete → not completed; complete → status `completed` + winner/runner-up awards; 3rd place gets
+podium + 250 XP; **idempotent** (second run awards nothing, no duplicate XP/finishes); tie broken by
+earliest completion; cancelled tournament awards nothing; round-guess endpoint returns the
+completion payload with `tournament_winner`/`podium_finish` in `new_badges`; result reopen returns no
+completion and XP is awarded once; `/me/tournament-finishes` returns the user's finishes.
+`BadgeTest` counts updated to 20.
+
+> **Doc fix:** the v1.7.6 QA pass mislabeled `POST /rounds/{id}/guess` as returning **200** — it
+> actually returns **201** (a resource wrapping the newly-created guess; `GuessTest` asserts 201).
+> Corrected in `api-contract.md`.
+
+### Mobile (`tsc --noEmit` clean, web bundle builds)
+- Result screen shows a premium `TournamentCompletionCard` ("You finished 1st of 8", "+1000 XP",
+  podium/winner tone) when `tournament_completion` is present; optional, never blocks navigation.
+- Trophy Room gained a **"Tournament trophies"** section (medal + placement + tournament name + score
+  /players/date) with a "No tournament trophies yet." empty state; finishes fetch is non-fatal.
+- Types added: `TournamentCompletion`, `TournamentFinish`. Completed tournaments already show under
+  Home's "Completed" section with no delete button (unchanged, verified).
+
+### Known limitations (v1.7.7)
+1. A member who never plays keeps a tournament open (completion needs all-members-all-rounds). The
+   owner can still cancel; a scheduled time-based completion sweep is a recommended future item.
+2. Trophy Room lists all finishes (not just podium); non-podium finishes still render (e.g. "#5").
+3. Carried over: 512px app icon; fail-open `/me` startup routing.
 
 ---
 

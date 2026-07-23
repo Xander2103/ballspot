@@ -120,6 +120,21 @@ Default seeded categories (football): General, Corner Kicks, Dribbles, Goalkeepe
 | status | varchar | 'open' \| 'closed' |
 | created_at / updated_at | timestamp |
 
+## tournament_finishes (v1.7.7)
+Final standings for a completed tournament — one row per member, written once (idempotently) by `TournamentCompletionService`. Virtual recognition only (no prizes/money).
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK auto | |
+| league_id | bigint FK → leagues | cascade delete |
+| user_id | bigint FK → users | cascade delete |
+| placement | unsigned int | 1 = winner |
+| total_score | integer | sum of the member's round scores |
+| rounds_played | unsigned int nullable | |
+| metadata | json nullable | e.g. `{ "total_players": 8 }` |
+| created_at / updated_at | timestamp | `created_at` = completion time |
+
+**Unique** `(league_id, user_id)` — makes completion idempotent. Index `(user_id, placement)` for Trophy Room lookups. Tie rule: total score desc, then earliest completion (last-guess time) asc, then user id asc.
+
 ## guesses
 | Column | Type | Notes |
 |--------|------|-------|

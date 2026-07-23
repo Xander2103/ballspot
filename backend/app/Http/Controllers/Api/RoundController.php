@@ -10,6 +10,7 @@ use App\Models\XpEvent;
 use App\Services\BadgeService;
 use App\Services\PlayerRankService;
 use App\Services\ScoreService;
+use App\Services\TournamentCompletionService;
 use App\Services\XpService;
 use Illuminate\Http\Request;
 
@@ -20,6 +21,7 @@ class RoundController extends Controller
         private BadgeService $badgeService,
         private PlayerRankService $rankService,
         private XpService $xpService,
+        private TournamentCompletionService $completionService,
     ) {}
 
     public function submitGuess(SubmitGuessRequest $request, LeagueRound $round)
@@ -74,18 +76,41 @@ class RoundController extends Controller
         // Award any newly-earned virtual trophies (idempotent; grants badge XP).
         $newBadges = $this->badgeService->evaluateTournamentGuess($user, $guess);
 
+        // If this guess finished the tournament, complete it exactly once and
+        // award winner/top-3 rewards. Only the finishing submission gets a fresh
+        // result; reopening a result never re-completes (status is no longer active).
+        $completion = null;
+        $completionResult = $this->completionService->completeIfFinished($round->league);
+        if ($completionResult !== null && isset($completionResult['per_user'][$userId])) {
+            $mine = $completionResult['per_user'][$userId];
+            $completion = [
+                'is_completed'  => true,
+                'placement'     => $mine['placement'],
+                'total_players' => $mine['total_players'],
+                'xp_awarded'    => $mine['xp_awarded'],
+            ];
+            // Surface completion badges through the existing new_badges channel.
+            $newBadges = array_merge($newBadges, $mine['new_badges']);
+        }
+
+        // Compute XP AFTER completion so any tournament-win XP counts toward
+        // xp_gained and can trigger a rank-up in this same response.
         $xpAfter  = $this->xpService->getTotalXp($user);
         $rankUp   = $this->rankService->rankUp($xpBefore, $xpAfter);
 
-        return (new GuessResultResource($guess))
-            ->additional([
-                'new_badges'    => BadgeResource::collection($newBadges)->resolve(),
-                'rank_progress' => [
-                    'xp_gained' => $xpAfter - $xpBefore,
-                    'rank'      => $this->rankService->forXp($xpAfter),
-                ],
-                'rank_up'       => $rankUp,
-            ]);
+        $additional = [
+            'new_badges'    => BadgeResource::collection($newBadges)->resolve(),
+            'rank_progress' => [
+                'xp_gained' => $xpAfter - $xpBefore,
+                'rank'      => $this->rankService->forXp($xpAfter),
+            ],
+            'rank_up'       => $rankUp,
+        ];
+        if ($completion !== null) {
+            $additional['tournament_completion'] = $completion;
+        }
+
+        return (new GuessResultResource($guess))->additional($additional);
     }
 
     public function result(Request $request, LeagueRound $round)

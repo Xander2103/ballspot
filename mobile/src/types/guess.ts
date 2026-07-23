@@ -13,6 +13,14 @@ export interface GuessResult {
   better_than_percentage?: number;
 }
 
+/** Present (once) on the guess that finishes a tournament. */
+export interface TournamentCompletion {
+  is_completed: boolean;
+  placement: number;
+  total_players: number;
+  xp_awarded: number;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   user_id: number;

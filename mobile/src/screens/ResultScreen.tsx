@@ -9,6 +9,7 @@ import { RankInsight } from '../components/RankInsight';
 import { NewBadgesCard } from '../components/NewBadgesCard';
 import { RankProgressCard } from '../components/RankProgressCard';
 import { RankUpCard } from '../components/RankUpCard';
+import { TournamentCompletionCard } from '../components/TournamentCompletionCard';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -46,7 +47,7 @@ function pct(ratio: number): string {
 }
 
 export function ResultScreen({ route, navigation }: Props) {
-  const { roundId, leagueId, imageUrl, leagueName, categoryName, newBadges, rankProgress, rankUp } = route.params;
+  const { roundId, leagueId, imageUrl, leagueName, categoryName, newBadges, rankProgress, rankUp, tournamentCompletion } = route.params;
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [nextRound, setNextRound] = useState<CurrentRoundResponse | null>(null);
@@ -113,6 +114,9 @@ export function ResultScreen({ route, navigation }: Props) {
           ) : null}
         </View>
       </View>
+
+      {/* Tournament completion (only on the finishing round) */}
+      {tournamentCompletion?.is_completed ? <TournamentCompletionCard completion={tournamentCompletion} /> : null}
 
       {/* New badges unlocked */}
       {rankUp ? <RankUpCard rankUp={rankUp} /> : null}

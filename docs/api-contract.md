@@ -517,7 +517,7 @@ When the daily limit is reached, this endpoint returns `reason: "daily_limit_rea
 // Request
 { "guess_x_ratio": 0.43, "guess_y_ratio": 0.72 }
 // Both must be between 0 and 1
-// Response 200
+// Response 201 (a resource wrapping the newly-created guess)
 {
   "data": {
     "id": 8,
@@ -546,14 +546,21 @@ When the daily limit is reached, this endpoint returns `reason: "daily_limit_rea
     }
   },
   // v1.7.3 — nullable rank-up moment; present only when THIS submission crossed a rank threshold:
-  "rank_up": { "from_rank": "Rookie", "to_rank": "Amateur", "new_level": 2 }
+  "rank_up": { "from_rank": "Rookie", "to_rank": "Amateur", "new_level": 2 },
   // else: "rank_up": null
+
+  // v1.7.7 — present ONLY on the guess that FINISHES the tournament (every member has
+  // played every round). Awarded once; never returned again on result reopen. Winner/top-3
+  // XP is already included in rank_progress.xp_gained, and completion badges (tournament_winner,
+  // podium_finish) are merged into new_badges above:
+  "tournament_completion": { "is_completed": true, "placement": 1, "total_players": 8, "xp_awarded": 1000 }
+  // omitted entirely when the tournament is not yet complete
 }
 // rank_up is null when the submission did not cross a rank threshold. The GET /rounds/{id}/result
-// endpoint is UNCHANGED — it does NOT include rank_progress or rank_up (no xp_gained on old results).
+// endpoint is UNCHANGED — it does NOT include rank_progress, rank_up or tournament_completion.
 // reveal_image_url is null when no reveal image exists for this challenge.
 // Response 422 — duplicate guess
-{ "message": "You have already guessed this round." }
+{ "message": "Already submitted a guess for this round" }
 ```
 
 ### GET /rounds/{id}/result  *(auth required)*
@@ -897,8 +904,9 @@ Daily guess/result (`data`) and tournament round result now include:
 
 ### Badge catalogue (v1.7.4)
 
-The catalogue holds **19** virtual badges (`total_count`). v1.7.4 added a canonical taxonomy on
-top of the original set (legacy codes are retained so already-earned badges stay valid):
+The catalogue holds **20** virtual badges (`total_count`). v1.7.4 added a canonical taxonomy on
+top of the original set (legacy codes are retained so already-earned badges stay valid);
+v1.7.7 added `podium_finish`:
 
 | Code | Name | Icon | Category | Rarity | Auto-awarded? |
 |------|------|------|----------|--------|---------------|
@@ -910,7 +918,8 @@ top of the original set (legacy codes are retained so already-earned badges stay
 | `streak_30` | Monthly Machine | 🚀 | streak | legendary | ✅ at a 30-day streak (streak data permitting) |
 | `top_10_daily` | Top 10% | 🥇 | leaderboard | rare | ✅ finishing top 10% of a daily (field ≥ 10, snapshot at submit) |
 | `multi_sport_starter` | Multi-Sport Starter | 🌍 | sport | rare | ✅ on first non-football challenge |
-| `tournament_winner` | Tournament Winner | 🏆 | tournament | epic | ⚠️ seeded; awarded only when winner logic runs (see limitations) |
+| `tournament_winner` | Tournament Winner | 🏆 | tournament | epic | ✅ (v1.7.7) to placement 1 when a tournament completes |
+| `podium_finish` | Podium Finish | 🥉 | tournament | rare | ✅ (v1.7.7) to placements 1–3 when a tournament completes |
 
 Perfect / almost-perfect thresholds live in **one place** — `config('ballspot.scoring')`
 (`max_score` = 100, `almost_perfect_threshold` = 95) via `ScoreService::isPerfectScore()` /
@@ -923,6 +932,37 @@ by rarity, exactly once per badge per user.
 
 ### new_badges on guesses
 Daily guess response (`data.new_badges`) and tournament guess response (top-level `new_badges`) return any freshly-earned badges (empty array if none) for a "New badge unlocked!" UI. Awarding is idempotent — **reopening a result endpoint never re-awards or returns `new_badges`**, and any badge XP earned in the same submission is included in that response's `rank_progress`.
+
+### Tournament completion & finishes (v1.7.7)
+
+**Completion rule.** A tournament is complete when it is `active` and **every member has submitted a
+guess for every round** (each member plays each round once). The check runs after each round-guess
+submission; the guess that finishes it completes the tournament **exactly once** (atomic
+`active → completed` transition) and awards winner/top-3 recognition. A member who never plays keeps
+the tournament open — the owner can still cancel it (a time-based sweep is a documented future item).
+
+**Standings / ties.** Sort by total score DESC, then earliest completion (last-guess time) ASC — the
+player who reached their score first wins the tie — then user id ASC as a final stable tiebreak.
+Deterministic.
+
+**Rewards (virtual only).** Placement 1 → `tournament_winner` + `podium_finish` badges; placements
+1–3 → `podium_finish`. Placement XP via the ledger (`source_type: tournament_win`, `source_id:
+league id`, deduped once per user per league): **1st +1000, 2nd +500, 3rd +250**
+(`config('ballspot.xp.tournament_win')`). Reasons: "Tournament winner" / "Tournament runner-up" /
+"Tournament top 3 finish".
+
+**`GET /api/me/tournament-finishes`** *(auth + verified required)* — the current user's placements
+for the Trophy Room:
+```json
+{
+  "data": [
+    { "id": 3, "placement": 1, "total_score": 640, "rounds_played": 8, "total_players": 8,
+      "league": { "id": 12, "name": "Friday Football" }, "completed_at": "2026-07-23T18:00:00Z" }
+  ]
+}
+```
+Final standings are also persisted in the `tournament_finishes` table (one row per member; unique
+`(league_id, user_id)`). No prizes, money, or payments — all recognition is virtual.
 
 ### Daily challenge sport + tags
 `GET /daily/today` challenge object now includes:
