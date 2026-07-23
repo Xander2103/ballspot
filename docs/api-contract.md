@@ -1223,6 +1223,60 @@ summaries never include the ball position.
 } }
 ```
 
+## Pack play mode (v1.7.9)
+
+Packs are playable: a sequential run of the pack's ready challenges, scored with the
+same ScoreService, awarding XP and pack badges. **Still content-only — no purchases.**
+All endpoints are auth + verified.
+
+### POST /api/packs/{slug}/start
+Starts a new attempt or **resumes** the user's active one (one active attempt per user per
+pack). 404 for draft/hidden/archived packs; **422** if the pack has no ready challenges.
+
+```jsonc
+{
+  "attempt": { "id": 1, "status": "active", "current_index": 0, "total_score": 0,
+               "completed_count": 0, "total_challenges": 5 },
+  "challenge": { "id": 123, "title": "…", "difficulty": "easy",
+                 "hidden_image_url": "…", "sport": {…}, "category": {…} }   // no ball position
+}
+```
+
+### GET /api/packs/{slug}/attempt
+Returns the active attempt (with the current challenge) or the latest completed one
+(`challenge: null`). `{ "attempt": null, "challenge": null }` if never played.
+
+### POST /api/pack-attempts/{attempt}/guess
+Body: `challenge_id`, `guessed_x`, `guessed_y` (0..1). Validates the attempt belongs to the
+caller (**403** otherwise) and that `challenge_id` is the current expected challenge
+(**422** otherwise). Scores, stores the guess, awards per-guess XP, advances progress, and
+on the final challenge completes the attempt (+completion XP + pack badges).
+
+```jsonc
+{
+  "result": { "score": 100, "distance": 0.0, "guessed_x": 0.5, "guessed_y": 0.5,
+              "ball_x_ratio": 0.5, "ball_y_ratio": 0.5, "reveal_image_url": null },
+  "progress": { "id": 1, "status": "active|completed", "completed_count": 1, "total_challenges": 5, … },
+  "next_challenge": { … } | null,
+  "rank_progress": { "xp_gained": 100, "rank": {…} },
+  "rank_up": null,
+  "new_badges": [ { "code": "first_pack_completed", … } ],
+  "pack_completed": false,
+  "final_score": null,        // set on completion
+  "completion_xp": null       // set on completion (config ballspot.xp.pack_completion, default 250)
+}
+```
+
+**XP sources:** per guess `pack_guess` (source_id = pack_attempt_guess id, amount = score);
+on completion `pack_completion` (source_id = attempt id, +250). Deduped via the ledger.
+
+### GET /api/me/pack-completions
+Completed packs for the Trophy Room: `id`, `pack {id,name,slug}`, `total_score`,
+`challenge_count`, `is_perfect`, `completed_at`.
+
+`GET /api/packs` now also returns a per-pack `progress` block
+(`{ status, completed_count, total_challenges }`) or `null` if the user never played it.
+
 ## Competition period on the leaderboard (v1.7.8)
 
 `GET /api/daily/leaderboard/weekly` (route name unchanged) and `GET /api/daily/stats` now

@@ -192,6 +192,37 @@ class BadgeService
         return $this->clean($awarded);
     }
 
+    /**
+     * Badges for completing a challenge pack. Called once when a pack attempt
+     * completes. Idempotent (award() no-ops on already-earned):
+     *   - first_pack_completed: any pack completion.
+     *   - perfect_pack: every guess in the attempt was a perfect score.
+     *   - pack_master: the user has completed 10+ packs.
+     *
+     * @return Badge[]
+     */
+    public function evaluatePackCompletion(User $user, \App\Models\PackAttempt $attempt): array
+    {
+        $awarded = [];
+        $context = ['pack_attempt_id' => $attempt->id, 'challenge_pack_id' => $attempt->challenge_pack_id];
+
+        $awarded[] = $this->award($user, 'first_pack_completed', $context);
+
+        $guesses = $attempt->guesses;
+        if ($guesses->isNotEmpty() && $guesses->every(fn ($g) => $this->scoreService->isPerfectScore((int) $g->score))) {
+            $awarded[] = $this->award($user, 'perfect_pack', $context);
+        }
+
+        $completedPacks = \App\Models\PackAttempt::where('user_id', $user->id)
+            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
+            ->count();
+        if ($completedPacks >= 10) {
+            $awarded[] = $this->award($user, 'pack_master', array_merge($context, ['completed_packs' => $completedPacks]));
+        }
+
+        return $this->clean($awarded);
+    }
+
     /** @return Badge[] */
     private function evaluateSport(User $user, ?string $sportSlug): array
     {

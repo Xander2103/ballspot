@@ -38,6 +38,11 @@ class BadgeSeeder extends Seeder
             ['code' => 'top_10_daily',       'name' => 'Top 10%',            'icon' => '🥇', 'category' => 'leaderboard', 'rarity' => 'rare',     'description' => 'Finish in the top 10% of a Daily Challenge.'],
             ['code' => 'multi_sport_starter', 'name' => 'Multi-Sport Starter', 'icon' => '🌍', 'category' => 'sport',    'rarity' => 'rare',      'description' => 'Play your first non-football challenge.'],
             ['code' => 'podium_finish',      'name' => 'Podium Finish',      'icon' => '🥉', 'category' => 'tournament', 'rarity' => 'rare',      'description' => 'Finish in the top 3 of a tournament.'],
+
+            // --- v1.7.9 challenge pack badges ---------------------------------
+            ['code' => 'first_pack_completed', 'name' => 'Pack Finisher',    'icon' => '📦', 'category' => 'pack',       'rarity' => 'common',    'description' => 'Complete your first challenge pack.'],
+            ['code' => 'perfect_pack',       'name' => 'Perfect Pack',       'icon' => '💎', 'category' => 'pack',       'rarity' => 'legendary', 'description' => 'Complete a pack with perfect scores on every challenge.'],
+            ['code' => 'pack_master',        'name' => 'Pack Master',        'icon' => '🧠', 'category' => 'pack',       'rarity' => 'epic',      'description' => 'Complete 10 challenge packs.'],
         ];
 
         foreach ($badges as $i => $badge) {

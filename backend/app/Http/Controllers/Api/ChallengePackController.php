@@ -24,9 +24,29 @@ class ChallengePackController extends Controller
             ->orderBy('name')
             ->get();
 
-        return response()->json([
-            'data' => ChallengePackResource::collection($packs)->resolve(),
-        ]);
+        // Attach the user's latest attempt per pack so cards can show progress
+        // (In progress / Completed / n of m). One cheap query, no N+1.
+        $attempts = \App\Models\PackAttempt::where('user_id', $request->user()->id)
+            ->whereIn('challenge_pack_id', $packs->pluck('id'))
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END")
+            ->orderByDesc('id')
+            ->get()
+            ->unique('challenge_pack_id')
+            ->keyBy('challenge_pack_id');
+
+        $data = $packs->map(function (ChallengePack $pack) use ($attempts) {
+            $row = (new ChallengePackResource($pack))->resolve();
+            $attempt = $attempts->get($pack->id);
+            $row['progress'] = $attempt ? [
+                'status'          => $attempt->status,
+                'completed_count' => min($attempt->current_index, $attempt->totalChallenges()),
+                'total_challenges' => $attempt->totalChallenges(),
+            ] : null;
+
+            return $row;
+        })->values();
+
+        return response()->json(['data' => $data]);
     }
 
     // GET /api/packs/{slug} — pack detail + safe challenge summaries (ready only).

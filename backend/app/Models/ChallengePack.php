@@ -44,6 +44,11 @@ class ChallengePack extends Model
             ->orderBy('challenge_pack_challenge.sort_order');
     }
 
+    public function attempts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PackAttempt::class);
+    }
+
     /** Ready challenges only — safe to surface to normal users. */
     public function readyChallenges()
     {

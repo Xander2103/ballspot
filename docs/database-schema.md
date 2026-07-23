@@ -475,3 +475,35 @@ Content-only collections (e.g. "Belgium Pack"). **No price/purchase/payment colu
 Pivot `challenge_pack_challenge` (challenge_pack_id, challenge_id, `sort_order`, timestamps).
 Only **active + public** packs are exposed to normal users; detail lists only ready challenges.
 Detaching never deletes challenges or images.
+
+### Pack play (v1.7.9)
+
+`pack_attempts` — a user's play-through of a pack. Virtual progress only.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| user_id | FK → users | cascade on delete |
+| challenge_pack_id | FK → challenge_packs | cascade on delete |
+| status | string | active \| completed \| abandoned (default active) |
+| started_at / completed_at | timestamp, nullable | |
+| total_score | integer | running sum of guess scores |
+| current_index | unsigned int | index into the snapshotted challenge list |
+| metadata | json, nullable | `{ challenge_ids: [...] }` snapshot at start (stable vs later pack edits) |
+
+`pack_attempt_guesses` — one row per answered challenge in an attempt.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| pack_attempt_id | FK → pack_attempts | cascade on delete; **unique with challenge_id** |
+| challenge_id | FK → challenges | cascade on delete |
+| score | integer | from ScoreService |
+| guessed_x / guessed_y / distance | decimal, nullable | |
+| result | json, nullable | `{ score, distance }` |
+
+**XP:** per-guess `pack_guess` (= score) + `pack_completion` (+250, config
+`ballspot.xp.pack_completion`) in the existing `xp_events` ledger, deduped by source id.
+**Badges:** `first_pack_completed` (📦 common), `perfect_pack` (💎 legendary), `pack_master`
+(🧠 epic, 10 packs) — catalogue is now **23** badges. Completed attempts stay historical and
+feed the Trophy Room. No paid packs, no purchases.

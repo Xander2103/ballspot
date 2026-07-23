@@ -65,6 +65,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(PushToken::class);
     }
 
+    public function packAttempts(): HasMany
+    {
+        return $this->hasMany(PackAttempt::class);
+    }
+
     /**
      * The user's notification settings, creating a defaults row lazily the
      * first time they're read so callers never deal with a missing record.

@@ -2,8 +2,26 @@
 
 Build date: 2026-07-23
 
-**Backend:** 273 feature tests passing (was 254; +19 in v1.7.8 subcategories/packs/monthly).
+**Backend:** 286 feature tests passing (was 273; +11 pack play, badge-count assertions 20→23).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## Pack Play Mode & Completion Badges (v1.7.9)
+
+Packs are now playable. Adds `PackPlayTest` (11):
+
+- start an active+public pack; draft/hidden → 404; no-ready-challenges → 422; **start resumes**
+  the active attempt (no duplicate).
+- submit a guess for the current challenge; **wrong challenge → 422**; **another user's
+  attempt → 403**; progress advances.
+- completion after the final challenge: attempt marked completed, `final_score`, `+250`
+  completion XP; `pack_guess` XP per guess and one `pack_completion` XP recorded.
+- badges: `first_pack_completed` + `perfect_pack` (all perfect); `perfect_pack` withheld when a
+  guess is imperfect.
+- `GET /api/me/pack-completions` returns the completion; `/api/packs` includes per-pack progress.
+
+`BadgeTest` catalogue-count assertions updated 20 → **23** (added the 3 pack badges).
 
 ---
 

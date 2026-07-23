@@ -3,29 +3,36 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image } from 'reac
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
+import { AppButton } from '../components/AppButton';
 import { packApi } from '../api/packApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import type { ChallengePackDetail, PackChallengeSummary } from '../types/pack';
+import type { ChallengePackDetail, PackChallengeSummary, PackAttemptState } from '../types/pack';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackDetail'>;
 
-export function PackDetailScreen({ route }: Props) {
+export function PackDetailScreen({ route, navigation }: Props) {
   const { slug } = route.params;
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
   const [pack, setPack] = useState<ChallengePackDetail | null>(null);
+  const [attempt, setAttempt] = useState<PackAttemptState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await packApi.get(slug);
-      setPack(res.data);
+      const [packRes, attemptRes] = await Promise.all([
+        packApi.get(slug),
+        packApi.attempt(slug).catch(() => ({ attempt: null, challenge: null })),
+      ]);
+      setPack(packRes.data);
+      setAttempt(attemptRes.attempt);
     } catch {
       setError('Could not load this pack.');
     } finally {
@@ -34,6 +41,21 @@ export function PackDetailScreen({ route }: Props) {
   }, [slug]);
 
   useEffect(() => { load(); }, [load]);
+  // Refresh progress when returning from a play session.
+  useEffect(() => navigation.addListener('focus', load), [navigation, load]);
+
+  async function handlePlay(packName: string) {
+    setStarting(true);
+    setError('');
+    try {
+      await packApi.start(slug);
+      navigation.navigate('PackGuess', { slug, packName });
+    } catch (e: unknown) {
+      setError((e as { message?: string })?.message ?? 'Could not start this pack.');
+    } finally {
+      setStarting(false);
+    }
+  }
 
   if (loading) {
     return <Screen><View style={styles.center}><ActivityIndicator color={theme.primary} size="large" /></View></Screen>;
@@ -44,6 +66,16 @@ export function PackDetailScreen({ route }: Props) {
   }
 
   const count = pack.challenges.length;
+  const playable = count > 0;
+  const isActive = attempt?.status === 'active';
+  const isCompleted = attempt?.status === 'completed';
+  const ctaLabel = !playable
+    ? 'No challenges yet'
+    : isActive
+      ? `Continue (${attempt!.completed_count}/${attempt!.total_challenges})`
+      : isCompleted
+        ? 'Play again'
+        : 'Start Pack';
 
   return (
     <Screen padding={false}>
@@ -59,8 +91,21 @@ export function PackDetailScreen({ route }: Props) {
               <Text style={styles.metaChip}>{pack.sport?.name ?? 'All sports'}</Text>
               <Text style={styles.metaChip}>{count} {count === 1 ? 'challenge' : 'challenges'}</Text>
               {pack.difficulty ? <Text style={styles.metaChip}>{cap(pack.difficulty)}</Text> : null}
+              {isCompleted ? <Text style={[styles.metaChip, styles.completedChip]}>✓ Completed</Text> : null}
+              {isActive ? <Text style={[styles.metaChip, styles.activeChip]}>In progress</Text> : null}
             </View>
-            <Text style={styles.note}>Pack play mode is coming soon — for now, browse what's inside.</Text>
+
+            {playable ? (
+              <AppButton
+                title={ctaLabel}
+                onPress={() => handlePlay(pack.name)}
+                loading={starting}
+                style={styles.cta}
+              />
+            ) : (
+              <Text style={styles.note}>This pack has no ready challenges yet. Check back soon.</Text>
+            )}
+            {error ? <Text style={styles.errorInline}>{error}</Text> : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -103,6 +148,10 @@ function createStyles(theme: ThemeTokens) {
       borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 3, overflow: 'hidden',
     },
     note: { fontSize: 12, color: theme.textMuted, marginTop: spacing.md, fontStyle: 'italic' },
+    cta: { marginTop: spacing.md },
+    completedChip: { color: theme.success, fontWeight: '700' },
+    activeChip: { color: theme.primary, fontWeight: '700' },
+    errorInline: { color: theme.danger, fontSize: 13, marginTop: spacing.sm },
     row: {
       flexDirection: 'row', alignItems: 'center', gap: spacing.md,
       backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,

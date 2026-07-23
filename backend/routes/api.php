@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\LoginVerificationController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\ChallengePackController;
+use App\Http\Controllers\Api\PackPlayController;
 use App\Http\Controllers\Api\DailyChallengeController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\RoundController;
@@ -73,6 +74,12 @@ Route::middleware('auth:sanctum')->group(function () {
         // Challenge packs — discovery only (content, not paid). Active+public.
         Route::get('/packs',         [ChallengePackController::class, 'index']);
         Route::get('/packs/{slug}',  [ChallengePackController::class, 'show']);
+
+        // Pack play mode (attempts, sequential guesses, completion).
+        Route::post('/packs/{slug}/start',   [PackPlayController::class, 'start']);
+        Route::get('/packs/{slug}/attempt',  [PackPlayController::class, 'attempt']);
+        Route::post('/pack-attempts/{attempt}/guess', [PackPlayController::class, 'guess']);
+        Route::get('/me/pack-completions',   [ProfileController::class, 'packCompletions']);
 
         Route::get('/leagues',                        [LeagueController::class, 'index']);
         Route::post('/leagues',                       [LeagueController::class, 'store']);

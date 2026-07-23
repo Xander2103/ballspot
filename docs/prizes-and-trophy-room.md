@@ -104,6 +104,15 @@ added casually. Before a single real prize is offered:
 These remain **ideas only**. None are implemented, promised, or displayed as
 available in the app.
 
+## Pack trophies (v1.7.9)
+
+Challenge packs are playable and completions are recorded as **virtual** Trophy Room trophies
+(no prizes/money). The Trophy Room "Pack trophies" section lists completed packs (name, total
+score, challenge count, perfect indicator, date) via `GET /api/me/pack-completions`; empty state
+"No completed packs yet." Completion awards `+250` XP (config `ballspot.xp.pack_completion`) and
+badges: **Pack Finisher** (first pack), **Perfect Pack** (all-perfect, legendary), **Pack
+Master** (10 packs). No fake completions are ever shown; nothing is purchasable.
+
 ## Competition trophies (v1.7.8 prep)
 
 The Trophy Room now shows a **"Competition trophies"** section with an honest empty state

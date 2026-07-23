@@ -125,6 +125,8 @@ return [
             2 => 500,
             3 => 250,
         ],
+        // Flat bonus for completing a challenge pack (on top of per-guess XP).
+        'pack_completion' => (int) env('BALLPICKER_PACK_COMPLETION_XP', 250),
     ],
 
     /*

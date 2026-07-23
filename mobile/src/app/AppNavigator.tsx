@@ -10,6 +10,7 @@ import { authApi } from '../api/authApi';
 import type { Badge } from '../types/badge';
 import type { RankProgress, RankUp } from '../types/auth';
 import type { TournamentCompletion } from '../types/guess';
+import type { PackGuessResult } from '../types/pack';
 import { LoginScreen } from '../screens/LoginScreen';
 import { LoginVerificationScreen } from '../screens/LoginVerificationScreen';
 import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
@@ -27,6 +28,8 @@ import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { PacksScreen } from '../screens/PacksScreen';
 import { PackDetailScreen } from '../screens/PackDetailScreen';
+import { PackGuessScreen } from '../screens/PackGuessScreen';
+import { PackResultScreen } from '../screens/PackResultScreen';
 import { RankOverviewScreen } from '../screens/RankOverviewScreen';
 import { TrophyRoomScreen } from '../screens/TrophyRoomScreen';
 import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
@@ -45,6 +48,8 @@ export type RootStackParamList = {
   Profile: undefined;
   Packs: undefined;
   PackDetail: { slug: string; name: string };
+  PackGuess: { slug: string; packName: string };
+  PackResult: { slug: string; packName: string; result: PackGuessResult; imageUrl: string | null };
   RankOverview: undefined;
   TrophyRoom: undefined;
   CreateLeague: undefined;
@@ -121,6 +126,8 @@ export function AppNavigator() {
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen name="Packs" component={PacksScreen} options={{ title: 'Challenge Packs' }} />
         <Stack.Screen name="PackDetail" component={PackDetailScreen} options={({ route }) => ({ title: route.params.name })} />
+        <Stack.Screen name="PackGuess" component={PackGuessScreen} options={({ route }) => ({ title: route.params.packName, gestureEnabled: false })} />
+        <Stack.Screen name="PackResult" component={PackResultScreen} options={{ title: 'Pack Result', gestureEnabled: false, headerBackVisible: false }} />
         <Stack.Screen name="RankOverview" component={RankOverviewScreen} options={{ title: 'All Ranks' }} />
         <Stack.Screen name="TrophyRoom" component={TrophyRoomScreen} options={{ title: 'Trophy Room' }} />
         <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />

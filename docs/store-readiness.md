@@ -25,6 +25,17 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.7.9 store-relevant notes (Playable Packs)
+
+- **Packs are now playable but remain content-only.** No prices, purchases, IAP, or shop —
+  playing a pack awards only virtual XP and virtual badges. No change to billing capability or
+  content rating; no new device permissions.
+- **Deploy step:** run `php artisan db:seed --class=BadgeSeeder` after deploy to add the 3 new
+  pack badges (idempotent `updateOrCreate` — safe to re-run, never `migrate:fresh`).
+- **No fake trophies:** Trophy Room "Pack trophies" only lists real completed packs.
+
+---
+
 ## v1.7.8 store-relevant notes (Packs, Subcategories, Monthly)
 
 - **Challenge packs are content-only.** No prices, purchases, IAP, or shop — packs are curated

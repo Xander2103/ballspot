@@ -90,6 +90,11 @@ function PackCard({
           <Text style={styles.metaChip}>{pack.sport?.name ?? 'All sports'}</Text>
           <Text style={styles.metaChip}>{pack.challenge_count} {pack.challenge_count === 1 ? 'challenge' : 'challenges'}</Text>
           {pack.difficulty ? <Text style={styles.metaChip}>{cap(pack.difficulty)}</Text> : null}
+          {pack.progress?.status === 'completed'
+            ? <Text style={[styles.metaChip, styles.completedChip]}>✓ Completed</Text>
+            : pack.progress?.status === 'active'
+              ? <Text style={[styles.metaChip, styles.activeChip]}>In progress · {pack.progress.completed_count}/{pack.progress.total_challenges}</Text>
+              : null}
         </View>
       </View>
     </TouchableOpacity>
@@ -132,6 +137,8 @@ function createStyles(theme: ThemeTokens) {
       borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 3,
       overflow: 'hidden',
     },
+    completedChip: { color: theme.success, fontWeight: '700', backgroundColor: theme.success + '1a' },
+    activeChip: { color: theme.primary, fontWeight: '700', backgroundColor: theme.primary + '1a' },
     empty: { alignItems: 'center', paddingVertical: spacing.xxl },
     emptyEmoji: { fontSize: 40, marginBottom: spacing.sm },
     emptyText: { fontSize: 15, color: theme.textMuted, textAlign: 'center' },

@@ -14,6 +14,8 @@ class XpEvent extends Model
     public const SOURCE_TOURNAMENT_WIN    = 'tournament_win';
     public const SOURCE_WEEKLY_FINISH     = 'weekly_finish';
     public const SOURCE_ADMIN_ADJUSTMENT  = 'admin_adjustment';
+    public const SOURCE_PACK_GUESS        = 'pack_guess';
+    public const SOURCE_PACK_COMPLETION   = 'pack_completion';
 
     protected $fillable = [
         'user_id', 'source_type', 'source_id', 'amount', 'reason', 'metadata',

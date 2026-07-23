@@ -498,7 +498,12 @@ is BallPicker-branded (`APP_NAME=BallPicker`) — no Laravel logo or sign-off.
   Separate from free-text challenge tags. Assign multiple per challenge on the challenge form.
 - **Challenge packs** (`/admin/packs`) — content-only collections (e.g. Belgium Pack). **No
   prices, purchases or payments.** Users discover active+public packs via **Home → Challenge
-  Packs** (`GET /api/packs`, `GET /api/packs/{slug}`). Pack *play mode* is future work.
+  Packs** (`GET /api/packs`, `GET /api/packs/{slug}`).
+- **Pack play mode (v1.7.9)** — packs are playable: start/resume an attempt
+  (`POST /api/packs/{slug}/start`), play the ready challenges sequentially
+  (`POST /api/pack-attempts/{attempt}/guess`), earn per-guess XP + a `+250` completion bonus and
+  pack badges (Pack Finisher / Perfect Pack / Pack Master). Completions show in the Trophy Room
+  (`GET /api/me/pack-completions`). Still content-only — no purchases. New badge total: **23**.
 - **Monthly competitions** — the daily-challenge leaderboard + top-finishers badge follow
   `BALLPICKER_COMPETITION_PERIOD` (`monthly` default, or `weekly`); optional
   `BALLPICKER_COMPETITION_LABEL`. The API returns a `period` block (type/label/start/end); the

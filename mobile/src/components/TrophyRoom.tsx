@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { badgeApi } from '../api/badgeApi';
+import { packApi } from '../api/packApi';
 import type { EarnedBadge, TournamentFinish } from '../types/badge';
+import type { PackCompletion } from '../types/pack';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -76,6 +78,7 @@ export function TrophyRoom() {
   const [badges, setBadges] = useState<EarnedBadge[] | null>(null);
   const [counts, setCounts] = useState<{ earned: number; total: number }>({ earned: 0, total: 0 });
   const [finishes, setFinishes] = useState<TournamentFinish[]>([]);
+  const [packCompletions, setPackCompletions] = useState<PackCompletion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -99,6 +102,11 @@ export function TrophyRoom() {
     // Tournament finishes are non-fatal — a failure just hides the section.
     badgeApi.finishes()
       .then((data) => !cancelled && setFinishes(data))
+      .catch(() => {});
+
+    // Pack completions — non-fatal too.
+    packApi.completions()
+      .then((data) => !cancelled && setPackCompletions(data))
       .catch(() => {});
 
     return () => {
@@ -141,6 +149,18 @@ export function TrophyRoom() {
         </View>
       ) : null}
 
+      {/* Pack trophies (completed challenge packs) */}
+      {!loading && !error ? (
+        <View style={styles.finishesWrap}>
+          <Text style={styles.subHeader}>Pack trophies</Text>
+          {packCompletions.length === 0 ? (
+            <Text style={styles.emptyFinishes}>No completed packs yet.</Text>
+          ) : (
+            packCompletions.map((p) => <PackCompletionRow key={p.id} completion={p} />)
+          )}
+        </View>
+      ) : null}
+
       {/* Competition trophies — reserved for monthly top-3 finishes (future). */}
       {!loading && !error ? (
         <View style={styles.finishesWrap}>
@@ -148,6 +168,29 @@ export function TrophyRoom() {
           <Text style={styles.emptyFinishes}>Top finishes will appear here when monthly competitions end.</Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function PackCompletionRow({ completion }: { completion: PackCompletion }) {
+  const date = completion.completed_at
+    ? new Date(completion.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+  const parts = [
+    `${completion.challenge_count} challenge${completion.challenge_count === 1 ? '' : 's'}`,
+    `${completion.total_score.toLocaleString('en-US')} pts`,
+    date,
+  ].filter(Boolean);
+
+  return (
+    <View style={styles.finishRow}>
+      <Text style={styles.finishMedal}>{completion.is_perfect ? '💎' : '📦'}</Text>
+      <View style={styles.finishInfo}>
+        <Text style={styles.finishTitle} numberOfLines={1}>
+          {completion.pack?.name ?? 'Challenge pack'}{completion.is_perfect ? ' — Perfect!' : ''}
+        </Text>
+        <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text>
+      </View>
     </View>
   );
 }

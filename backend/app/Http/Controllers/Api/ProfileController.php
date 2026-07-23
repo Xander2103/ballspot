@@ -58,6 +58,33 @@ class ProfileController extends Controller
         return response()->json(['data' => $finishes]);
     }
 
+    // GET /api/me/pack-completions — completed challenge packs for the Trophy Room.
+    public function packCompletions(Request $request): JsonResponse
+    {
+        $completions = \App\Models\PackAttempt::where('user_id', $request->user()->id)
+            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
+            ->with(['pack:id,name,slug', 'guesses:id,pack_attempt_id,score'])
+            ->orderByDesc('completed_at')
+            ->get()
+            ->map(function (\App\Models\PackAttempt $a) {
+                $count = $a->guesses->count();
+                $perfect = $count > 0 && $a->guesses->every(
+                    fn ($g) => (int) $g->score >= (int) config('ballspot.scoring.max_score', 100)
+                );
+
+                return [
+                    'id'              => $a->id,
+                    'pack'            => $a->pack ? ['id' => $a->pack->id, 'name' => $a->pack->name, 'slug' => $a->pack->slug] : null,
+                    'total_score'     => $a->total_score,
+                    'challenge_count' => $count,
+                    'is_perfect'      => $perfect,
+                    'completed_at'    => $a->completed_at?->toISOString(),
+                ];
+            });
+
+        return response()->json(['data' => $completions]);
+    }
+
     public function stats(Request $request)
     {
         $user = $request->user();
