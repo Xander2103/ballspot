@@ -33,6 +33,14 @@ shipped and the known limits.
   and silently skips if absent/offline. `send_at` scheduling is stored but not auto-dispatched
   (send is manual/immediate in MVP).
 
+## Competition close draft (v1.8.0)
+
+`php artisan ballspot:close-competition --announce` saves a **draft** admin announcement after
+a successful close ("Monthly results are in" / "…check the leaderboard and Trophy Room",
+target `opted_in`, no creator). It is **never auto-sent** — an admin reviews and sends it
+manually from `/admin/notifications`, so users are never spammed by an automated close. A rerun
+of an already-closed period creates no additional draft.
+
 ---
 
 ## Original design (retained for reference)

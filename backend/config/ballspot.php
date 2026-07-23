@@ -127,6 +127,13 @@ return [
         ],
         // Flat bonus for completing a challenge pack (on top of per-guess XP).
         'pack_completion' => (int) env('BALLPICKER_PACK_COMPLETION_XP', 250),
+        // Monthly/weekly competition close bonuses (placement => XP). Awarded
+        // once per closed period by ballspot:close-competition — virtual only.
+        'competition_finish' => [
+            1 => 2000,
+            2 => 1000,
+            3 => 500,
+        ],
     ],
 
     /*

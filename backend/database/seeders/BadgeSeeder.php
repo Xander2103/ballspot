@@ -43,6 +43,11 @@ class BadgeSeeder extends Seeder
             ['code' => 'first_pack_completed', 'name' => 'Pack Finisher',    'icon' => '📦', 'category' => 'pack',       'rarity' => 'common',    'description' => 'Complete your first challenge pack.'],
             ['code' => 'perfect_pack',       'name' => 'Perfect Pack',       'icon' => '💎', 'category' => 'pack',       'rarity' => 'legendary', 'description' => 'Complete a pack with perfect scores on every challenge.'],
             ['code' => 'pack_master',        'name' => 'Pack Master',        'icon' => '🧠', 'category' => 'pack',       'rarity' => 'epic',      'description' => 'Complete 10 challenge packs.'],
+
+            // --- v1.8.0 monthly competition badges (awarded on period close) ---
+            ['code' => 'monthly_winner',     'name' => 'Monthly Winner',     'icon' => '🏆', 'category' => 'competition', 'rarity' => 'legendary', 'description' => 'Finish 1st in a monthly competition.'],
+            ['code' => 'monthly_podium',     'name' => 'Monthly Podium',     'icon' => '🥉', 'category' => 'competition', 'rarity' => 'epic',      'description' => 'Finish in the top 3 of a monthly competition.'],
+            ['code' => 'monthly_top_10',     'name' => 'Monthly Top 10',     'icon' => '🥇', 'category' => 'competition', 'rarity' => 'rare',      'description' => 'Finish in the top 10% of a monthly competition.'],
         ];
 
         foreach ($badges as $i => $badge) {

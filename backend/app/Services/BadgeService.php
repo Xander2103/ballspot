@@ -193,6 +193,37 @@ class BadgeService
     }
 
     /**
+     * Badges for a final placement in a CLOSED monthly competition period.
+     * Weekly closes store finishes/XP but award no badges (the monthly_* set is
+     * period-specific by design). Top-10% needs a real field (>= 10 players) —
+     * mirroring the live weekly_top_10 guard — so tiny fields never trigger it.
+     * Idempotent via award().
+     *
+     * @return Badge[]
+     */
+    public function evaluateCompetitionFinish(User $user, string $periodType, int $placement, int $totalPlayers, array $context = []): array
+    {
+        if ($periodType !== 'monthly') {
+            return [];
+        }
+
+        $awarded = [];
+        $context = array_merge($context, ['placement' => $placement, 'total_players' => $totalPlayers]);
+
+        if ($placement === 1) {
+            $awarded[] = $this->award($user, 'monthly_winner', $context);
+        }
+        if ($placement <= 3) {
+            $awarded[] = $this->award($user, 'monthly_podium', $context);
+        }
+        if ($totalPlayers >= 10 && $placement <= (int) ceil($totalPlayers * 0.1)) {
+            $awarded[] = $this->award($user, 'monthly_top_10', $context);
+        }
+
+        return $this->clean($awarded);
+    }
+
+    /**
      * Badges for completing a challenge pack. Called once when a pack attempt
      * completes. Idempotent (award() no-ops on already-earned):
      *   - first_pack_completed: any pack completion.

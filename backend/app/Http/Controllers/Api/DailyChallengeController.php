@@ -24,6 +24,7 @@ class DailyChallengeController extends Controller
         private \App\Services\PlayerRankService $rankService,
         private \App\Services\XpService $xpService,
         private \App\Services\CompetitionPeriodService $period,
+        private \App\Services\CompetitionStandingsService $standings,
     ) {}
 
     /** Award any newly-reached daily-streak milestone bonuses (once each). */
@@ -224,30 +225,24 @@ class DailyChallengeController extends Controller
         $periodStart = $this->period->start();
         $periodEnd   = $this->period->end();
 
-        $entries = DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($periodStart, $periodEnd) {
-            $q->whereBetween('challenge_date', [$periodStart, $periodEnd]);
-        })
-        ->with('user')
-        ->get()
-        ->groupBy('user_id')
-        ->map(function ($guesses, $userId) {
-            $user = $guesses->first()->user;
+        // Shared ranking logic (deterministic tie-break) — same as the close flow.
+        $standings = $this->standings->forWindow($periodStart, $periodEnd);
+        $users = \App\Models\User::whereIn('id', $standings->pluck('user_id'))
+            ->get(['id', 'username', 'name'])
+            ->keyBy('id');
+
+        $entries = $standings->map(function ($row) use ($users, $request) {
+            $user = $users->get($row['user_id']);
             return [
-                'user_id'           => $userId,
-                'username'          => $user->username,
-                'name'              => $user->name,
-                'total_score'       => $guesses->sum('score'),
-                'challenges_played' => $guesses->count(),
-                'avg_score'         => round($guesses->avg('score'), 1),
+                'user_id'           => $row['user_id'],
+                'username'          => $user?->username,
+                'name'              => $user?->name,
+                'total_score'       => $row['total_score'],
+                'challenges_played' => $row['challenges_played'],
+                'avg_score'         => $row['avg_score'],
+                'rank'              => $row['placement'],
+                'is_current_user'   => $row['user_id'] === $request->user()->id,
             ];
-        })
-        ->sortByDesc('total_score')
-        ->values()
-        ->map(function ($entry, $index) use ($request) {
-            return array_merge($entry, [
-                'rank'            => $index + 1,
-                'is_current_user' => $entry['user_id'] === $request->user()->id,
-            ]);
         });
 
         return response()->json([

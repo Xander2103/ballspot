@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Badge, BadgeCollection, TournamentFinish } from '../types/badge';
+import type { Badge, BadgeCollection, CompetitionFinish, TournamentFinish } from '../types/badge';
 
 export const badgeApi = {
   // Full catalogue of virtual trophies.
@@ -10,4 +10,7 @@ export const badgeApi = {
 
   // The current user's tournament placements (Trophy Room finishes).
   finishes: () => apiClient.request<{ data: TournamentFinish[] }>('/me/tournament-finishes').then((r) => r.data),
+
+  // Closed-period competition placements (Trophy Room competition trophies).
+  competitionFinishes: () => apiClient.request<{ data: CompetitionFinish[] }>('/me/competition-finishes').then((r) => r.data),
 };

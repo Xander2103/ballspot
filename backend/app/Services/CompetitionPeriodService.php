@@ -64,22 +64,79 @@ class CompetitionPeriodService
     }
 
     /**
+     * Descriptor for the most recently COMPLETED period of $type — the one the
+     * close command targets by default (in July, closing monthly closes June).
+     *
+     * @return array{period_type:string,period_label:string,period_start:string,period_end:string}
+     */
+    public function previousPeriod(?string $type = null, ?Carbon $now = null): array
+    {
+        $type = $type ?: $this->type();
+        $now  = $now ? $now->copy()->setTimezone($this->timezone()) : Carbon::now($this->timezone());
+
+        $anchor = $type === self::WEEKLY
+            ? $now->copy()->subWeek()
+            : $now->copy()->subMonthNoOverflow();
+
+        return $this->describe($type, $anchor);
+    }
+
+    /**
+     * Descriptor for the period of $type containing $anchor, labelled with the
+     * SPECIFIC period ("June 2026" / "Week 25, 2026") rather than the generic
+     * live-leaderboard label — closed finishes must name their exact window.
+     *
+     * @return array{period_type:string,period_label:string,period_start:string,period_end:string}
+     */
+    public function describe(string $type, Carbon $anchor): array
+    {
+        [$start, $end] = $this->boundariesFor($type, $anchor);
+
+        return [
+            'period_type'  => $type,
+            'period_label' => $this->labelFor($type, Carbon::parse($start)),
+            'period_start' => $start,
+            'period_end'   => $end,
+        ];
+    }
+
+    /** Human label for a specific period window. */
+    public function labelFor(string $type, Carbon $start): string
+    {
+        if ($type === self::WEEKLY) {
+            return 'Week ' . $start->isoWeek . ', ' . $start->isoWeekYear;
+        }
+
+        return $start->format('F Y');
+    }
+
+    /**
      * @return array{0:string,1:string} [startDate, endDate] as Y-m-d strings.
      */
     private function boundaries(?Carbon $now = null): array
     {
         $now = $now ? $now->copy()->setTimezone($this->timezone()) : Carbon::now($this->timezone());
 
-        if ($this->type() === self::WEEKLY) {
+        return $this->boundariesFor($this->type(), $now);
+    }
+
+    /**
+     * @return array{0:string,1:string} [startDate, endDate] as Y-m-d strings.
+     */
+    public function boundariesFor(string $type, Carbon $anchor): array
+    {
+        $anchor = $anchor->copy()->setTimezone($this->timezone());
+
+        if ($type === self::WEEKLY) {
             return [
-                $now->copy()->startOfWeek(Carbon::MONDAY)->toDateString(),
-                $now->copy()->endOfWeek(Carbon::SUNDAY)->toDateString(),
+                $anchor->copy()->startOfWeek(Carbon::MONDAY)->toDateString(),
+                $anchor->copy()->endOfWeek(Carbon::SUNDAY)->toDateString(),
             ];
         }
 
         return [
-            $now->copy()->startOfMonth()->toDateString(),
-            $now->copy()->endOfMonth()->toDateString(),
+            $anchor->copy()->startOfMonth()->toDateString(),
+            $anchor->copy()->endOfMonth()->toDateString(),
         ];
     }
 }

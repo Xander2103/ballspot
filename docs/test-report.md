@@ -1,9 +1,42 @@
-# BallSpot v1.7.7 — Test Report
+# BallSpot v1.8.0 — Test Report
 
 Build date: 2026-07-23
 
-**Backend:** 286 feature tests passing (was 273; +11 pack play, badge-count assertions 20→23).
+**Backend:** 302 feature tests passing (was 286; +16 competition close, badge-count assertions 23→26).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## Monthly Competition Close & Award Top 3 (v1.8.0)
+
+Completed competition periods can be closed and their top 3 awarded virtual trophies.
+Adds `CompetitionCloseTest` (16):
+
+- **dry-run writes nothing** (no finishes, no XP).
+- close creates **top-3 finishes** with correct period type/label/window, scores,
+  total_players, `xp_awarded` (2000/1000/500) and reasons ("Monthly competition winner" /
+  "runner-up" / "top 3"); badges: `monthly_winner` (1st only) + `monthly_podium` (top 3).
+- **no fake placements**: 1 eligible player → a single 1st place, `total_players = 1`.
+- **no players** → clean "no eligible players" exit, zero records.
+- **idempotent**: second run reports "already closed", finish count and total ledger XP
+  unchanged.
+- **current open period is not closed by default** (default targets the previous period;
+  explicit `--period` on the open period fails without `--force`, succeeds with it).
+- `--period=YYYY-MM` override selects the requested month; invalid formats fail cleanly.
+- **tie handling deterministic**: equal totals → earliest last-qualifying guess wins; equal
+  time → lower user id (via the shared `CompetitionStandingsService`).
+- `monthly_top_10` awarded only in fields of **≥10 players** (top 10% by placement) and never
+  creates extra finish records.
+- **weekly close** stores weekly finishes/XP ("Weekly competition winner") without monthly_*
+  badges.
+- `--announce` saves exactly one **draft** admin notification (never sent, no duplicate on
+  rerun).
+- **anonymized user keeps the historical finish** (account deletion anonymizes in place).
+- `GET /api/me/competition-finishes` returns the finish payload; empty state is `[]`.
+
+`BadgeTest` catalogue-count assertions updated 23 → **26** (added the 3 competition badges).
+The live monthly leaderboard was refactored onto `CompetitionStandingsService` (shared with
+the close flow) — covered by the existing leaderboard/period tests, all still green.
 
 ---
 

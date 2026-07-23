@@ -4,6 +4,23 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.8.0 store-relevant notes (Monthly Competition Close)
+
+- **Competition trophies are virtual only.** Closing a monthly (or weekly) competition awards
+  virtual finish records, XP, and badges — **no prizes, money, entry fees, gambling, or
+  payments** of any kind. No change to billing capability, content rating, or permissions.
+  Do not describe competitions as prized in the store listing.
+- **No fake winners/trophies:** the Trophy Room "Competition trophies" section shows only real
+  closed-period placements (empty state otherwise); the current open period is never displayed
+  as a trophy.
+- **Deploy steps:** run `php artisan migrate` (adds `competition_finishes`) and
+  `php artisan db:seed --class=BadgeSeeder` (adds the 3 competition badges — idempotent
+  `updateOrCreate`, safe to re-run, never `migrate:fresh`). Closing a period is a manual ops
+  command (`ballspot:close-competition`) — nothing runs automatically and `--announce` only
+  drafts an announcement (an admin sends it manually).
+
+---
+
 ## v1.7.7 store-relevant notes (Notifications)
 
 - **New permission: notifications.** The app now requests OS notification permission, via a

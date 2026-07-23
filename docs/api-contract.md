@@ -1305,3 +1305,50 @@ exposed on the mobile API in this sprint (organisation/filtering is admin-side f
 opted-in tokens; a user who disabled admin announcements is **never** delivered
 to, regardless of the announcement's audience. Status reflects the real outcome
 (`draft` / `sent` / `failed`) — a send is never faked when push is disabled.
+
+---
+
+## Monthly competition close & trophies (v1.8.0)
+
+A completed competition period can be **closed** (ops CLI action), storing the real top-3
+finishes and awarding virtual XP + badges. **No prizes, money, or payments — recognition is
+virtual only, and no fake winners/trophies are ever created.**
+
+### CLI (not an HTTP endpoint)
+
+```
+php artisan ballspot:close-competition [--dry-run] [--period=YYYY-MM|YYYY-WW]
+                                       [--type=monthly|weekly] [--force] [--announce]
+```
+
+- Defaults to the most recently **completed** period of the configured type (in July, the
+  monthly close targets June). The current open period is refused unless `--force`.
+- `--dry-run` previews (period, players, top-3, XP, badges) and **writes nothing**.
+- Idempotent: re-running reports "already closed" and never duplicates finishes/XP/badges.
+- No eligible players → clean "no eligible players" exit, no records.
+- `--announce` saves a **draft** admin announcement ("Monthly results are in") — never auto-sent.
+- Standings/tie rule are shared with the live leaderboard (`CompetitionStandingsService`):
+  total score desc → earliest last-qualifying guess asc → user id asc.
+- XP through the ledger (`source_type: competition_finish`, source_id = finish id, deduped):
+  1st +2000 / 2nd +1000 / 3rd +500 (`config('ballspot.xp.competition_finish')`). Reasons:
+  "Monthly competition winner" / "… runner-up" / "… top 3" (or "Weekly …").
+- Badges (monthly closes only): 1st → `monthly_winner` + `monthly_podium`; 2nd/3rd →
+  `monthly_podium`; top 10% of fields with ≥10 players → `monthly_top_10`.
+
+### GET /api/me/competition-finishes  *(auth + verified)*
+
+The caller's closed-period placements for the Trophy Room "Competition trophies" section.
+Only CLOSED periods ever appear — the live leaderboard position is never returned as a trophy.
+
+```jsonc
+// Response 200 (newest period first, placement asc)
+{ "data": [
+  { "id": 1, "placement": 1, "period_type": "monthly", "period_label": "June 2026",
+    "period_start": "2026-06-01", "period_end": "2026-06-30",
+    "total_score": 1240, "total_players": 57, "xp_awarded": 2000,
+    "awarded_at": "2026-07-01T09:00:00Z" }
+] }
+```
+
+`/admin/competition` additionally shows the previous period, whether it is closed, the last
+closed competition, and the copy-paste close command (read-only — no one-click awarding).

@@ -113,18 +113,40 @@ score, challenge count, perfect indicator, date) via `GET /api/me/pack-completio
 badges: **Pack Finisher** (first pack), **Perfect Pack** (all-perfect, legendary), **Pack
 Master** (10 packs). No fake completions are ever shown; nothing is purchasable.
 
-## Competition trophies (v1.7.8 prep)
+## Competition trophies (v1.8.0) — LIVE, still virtual, still no prizes
 
-The Trophy Room now shows a **"Competition trophies"** section with an honest empty state
-("Top finishes will appear here when monthly competitions end."). This is **preparation only**:
+Monthly (or weekly) competitions can now be **closed** and their top 3 awarded real —
+but strictly **virtual** — recognition:
 
-- The competition period is now configurable (weekly/monthly, monthly default) and drives the
-  leaderboard + top-finishers badge (`config('ballspot.competition')`).
-- **No monthly top-3 finish trophies are awarded yet** — the future architecture mirrors the
-  existing tournament `tournament_finishes` table (a `competition_finishes`-style record written
-  when a period closes). Pack-completion badges are likewise future.
-- Consistent with the rules below: **no fake trophies, no fake wins** — the section stays empty
-  until real period-close awards exist. All future trophies remain **virtual only**.
+- **Close command:** `php artisan ballspot:close-competition` closes the most recently
+  **completed** period (in July, the monthly close targets June — the current open period is
+  never closed by default; `--force` exists for deliberate ops use only). `--dry-run` previews
+  without writing anything; `--period=YYYY-MM` (monthly) / `--period=YYYY-WW` (weekly) +
+  `--type=monthly|weekly` select a specific window. Re-running a close is **idempotent** —
+  finishes, XP and badges are never duplicated.
+- **Standings come from the same logic as the live leaderboard** (`CompetitionStandingsService`,
+  shared with `GET /api/daily/leaderboard/weekly`). Tie rule: total score desc → earliest
+  last-qualifying guess asc → user id asc (deterministic).
+- **Storage:** top-3 placements are stored in `competition_finishes` (period type/label/window,
+  placement, total score, total players, XP awarded, awarded_at). Only **real** placements are
+  written — 1 eligible player means a single 1st place, never fake 2nd/3rd; no players means a
+  clean "no eligible players" exit with no records.
+- **XP** via the existing ledger (`source_type: competition_finish`, deduped per finish):
+  **1st +2000, 2nd +1000, 3rd +500** (`config('ballspot.xp.competition_finish')`). It appears in
+  Recent XP and counts toward rank like any other XP.
+- **Badges (monthly closes only):** placement 1 → **Monthly Winner** (🏆 legendary) +
+  **Monthly Podium** (🥉 epic); placements 2–3 → Monthly Podium; **Monthly Top 10** (🥇 rare)
+  goes to the top 10% when the field has ≥ 10 players (mirroring the live top-10 guard). Badge
+  unlock XP uses the standard rarity bonuses. Weekly closes store finishes + XP but no monthly_*
+  badges.
+- **Trophy Room:** the "Competition trophies" section now lists real closed-period finishes via
+  `GET /api/me/competition-finishes` (placement medal, period label, players, score, XP). Empty
+  state: "No competition trophies yet." **Only closed periods appear — the live leaderboard
+  position is never displayed as a trophy.**
+- **Historical records survive account anonymization** (deletion anonymizes the user row in
+  place; the finish keeps pointing at it, and the FK nulls on any hard delete).
+- **Known limitations:** no automated scheduler runs the close (manual/ops CLI action);
+  `--announce` saves a **draft** admin announcement only — nothing is ever auto-sent.
 
 ## Explicit non-goals (current and this sprint)
 

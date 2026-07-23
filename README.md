@@ -511,6 +511,25 @@ is BallPicker-branded (`APP_NAME=BallPicker`) — no Laravel logo or sign-off.
   at `/admin/competition`. Known limits: no paid packs, no pack-completion flow, and monthly
   top-finish *trophies* are prepared (Trophy Room placeholder) but not yet awarded.
 
+## Monthly competition close & trophies (v1.8.0)
+
+- **Close a completed period:** `php artisan ballspot:close-competition` (see
+  `--dry-run`, `--period=YYYY-MM` / `YYYY-WW`, `--type=monthly|weekly`, `--force`,
+  `--announce`). By default it closes the most recently **completed** period — the current
+  open period is never closed without `--force`. Re-running is idempotent (no duplicate
+  finishes/XP/badges); with no eligible players it exits cleanly writing nothing.
+- **Awards (virtual only):** top-3 finishes stored in `competition_finishes`; XP through the
+  ledger (`competition_finish`: 1st +2000 / 2nd +1000 / 3rd +500); badges **Monthly Winner**
+  (1st, legendary), **Monthly Podium** (top 3, epic), **Monthly Top 10** (top 10% of fields
+  with ≥10 players, rare). Badge total: **26**. Standings/ties use the same
+  `CompetitionStandingsService` as the live leaderboard (score desc → earliest last guess →
+  user id).
+- **Trophy Room:** real "Competition trophies" section fed by
+  `GET /api/me/competition-finishes` — only closed periods appear, never the live leaderboard.
+- **Admin:** `/admin/competition` shows current + previous period, close status, last closed
+  competition, and the close command. `--announce` saves a **draft** announcement only —
+  nothing is auto-sent. Known limits: no automated close scheduler (manual CLI/ops action).
+
 ## Constraints
 
 - No real money, no gambling, no subscriptions, no ads, no in-app purchases

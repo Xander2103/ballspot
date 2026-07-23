@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { badgeApi } from '../api/badgeApi';
 import { packApi } from '../api/packApi';
-import type { EarnedBadge, TournamentFinish } from '../types/badge';
+import type { CompetitionFinish, EarnedBadge, TournamentFinish } from '../types/badge';
 import type { PackCompletion } from '../types/pack';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -79,6 +79,7 @@ export function TrophyRoom() {
   const [counts, setCounts] = useState<{ earned: number; total: number }>({ earned: 0, total: 0 });
   const [finishes, setFinishes] = useState<TournamentFinish[]>([]);
   const [packCompletions, setPackCompletions] = useState<PackCompletion[]>([]);
+  const [competitionFinishes, setCompetitionFinishes] = useState<CompetitionFinish[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -107,6 +108,11 @@ export function TrophyRoom() {
     // Pack completions — non-fatal too.
     packApi.completions()
       .then((data) => !cancelled && setPackCompletions(data))
+      .catch(() => {});
+
+    // Competition finishes (closed monthly/weekly periods) — non-fatal too.
+    badgeApi.competitionFinishes()
+      .then((data) => !cancelled && setCompetitionFinishes(data))
       .catch(() => {});
 
     return () => {
@@ -161,13 +167,40 @@ export function TrophyRoom() {
         </View>
       ) : null}
 
-      {/* Competition trophies — reserved for monthly top-3 finishes (future). */}
+      {/* Competition trophies — real top-3 finishes from CLOSED periods only.
+          The live leaderboard position is never shown here as a trophy. */}
       {!loading && !error ? (
         <View style={styles.finishesWrap}>
           <Text style={styles.subHeader}>Competition trophies</Text>
-          <Text style={styles.emptyFinishes}>Top finishes will appear here when monthly competitions end.</Text>
+          {competitionFinishes.length === 0 ? (
+            <Text style={styles.emptyFinishes}>No competition trophies yet.</Text>
+          ) : (
+            competitionFinishes.map((f) => <CompetitionFinishRow key={f.id} finish={f} />)
+          )}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function CompetitionFinishRow({ finish }: { finish: CompetitionFinish }) {
+  const competitionName = finish.period_type === 'weekly' ? 'Weekly Competition' : 'Monthly Competition';
+  const parts = [
+    finish.period_label || null,
+    typeof finish.total_players === 'number' ? `${finish.total_players} players` : null,
+    typeof finish.total_score === 'number' ? `${finish.total_score.toLocaleString('en-US')} pts` : null,
+    finish.xp_awarded > 0 ? `+${finish.xp_awarded.toLocaleString('en-US')} XP` : null,
+  ].filter(Boolean);
+
+  return (
+    <View style={styles.finishRow}>
+      <Text style={styles.finishMedal}>{placementMedal(finish.placement)}</Text>
+      <View style={styles.finishInfo}>
+        <Text style={styles.finishTitle} numberOfLines={1}>
+          {placementLabel(finish.placement)} — {competitionName}
+        </Text>
+        {parts.length > 0 ? <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text> : null}
+      </View>
     </View>
   );
 }

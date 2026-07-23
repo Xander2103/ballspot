@@ -20,6 +20,23 @@ export interface BadgeCollection {
   badges: EarnedBadge[];
 }
 
+/**
+ * A user's placement in a CLOSED monthly/weekly competition period (Trophy
+ * Room). Only ever written when a period is closed — never the live period.
+ */
+export interface CompetitionFinish {
+  id: number;
+  placement: number;
+  period_type: string;
+  period_label: string;
+  period_start: string | null;
+  period_end: string | null;
+  total_score: number;
+  total_players: number;
+  xp_awarded: number;
+  awarded_at: string | null;
+}
+
 /** A user's placement in a completed tournament (Trophy Room). */
 export interface TournamentFinish {
   id: number;

@@ -58,6 +58,31 @@ class ProfileController extends Controller
         return response()->json(['data' => $finishes]);
     }
 
+    // GET /api/me/competition-finishes — closed-period placements for the Trophy Room.
+    // Only CLOSED periods ever appear here (finishes are written exclusively by
+    // the close flow) — the live leaderboard position is never shown as a trophy.
+    public function competitionFinishes(Request $request): JsonResponse
+    {
+        $finishes = \App\Models\CompetitionFinish::where('user_id', $request->user()->id)
+            ->orderByDesc('period_start')
+            ->orderBy('placement')
+            ->get()
+            ->map(fn (\App\Models\CompetitionFinish $f) => [
+                'id'            => $f->id,
+                'placement'     => $f->placement,
+                'period_type'   => $f->period_type,
+                'period_label'  => $f->period_label,
+                'period_start'  => $f->period_start?->toDateString(),
+                'period_end'    => $f->period_end?->toDateString(),
+                'total_score'   => $f->total_score,
+                'total_players' => $f->total_players,
+                'xp_awarded'    => $f->xp_awarded,
+                'awarded_at'    => $f->awarded_at?->toISOString(),
+            ]);
+
+        return response()->json(['data' => $finishes]);
+    }
+
     // GET /api/me/pack-completions — completed challenge packs for the Trophy Room.
     public function packCompletions(Request $request): JsonResponse
     {

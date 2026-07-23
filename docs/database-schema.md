@@ -135,6 +135,26 @@ Final standings for a completed tournament — one row per member, written once 
 
 **Unique** `(league_id, user_id)` — makes completion idempotent. Index `(user_id, placement)` for Trophy Room lookups. Tie rule: total score desc, then earliest completion (last-guess time) asc, then user id asc.
 
+## competition_finishes (v1.8.0)
+Final top-3 standings for a CLOSED competition period (monthly/weekly daily-challenge leaderboard) — written once (idempotently) by `CompetitionCloseService` via `php artisan ballspot:close-competition`, never for the current open period. Virtual recognition only (no prize/payment/money fields by design).
+| Column | Type | Notes |
+|--------|------|-------|
+| id | bigint PK auto | |
+| user_id | bigint FK → users, nullable | `nullOnDelete` — historical record survives account removal (deletion currently anonymizes in place) |
+| period_type | varchar | 'monthly' \| 'weekly' |
+| period_label | varchar | e.g. "June 2026" / "Week 24, 2026" |
+| period_start | date | |
+| period_end | date | |
+| placement | unsigned int | 1 = winner; only REAL placements are stored (max top 3, never fake) |
+| total_score | integer | sum of daily-challenge guess scores in the window |
+| total_players | unsigned int | actual eligible players in the period |
+| xp_awarded | integer default 0 | ledger amount granted on close (1st 2000 / 2nd 1000 / 3rd 500) |
+| metadata | json nullable | e.g. `{ "challenges_played": 12, "avg_score": 81.5 }` |
+| awarded_at | timestamp nullable | when XP was granted |
+| created_at / updated_at | timestamp | |
+
+**Unique** `(period_type, period_start, period_end, user_id)` — makes closing idempotent. Index `(user_id, placement)` for Trophy Room lookups. Tie rule (shared with the live leaderboard via `CompetitionStandingsService`): total score desc, then earliest last-qualifying guess asc, then user id asc.
+
 ## guesses
 | Column | Type | Notes |
 |--------|------|-------|
