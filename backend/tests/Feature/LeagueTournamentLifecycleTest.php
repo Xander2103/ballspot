@@ -151,6 +151,24 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->assertDatabaseHas('leagues', ['id' => $leagueId, 'status' => 'cancelled']);
     }
 
+    public function test_owner_can_cancel_active_tournament(): void
+    {
+        [$owner, $token] = $this->makeUserWithToken();
+        $this->makeFootballWithChallenge();
+
+        $createRes = $this->withToken($token)->postJson('/api/leagues', [
+            'name' => 'Active', 'duration_days' => 1, 'rounds_per_day' => 1,
+        ]);
+        $leagueId = $createRes->json('data.id');
+
+        // Move it out of lobby into active play.
+        League::find($leagueId)->update(['status' => 'active']);
+
+        $res = $this->withToken($token)->deleteJson("/api/leagues/{$leagueId}");
+        $res->assertNoContent();
+        $this->assertDatabaseHas('leagues', ['id' => $leagueId, 'status' => 'cancelled']);
+    }
+
     public function test_non_owner_cannot_cancel_tournament(): void
     {
         [$owner, $ownerToken] = $this->makeUserWithToken();

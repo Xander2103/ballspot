@@ -35,6 +35,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Leaderboard
+    |--------------------------------------------------------------------------
+    | Visible label for the recurring daily-challenge leaderboard period. The
+    | aggregation window is currently WEEKLY (Mon–Sun, see
+    | DailyChallengeController::weeklyLeaderboard). Changing this label alone is a
+    | UI-only rename; a real "Monthly" competition ALSO requires changing that
+    | window (and the weekly rank query) — deliberately out of scope for now.
+    | The label is echoed in the weekly leaderboard API response as `period_label`
+    | so the mobile app never hardcodes "Weekly".
+    */
+    'leaderboard' => [
+        'period_label' => env('BALLPICKER_LEADERBOARD_PERIOD_LABEL', 'Weekly'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Scoring convention
     |--------------------------------------------------------------------------
     | A guess score runs 0..max_score (distance-based, see ScoreService). These

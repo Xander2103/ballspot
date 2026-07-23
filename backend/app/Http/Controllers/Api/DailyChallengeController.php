@@ -249,10 +249,13 @@ class DailyChallengeController extends Controller
         });
 
         return response()->json([
-            'data'       => $entries,
-            'week_start' => $weekStart,
-            'week_end'   => $weekEnd,
-            'meta'       => $this->buildLeaderboardMeta($entries, $request->user()->id),
+            'data'         => $entries,
+            'week_start'   => $weekStart,
+            'week_end'     => $weekEnd,
+            // UI-only period label (see config('ballspot.leaderboard')). The window
+            // itself is still weekly; this just avoids hardcoding "Weekly" in the app.
+            'period_label' => config('ballspot.leaderboard.period_label', 'Weekly'),
+            'meta'         => $this->buildLeaderboardMeta($entries, $request->user()->id),
         ]);
     }
 

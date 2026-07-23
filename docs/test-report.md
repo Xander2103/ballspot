@@ -2,8 +2,62 @@
 
 Build date: 2026-07-23
 
-**Backend:** 220 feature tests passing (was 219; +1 in v1.7.6).
+**Backend:** 221 feature tests passing.
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## v1.7.6 (part 2) — Home Cleanup, Tournament Delete Modal & Leaderboard UX
+
+A UX polish pass (no gameplay/XP/rank/badge logic changes). +1 backend test (221 total).
+
+### Home header cleanup
+- Removed the duplicate native "BallPicker" nav-header title on Home (`headerShown: false`) so the
+  horizontal `BallPickerHeader.png` is the true top hero. No empty bar; the branded surface header
+  sits directly below the safe-area/status bar.
+
+### Tournament delete / lobby delete modal
+- Deleting a tournament from Home now uses the shared `ConfirmModal` with **status-aware copy**:
+  - **Active/other:** "Delete tournament?" / "This will remove the tournament from your active list…"
+    / buttons **Cancel** · **Delete tournament**.
+  - **Lobby:** "Delete lobby?" / "This lobby has not started yet…" / buttons **Keep lobby** ·
+    **Delete lobby**.
+- Loading spinner while deleting, in-modal error on failure ("Could not delete the tournament…"),
+  and **optimistic removal** from the list (no full refresh). Backend uses the existing
+  `DELETE /leagues/{id}` **soft-cancel** (status → `cancelled`, owner-only) — unchanged.
+- New backend test `LeagueTournamentLifecycleTest::test_owner_can_cancel_active_tournament`
+  (existing tests already cover lobby cancel, non-owner 403, and cancelled-not-in-index).
+
+### Leaderboard UX (weekly)
+- Single continuous list (replaced the top/nearby view-toggle). Kept the "You are #X of Y" summary
+  (`YourPositionCard`) and highlighted current-user row; added **Top** and **My rank** jump buttons
+  (`FlatList` `scrollToOffset`/`scrollToIndex`, with `onScrollToIndexFailed` fallback). No infinite
+  scroll added. No-rank state shows "Play a round to enter the leaderboard."
+- Backend meta already provided `current_user_rank`/`total_players`/`better_than_percentage` — no
+  fake numbers, guarded against NaN/undefined.
+
+### Trophy Room discoverability
+- New `TrophyRoomScreen` route reusing the existing self-fetching `TrophyRoom` component (earned +
+  locked badges) — **not rebuilt**. Profile now has a **"Trophy Room" card** (CTA "Open ›"); the
+  inline Trophy Room was moved off the long Profile page into its own screen.
+
+### Period naming prep (weekly → monthly)
+- Added `config('ballspot.leaderboard.period_label')` (default **"Weekly"**), echoed in the weekly
+  leaderboard response as `period_label` and rendered by the app instead of a hardcoded string.
+  **Only the label is centralized** — the aggregation window is still weekly; a real "Monthly"
+  competition also needs the window/query changed (deliberately out of scope). Test asserts the
+  field mirrors config.
+
+### Scoring review (Part G) — no change made
+- `ScoreService`: `score = max(0, round(100 - distance × 250))`, max **100**; linear falloff hitting
+  **0 at distance ≥ 0.40** (of the normalized image space).
+- **Perfect (100)** requires distance ≤ **0.002** (~0.2%) — very hard but **not literally distance 0**
+  (rounding gives a small tolerance), so it is achievable and prestigious.
+- **Almost Perfect (≥95)** requires distance ≤ **0.022** (~2.2%) — achievable.
+- This matches the desired product feel (100 very rare, Almost Perfect attainable). **No bug found;
+  scoring left unchanged.** If a future sprint wants 100 slightly more attainable, the safe levers
+  are config-driven (loosen `max_score` rounding band or reduce the 250 slope) with new tests — a
+  dedicated scoring-balancing sprint.
 
 ---
 

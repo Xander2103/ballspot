@@ -724,7 +724,12 @@ Returns all users' total scores for daily challenges this week (Monday–Sunday,
     }
   ],
   "week_start": "2026-06-22",
-  "week_end": "2026-06-28"
+  "week_end": "2026-06-28",
+  // v1.7.6 — UI-only period label from config('ballspot.leaderboard.period_label'),
+  // default "Weekly". The aggregation window is still weekly; the app renders this
+  // label instead of hardcoding "Weekly" (prep for a possible future "Monthly").
+  "period_label": "Weekly",
+  "meta": { /* current_user_rank, total_players, better_than_percentage, top_users, nearby_users … (see meta block below) */ }
 }
 ```
 

@@ -10,6 +10,29 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.7.6 — Home Cleanup, Tournament Delete Modal & Leaderboard UX
+
+A polish/UX pass (no gameplay, XP, rank or badge logic changes):
+
+- **Home header** — dropped the duplicate native "BallPicker" title bar; the horizontal
+  `BallPickerHeader.png` is now the sole top hero.
+- **Tournament delete modal** — Home deletes use a custom `ConfirmModal` with status-aware copy
+  (**Delete lobby?** for lobbies, **Delete tournament?** for active), a loading state, an in-modal
+  error, and optimistic list removal. Backend reuses the existing `DELETE /leagues/{id}`
+  **soft-cancel** (status → `cancelled`, owner-only) — no hard deletes.
+- **Weekly leaderboard** — single continuous list with a "You are #X of Y" summary, a highlighted
+  current-user row, and **Top** / **My rank** jump buttons; no-rank users see "Play a round to
+  enter the leaderboard."
+- **Trophy Room** is now easier to find — a **"Trophy Room" card** on Profile opens a dedicated
+  `TrophyRoom` screen (reuses the existing badges component; nothing rebuilt).
+- **Period-label prep** — `config('ballspot.leaderboard.period_label')` (default "Weekly") is echoed
+  as `period_label` in the weekly leaderboard response and rendered by the app, so a future switch to
+  "Monthly" is a config + window change rather than a string hunt.
+- **Scoring review** — `ScoreService` (max 100, `score = max(0, round(100 − distance×250))`) was
+  reviewed: a perfect 100 needs distance ≤ ~0.2% (very rare/prestigious, but not literally 0),
+  Almost Perfect (≥95) needs ≤ ~2.2% (achievable). No bug; scoring left unchanged. See
+  `docs/test-report.md` for the full analysis and future-tuning notes.
+
 ## New in v1.7.4 — Branding, Rank Overview & Badge Expansion
 
 - **BallPicker branding.** The Home screen now leads with the horizontal

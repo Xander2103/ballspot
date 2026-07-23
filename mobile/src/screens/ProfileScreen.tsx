@@ -6,7 +6,6 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { TrophyRoom } from '../components/TrophyRoom';
 import { Avatar } from '../components/Avatar';
 import { RankCard } from '../components/RankCard';
 import { RecentXpCard } from '../components/RecentXpCard';
@@ -144,6 +143,22 @@ export function ProfileScreen({ navigation }: Props) {
         <Text style={styles.ranksAction}>View ranks ›</Text>
       </TouchableOpacity>
 
+      {/* Trophy Room entry point */}
+      <TouchableOpacity
+        style={styles.ranksCard}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('TrophyRoom')}
+      >
+        <View style={styles.ranksLeft}>
+          <Text style={styles.ranksIcon}>🏆</Text>
+          <View style={styles.ranksTextWrap}>
+            <Text style={styles.ranksTitle}>Trophy Room</Text>
+            <Text style={styles.ranksSubtitle}>See your badges, achievements and top finishes.</Text>
+          </View>
+        </View>
+        <Text style={styles.ranksAction}>Open ›</Text>
+      </TouchableOpacity>
+
       {/* Recent XP activity — capped at 5 items */}
       <Text style={styles.sectionTitle}>Recent XP</Text>
       {xpEvents.length > 0 ? (
@@ -216,9 +231,6 @@ export function ProfileScreen({ navigation }: Props) {
           </View>
         </>
       ) : null}
-
-      {/* Trophy Room */}
-      <TrophyRoom />
 
       <AppButton title="Logout" onPress={handleLogout} variant="secondary" style={styles.logoutBtn} />
 

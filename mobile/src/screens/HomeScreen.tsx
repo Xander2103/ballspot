@@ -130,7 +130,7 @@ function TournamentCard({
           onPress={(e) => { e.stopPropagation(); onDelete(); }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.deleteBtnText}>Cancel</Text>
+          <Text style={styles.deleteBtnText}>Delete</Text>
         </TouchableOpacity>
       ) : null}
     </TouchableOpacity>
@@ -146,6 +146,7 @@ export function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [cancelTarget, setCancelTarget] = useState<League | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   const [todayDaily, setTodayDaily] = useState<TodayResponse | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
@@ -179,12 +180,15 @@ export function HomeScreen({ navigation }: Props) {
   async function handleCancel() {
     if (!cancelTarget || cancelling) return;
     setCancelling(true);
+    setCancelError('');
+    const id = cancelTarget.id;
     try {
-      await leagueApi.cancel(cancelTarget.id);
+      await leagueApi.cancel(id);
+      // Optimistically drop it from the list — no full refresh needed.
+      setLeagues((prev) => prev.filter((l) => l.id !== id));
       setCancelTarget(null);
-      await load();
     } catch {
-      setCancelTarget(null);
+      setCancelError('Could not delete the tournament. Please try again.');
     } finally {
       setCancelling(false);
     }
@@ -289,13 +293,16 @@ export function HomeScreen({ navigation }: Props) {
 
       <ConfirmModal
         visible={!!cancelTarget}
-        title="Cancel Tournament"
-        message={`Cancel "${cancelTarget?.name}"? This cannot be undone.`}
-        confirmLabel="Cancel Tournament"
-        cancelLabel="Keep Playing"
+        title={cancelTarget?.status === 'lobby' ? 'Delete lobby?' : 'Delete tournament?'}
+        message={cancelTarget?.status === 'lobby'
+          ? 'This lobby has not started yet. Are you sure you want to delete it?'
+          : 'This will remove the tournament from your active list. Players will no longer be able to continue it.'}
+        confirmLabel={cancelTarget?.status === 'lobby' ? 'Delete lobby' : 'Delete tournament'}
+        cancelLabel={cancelTarget?.status === 'lobby' ? 'Keep lobby' : 'Cancel'}
         onConfirm={handleCancel}
-        onCancel={() => setCancelTarget(null)}
+        onCancel={() => { setCancelTarget(null); setCancelError(''); }}
         loading={cancelling}
+        errorText={cancelError}
         destructive
       />
     </Screen>

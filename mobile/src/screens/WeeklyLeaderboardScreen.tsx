@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -55,7 +55,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
   const [leaderboard, setLeaderboard] = useState<WeeklyLeaderboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [view, setView] = useState<'top' | 'me'>('top');
+  const listRef = useRef<FlatList<WeeklyLeaderboardEntry>>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,18 +100,26 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
 
   const meta = leaderboard.meta;
   const hasRank = !!meta?.current_user_rank;
-  const entries = view === 'me' && hasRank ? meta.nearby_users : leaderboard.data;
+  const entries = leaderboard.data;
+  const periodLabel = leaderboard.period_label ?? 'Weekly';
+  const myIndex = entries.findIndex((e) => e.is_current_user);
+
+  const scrollToTop = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  const scrollToMyRank = () => {
+    if (myIndex < 0) return;
+    listRef.current?.scrollToIndex({ index: myIndex, animated: true, viewPosition: 0.5 });
+  };
 
   return (
     <Screen scroll={false} padding={false}>
-      {/* Week header */}
+      {/* Period header */}
       <View style={styles.weekHeader}>
         <Text style={styles.weekLabel}>
-          Week of {leaderboard.week_start} – {leaderboard.week_end}
+          {periodLabel} · {leaderboard.week_start} – {leaderboard.week_end}
         </Text>
       </View>
 
-      {/* Your position summary */}
+      {/* Your position summary (or a prompt to get on the board) */}
       {hasRank ? (
         <YourPositionCard
           rank={meta.current_user_rank}
@@ -119,23 +127,23 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
           betterThanPercentage={meta.better_than_percentage}
           score={meta.current_user_score}
         />
-      ) : null}
+      ) : (
+        <View style={styles.noRankCard}>
+          <Text style={styles.noRankText}>Play a round to enter the leaderboard.</Text>
+        </View>
+      )}
 
-      {/* Top / My rank toggle */}
-      {hasRank ? (
-        <View style={styles.toggleRow}>
-          <Pressable
-            onPress={() => setView('top')}
-            style={[styles.toggleBtn, view === 'top' && styles.toggleBtnActive]}
-          >
-            <Text style={[styles.toggleText, view === 'top' && styles.toggleTextActive]}>🏆 Top</Text>
+      {/* Jump actions */}
+      {entries.length > 0 ? (
+        <View style={styles.actionsRow}>
+          <Pressable onPress={scrollToTop} style={styles.actionBtn}>
+            <Text style={styles.actionText}>🏆 Top</Text>
           </Pressable>
-          <Pressable
-            onPress={() => setView('me')}
-            style={[styles.toggleBtn, view === 'me' && styles.toggleBtnActive]}
-          >
-            <Text style={[styles.toggleText, view === 'me' && styles.toggleTextActive]}>📍 My rank</Text>
-          </Pressable>
+          {myIndex >= 0 ? (
+            <Pressable onPress={scrollToMyRank} style={styles.actionBtn}>
+              <Text style={styles.actionText}>📍 My rank</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -154,17 +162,25 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
 
       {entries.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No scores yet this week.</Text>
+          <Text style={styles.emptyText}>No scores on the board yet.</Text>
           <Text style={styles.emptySubText}>Play today's challenge to get on the board!</Text>
         </View>
       ) : (
         <FlatList<WeeklyLeaderboardEntry>
+          ref={listRef}
           data={entries}
           keyExtractor={(item) => String(item.user_id)}
           renderItem={({ item }) => <LeaderboardRow entry={item} />}
           style={styles.list}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          // scrollToIndex can fail before rows are measured; estimate then retry.
+          onScrollToIndexFailed={(info) => {
+            listRef.current?.scrollToOffset({ offset: info.averageItemLength * info.index, animated: true });
+            setTimeout(() => {
+              listRef.current?.scrollToIndex({ index: info.index, animated: true, viewPosition: 0.5 });
+            }, 250);
+          }}
         />
       )}
 
@@ -200,30 +216,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  toggleRow: {
+  noRankCard: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    margin: spacing.md,
+    marginBottom: spacing.sm,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+  },
+  noRankText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  actionsRow: {
     flexDirection: 'row',
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    padding: 3,
-    gap: 3,
+    gap: spacing.sm,
   },
-  toggleBtn: {
+  actionBtn: {
     flex: 1,
     paddingVertical: spacing.xs,
     borderRadius: 8,
     alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  toggleBtnActive: {
-    backgroundColor: colors.surfaceElevated,
-  },
-  toggleText: {
+  actionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.textMuted,
-  },
-  toggleTextActive: {
     color: colors.text,
   },
   columnHeader: {

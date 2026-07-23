@@ -78,6 +78,8 @@ export interface WeeklyLeaderboard {
   data: WeeklyLeaderboardEntry[];
   week_start: string;
   week_end: string;
+  /** UI-only period label from backend config (e.g. "Weekly"); avoids hardcoding. */
+  period_label?: string;
   meta: LeaderboardMeta;
 }
 

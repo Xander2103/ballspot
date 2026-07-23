@@ -25,6 +25,7 @@ import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RankOverviewScreen } from '../screens/RankOverviewScreen';
+import { TrophyRoomScreen } from '../screens/TrophyRoomScreen';
 import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
 import { DailyResultScreen } from '../screens/DailyResultScreen';
 import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
@@ -40,6 +41,7 @@ export type RootStackParamList = {
   SportSelection: { mode?: 'onboarding' | 'change'; currentSportId?: number | null } | undefined;
   Profile: undefined;
   RankOverview: undefined;
+  TrophyRoom: undefined;
   CreateLeague: undefined;
   JoinLeague: undefined;
   LeagueDetail: { leagueId: number; leagueName: string };
@@ -109,10 +111,11 @@ export function AppNavigator() {
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />
-        <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'BallPicker', headerLeft: () => null }} />
+        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="SportSelection" component={SportSelectionScreen} options={{ title: 'Choose Sport' }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen name="RankOverview" component={RankOverviewScreen} options={{ title: 'All Ranks' }} />
+        <Stack.Screen name="TrophyRoom" component={TrophyRoomScreen} options={{ title: 'Trophy Room' }} />
         <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />
         <Stack.Screen name="JoinLeague" component={JoinLeagueScreen} options={{ title: 'Join Tournament' }} />
         <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} options={({ route }) => ({ title: route.params.leagueName })} />
