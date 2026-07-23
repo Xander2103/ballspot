@@ -2,7 +2,26 @@
 
 return [
     'support_email' => env('BALLSPOT_SUPPORT_EMAIL', 'support@ballspot.app'),
+
+    // Marketing / legal website (privacy, terms). NOT the app frontend — see
+    // frontend_url below for deep links back into the running app.
     'web_url'       => env('BALLSPOT_WEB_URL', env('APP_URL', 'http://localhost')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend app URL (password reset & other deep links)
+    |--------------------------------------------------------------------------
+    | Base URL of the running Expo/web app the user actually opens. In local
+    | dev the Expo web server runs on :8081, so APP_URL (http://localhost, no
+    | port) is the WRONG base for reset links — set FRONTEND_URL explicitly.
+    | Production: FRONTEND_URL=https://your-production-domain.com
+    |
+    | password_reset_url optionally overrides the full reset screen URL. When
+    | unset we append "/reset-password" to frontend_url. The token + email are
+    | always added as query params so the app can complete the reset.
+    */
+    'frontend_url'       => env('FRONTEND_URL', env('BALLSPOT_WEB_URL', env('APP_URL', 'http://localhost'))),
+    'password_reset_url' => env('PASSWORD_RESET_URL'),
 
     // User-facing brand name for emails/notifications (config('app.name') stays
     // the framework name). Kept configurable as the product is renamed.

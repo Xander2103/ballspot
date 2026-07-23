@@ -134,4 +134,54 @@ class PasswordResetTest extends TestCase
             'password_confirmation' => 'short',
         ])->assertStatus(422)->assertJsonValidationErrors('password');
     }
+
+    public function test_reset_notification_link_uses_frontend_url_with_token_and_email(): void
+    {
+        config([
+            'ballspot.frontend_url'       => 'http://localhost:8081',
+            'ballspot.password_reset_url' => null,
+        ]);
+        $user = $this->makeUser();
+
+        $mail = (new ResetPasswordNotification('sample-token-123'))->toMail($user);
+
+        $this->assertSame(
+            'http://localhost:8081/reset-password?token=sample-token-123&email=reset%40example.com',
+            $mail->actionUrl
+        );
+        $this->assertStringContainsString('token=sample-token-123', $mail->actionUrl);
+        $this->assertStringContainsString('email=reset%40example.com', $mail->actionUrl);
+        // The old broken bare-host link (http://localhost/reset-password) must
+        // never be produced — that caused ERR_CONNECTION_REFUSED.
+        $this->assertStringNotContainsString('http://localhost/reset-password', $mail->actionUrl);
+    }
+
+    public function test_reset_notification_respects_password_reset_url_override(): void
+    {
+        config(['ballspot.password_reset_url' => 'https://ballpicker.app/reset']);
+        $user = $this->makeUser();
+
+        $mail = (new ResetPasswordNotification('tok'))->toMail($user);
+
+        $this->assertSame(
+            'https://ballpicker.app/reset?token=tok&email=reset%40example.com',
+            $mail->actionUrl
+        );
+    }
+
+    public function test_reset_notification_uses_ballpicker_branding_not_laravel(): void
+    {
+        config(['ballspot.app_name' => 'BallPicker']);
+        $user = $this->makeUser();
+
+        $mail = (new ResetPasswordNotification('tok'))->toMail($user);
+
+        $this->assertStringContainsString('BallPicker', $mail->subject);
+        $this->assertSame("Regards,\nBallPicker", $mail->salutation);
+        $this->assertStringNotContainsString('Laravel', (string) $mail->subject);
+        $this->assertStringNotContainsString('Laravel', (string) $mail->salutation);
+        foreach (array_merge($mail->introLines, $mail->outroLines) as $line) {
+            $this->assertStringNotContainsString('Laravel', (string) $line);
+        }
+    }
 }

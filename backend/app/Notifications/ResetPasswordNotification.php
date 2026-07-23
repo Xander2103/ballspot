@@ -29,16 +29,24 @@ class ResetPasswordNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $base  = rtrim(config('ballspot.web_url'), '/');
-        $email = urlencode($notifiable->getEmailForPasswordReset());
-        $url   = "{$base}/reset-password?token={$this->token}&email={$email}";
+        $appName = config('ballspot.app_name');
+        $email   = urlencode($notifiable->getEmailForPasswordReset());
+
+        // Prefer an explicit full reset-screen URL; otherwise derive it from the
+        // frontend app base. The token + email are always carried as query
+        // params so the app's reset-password screen can complete the reset.
+        $base = config('ballspot.password_reset_url')
+            ?: rtrim(config('ballspot.frontend_url'), '/') . '/reset-password';
+        $glue = str_contains($base, '?') ? '&' : '?';
+        $url  = "{$base}{$glue}token={$this->token}&email={$email}";
 
         return (new MailMessage)
-            ->subject('Reset your ' . config('ballspot.app_name') . ' password')
+            ->subject("Reset your {$appName} password")
             ->greeting('Reset your password')
-            ->line('You are receiving this email because we received a password reset request for your account.')
+            ->line("You are receiving this email because we received a password reset request for your {$appName} account.")
             ->action('Reset Password', $url)
             ->line('If you did not request a password reset, no further action is required. You can safely ignore this email.')
-            ->line('This password reset link will expire soon.');
+            ->line('This password reset link will expire soon.')
+            ->salutation("Regards,\n{$appName}");
     }
 }
