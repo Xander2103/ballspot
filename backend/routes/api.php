@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\DailyChallengeController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\RoundController;
 use App\Http\Controllers\Api\LeaderboardController;
+use App\Http\Controllers\Api\NotificationSettingsController;
+use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\ProfileController;
@@ -56,6 +58,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // User preferences (sport / theme) + avatar
         Route::get('/me/preferences',   [PreferenceController::class, 'show']);
         Route::patch('/me/preferences', [PreferenceController::class, 'update']);
+
+        // Notification settings (synced across devices) + Expo push registration
+        Route::get('/me/notification-settings',  [NotificationSettingsController::class, 'show']);
+        Route::put('/me/notification-settings',  [NotificationSettingsController::class, 'update']);
+        Route::post('/me/push-tokens',           [PushTokenController::class, 'store']);
         Route::post('/me/avatar',       [AvatarController::class, 'store']);
         Route::delete('/me/avatar',     [AvatarController::class, 'destroy']);
 

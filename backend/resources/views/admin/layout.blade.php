@@ -30,6 +30,8 @@
            href="/admin/sports">Sports</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/daily*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/daily">Daily</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/notifications*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/notifications">Notifications</a>
         <span class="text-secondary small ms-auto me-3">v1</span>
         <form action="{{ route('admin.logout') }}" method="POST" class="mb-0">
             @csrf

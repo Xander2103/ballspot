@@ -347,6 +347,12 @@ npx expo start
 
 **Physical device:** set `EXPO_PUBLIC_API_BASE_URL=http://<LAN-IP>:8000/api` in `mobile/.env`, start backend with `php artisan serve --host=0.0.0.0`, then `npx expo start --host=lan`.
 
+**Notifications:** the app uses `expo-notifications` (installed via `npx expo install
+expo-notifications`; declared in `app.json` plugins). Local reminders and permissions
+work in a dev/standalone build; **remote push** (admin announcements) additionally needs
+an EAS `projectId` + APNs/FCM credentials. Web has no local-notification support and
+degrades gracefully.
+
 ## Tests
 
 ```bash
@@ -446,7 +452,7 @@ The backend serves three public legal pages (no auth required):
 | `/terms` | Terms of Service |
 | `/support` | Support & Contact |
 
-Set `BALLSPOT_WEB_URL` in `backend/.env` (and `EXPO_PUBLIC_WEB_URL` in `mobile/.env`) to your deployed domain so the mobile app's legal links point to the correct URLs.
+Set `BALLSPOT_WEB_URL` in `backend/.env` (and `EXPO_PUBLIC_WEB_URL` in `mobile/.env`) to your deployed domain so the mobile app's legal links point to the correct URLs. Set `FRONTEND_URL` (the running app URL, e.g. `http://localhost:8081` in dev / `https://your-domain.com` in prod) for password-reset email links.
 
 ## Store Readiness Check
 
@@ -466,7 +472,7 @@ Prints a read-only report covering environment config, content readiness, daily 
 - [Content Safety Guide](docs/content-safety.md)
 - [Challenge Content Guide](docs/challenge-content-guide.md)
 - [Store Readiness](docs/store-readiness.md)
-- [Notifications Plan (foundation only)](docs/notifications-plan.md)
+- [Notifications (implemented v1.7.7)](docs/notifications-plan.md)
 - [Prizes & Trophy Room](docs/prizes-and-trophy-room.md)
 
 ## Password Reset (local dev)
@@ -478,6 +484,12 @@ Prints a read-only report covering environment config, content readiness, daily 
 2. Open `storage/logs/laravel.log` and copy the reset link (contains `token` + `email`).
 3. `POST /api/reset-password` with `email`, `token`, `password`, `password_confirmation`
    (or use the mobile Reset Password screen). Old API tokens are revoked on success.
+
+**Reset link URL:** the email link is built from `FRONTEND_URL`
+(`{FRONTEND_URL}/reset-password?token=…&email=…`), defaulting to
+`http://localhost:8081` for the Expo web/dev app. Set `PASSWORD_RESET_URL` to override
+the full screen URL, and `FRONTEND_URL=https://your-domain.com` in production. The email
+is BallPicker-branded (`APP_NAME=BallPicker`) — no Laravel logo or sign-off.
 
 ## Constraints
 

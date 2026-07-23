@@ -381,3 +381,53 @@ and computed separately.
 
 Exposed via `GET /api/me/rank`, the `rank` object on `GET /api/profile/stats`, the `rank_progress`
 + nullable `rank_up` blocks on fresh daily/round guess responses, and `GET /api/me/xp-events`.
+
+---
+
+## Notifications (v1.7.7)
+
+### `notification_settings`
+One row per user (unique `user_id`), created lazily on first read.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| user_id | FK → users | unique; cascade on delete |
+| daily_reminder_enabled | boolean | default true |
+| tournament_reminder_enabled | boolean | default true |
+| admin_notifications_enabled | boolean | default true |
+| reminder_time | string(5) | `HH:mm`, default `19:00` (config `ballspot.notifications.default_reminder_time`) |
+| timezone | string, nullable | optional IANA tz (only personal data stored) |
+| timestamps | | |
+
+### `push_tokens`
+Expo push tokens for admin announcements. Never exposed in API responses (`$hidden`).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| user_id | FK → users | cascade on delete; indexed |
+| token | string | **unique** (device belongs to one account; re-register reassigns) |
+| platform | string, nullable | ios/android/web |
+| device_name | string, nullable | |
+| last_seen_at | timestamp, nullable | refreshed on register |
+| timestamps | | |
+
+### `admin_notifications`
+Admin-composed announcements. Plain text (Blade escapes on output — no HTML injection).
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| title | string | ≤120 |
+| body | text | ≤500 |
+| target_type | string | `all` \| `opted_in` (both exclude explicitly opted-out users) |
+| status | string | `draft` \| `sent` \| `failed` — reflects the real send outcome |
+| send_at | timestamp, nullable | future scheduling is not auto-dispatched yet |
+| sent_at | timestamp, nullable | |
+| created_by_user_id | FK → users, nullable | null on creator delete |
+| metadata | json, nullable | send summary: recipients / sent / failed |
+| timestamps | | |
+
+**Privacy:** tokens + settings are personal data; they cascade-delete with the user
+(account deletion removes them). Users can opt out of any category at any time.

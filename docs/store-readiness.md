@@ -4,6 +4,27 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.7.7 store-relevant notes (Notifications)
+
+- **New permission: notifications.** The app now requests OS notification permission, via a
+  clear pre-permission in-app prompt ("Stay in the game"), asked once and never blocking the
+  app. Declining is fully supported. This adds a **push-notifications capability** to the store
+  listing (`expo-notifications` plugin in `app.json`; iOS `UIBackgroundModes`/APNs and Android
+  `POST_NOTIFICATIONS` are handled by the config plugin). No IAP, ads, or tracking are added.
+- **Content rating unchanged.** Notifications are engagement reminders and admin announcements
+  only — no gambling, prizes, money, chat, or user-generated messaging.
+- **Privacy / data.** Stored personal data is limited to notification preferences, an optional
+  timezone, and (if the user opts in) an Expo push token. All of it cascade-deletes with the
+  account and is user-controllable (per-category opt-out). Push tokens are never exposed via
+  the API. Reflect this in the store privacy form: "Push tokens — app functionality — not
+  shared; deleted with the account."
+- **Remote push in production** requires an EAS `projectId` and native push credentials
+  (APNs/FCM). Without them, local reminders still work; remote admin announcements are a no-op
+  (token registration is best-effort). Set `BALLPICKER_PUSH_ENABLED=true` on the backend once
+  credentials exist.
+
+---
+
 ## v1.6.1 store-relevant notes
 
 - **Login is now email two-factor.** Signing in requires a one-time 6-digit code

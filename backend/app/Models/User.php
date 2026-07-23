@@ -4,6 +4,8 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Notifications\ResetPasswordNotification;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -51,6 +53,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function preferredSport(): BelongsTo
     {
         return $this->belongsTo(Sport::class, 'preferred_sport_id');
+    }
+
+    public function notificationSetting(): HasOne
+    {
+        return $this->hasOne(NotificationSetting::class);
+    }
+
+    public function pushTokens(): HasMany
+    {
+        return $this->hasMany(PushToken::class);
+    }
+
+    /**
+     * The user's notification settings, creating a defaults row lazily the
+     * first time they're read so callers never deal with a missing record.
+     */
+    public function notificationSettings(): NotificationSetting
+    {
+        return $this->notificationSetting()->firstOrCreate([], NotificationSetting::defaults());
     }
 
     /** Public URL for the user's avatar, or null when none is set. */

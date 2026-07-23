@@ -31,6 +31,10 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::post('sports/{sport}/status', [\App\Http\Controllers\Admin\SportController::class, 'updateStatus'])
         ->name('admin.sports.status');
 
+    Route::get('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('admin.notifications.index');
+    Route::post('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'store'])->name('admin.notifications.store');
+    Route::post('notifications/{adminNotification}/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('admin.notifications.send');
+
     Route::prefix('daily')->name('admin.daily.')->group(function () {
         Route::get('/', [DailyChallengeAdminController::class, 'index'])->name('index');
         Route::get('/create', [DailyChallengeAdminController::class, 'create'])->name('create');

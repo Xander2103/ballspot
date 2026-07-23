@@ -9,6 +9,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { Avatar } from '../components/Avatar';
 import { RankCard } from '../components/RankCard';
 import { RecentXpCard } from '../components/RecentXpCard';
+import { NotificationSettingsCard } from '../components/NotificationSettingsCard';
 import { authApi } from '../api/authApi';
 import { avatarApi } from '../api/avatarApi';
 import { tokenStorage } from '../storage/tokenStorage';
@@ -231,6 +232,10 @@ export function ProfileScreen({ navigation }: Props) {
           </View>
         </>
       ) : null}
+
+      {/* Notifications */}
+      <Text style={styles.sectionTitle}>Notifications</Text>
+      <NotificationSettingsCard />
 
       <AppButton title="Logout" onPress={handleLogout} variant="secondary" style={styles.logoutBtn} />
 

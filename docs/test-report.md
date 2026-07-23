@@ -2,8 +2,33 @@
 
 Build date: 2026-07-23
 
-**Backend:** 230 feature tests passing (was 221; +9 in v1.7.7).
+**Backend:** 254 feature tests passing (was 230; +3 password-reset URL/branding, +21 notifications).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## Notifications & Notification Settings (v1.7.7 add-on)
+
+Opt-in local reminders + notification settings + admin announcements. All virtual — no
+gambling/prizes/money. Adds `NotificationSettingsTest` (11) and `AdminNotificationTest` (7):
+
+- **Settings:** require auth; lazy-create defaults on first read; user updates own row
+  (partial); invalid `reminder_time` (`25:00`, `7pm`, `9:5`, `noon`, `24:00`, `19-00`)
+  rejected 422; a user's update never affects another user's row.
+- **Push tokens:** register own token; token is unique and re-registering reassigns it;
+  raw token is never serialized (`$hidden`).
+- **Admin composer:** `/admin/notifications` is admin-only (guest→login, non-admin→403);
+  title/body validated (required, body ≤500); save-as-draft sends nothing; send-now
+  delivers to opted-in tokens via a faked Expo endpoint and marks `sent`; **opt-out is
+  always respected** even for `target=all`; users with no settings row count as enabled;
+  with push disabled the announcement stays `draft` (never a faked send).
+
+### Password-reset link/branding fix
+
+`PasswordResetTest` (+3): reset link is built from `FRONTEND_URL`
+(`{FRONTEND_URL}/reset-password?token=…&email=…`), never the old bare
+`http://localhost/reset-password`; `PASSWORD_RESET_URL` override honored; email copy is
+BallPicker, not Laravel.
 
 ---
 

@@ -1,9 +1,43 @@
-# Notifications Plan (Foundation / Docs Only)
+# Notifications Plan → Implemented (v1.7.7)
 
-Status: **planning only — no native push is implemented in v1.6.**
+Status: **implemented (v1.7.7)** — opt-in local reminders, per-user notification
+settings, Expo push-token registration, and an admin announcement composer now ship.
+The rest of this doc is the original design; the section below records what actually
+shipped and the known limits.
 
-This document scopes a future push-notification feature. Nothing here ships yet;
-it exists so the next sprint can implement notifications safely and with an
+## Implemented in v1.7.7
+
+- **Permission flow (mobile):** first time on Home after login, a one-time in-app prompt
+  ("Stay in the game") explains value, then requests OS permission. Declining does not
+  block the app and is not re-asked (persisted flag). Re-enable from Profile → Notifications.
+  Web is unsupported and no-ops (never crashes).
+- **Settings (synced):** `notification_settings` table + `GET/PUT /api/me/notification-settings`.
+  Types: `daily_reminder`, `tournament_reminder`, `admin_announcement`; `reminder_time`
+  default **19:00** (config `ballspot.notifications.default_reminder_time`); nullable timezone.
+- **Local scheduling (Expo Notifications):** daily reminder scheduled at `reminder_time`
+  only when today's daily is **not** already done (re-evaluated on each Home focus, so
+  completing it cancels the reminder). Tournament reminder scheduled only when the user has
+  a pending tournament action. Copy per spec.
+- **Remote push:** `push_tokens` table + `POST /api/me/push-tokens`. Admin composer
+  `/admin/notifications` sends via Expo's push HTTP API to opted-in tokens; opt-out is
+  always respected; status is real (`draft`/`sent`/`failed`), never faked.
+
+### Known limitations
+
+- **Tournament "pending" is tournament-level** (an active tournament with rounds left), not a
+  precise per-user "you haven't guessed this round" signal.
+- **Daily completion is evaluated on app open**, not at delivery time — a reminder scheduled
+  earlier can still fire after completion if the app isn't reopened. Delivery-time suppression
+  needs backend remote push (future).
+- **Remote push needs an EAS `projectId`** in a real build; token registration is best-effort
+  and silently skips if absent/offline. `send_at` scheduling is stored but not auto-dispatched
+  (send is manual/immediate in MVP).
+
+---
+
+## Original design (retained for reference)
+
+This document originally scoped the feature before it shipped, with an
 opt-in-first, privacy-respecting design.
 
 ## Why not now

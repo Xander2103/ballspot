@@ -11,6 +11,10 @@ import { Avatar } from '../components/Avatar';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
 import { dailyApi } from '../api/dailyApi';
+import { notificationsApi } from '../api/notificationsApi';
+import { notifications } from '../services/notifications';
+import { applyReminderState } from '../services/reminderScheduler';
+import { localFlags } from '../storage/localFlags';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
@@ -22,6 +26,9 @@ import { TodayResponse, DailyStats } from '../types/daily';
 const brandHeader = require('../../assets/BallPickerHeader.png');
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+
+// Persisted flag so we ask for notification permission at most once (non-spammy).
+const NOTIF_PROMPT_SEEN = 'notif_prompt_seen';
 
 const STATUS_LABEL: Record<string, string> = { lobby: 'LOBBY', active: 'ACTIVE', completed: 'DONE' };
 
@@ -152,6 +159,9 @@ export function HomeScreen({ navigation }: Props) {
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
   const [dailyLoading, setDailyLoading] = useState(true);
 
+  const [notifPromptVisible, setNotifPromptVisible] = useState(false);
+  const [notifPromptLoading, setNotifPromptLoading] = useState(false);
+
   const load = useCallback(async () => {
     let me: User | null = null;
     try {
@@ -176,6 +186,63 @@ export function HomeScreen({ navigation }: Props) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => navigation.addListener('focus', load), [navigation, load]);
+
+  // One-time, non-spammy notification permission prompt after the app is in use.
+  // If already granted, make sure the push token is registered. Web no-ops.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      notifications.configureHandler();
+      if (!notifications.isSupported()) return;
+      const status = await notifications.getPermissionStatus();
+      if (cancelled) return;
+      if (status === 'granted') {
+        notifications.registerPushToken();
+      } else if (status === 'undetermined') {
+        const seen = await localFlags.get(NOTIF_PROMPT_SEEN);
+        if (!cancelled && !seen) setNotifPromptVisible(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Once today's daily + tournament data is loaded, (re)schedule local reminders
+  // to match: suppress the daily reminder if it's already done, enable the
+  // tournament reminder only when there's a pending action. Runs on every focus
+  // so completing a challenge cancels its reminder.
+  useEffect(() => {
+    if (loading || dailyLoading) return;
+    let cancelled = false;
+    (async () => {
+      if (!notifications.isSupported()) return;
+      if ((await notifications.getPermissionStatus()) !== 'granted') return;
+      const settings = await notificationsApi.getSettings().catch(() => null);
+      if (cancelled || !settings) return;
+      await applyReminderState(settings, todayDaily, leagues);
+    })();
+    return () => { cancelled = true; };
+  }, [loading, dailyLoading, todayDaily, leagues]);
+
+  async function handleEnableNotifications() {
+    setNotifPromptLoading(true);
+    try {
+      const status = await notifications.requestPermission();
+      await localFlags.set(NOTIF_PROMPT_SEEN, '1');
+      if (status === 'granted') {
+        await notifications.registerPushToken();
+        const settings = await notificationsApi.getSettings().catch(() => null);
+        if (settings) await applyReminderState(settings, todayDaily, leagues);
+      }
+    } finally {
+      setNotifPromptLoading(false);
+      setNotifPromptVisible(false);
+    }
+  }
+
+  async function handleDismissNotifications() {
+    await localFlags.set(NOTIF_PROMPT_SEEN, '1');
+    setNotifPromptVisible(false);
+  }
 
   async function handleCancel() {
     if (!cancelTarget || cancelling) return;
@@ -304,6 +371,17 @@ export function HomeScreen({ navigation }: Props) {
         loading={cancelling}
         errorText={cancelError}
         destructive
+      />
+
+      <ConfirmModal
+        visible={notifPromptVisible}
+        title="Stay in the game"
+        message="Get a reminder when your Daily Challenge is ready or when a tournament needs your guess."
+        confirmLabel="Enable notifications"
+        cancelLabel="Not now"
+        onConfirm={handleEnableNotifications}
+        onCancel={handleDismissNotifications}
+        loading={notifPromptLoading}
       />
     </Screen>
   );

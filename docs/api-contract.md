@@ -1128,3 +1128,64 @@ Clears `avatar_path` and deletes the file (only if it lives under `avatars/`).
 
 > **Not yet included:** avatar URLs are not present in leaderboard or tournament-lobby
 > payloads yet — those responses do not include `avatar_url`.
+
+---
+
+## Notifications (v1.7.7)
+
+Opt-in reminders and admin announcements. Settings sync across devices; on-device
+scheduling and permissions are handled by the mobile app (Expo Notifications).
+
+### GET /api/me/notification-settings  *(auth + verified)*
+
+Returns the caller's settings, **lazily creating a defaults row** on first read.
+
+```json
+// Response 200
+{
+  "daily_reminder_enabled": true,
+  "tournament_reminder_enabled": true,
+  "admin_notifications_enabled": true,
+  "reminder_time": "19:00",
+  "timezone": null
+}
+```
+
+### PUT /api/me/notification-settings  *(auth + verified)*
+
+Partial update — only the keys sent are changed. A user can only edit their own row.
+
+```jsonc
+// Request (all fields optional)
+{
+  "daily_reminder_enabled": false,
+  "tournament_reminder_enabled": true,
+  "admin_notifications_enabled": false,
+  "reminder_time": "08:30",     // 24-hour HH:mm, validated (date_format:H:i)
+  "timezone": "Europe/Brussels" // nullable string, max 64
+}
+// Response 200 → same shape as GET
+// Response 422 → invalid reminder_time / types
+```
+
+### POST /api/me/push-tokens  *(auth + verified)*
+
+Registers (or reassigns) an Expo push token for admin announcements. Tokens are
+globally unique; re-registering an existing token moves it to the current user.
+Raw tokens are never returned in any response.
+
+```jsonc
+// Request
+{ "token": "ExponentPushToken[xxx]", "platform": "ios", "device_name": "iPhone" }
+// platform ∈ ios|android|web (nullable); device_name nullable
+// Response 201
+{ "status": "registered" }
+```
+
+### Admin announcements (web admin, not a mobile API)
+
+`/admin/notifications` (admin-only Blade page) composes announcements
+(title ≤120, body ≤500, plain text). Delivery is via Expo's push HTTP API to
+opted-in tokens; a user who disabled admin announcements is **never** delivered
+to, regardless of the announcement's audience. Status reflects the real outcome
+(`draft` / `sent` / `failed`) — a send is never faked when push is disabled.

@@ -138,6 +138,23 @@ return [
         'min_scheduled_dailies' => (int) env('BALLPICKER_SPORT_MIN_SCHEDULED_DAILIES', 1),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Notifications & reminders
+    |--------------------------------------------------------------------------
+    | Opt-in local reminders (scheduled on-device) plus admin announcements
+    | delivered via Expo's stateless push HTTP API. default_reminder_time is the
+    | seed value for a new user's settings row; each user can override it. No
+    | gambling / prizes / money — purely engagement reminders.
+    */
+    'notifications' => [
+        'default_reminder_time' => env('BALLPICKER_DEFAULT_REMINDER_TIME', '19:00'),
+        'expo_push_url'         => env('EXPO_PUSH_URL', 'https://exp.host/--/api/v2/push/send'),
+        // When false, admin announcements are saved but not delivered (marked
+        // "not sent") — we never fake a send when push is intentionally off.
+        'push_enabled'          => (bool) env('BALLPICKER_PUSH_ENABLED', true),
+    ],
+
     'auth' => [
         'login_code_expiry_minutes'          => (int) env('BALLSPOT_LOGIN_CODE_EXPIRY_MINUTES', 10),
         'login_code_max_attempts'            => (int) env('BALLSPOT_LOGIN_CODE_MAX_ATTEMPTS', 5),
