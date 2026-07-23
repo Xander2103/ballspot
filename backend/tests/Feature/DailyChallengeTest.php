@@ -88,6 +88,35 @@ class DailyChallengeTest extends TestCase
         $response->assertJsonStructure(['data' => ['id', 'score', 'distance', 'guess_x_ratio', 'guess_y_ratio', 'ball_x_ratio', 'ball_y_ratio']]);
     }
 
+    /**
+     * Regression: the coordinate/distance columns must serialize as JSON numbers,
+     * not strings. If DailyChallengeGuess loses its float casts, the app's
+     * Number.isFinite() guards fail and the daily result hides distance/feedback
+     * and the "your guess" marker.
+     */
+    public function test_daily_guess_returns_numeric_coordinates_not_strings(): void
+    {
+        [$user, $token] = $this->createUser();
+        $challenge = $this->createActiveChallenge(); // ball at 0.5,0.5
+        $dc = $this->createDailyChallenge($challenge);
+
+        // Off-centre guess → non-zero, non-integer distance (avoids 0.0 -> int).
+        $guess = $this->withToken($token)->postJson("/api/daily/{$dc->id}/guess", [
+            'guess_x_ratio' => 0.3,
+            'guess_y_ratio' => 0.4,
+        ]);
+        $guess->assertOk();
+        $this->assertIsFloat($guess->json('data.guess_x_ratio'));
+        $this->assertIsFloat($guess->json('data.guess_y_ratio'));
+        $this->assertIsFloat($guess->json('data.distance'));
+
+        // Same must hold when the result is re-fetched later.
+        $result = $this->withToken($token)->getJson("/api/daily/{$dc->id}/result");
+        $result->assertOk();
+        $this->assertIsFloat($result->json('data.guess_x_ratio'));
+        $this->assertIsFloat($result->json('data.distance'));
+    }
+
     public function test_duplicate_daily_guess_is_rejected(): void
     {
         [$user, $token] = $this->createUser();

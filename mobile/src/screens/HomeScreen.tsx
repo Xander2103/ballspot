@@ -177,7 +177,7 @@ export function HomeScreen({ navigation }: Props) {
   useEffect(() => navigation.addListener('focus', load), [navigation, load]);
 
   async function handleCancel() {
-    if (!cancelTarget) return;
+    if (!cancelTarget || cancelling) return;
     setCancelling(true);
     try {
       await leagueApi.cancel(cancelTarget.id);
@@ -291,10 +291,11 @@ export function HomeScreen({ navigation }: Props) {
         visible={!!cancelTarget}
         title="Cancel Tournament"
         message={`Cancel "${cancelTarget?.name}"? This cannot be undone.`}
-        confirmLabel={cancelling ? 'Cancelling…' : 'Cancel Tournament'}
+        confirmLabel="Cancel Tournament"
         cancelLabel="Keep Playing"
         onConfirm={handleCancel}
         onCancel={() => setCancelTarget(null)}
+        loading={cancelling}
         destructive
       />
     </Screen>

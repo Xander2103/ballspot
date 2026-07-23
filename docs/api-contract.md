@@ -9,11 +9,13 @@ All requests: `Content-Type: application/json`, `Accept: application/json`
 Protected routes require: `Authorization: Bearer <token>`
 
 **Email verification gate (v1.6.2):** most protected app endpoints (profile/stats,
-sports, preferences, avatar, badges, leagues, rounds, daily) are behind the
+preferences, avatar, badges, leagues, rounds, daily) are behind the
 `verified` middleware and return **HTTP 403 `{ "message": "Your email address is not
 verified." }`** for an authenticated-but-unverified user. Endpoints reachable while
-unverified: `GET /me`, `POST /logout`, `DELETE /account`, `POST /email/verify`, and
-`POST /email/verification-notification`.
+unverified (auth only, no `verified` gate): `GET /me`, `POST /logout`, `DELETE /account`,
+`POST /email/verify`, `POST /email/verification-notification`, `GET /sports`, and
+`GET /ranks` (the last two are onboarding reference data, intentionally reachable before
+verification).
 
 ---
 
@@ -213,9 +215,9 @@ This is distinct from **leaderboard rank** (position vs. other players), which i
   "guesses_count": 9,
   "total_score": 720,
   "average_score": 80.0,
-  "current_streak": 3,
-  "best_streak": 7,
-  "total_daily_challenges_played": 12,
+  "current_daily_streak": 3,
+  "best_daily_streak": 7,
+  "daily_challenges_played": 12,
   "average_daily_score": 74.5,
   "best_daily_score": 98,
   // v1.7.2 — personal rank/XP progression:
@@ -515,7 +517,7 @@ When the daily limit is reached, this endpoint returns `reason: "daily_limit_rea
 // Request
 { "guess_x_ratio": 0.43, "guess_y_ratio": 0.72 }
 // Both must be between 0 and 1
-// Response 201
+// Response 200
 {
   "data": {
     "id": 8,
@@ -525,8 +527,12 @@ When the daily limit is reached, this endpoint returns `reason: "daily_limit_rea
     "guess_y_ratio": 0.72,
     "ball_x_ratio": 0.45,
     "ball_y_ratio": 0.71,
-    "reveal_image_url": "http://.../storage/challenges/original/corner-kick.jpg"
+    "reveal_image_url": "http://.../storage/challenges/original/corner-kick.jpg",
+    // rank / percentile within this round (from GuessResultResource):
+    "rank": 1, "total_players": 4, "better_than_percentage": 75
   },
+  // freshly-earned badges for this guess (empty array if none). Never returned on result reopen:
+  "new_badges": [],
   // v1.7.2 — top-level personal rank progress for THIS guess (alongside data);
   // v1.7.3 — rank now derives from the XP ledger and xp_gained includes ALL XP earned
   // in this submission (guess score + any badge/streak bonus), not just the guess score:

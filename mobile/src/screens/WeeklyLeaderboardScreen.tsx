@@ -162,6 +162,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
           data={entries}
           keyExtractor={(item) => String(item.user_id)}
           renderItem={({ item }) => <LeaderboardRow entry={item} />}
+          style={styles.list}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -243,6 +244,11 @@ const styles = StyleSheet.create({
   },
   colHeaderRight: {
     textAlign: 'right',
+  },
+  list: {
+    // Bound the list so it scrolls internally instead of pushing the footer /
+    // "Back Home" button off-screen when a week has many players.
+    flex: 1,
   },
   listContent: {
     paddingBottom: spacing.md,

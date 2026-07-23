@@ -34,7 +34,7 @@ class ResetPasswordNotification extends Notification
         $url   = "{$base}/reset-password?token={$this->token}&email={$email}";
 
         return (new MailMessage)
-            ->subject('Reset your BallSpot password')
+            ->subject('Reset your ' . config('ballspot.app_name') . ' password')
             ->greeting('Reset your password')
             ->line('You are receiving this email because we received a password reset request for your account.')
             ->action('Reset Password', $url)

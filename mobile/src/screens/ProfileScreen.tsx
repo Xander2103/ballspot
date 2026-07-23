@@ -86,6 +86,7 @@ export function ProfileScreen({ navigation }: Props) {
   }
 
   async function handleDeleteAccount() {
+    if (deleting) return; // guard against double-submit
     setDeleting(true);
     setDeleteError('');
     try {
@@ -231,8 +232,6 @@ export function ProfileScreen({ navigation }: Props) {
         <LegalRow styles={styles} label="Support" url={`${WEB_BASE}/support`} />
       </View>
 
-      {deleteError ? <Text style={styles.deleteError}>{deleteError}</Text> : null}
-
       <AppButton title="Delete account" onPress={() => setShowDeleteModal(true)} variant="danger" style={styles.deleteBtn} />
 
       <Text style={styles.versionText}>v{APP_VERSION}</Text>
@@ -241,10 +240,12 @@ export function ProfileScreen({ navigation }: Props) {
         visible={showDeleteModal}
         title="Delete account?"
         message="This will remove your account access and anonymize your profile. This action cannot be undone."
-        confirmLabel={deleting ? 'Deleting…' : 'Delete account'}
+        confirmLabel="Delete account"
         cancelLabel="Cancel"
         onConfirm={handleDeleteAccount}
         onCancel={() => { setShowDeleteModal(false); setDeleteError(''); }}
+        loading={deleting}
+        errorText={deleteError}
         destructive
       />
     </Screen>

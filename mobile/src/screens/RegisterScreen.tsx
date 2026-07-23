@@ -7,6 +7,8 @@ import { AppInput } from '../components/AppInput';
 import { AppButton } from '../components/AppButton';
 import { authApi } from '../api/authApi';
 import { tokenStorage } from '../storage/tokenStorage';
+import { applyProfileAndRoute } from '../app/authFlow';
+import { useTheme } from '../theme/useTheme';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -20,6 +22,7 @@ type FieldErrors = {
 };
 
 export function RegisterScreen({ navigation }: Props) {
+  const { setTheme } = useTheme();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -33,6 +36,7 @@ export function RegisterScreen({ navigation }: Props) {
   const passwordRef = useRef<TextInput>(null);
 
   async function handleRegister() {
+    if (loading) return; // guard against double-submit (button + keyboard "done")
     setFieldErrors({});
     setFormError('');
 
@@ -49,10 +53,17 @@ export function RegisterScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      const { token } = await authApi.register({ name: name.trim(), username: username.trim(), email: email.trim(), password });
-      await tokenStorage.save(token);
-      // New accounts must verify their email before full access.
-      navigation.reset({ index: 0, routes: [{ name: 'EmailVerification', params: { email: email.trim() } }] });
+      const res = await authApi.register({ name: name.trim(), username: username.trim(), email: email.trim(), password });
+      await tokenStorage.save(res.token);
+      if (res.email_verified === true) {
+        // Email verification disabled by config — account is already verified,
+        // so skip the verification screen and route straight into the app.
+        const route = await applyProfileAndRoute(setTheme);
+        navigation.reset({ index: 0, routes: [{ name: route }] });
+      } else {
+        // New accounts must verify their email before full access.
+        navigation.reset({ index: 0, routes: [{ name: 'EmailVerification', params: { email: email.trim() } }] });
+      }
     } catch (e: any) {
       if (e?.errors) {
         const apiErrors: FieldErrors = {};

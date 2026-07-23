@@ -5,7 +5,7 @@
 <h1>Privacy Policy</h1>
 <p class="page-meta">Last updated: June 2026</p>
 
-<p>BallSpot is a skill-based football guessing game. This policy explains what personal information we collect, how we use it, and your rights regarding that information.</p>
+<p>BallPicker is a skill-based football guessing game. This policy explains what personal information we collect, how we use it, and your rights regarding that information.</p>
 
 <h2>What we collect</h2>
 <ul>
@@ -32,14 +32,14 @@
 </ul>
 
 <h2>Challenge images</h2>
-<p>All football challenge images used in BallSpot are managed and uploaded by the BallSpot team via the admin panel. If you believe any image infringes your rights, please contact us at the address below.</p>
+<p>All football challenge images used in BallPicker are managed and uploaded by the BallPicker team via the admin panel. If you believe any image infringes your rights, please contact us at the address below.</p>
 
 <h2>Data retention</h2>
 <p>Your data is kept for as long as your account is active. If you delete your account, your personal details (name, email, username) are immediately anonymised. Your historical scores may be retained in anonymised form to preserve leaderboard integrity.</p>
 
 <h2>Deleting your account</h2>
 <div class="callout">
-    <p>You can delete your account at any time from <strong>Profile → Settings → Delete account</strong> in the BallSpot app. This immediately anonymises your personal information and revokes all login sessions.</p>
+    <p>You can delete your account at any time from <strong>Profile → Settings → Delete account</strong> in the BallPicker app. This immediately anonymises your personal information and revokes all login sessions.</p>
 </div>
 
 <h2>Contact</h2>

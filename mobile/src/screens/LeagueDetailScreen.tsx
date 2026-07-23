@@ -81,7 +81,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   }, [league?.status, removedFromLobby, load]);
 
   async function handleStart() {
-    if (!league) return;
+    if (!league || starting) return;
     setStarting(true);
     try {
       await leagueApi.start(league.id);
@@ -95,7 +95,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   }
 
   async function handleRemoveMember() {
-    if (!removeTarget || !leagueId) return;
+    if (!removeTarget || !leagueId || removing) return;
     setRemoving(true);
     try {
       await leagueApi.removeMember(leagueId, removeTarget.id);
@@ -271,20 +271,22 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         visible={showStartConfirm}
         title="Start Tournament?"
         message={`This will generate ${league ? league.duration_days * league.rounds_per_day : 0} rounds and open play for all members. You cannot undo this.`}
-        confirmLabel={starting ? 'Starting…' : 'Start Now'}
+        confirmLabel="Start Now"
         cancelLabel="Not Yet"
         onConfirm={handleStart}
         onCancel={() => setShowStartConfirm(false)}
+        loading={starting}
       />
 
       <ConfirmModal
         visible={!!removeTarget}
         title="Remove player?"
         message="This player will be removed from the lobby."
-        confirmLabel={removing ? 'Removing…' : 'Remove'}
+        confirmLabel="Remove"
         cancelLabel="Cancel"
         onConfirm={handleRemoveMember}
         onCancel={() => !removing && setRemoveTarget(null)}
+        loading={removing}
         destructive
       />
     </Screen>

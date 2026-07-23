@@ -13,6 +13,10 @@ interface Props {
   onConfirm: () => void;
   onCancel: () => void;
   destructive?: boolean;
+  /** While true, the confirm action is in flight: buttons disable, confirm shows a spinner, and the modal cannot be dismissed. */
+  loading?: boolean;
+  /** Error to show inside the modal (e.g. the confirm action failed) so it is not hidden behind the overlay. */
+  errorText?: string;
 }
 
 export function ConfirmModal({
@@ -24,26 +28,33 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
   destructive = false,
+  loading = false,
+  errorText,
 }: Props) {
+  // Never dismiss the dialog while the confirm action is running.
+  const dismiss = loading ? () => {} : onCancel;
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <TouchableWithoutFeedback onPress={onCancel}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={dismiss}>
+      <TouchableWithoutFeedback onPress={dismiss}>
         <View style={styles.overlay}>
           <TouchableWithoutFeedback>
             <View style={styles.dialog}>
               <Text style={styles.title}>{title}</Text>
               <Text style={styles.message}>{message}</Text>
+              {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
               <View style={styles.buttons}>
                 <AppButton
                   title={cancelLabel}
                   onPress={onCancel}
                   variant="secondary"
+                  disabled={loading}
                   style={styles.btn}
                 />
                 <AppButton
                   title={confirmLabel}
                   onPress={onConfirm}
                   variant={destructive ? 'danger' : 'primary'}
+                  loading={loading}
                   style={styles.btn}
                 />
               </View>
@@ -83,6 +94,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.lg,
     lineHeight: 20,
+  },
+  error: {
+    fontSize: 13,
+    color: colors.error,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.md,
   },
   buttons: {
     flexDirection: 'row',

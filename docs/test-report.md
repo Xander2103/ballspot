@@ -1,9 +1,59 @@
-# BallSpot v1.7.4 — Test Report
+# BallSpot v1.7.6 — Test Report
 
 Build date: 2026-07-23
 
-**Backend:** 219 feature tests passing (was 207; +12 in v1.7.4).
-**Mobile:** `tsc --noEmit` clean.
+**Backend:** 220 feature tests passing (was 219; +1 in v1.7.6).
+**Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## v1.7.6 — QA, Product Polish & Release Readiness Pass
+
+A QA pass across all main user flows (no new features). Bugs found and fixed:
+
+- **[HIGH] Daily result was broken for every user** — `DailyChallengeGuess` did not cast
+  `guess_x_ratio`/`guess_y_ratio`/`distance` to float (the tournament `Guess` model did), so the
+  API returned them as strings. The app's `Number.isFinite()` guards then hid the distance, the
+  "Right on it!"/"Way off" feedback, the ghost-ball "your guess" marker, and the guess
+  coordinates. Fixed by adding the float casts; **new regression test**
+  `DailyChallengeTest::test_daily_guess_returns_numeric_coordinates_not_strings` locks it (guess +
+  result endpoints).
+- **[MED] Destructive confirm modals could double-submit and hid failures** — `ConfirmModal` now
+  accepts `loading` (disables both buttons, spinner on confirm, blocks backdrop/back dismissal) and
+  `errorText` (shown inside the dialog instead of behind it). Wired into Delete account
+  (Profile), Cancel tournament (Home), and Start tournament / Remove player (League detail), each
+  with a re-entry guard. Fixes the "Start tournament twice → false 'can only start from lobby'
+  error" and the invisible delete-account error.
+- **[MED] Weekly leaderboard overflow** — the (uncapped) weekly leaderboard `FlatList` was not
+  height-bounded, so rows and the "Back Home" button fell off-screen on a busy week. Bounded with
+  `flex: 1` so it scrolls internally. (Tournament leaderboard is capped at 8 players → not
+  affected.)
+- **[LOW] Register ignored `email_verified`** — when email verification is disabled by config, a
+  new account is already verified but the app still forced the (dead) verification screen. Register
+  now routes straight into the app when `email_verified === true`.
+- **[LOW] Register double-submit** via the keyboard "done" key — added a re-entry guard.
+- **[LOW] Tournament guess screen** now shows an "Image unavailable" fallback (mirrors daily) if a
+  round's hidden image is missing, instead of a blank tappable box.
+
+Visible branding copy: replaced remaining user-facing "BallSpot" with "BallPicker" in the
+public web pages (privacy, terms, footer/header) and the password-reset email subject (now
+`config('ballspot.app_name')`). Internal `ballspot:*` commands, storage keys, namespaces, config
+keys, admin-panel branding, and the backup-manifest `app_name` (test-locked) are unchanged.
+
+Docs: fixed `docs/api-contract.md` discrepancies found in QA — the email-verification gate list
+(sports/ranks are not verified-gated), `GET /profile/stats` field names
+(`current_daily_streak`/`best_daily_streak`/`daily_challenges_played`), `POST /rounds/{id}/guess`
+status (200, not 201) and its duplicate-guess message, plus the round guess response's `new_badges`
+and rank/percentile fields.
+
+### Known limitations carried forward (v1.7.6)
+
+1. On a transient (non-401) `/me` failure at startup, unverified/onboarding users are routed to
+   Home (a deliberate "fail-open rather than lock out" choice); `verified`-gated calls then 403
+   until the next successful `/me`. Behavior intentionally unchanged.
+2. `tournament_winner` badge remains seeded-but-not-auto-awarded (winner logic is a future sprint).
+3. `VirtualizedList nested in ScrollView` warning on League detail (leaderboard sliced to 3 items)
+   is benign and left as-is.
 
 ---
 

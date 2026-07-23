@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title') — BallSpot</title>
+    <title>@yield('title') — BallPicker</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         :root {
@@ -103,7 +103,7 @@
 <body>
 <header>
     <div class="header-inner">
-        <a class="logo" href="/">BallSpot</a>
+        <a class="logo" href="/">BallPicker</a>
         <nav>
             <a href="/privacy">Privacy</a>
             <a href="/terms">Terms</a>
@@ -117,7 +117,7 @@
 </main>
 
 <footer>
-    <p>&copy; {{ date('Y') }} BallSpot &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/support">Support</a></p>
+    <p>&copy; {{ date('Y') }} BallPicker &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/support">Support</a></p>
 </footer>
 </body>
 </html>

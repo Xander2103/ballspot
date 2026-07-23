@@ -182,13 +182,19 @@ export function GuessScreen({ route, navigation }: Props) {
       </View>
 
       {/* Image card */}
-      <View style={styles.imageCard}>
-        <ImageGuessPicker
-          imageUri={round.challenge.hidden_image_url}
-          onGuess={handleGuess}
-          interactive
-        />
-      </View>
+      {round.challenge.hidden_image_url ? (
+        <View style={styles.imageCard}>
+          <ImageGuessPicker
+            imageUri={round.challenge.hidden_image_url}
+            onGuess={handleGuess}
+            interactive
+          />
+        </View>
+      ) : (
+        <View style={styles.noImage}>
+          <Text style={styles.noImageText}>Image unavailable</Text>
+        </View>
+      )}
 
       {/* Footer: guess status + submit */}
       <View style={styles.footer}>
@@ -292,6 +298,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     backgroundColor: colors.background,
   },
+  noImage: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xl },
+  noImageText: { color: colors.textMuted, fontSize: 14, fontStyle: 'italic' },
   footer: {
     padding: spacing.md,
     gap: spacing.sm,
