@@ -25,6 +25,19 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.7.8 store-relevant notes (Packs, Subcategories, Monthly)
+
+- **Challenge packs are content-only.** No prices, purchases, IAP, or shop — packs are curated
+  collections for discovery. This adds **no** billing capability and does not change the content
+  rating. Do not describe packs as purchasable in the store listing.
+- **No new device permissions.** Subcategories and the Packs discovery screen use existing
+  networked content only.
+- **Monthly competition** is virtual leaderboard standing — no prizes, money, or entry fees.
+  Trophy Room shows a "Competition trophies" placeholder; **no trophies are awarded yet** (no
+  fake wins are ever shown).
+
+---
+
 ## v1.6.1 store-relevant notes
 
 - **Login is now email two-factor.** Signing in requires a one-time 6-digit code

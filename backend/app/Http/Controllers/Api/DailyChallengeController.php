@@ -23,6 +23,7 @@ class DailyChallengeController extends Controller
         private BadgeService $badgeService,
         private \App\Services\PlayerRankService $rankService,
         private \App\Services\XpService $xpService,
+        private \App\Services\CompetitionPeriodService $period,
     ) {}
 
     /** Award any newly-reached daily-streak milestone bonuses (once each). */
@@ -216,14 +217,15 @@ class DailyChallengeController extends Controller
     }
 
     // GET /api/daily/leaderboard/weekly
+    // (Route name kept for compatibility; the window now follows the configured
+    // competition period — monthly by default.)
     public function weeklyLeaderboard(Request $request): JsonResponse
     {
-        $today = Carbon::today();
-        $weekStart = $today->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
-        $weekEnd = $today->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
+        $periodStart = $this->period->start();
+        $periodEnd   = $this->period->end();
 
-        $entries = DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($weekStart, $weekEnd) {
-            $q->whereBetween('challenge_date', [$weekStart, $weekEnd]);
+        $entries = DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($periodStart, $periodEnd) {
+            $q->whereBetween('challenge_date', [$periodStart, $periodEnd]);
         })
         ->with('user')
         ->get()
@@ -250,11 +252,12 @@ class DailyChallengeController extends Controller
 
         return response()->json([
             'data'         => $entries,
-            'week_start'   => $weekStart,
-            'week_end'     => $weekEnd,
-            // UI-only period label (see config('ballspot.leaderboard')). The window
-            // itself is still weekly; this just avoids hardcoding "Weekly" in the app.
-            'period_label' => config('ballspot.leaderboard.period_label', 'Weekly'),
+            // Backward-compatible keys (still the period boundaries).
+            'week_start'   => $periodStart,
+            'week_end'     => $periodEnd,
+            'period_label' => $this->period->label(),
+            // Canonical period descriptor (weekly | monthly) with start/end.
+            'period'       => $this->period->toArray(),
             'meta'         => $this->buildLeaderboardMeta($entries, $request->user()->id),
         ]);
     }
@@ -310,11 +313,8 @@ class DailyChallengeController extends Controller
 
         $allGuesses = DailyChallengeGuess::where('user_id', $user->id)->get();
 
-        $today = Carbon::today();
-        $weekStart = $today->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
-        $weekEnd = $today->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
-
-        $weeklyRank = $this->getWeeklyRank($user->id, $weekStart, $weekEnd);
+        // Rank within the current competition period (monthly by default).
+        $weeklyRank = $this->getWeeklyRank($user->id, $this->period->start(), $this->period->end());
 
         return response()->json([
             'current_streak' => $currentStreak,
@@ -322,7 +322,9 @@ class DailyChallengeController extends Controller
             'total_played'   => $allGuesses->count(),
             'average_score'  => $allGuesses->count() > 0 ? round($allGuesses->avg('score'), 1) : 0,
             'best_score'     => $allGuesses->max('score') ?? 0,
+            // Kept key name for BC; value now reflects the configured period.
             'weekly_rank'    => $weeklyRank,
+            'period'         => $this->period->toArray(),
         ]);
     }
 

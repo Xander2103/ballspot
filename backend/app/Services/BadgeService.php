@@ -242,9 +242,11 @@ class BadgeService
     /** @return Badge[] */
     private function evaluateWeeklyTop10(User $user): array
     {
-        $today     = Carbon::today();
-        $weekStart = $today->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
-        $weekEnd   = $today->copy()->endOfWeek(Carbon::SUNDAY)->toDateString();
+        // Aggregate over the configured competition period (monthly by default)
+        // so the top-finishers badge matches the leaderboard the user sees.
+        $period    = app(\App\Services\CompetitionPeriodService::class);
+        $weekStart = $period->start();
+        $weekEnd   = $period->end();
 
         $scores = DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($weekStart, $weekEnd) {
             $q->whereBetween('challenge_date', [$weekStart, $weekEnd]);

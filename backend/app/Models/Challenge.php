@@ -25,6 +25,8 @@ class Challenge extends Model
     public function category(): BelongsTo { return $this->belongsTo(ChallengeCategory::class, 'challenge_category_id'); }
     public function dailyChallenges(): HasMany { return $this->hasMany(DailyChallenge::class); }
     public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class, 'challenge_tag'); }
+    public function subcategories(): BelongsToMany { return $this->belongsToMany(ChallengeSubcategory::class, 'challenge_subcategory')->withTimestamps(); }
+    public function packs(): BelongsToMany { return $this->belongsToMany(ChallengePack::class, 'challenge_pack_challenge')->withPivot('sort_order')->withTimestamps(); }
 
     /** Challenge has everything required to be playable. */
     public function isReady(): bool

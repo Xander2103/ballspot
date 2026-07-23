@@ -105,6 +105,8 @@
                 @error('tags')<div class="invalid-feedback">{{ $message }}</div>@enderror
             </div>
 
+            @include('admin.challenges._subcategories', ['selected' => collect(old('subcategories', $challenge->subcategories->pluck('id')->all()))])
+
             {{-- Section: Hidden image --}}
             <hr class="my-4">
             <h6 class="fw-semibold mb-1">Hidden Image</h6>

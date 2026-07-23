@@ -431,3 +431,47 @@ Admin-composed announcements. Plain text (Blade escapes on output — no HTML in
 
 **Privacy:** tokens + settings are personal data; they cascade-delete with the user
 (account deletion removes them). Users can opt out of any category at any time.
+
+---
+
+## Content organisation (v1.7.8)
+
+### `challenge_subcategories` (+ `challenge_subcategory` pivot)
+Curated, admin-managed taxonomy for organising/filtering content. **Distinct from the
+free-text `tags` table**: tags are ad-hoc labels created inline on the challenge form;
+subcategories are a styled, activatable, sport-scoped taxonomy managed at `/admin/subcategories`.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| sport_id | FK → sports, nullable | null = global (all sports); nullOnDelete |
+| name / slug | string | slug unique within `(sport_id, type)` |
+| type | string | team\|country\|league\|club\|difficulty\|moment_type\|player_type\|custom |
+| description | text, nullable | |
+| color / icon | string, nullable | hex color + emoji for admin display |
+| is_active | boolean | default true; inactive hides from app filters, keeps history |
+| sort_order | integer | default 0 |
+
+Pivot `challenge_subcategory` (challenge_id, challenge_subcategory_id, timestamps) — many-to-many.
+Deleting a subcategory only **detaches** challenges (pivot cascade) — never deletes them or images.
+
+### `challenge_packs` (+ `challenge_pack_challenge` pivot)
+Content-only collections (e.g. "Belgium Pack"). **No price/purchase/payment columns.**
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK | |
+| sport_id | FK → sports, nullable | null = global |
+| name | string | |
+| slug | string | **unique** |
+| description | text, nullable | |
+| cover_image_path | string, nullable | on the public disk |
+| status | string | draft \| active \| archived (default draft) |
+| visibility | string | public \| hidden (default public) |
+| difficulty | string, nullable | easy/medium/hard/mixed |
+| sort_order | integer | default 0 |
+| is_featured | boolean | default false |
+
+Pivot `challenge_pack_challenge` (challenge_pack_id, challenge_id, `sort_order`, timestamps).
+Only **active + public** packs are exposed to normal users; detail lists only ready challenges.
+Detaching never deletes challenges or images.

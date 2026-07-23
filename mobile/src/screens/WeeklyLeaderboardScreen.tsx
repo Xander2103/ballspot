@@ -12,6 +12,25 @@ import { WeeklyLeaderboardEntry, WeeklyLeaderboard } from '../types/daily';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WeeklyLeaderboard'>;
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "2026-07-01","2026-07-31" -> "1 Jul – 31 Jul". Returns '' if unparseable. */
+function formatPeriodRange(start?: string, end?: string): string {
+  const fmt = (d?: string): string | null => {
+    if (!d) return null;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+    if (!m) return null;
+    const month = MONTHS[Number(m[2]) - 1];
+    const day = Number(m[3]);
+    if (!month || Number.isNaN(day)) return null;
+    return `${day} ${month}`;
+  };
+  const a = fmt(start);
+  const b = fmt(end);
+  if (!a || !b) return '';
+  return `${a} – ${b}`;
+}
+
 function RankMedal({ rank }: { rank: number }): string {
   if (rank === 1) return '🥇';
   if (rank === 2) return '🥈';
@@ -101,7 +120,10 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
   const meta = leaderboard.meta;
   const hasRank = !!meta?.current_user_rank;
   const entries = leaderboard.data;
-  const periodLabel = leaderboard.period_label ?? 'Weekly';
+  const periodLabel = leaderboard.period?.period_label ?? leaderboard.period_label ?? 'Leaderboard';
+  const rangeStart = leaderboard.period?.period_start ?? leaderboard.week_start;
+  const rangeEnd = leaderboard.period?.period_end ?? leaderboard.week_end;
+  const periodRange = formatPeriodRange(rangeStart, rangeEnd);
   const myIndex = entries.findIndex((e) => e.is_current_user);
 
   const scrollToTop = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -115,7 +137,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
       {/* Period header */}
       <View style={styles.weekHeader}>
         <Text style={styles.weekLabel}>
-          {periodLabel} · {leaderboard.week_start} – {leaderboard.week_end}
+          {periodLabel}{periodRange ? ` · ${periodRange}` : ''}
         </Text>
       </View>
 

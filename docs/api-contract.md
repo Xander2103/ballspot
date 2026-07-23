@@ -1182,6 +1182,68 @@ Raw tokens are never returned in any response.
 { "status": "registered" }
 ```
 
+---
+
+## Challenge Packs (v1.7.8)
+
+Content-only discovery collections (e.g. "Belgium Pack"). **No prices, no purchases, no
+payments.** Only `active` + `public` packs are visible to normal users.
+
+### GET /api/packs  *(auth + verified)*
+
+Optional query: `sport_id` or `sport_slug`. Ordered featured-first, then sort_order.
+
+```jsonc
+// Response 200
+{ "data": [
+  {
+    "id": 1, "name": "Belgium Pack", "slug": "belgium-pack",
+    "description": "…", "sport": { "slug": "football", "name": "Football", "emoji": "⚽", "primary_color": "#..." },
+    "cover_image_url": null, "difficulty": "mixed", "challenge_count": 8, "is_featured": true
+  }
+] }
+```
+
+### GET /api/packs/{slug}  *(auth + verified)*
+
+Pack detail + **ready challenges only** (draft/archived challenges are hidden). Draft/hidden/
+archived packs return **404**. No admin-only fields (`status`, `visibility`) and challenge
+summaries never include the ball position.
+
+```jsonc
+// Response 200
+{ "data": {
+  "id": 1, "name": "Belgium Pack", "slug": "belgium-pack", "description": "…",
+  "sport": { … }, "cover_image_url": null, "difficulty": "mixed",
+  "challenge_count": 1, "is_featured": true,
+  "challenges": [
+    { "id": 5, "title": "…", "difficulty": "easy",
+      "hidden_image_url": "…", "sport": { "slug", "name", "emoji" }, "category": { "name", "slug" } }
+  ]
+} }
+```
+
+## Competition period on the leaderboard (v1.7.8)
+
+`GET /api/daily/leaderboard/weekly` (route name unchanged) and `GET /api/daily/stats` now
+follow `config('ballspot.competition.period')` — **monthly by default** (or weekly). The
+window drives both the leaderboard totals and the top-finishers badge.
+
+```jsonc
+// leaderboard response — added `period`; week_start/week_end kept for BC (= period boundaries)
+{
+  "data": [ … ],
+  "week_start": "2026-07-01", "week_end": "2026-07-31",
+  "period_label": "Monthly",
+  "period": { "period_type": "monthly", "period_label": "Monthly",
+              "period_start": "2026-07-01", "period_end": "2026-07-31" },
+  "meta": { … }
+}
+```
+
+Subcategories are curated admin taxonomy (managed at `/admin/subcategories`); they are not
+exposed on the mobile API in this sprint (organisation/filtering is admin-side for now).
+
 ### Admin announcements (web admin, not a mobile API)
 
 `/admin/notifications` (admin-only Blade page) composes announcements

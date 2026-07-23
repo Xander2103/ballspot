@@ -140,6 +140,14 @@ export function TrophyRoom() {
           )}
         </View>
       ) : null}
+
+      {/* Competition trophies — reserved for monthly top-3 finishes (future). */}
+      {!loading && !error ? (
+        <View style={styles.finishesWrap}>
+          <Text style={styles.subHeader}>Competition trophies</Text>
+          <Text style={styles.emptyFinishes}>Top finishes will appear here when monthly competitions end.</Text>
+        </View>
+      ) : null}
     </View>
   );
 }

@@ -1,0 +1,123 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../app/AppNavigator';
+import { Screen } from '../components/Screen';
+import { packApi } from '../api/packApi';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeTokens } from '../theme/themes';
+import { spacing } from '../theme/spacing';
+import type { ChallengePackDetail, PackChallengeSummary } from '../types/pack';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'PackDetail'>;
+
+export function PackDetailScreen({ route }: Props) {
+  const { slug } = route.params;
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
+
+  const [pack, setPack] = useState<ChallengePackDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await packApi.get(slug);
+      setPack(res.data);
+    } catch {
+      setError('Could not load this pack.');
+    } finally {
+      setLoading(false);
+    }
+  }, [slug]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) {
+    return <Screen><View style={styles.center}><ActivityIndicator color={theme.primary} size="large" /></View></Screen>;
+  }
+
+  if (!pack) {
+    return <Screen><View style={styles.center}><Text style={styles.emptyText}>{error || 'Pack not found.'}</Text></View></Screen>;
+  }
+
+  const count = pack.challenges.length;
+
+  return (
+    <Screen padding={false}>
+      <FlatList<PackChallengeSummary>
+        data={pack.challenges}
+        keyExtractor={(c) => String(c.id)}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={styles.title}>{pack.name}</Text>
+            {pack.description ? <Text style={styles.desc}>{pack.description}</Text> : null}
+            <View style={styles.metaRow}>
+              <Text style={styles.metaChip}>{pack.sport?.name ?? 'All sports'}</Text>
+              <Text style={styles.metaChip}>{count} {count === 1 ? 'challenge' : 'challenges'}</Text>
+              {pack.difficulty ? <Text style={styles.metaChip}>{cap(pack.difficulty)}</Text> : null}
+            </View>
+            <Text style={styles.note}>Pack play mode is coming soon — for now, browse what's inside.</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <View style={styles.row}>
+            <View style={styles.thumbWrap}>
+              {item.hidden_image_url
+                ? <Image source={{ uri: item.hidden_image_url }} style={styles.thumb} resizeMode="cover" />
+                : <Text style={styles.thumbEmoji}>{item.sport?.emoji ?? '⚽'}</Text>}
+            </View>
+            <View style={styles.rowText}>
+              <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.rowMeta}>{cap(item.difficulty)}{item.category ? ` · ${item.category.name}` : ''}</Text>
+            </View>
+          </View>
+        )}
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyText}>No challenges in this pack yet.</Text>
+          </View>
+        }
+      />
+    </Screen>
+  );
+}
+
+function cap(s: string): string {
+  return s.length ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+function createStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 240 },
+    listContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
+    header: { marginBottom: spacing.md },
+    title: { fontSize: 24, fontWeight: '800', color: theme.text },
+    desc: { fontSize: 14, color: theme.textSecondary, marginTop: spacing.xs, lineHeight: 20 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
+    metaChip: {
+      fontSize: 12, color: theme.textSecondary, backgroundColor: theme.surfaceElevated,
+      borderRadius: 999, paddingHorizontal: spacing.sm, paddingVertical: 3, overflow: 'hidden',
+    },
+    note: { fontSize: 12, color: theme.textMuted, marginTop: spacing.md, fontStyle: 'italic' },
+    row: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
+      padding: spacing.sm, marginBottom: spacing.sm,
+    },
+    thumbWrap: {
+      width: 56, height: 56, borderRadius: 8, overflow: 'hidden',
+      backgroundColor: theme.surfaceElevated, alignItems: 'center', justifyContent: 'center',
+    },
+    thumb: { width: '100%', height: '100%' },
+    thumbEmoji: { fontSize: 24 },
+    rowText: { flex: 1 },
+    rowTitle: { fontSize: 15, fontWeight: '600', color: theme.text },
+    rowMeta: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
+    empty: { alignItems: 'center', paddingVertical: spacing.xxl },
+    emptyText: { fontSize: 15, color: theme.textMuted, textAlign: 'center' },
+  });
+}

@@ -337,6 +337,20 @@ export function HomeScreen({ navigation }: Props) {
               ) : (
                 <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} styles={styles} theme={theme} />
               )}
+
+              {/* Challenge Packs discovery entry point */}
+              <TouchableOpacity
+                style={styles.packsCard}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('Packs')}
+              >
+                <Text style={styles.packsEmoji}>📦</Text>
+                <View style={styles.packsText}>
+                  <Text style={styles.packsTitle}>Challenge Packs</Text>
+                  <Text style={styles.packsSubtitle}>Play themed sets of challenges.</Text>
+                </View>
+                <Text style={styles.packsChevron}>›</Text>
+              </TouchableOpacity>
             </View>
           }
           ListEmptyComponent={
@@ -419,6 +433,16 @@ function createStyles(theme: ThemeTokens) {
     },
     sportChipText: { fontSize: 15, fontWeight: '700', color: theme.text },
     sportChipAction: { fontSize: 13, fontWeight: '700', color: theme.accent },
+    packsCard: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+      backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md, marginBottom: spacing.sm,
+    },
+    packsEmoji: { fontSize: 26 },
+    packsText: { flex: 1 },
+    packsTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
+    packsSubtitle: { fontSize: 12, color: theme.textMuted, marginTop: 1 },
+    packsChevron: { fontSize: 22, color: theme.textMuted, fontWeight: '700' },
     sectionHeader: { paddingBottom: spacing.xs, paddingTop: spacing.sm },
     sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase' },
     card: {

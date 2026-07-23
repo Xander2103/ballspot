@@ -74,12 +74,23 @@ export interface LeaderboardMeta<TEntry = WeeklyLeaderboardEntry> {
   nearby_users: TEntry[];
 }
 
+/** Competition period descriptor (weekly | monthly) with its date window. */
+export interface CompetitionPeriod {
+  period_type: 'weekly' | 'monthly';
+  period_label: string;
+  period_start: string;
+  period_end: string;
+}
+
 export interface WeeklyLeaderboard {
   data: WeeklyLeaderboardEntry[];
+  /** Backward-compatible period boundaries (equal to period.period_start/end). */
   week_start: string;
   week_end: string;
-  /** UI-only period label from backend config (e.g. "Weekly"); avoids hardcoding. */
+  /** UI-only period label from backend config (e.g. "Monthly"); avoids hardcoding. */
   period_label?: string;
+  /** Canonical period info; present since v1.7.8. */
+  period?: CompetitionPeriod;
   meta: LeaderboardMeta;
 }
 

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\LoginVerificationController;
 use App\Http\Controllers\Api\BadgeController;
+use App\Http\Controllers\Api\ChallengePackController;
 use App\Http\Controllers\Api\DailyChallengeController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\RoundController;
@@ -68,6 +69,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/badges',    [BadgeController::class, 'index']);
         Route::get('/me/badges', [BadgeController::class, 'mine']);
+
+        // Challenge packs — discovery only (content, not paid). Active+public.
+        Route::get('/packs',         [ChallengePackController::class, 'index']);
+        Route::get('/packs/{slug}',  [ChallengePackController::class, 'show']);
 
         Route::get('/leagues',                        [LeagueController::class, 'index']);
         Route::post('/leagues',                       [LeagueController::class, 'store']);

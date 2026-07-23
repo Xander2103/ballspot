@@ -25,6 +25,8 @@ import { GuessScreen } from '../screens/GuessScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { PacksScreen } from '../screens/PacksScreen';
+import { PackDetailScreen } from '../screens/PackDetailScreen';
 import { RankOverviewScreen } from '../screens/RankOverviewScreen';
 import { TrophyRoomScreen } from '../screens/TrophyRoomScreen';
 import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
@@ -41,6 +43,8 @@ export type RootStackParamList = {
   Home: undefined;
   SportSelection: { mode?: 'onboarding' | 'change'; currentSportId?: number | null } | undefined;
   Profile: undefined;
+  Packs: undefined;
+  PackDetail: { slug: string; name: string };
   RankOverview: undefined;
   TrophyRoom: undefined;
   CreateLeague: undefined;
@@ -115,6 +119,8 @@ export function AppNavigator() {
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="SportSelection" component={SportSelectionScreen} options={{ title: 'Choose Sport' }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
+        <Stack.Screen name="Packs" component={PacksScreen} options={{ title: 'Challenge Packs' }} />
+        <Stack.Screen name="PackDetail" component={PackDetailScreen} options={({ route }) => ({ title: route.params.name })} />
         <Stack.Screen name="RankOverview" component={RankOverviewScreen} options={{ title: 'All Ranks' }} />
         <Stack.Screen name="TrophyRoom" component={TrophyRoomScreen} options={{ title: 'Trophy Room' }} />
         <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />

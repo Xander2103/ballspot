@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Challenge;
 use App\Models\ChallengeCategory;
+use App\Models\ChallengeSubcategory;
 use App\Models\DailyChallenge;
 use App\Models\Sport;
 use App\Models\Tag;
@@ -14,7 +15,7 @@ class ChallengeController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Challenge::with(['sport', 'category', 'tags'])
+        $query = Challenge::with(['sport', 'category', 'tags', 'subcategories'])
             ->withExists(['dailyChallenges as used_as_daily'])
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->difficulty, fn ($q, $v) => $q->where('difficulty', $v))
@@ -40,7 +41,8 @@ class ChallengeController extends Controller
     {
         $categories = ChallengeCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $sports     = Sport::orderBy('sort_order')->get();
-        return view('admin.challenges.create', compact('categories', 'sports'));
+        $subcategories = $this->subcategoryOptions();
+        return view('admin.challenges.create', compact('categories', 'sports', 'subcategories'));
     }
 
     public function store(Request $request)
@@ -56,6 +58,8 @@ class ChallengeController extends Controller
             'hidden_image'           => ['required', 'image', 'max:5120'],
             'original_image'         => ['nullable', 'image', 'max:5120'],
             'tags'                   => ['nullable', 'string', 'max:500'],
+            'subcategories'          => ['nullable', 'array'],
+            'subcategories.*'        => ['integer', 'exists:challenge_subcategories,id'],
         ]);
 
         // Default to football to preserve existing behaviour.
@@ -78,6 +82,7 @@ class ChallengeController extends Controller
         ]);
 
         $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
+        $challenge->subcategories()->sync($data['subcategories'] ?? []);
 
         return redirect('/admin/challenges')->with('success', 'Challenge created.');
     }
@@ -86,8 +91,9 @@ class ChallengeController extends Controller
     {
         $categories = ChallengeCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $sports     = Sport::orderBy('sort_order')->get();
-        $challenge->load('tags');
-        return view('admin.challenges.edit', compact('challenge', 'categories', 'sports'));
+        $challenge->load('tags', 'subcategories');
+        $subcategories = $this->subcategoryOptions();
+        return view('admin.challenges.edit', compact('challenge', 'categories', 'sports', 'subcategories'));
     }
 
     public function update(Request $request, Challenge $challenge)
@@ -103,6 +109,8 @@ class ChallengeController extends Controller
             'hidden_image'           => ['nullable', 'image', 'max:5120'],
             'original_image'         => ['nullable', 'image', 'max:5120'],
             'tags'                   => ['nullable', 'string', 'max:500'],
+            'subcategories'          => ['nullable', 'array'],
+            'subcategories.*'        => ['integer', 'exists:challenge_subcategories,id'],
         ]);
 
         // Guard: cannot activate a challenge that has no hidden image
@@ -132,6 +140,7 @@ class ChallengeController extends Controller
         ]);
 
         $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
+        $challenge->subcategories()->sync($data['subcategories'] ?? []);
 
         return redirect('/admin/challenges')->with('success', 'Challenge updated.');
     }
@@ -155,6 +164,21 @@ class ChallengeController extends Controller
             ->map(fn ($name) => Tag::findOrCreateByName($name)->id)
             ->values()
             ->all();
+    }
+
+    /**
+     * Active subcategories for the challenge form's multi-select, grouped by a
+     * "Sport · Type" heading so the admin can scan them quickly.
+     */
+    private function subcategoryOptions()
+    {
+        return ChallengeSubcategory::active()
+            ->with('sport')
+            ->orderBy('type')
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->groupBy(fn ($s) => ($s->sport->name ?? 'Global') . ' · ' . $s->type);
     }
 
     /** Quick status change from the index page. */

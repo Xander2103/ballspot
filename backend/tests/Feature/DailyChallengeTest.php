@@ -175,10 +175,17 @@ class DailyChallengeTest extends TestCase
 
         $response = $this->withToken($token)->getJson('/api/daily/leaderboard/weekly');
         $response->assertOk();
-        $response->assertJsonStructure(['data', 'week_start', 'week_end', 'period_label']);
+        $response->assertJsonStructure([
+            'data', 'week_start', 'week_end', 'period_label',
+            'period' => ['period_type', 'period_label', 'period_start', 'period_end'],
+        ]);
         $this->assertNotEmpty($response->json('data'));
-        // Period label comes from config so the app never hardcodes "Weekly".
-        $this->assertSame(config('ballspot.leaderboard.period_label'), $response->json('period_label'));
+        // Period label comes from the competition service so the app never
+        // hardcodes "Weekly"/"Monthly".
+        $this->assertSame(
+            app(\App\Services\CompetitionPeriodService::class)->label(),
+            $response->json('period_label')
+        );
     }
 
     public function test_daily_stats_returns_expected_fields(): void

@@ -110,6 +110,13 @@
                                 <span class="badge bg-info text-dark ms-1">Used as daily</span>
                             @endif
                         </div>
+                        @if($challenge->subcategories->isNotEmpty())
+                            <div class="mt-1">
+                                @foreach($challenge->subcategories as $sub)
+                                    <span class="badge rounded-pill bg-light text-dark border" style="{{ $sub->color ? 'border-color:'.$sub->color.' !important;' : '' }}">{{ $sub->icon ? $sub->icon.' ' : '' }}{{ $sub->name }}</span>
+                                @endforeach
+                            </div>
+                        @endif
                     </td>
                     <td>
                         @if($challenge->isReady())

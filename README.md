@@ -491,6 +491,21 @@ Prints a read-only report covering environment config, content readiness, daily 
 the full screen URL, and `FRONTEND_URL=https://your-domain.com` in production. The email
 is BallPicker-branded (`APP_NAME=BallPicker`) — no Laravel logo or sign-off.
 
+## Content organisation & competitions (v1.7.8)
+
+- **Subcategories** (`/admin/subcategories`) — curated, admin-managed taxonomy (team, country,
+  league, club, difficulty, moment_type, player_type, custom) for organising/filtering content.
+  Separate from free-text challenge tags. Assign multiple per challenge on the challenge form.
+- **Challenge packs** (`/admin/packs`) — content-only collections (e.g. Belgium Pack). **No
+  prices, purchases or payments.** Users discover active+public packs via **Home → Challenge
+  Packs** (`GET /api/packs`, `GET /api/packs/{slug}`). Pack *play mode* is future work.
+- **Monthly competitions** — the daily-challenge leaderboard + top-finishers badge follow
+  `BALLPICKER_COMPETITION_PERIOD` (`monthly` default, or `weekly`); optional
+  `BALLPICKER_COMPETITION_LABEL`. The API returns a `period` block (type/label/start/end); the
+  app shows e.g. "Monthly · 1 Jul – 31 Jul". Route names are unchanged. View the active window
+  at `/admin/competition`. Known limits: no paid packs, no pack-completion flow, and monthly
+  top-finish *trophies* are prepared (Trophy Room placeholder) but not yet awarded.
+
 ## Constraints
 
 - No real money, no gambling, no subscriptions, no ads, no in-app purchases

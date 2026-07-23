@@ -27,6 +27,24 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::resource('categories', \App\Http\Controllers\Admin\ChallengeCategoryController::class);
     Route::post('categories/{category}/toggle', [\App\Http\Controllers\Admin\ChallengeCategoryController::class, 'toggle'])
         ->name('admin.categories.toggle');
+    // Curated subcategories (content organisation/filtering)
+    Route::get('subcategories', [\App\Http\Controllers\Admin\ChallengeSubcategoryController::class, 'index'])->name('admin.subcategories.index');
+    Route::get('subcategories/create', [\App\Http\Controllers\Admin\ChallengeSubcategoryController::class, 'create'])->name('admin.subcategories.create');
+    Route::post('subcategories', [\App\Http\Controllers\Admin\ChallengeSubcategoryController::class, 'store'])->name('admin.subcategories.store');
+    Route::get('subcategories/{subcategory}/edit', [\App\Http\Controllers\Admin\ChallengeSubcategoryController::class, 'edit'])->name('admin.subcategories.edit');
+    Route::put('subcategories/{subcategory}', [\App\Http\Controllers\Admin\ChallengeSubcategoryController::class, 'update'])->name('admin.subcategories.update');
+    Route::post('subcategories/{subcategory}/status', [\App\Http\Controllers\Admin\ChallengeSubcategoryController::class, 'status'])->name('admin.subcategories.status');
+
+    // Challenge packs (content collections — no purchases)
+    Route::get('packs', [\App\Http\Controllers\Admin\ChallengePackController::class, 'index'])->name('admin.packs.index');
+    Route::get('packs/create', [\App\Http\Controllers\Admin\ChallengePackController::class, 'create'])->name('admin.packs.create');
+    Route::post('packs', [\App\Http\Controllers\Admin\ChallengePackController::class, 'store'])->name('admin.packs.store');
+    Route::get('packs/{pack}/edit', [\App\Http\Controllers\Admin\ChallengePackController::class, 'edit'])->name('admin.packs.edit');
+    Route::put('packs/{pack}', [\App\Http\Controllers\Admin\ChallengePackController::class, 'update'])->name('admin.packs.update');
+    Route::post('packs/{pack}/status', [\App\Http\Controllers\Admin\ChallengePackController::class, 'status'])->name('admin.packs.status');
+
+    Route::get('competition', [\App\Http\Controllers\Admin\CompetitionController::class, 'index'])->name('admin.competition.index');
+
     Route::get('sports', [\App\Http\Controllers\Admin\SportController::class, 'index'])->name('admin.sports.index');
     Route::post('sports/{sport}/status', [\App\Http\Controllers\Admin\SportController::class, 'updateStatus'])
         ->name('admin.sports.status');

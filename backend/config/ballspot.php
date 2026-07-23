@@ -70,6 +70,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Competition period (daily-challenge leaderboard window)
+    |--------------------------------------------------------------------------
+    | Drives the recurring leaderboard aggregation window AND the top-10% badge.
+    | 'monthly' = current calendar month (default); 'weekly' = Mon–Sun. The
+    | label is derived from the period unless overridden. Timezone controls the
+    | boundary (defaults to the app timezone). Changing this changes what the
+    | leaderboard and the weekly_top_10 badge aggregate — deliberately one knob.
+    */
+    'competition' => [
+        'period'   => env('BALLPICKER_COMPETITION_PERIOD', 'monthly'), // weekly | monthly
+        'label'    => env('BALLPICKER_COMPETITION_LABEL'),             // optional override
+        'timezone' => env('BALLPICKER_COMPETITION_TIMEZONE'),          // null = config('app.timezone')
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Scoring convention
     |--------------------------------------------------------------------------
     | A guess score runs 0..max_score (distance-based, see ScoreService). These

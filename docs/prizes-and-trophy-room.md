@@ -104,10 +104,24 @@ added casually. Before a single real prize is offered:
 These remain **ideas only**. None are implemented, promised, or displayed as
 available in the app.
 
+## Competition trophies (v1.7.8 prep)
+
+The Trophy Room now shows a **"Competition trophies"** section with an honest empty state
+("Top finishes will appear here when monthly competitions end."). This is **preparation only**:
+
+- The competition period is now configurable (weekly/monthly, monthly default) and drives the
+  leaderboard + top-finishers badge (`config('ballspot.competition')`).
+- **No monthly top-3 finish trophies are awarded yet** — the future architecture mirrors the
+  existing tournament `tournament_finishes` table (a `competition_finishes`-style record written
+  when a period closes). Pack-completion badges are likewise future.
+- Consistent with the rules below: **no fake trophies, no fake wins** — the section stays empty
+  until real period-close awards exist. All future trophies remain **virtual only**.
+
 ## Explicit non-goals (current and this sprint)
 
 - ❌ Real-money gambling or betting
 - ❌ Payments, in-app purchases, or App Store purchase logic
+- ❌ Paid challenge packs, a shop, or pack purchases
 - ❌ Real prize claiming or fulfilment
 - ❌ XP marketplace / buying, selling, or redeeming XP for value
 - ❌ Ads

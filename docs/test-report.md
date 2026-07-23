@@ -2,8 +2,29 @@
 
 Build date: 2026-07-23
 
-**Backend:** 254 feature tests passing (was 230; +3 password-reset URL/branding, +21 notifications).
+**Backend:** 273 feature tests passing (was 254; +19 in v1.7.8 subcategories/packs/monthly).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## Subcategories, Packs & Monthly Competitions (v1.7.8)
+
+Content organisation + content-only packs + configurable competition period. Adds
+`SubcategoryTest` (6), `ChallengePackTest` (8), `CompetitionPeriodTest` (5):
+
+- **Subcategories:** admin can create; invalid type rejected; non-admin blocked
+  (guest→login, authed→403); a challenge takes multiple subcategories and deleting one only
+  detaches; `active()` scope excludes inactive; slug de-duplicated within (sport, type).
+- **Packs:** admin can create; non-admin blocked; pack holds challenges (detach keeps the
+  challenge); active+public appear in `/api/packs`; draft/hidden/archived do **not**; detail
+  hides admin fields (`status`/`visibility`) and the ball position, lists only ready
+  challenges, and 404s for hidden packs.
+- **Competition period:** monthly config → "Monthly" label + calendar-month window; weekly
+  config → Mon–Sun window; label override; leaderboard response includes the `period` block;
+  monthly aggregation spans the whole month (not just the current week).
+
+Existing `DailyChallengeTest` leaderboard assertion updated to the competition-service label
+(default Monthly) and the new `period` structure.
 
 ---
 
