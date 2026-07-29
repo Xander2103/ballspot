@@ -38,6 +38,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout',       [AuthController::class, 'logout']);
     Route::get('/me',            [AuthController::class, 'me']);
     Route::delete('/account',    [AccountController::class, 'delete']);
+    // GDPR export — deliberately NOT behind the verified gate: an unverified
+    // user has the same right to their data.
+    Route::get('/me/export',     [\App\Http\Controllers\Api\DataExportController::class, 'show'])->middleware('throttle:export');
 
     // Email verification (register step 2)
     Route::post('/email/verify',                    [EmailVerificationController::class, 'verify'])->middleware('throttle:email-verify');
