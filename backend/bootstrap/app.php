@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Global fallback throttle for every API route (named limiter 'api'
         // in AppServiceProvider). Stricter route-level limiters stack on top.
         $middleware->throttleApi();
+
+        // Baseline security headers on every response.
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Clean, consistent 429 JSON for the app (never an HTML error page).
