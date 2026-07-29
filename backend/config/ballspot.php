@@ -27,6 +27,11 @@ return [
     // the framework name). Kept configurable as the product is renamed.
     'app_name'      => env('BALLSPOT_APP_NAME', 'BallPicker'),
 
+    // Closed-beta gate: when set, registration requires a matching beta_code
+    // (case-insensitive). Empty/null = registration open. Share one code with
+    // testers; rotate by changing the env value.
+    'beta_code'     => env('BALLPICKER_BETA_CODE') ?: null,
+
     /*
     |--------------------------------------------------------------------------
     | Email two-factor login
