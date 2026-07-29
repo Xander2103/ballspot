@@ -17,6 +17,9 @@ use Illuminate\Http\Request;
 
 class DailyChallengeController extends Controller
 {
+    /** Max rows returned in the leaderboard list (meta still covers everyone). */
+    public const LEADERBOARD_MAX_ENTRIES = 100;
+
     public function __construct(
         private ScoreService $scoreService,
         private DailyStreakService $streakService,
@@ -246,7 +249,9 @@ class DailyChallengeController extends Controller
         });
 
         return response()->json([
-            'data'         => $entries,
+            // Cap the list payload; meta below still covers the FULL field so
+            // "You are #X of Y" stays correct for players beyond the cap.
+            'data'         => $entries->take(self::LEADERBOARD_MAX_ENTRIES)->values(),
             // Backward-compatible keys (still the period boundaries).
             'week_start'   => $periodStart,
             'week_end'     => $periodEnd,
@@ -306,7 +311,10 @@ class DailyChallengeController extends Controller
         $currentStreak = $streaks['current'];
         $bestStreak = $streaks['best'];
 
-        $allGuesses = DailyChallengeGuess::where('user_id', $user->id)->get();
+        // Aggregate in SQL — never load the full guess history into memory.
+        $agg = DailyChallengeGuess::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as total, AVG(score) as avg_score, MAX(score) as best_score')
+            ->first();
 
         // Rank within the current competition period (monthly by default).
         $weeklyRank = $this->getWeeklyRank($user->id, $this->period->start(), $this->period->end());
@@ -314,9 +322,9 @@ class DailyChallengeController extends Controller
         return response()->json([
             'current_streak' => $currentStreak,
             'best_streak'    => $bestStreak,
-            'total_played'   => $allGuesses->count(),
-            'average_score'  => $allGuesses->count() > 0 ? round($allGuesses->avg('score'), 1) : 0,
-            'best_score'     => $allGuesses->max('score') ?? 0,
+            'total_played'   => (int) $agg->total,
+            'average_score'  => $agg->total > 0 ? round((float) $agg->avg_score, 1) : 0,
+            'best_score'     => (int) ($agg->best_score ?? 0),
             // Kept key name for BC; value now reflects the configured period.
             'weekly_rank'    => $weeklyRank,
             'period'         => $this->period->toArray(),

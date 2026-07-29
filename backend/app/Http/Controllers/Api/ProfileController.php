@@ -13,6 +13,9 @@ use Illuminate\Http\Request;
 
 class ProfileController extends Controller
 {
+    /** Hard cap for self-scoped history lists (Trophy Room etc.). */
+    public const MAX_LIST_ROWS = 100;
+
     public function __construct(
         private DailyStreakService $streakService,
         private PlayerRankService $rankService,
@@ -44,6 +47,7 @@ class ProfileController extends Controller
         $finishes = TournamentFinish::where('user_id', $request->user()->id)
             ->with('league:id,name')
             ->orderByDesc('created_at')
+            ->limit(self::MAX_LIST_ROWS)
             ->get()
             ->map(fn (TournamentFinish $f) => [
                 'id'            => $f->id,
@@ -66,6 +70,7 @@ class ProfileController extends Controller
         $finishes = \App\Models\CompetitionFinish::where('user_id', $request->user()->id)
             ->orderByDesc('period_start')
             ->orderBy('placement')
+            ->limit(self::MAX_LIST_ROWS)
             ->get()
             ->map(fn (\App\Models\CompetitionFinish $f) => [
                 'id'            => $f->id,
@@ -90,6 +95,7 @@ class ProfileController extends Controller
             ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
             ->with(['pack:id,name,slug', 'guesses:id,pack_attempt_id,score'])
             ->orderByDesc('completed_at')
+            ->limit(self::MAX_LIST_ROWS)
             ->get()
             ->map(function (\App\Models\PackAttempt $a) {
                 $count = $a->guesses->count();
@@ -116,18 +122,22 @@ class ProfileController extends Controller
 
         $tournamentsCount = $user->leagues()->count();
         $completedCount   = $user->leagues()->where('status', 'completed')->count();
-        $guessesCount     = Guess::where('user_id', $user->id)->count();
-        $totalScore       = (int) (Guess::where('user_id', $user->id)->sum('score') ?? 0);
-        $avgScore         = $guessesCount > 0
-            ? round((float) Guess::where('user_id', $user->id)->avg('score'), 1)
-            : 0.0;
+        $guessAgg         = Guess::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as total, COALESCE(SUM(score), 0) as total_score, AVG(score) as avg_score')
+            ->first();
+        $guessesCount     = (int) $guessAgg->total;
+        $totalScore       = (int) $guessAgg->total_score;
+        $avgScore         = $guessesCount > 0 ? round((float) $guessAgg->avg_score, 1) : 0.0;
 
-        $streaks      = $this->streakService->getStreakForUser($user);
-        $dailyGuesses = \App\Models\DailyChallengeGuess::where('user_id', $user->id)->get();
-        $dailyStats   = [
-            'total_played'   => $dailyGuesses->count(),
-            'average_score'  => $dailyGuesses->count() > 0 ? round($dailyGuesses->avg('score'), 1) : 0,
-            'best_score'     => $dailyGuesses->max('score') ?? 0,
+        $streaks  = $this->streakService->getStreakForUser($user);
+        // Aggregate in SQL — never load the full guess history into memory.
+        $dailyAgg = \App\Models\DailyChallengeGuess::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as total, AVG(score) as avg_score, MAX(score) as best_score')
+            ->first();
+        $dailyStats = [
+            'total_played'   => (int) $dailyAgg->total,
+            'average_score'  => $dailyAgg->total > 0 ? round((float) $dailyAgg->avg_score, 1) : 0,
+            'best_score'     => (int) ($dailyAgg->best_score ?? 0),
             'current_streak' => $streaks['current'],
             'best_streak'    => $streaks['best'],
         ];

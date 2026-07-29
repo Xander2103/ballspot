@@ -19,7 +19,7 @@ class ChallengePackController extends Controller
             ->withCount('challenges')
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->get();
+            ->paginate(25);
 
         return view('admin.packs.index', compact('packs'));
     }
@@ -137,7 +137,7 @@ class ChallengePackController extends Controller
             'difficulty'  => ['nullable', 'in:easy,medium,hard,mixed'],
             'sort_order'  => ['nullable', 'integer', 'min:0'],
             'is_featured' => ['boolean'],
-            'cover_image' => ['nullable', 'image', 'max:5120'],
+            'cover_image' => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
         ]);
     }
 

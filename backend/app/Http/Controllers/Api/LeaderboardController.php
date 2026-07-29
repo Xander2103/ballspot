@@ -30,6 +30,8 @@ class LeaderboardController extends Controller
             )
             ->groupBy('users.id', 'users.username', 'users.name')
             ->orderByDesc('total_score')
+            // Tournaments are capped at 8 players; this is a pure safety net.
+            ->limit(100)
             ->get()
             ->map(fn($row, $i) => array_merge((array) $row, [
                 'rank' => $i + 1,
