@@ -26,7 +26,9 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->notify(new ResetPasswordNotification($token));
     }
 
-    protected $hidden = ['password', 'remember_token'];
+    // is_admin is hidden so a raw User serialization can never advertise
+    // which accounts are worth attacking (admin checks are server-side only).
+    protected $hidden = ['password', 'remember_token', 'is_admin'];
 
     protected function casts(): array
     {

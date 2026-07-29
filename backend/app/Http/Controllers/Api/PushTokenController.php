@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterPushTokenRequest;
 use App\Models\PushToken;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PushTokenController extends Controller
 {
@@ -29,5 +30,22 @@ class PushTokenController extends Controller
         );
 
         return response()->json(['status' => 'registered'], 201);
+    }
+
+    // DELETE /api/me/push-tokens
+    // With a token in the body: remove that registration if it belongs to the
+    // caller. Without: remove all of the caller's registrations (logout /
+    // account deletion). Always scoped to the authenticated user.
+    public function destroy(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'token' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        PushToken::where('user_id', $request->user()->id)
+            ->when($data['token'] ?? null, fn ($q, $token) => $q->where('token', $token))
+            ->delete();
+
+        return response()->json(['status' => 'removed']);
     }
 }

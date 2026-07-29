@@ -66,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me/notification-settings',  [NotificationSettingsController::class, 'show']);
         Route::put('/me/notification-settings',  [NotificationSettingsController::class, 'update']);
         Route::post('/me/push-tokens',           [PushTokenController::class, 'store'])->middleware('throttle:push-tokens');
+        Route::delete('/me/push-tokens',         [PushTokenController::class, 'destroy'])->middleware('throttle:push-tokens');
         Route::post('/me/avatar',       [AvatarController::class, 'store']);
         Route::delete('/me/avatar',     [AvatarController::class, 'destroy']);
 

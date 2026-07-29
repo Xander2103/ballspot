@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
@@ -50,7 +50,7 @@ return [
     |
     */
 
-    'expiration' => null,
+    'expiration' => env('SANCTUM_TOKEN_EXPIRATION_MINUTES'), // null = never; set in production (see docs/security-hardening.md)
 
     /*
     |--------------------------------------------------------------------------
