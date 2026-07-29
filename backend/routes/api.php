@@ -22,15 +22,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn() => response()->json(['status' => 'ok', 'timestamp' => now()]));
 
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
 
 // Email two-factor login (step 1: credentials -> emailed code; step 2: verify -> token)
 Route::post('/login',              [AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('/login/verify',       [LoginVerificationController::class, 'verify'])->middleware('throttle:login-verify');
 Route::post('/login/resend-code',  [LoginVerificationController::class, 'resend'])->middleware('throttle:login-resend');
 
-Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
-Route::post('/reset-password',  [PasswordResetController::class, 'reset']);
+Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:forgot-password');
+Route::post('/reset-password',  [PasswordResetController::class, 'reset'])->middleware('throttle:reset-password');
 
 Route::middleware('auth:sanctum')->group(function () {
     // Available to any authenticated user, verified or not — these are exactly
@@ -40,8 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/account',    [AccountController::class, 'delete']);
 
     // Email verification (register step 2)
-    Route::post('/email/verify',                    [EmailVerificationController::class, 'verify']);
-    Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend']);
+    Route::post('/email/verify',                    [EmailVerificationController::class, 'verify'])->middleware('throttle:email-verify');
+    Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])->middleware('throttle:email-resend');
 
     // Sport list is non-sensitive onboarding reference data — needed during
     // sign-up before/while verifying, so it is NOT behind the verified gate.
@@ -65,7 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Notification settings (synced across devices) + Expo push registration
         Route::get('/me/notification-settings',  [NotificationSettingsController::class, 'show']);
         Route::put('/me/notification-settings',  [NotificationSettingsController::class, 'update']);
-        Route::post('/me/push-tokens',           [PushTokenController::class, 'store']);
+        Route::post('/me/push-tokens',           [PushTokenController::class, 'store'])->middleware('throttle:push-tokens');
         Route::post('/me/avatar',       [AvatarController::class, 'store']);
         Route::delete('/me/avatar',     [AvatarController::class, 'destroy']);
 
@@ -79,7 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Pack play mode (attempts, sequential guesses, completion).
         Route::post('/packs/{slug}/start',   [PackPlayController::class, 'start']);
         Route::get('/packs/{slug}/attempt',  [PackPlayController::class, 'attempt']);
-        Route::post('/pack-attempts/{attempt}/guess', [PackPlayController::class, 'guess']);
+        Route::post('/pack-attempts/{attempt}/guess', [PackPlayController::class, 'guess'])->middleware('throttle:gameplay');
         Route::get('/me/pack-completions',   [ProfileController::class, 'packCompletions']);
 
         Route::get('/leagues',                        [LeagueController::class, 'index']);
@@ -92,14 +92,14 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/leagues/{league}/current-round', [LeagueController::class, 'currentRound']);
         Route::get('/leagues/{league}/leaderboard',   [LeaderboardController::class, 'index']);
 
-        Route::post('/rounds/{round}/guess', [RoundController::class, 'submitGuess']);
+        Route::post('/rounds/{round}/guess', [RoundController::class, 'submitGuess'])->middleware('throttle:gameplay');
         Route::get('/rounds/{round}/result', [RoundController::class, 'result']);
 
         Route::prefix('daily')->group(function () {
             Route::get('/today', [DailyChallengeController::class, 'today']);
             Route::get('/leaderboard/weekly', [DailyChallengeController::class, 'weeklyLeaderboard']);
             Route::get('/stats', [DailyChallengeController::class, 'stats']);
-            Route::post('/{dailyChallenge}/guess', [DailyChallengeController::class, 'guess']);
+            Route::post('/{dailyChallenge}/guess', [DailyChallengeController::class, 'guess'])->middleware('throttle:gameplay');
             Route::get('/{dailyChallenge}/result', [DailyChallengeController::class, 'result']);
         });
     });

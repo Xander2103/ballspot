@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,7 +17,21 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
         ]);
+
+        // Global fallback throttle for every API route (named limiter 'api'
+        // in AppServiceProvider). Stricter route-level limiters stack on top.
+        $middleware->throttleApi();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Clean, consistent 429 JSON for the app (never an HTML error page).
+        $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
+            if ($request->expectsJson() || $request->is('api/*')) {
+                $retryAfter = (int) ($e->getHeaders()['Retry-After'] ?? 60);
+
+                return response()->json([
+                    'message'     => "Too many requests. Please try again in {$retryAfter} seconds.",
+                    'retry_after' => $retryAfter,
+                ], 429, $e->getHeaders());
+            }
+        });
     })->create();

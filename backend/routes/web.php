@@ -15,7 +15,7 @@ Route::get('/support', [PublicController::class, 'support'])->name('support');
 
 // Admin auth (unguarded)
 Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'showLogin'])->name('admin.login');
-Route::post('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'login'])->name('admin.login.submit');
+Route::post('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'login'])->name('admin.login.submit')->middleware('throttle:admin-login');
 Route::post('/admin/logout', [\App\Http\Controllers\Admin\AuthController::class, 'logout'])->name('admin.logout');
 
 // Admin protected area
@@ -51,7 +51,7 @@ Route::prefix('admin')->middleware('admin')->group(function () {
 
     Route::get('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('admin.notifications.index');
     Route::post('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'store'])->name('admin.notifications.store');
-    Route::post('notifications/{adminNotification}/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('admin.notifications.send');
+    Route::post('notifications/{adminNotification}/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('admin.notifications.send')->middleware('throttle:admin-send');
 
     Route::prefix('daily')->name('admin.daily.')->group(function () {
         Route::get('/', [DailyChallengeAdminController::class, 'index'])->name('index');
