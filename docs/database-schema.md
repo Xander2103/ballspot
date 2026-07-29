@@ -527,3 +527,19 @@ Detaching never deletes challenges or images.
 **Badges:** `first_pack_completed` (📦 common), `perfect_pack` (💎 legendary), `pack_master`
 (🧠 epic, 10 packs) — catalogue is now **23** badges. Completed attempts stay historical and
 feed the Trophy Room. No paid packs, no purchases.
+
+## Query indexes added in v1.8.1
+
+SQLite does not auto-index foreign key columns, so migration
+`2026_07_30_000001_add_missing_query_indexes` adds:
+
+| Table | Index | Serves |
+|---|---|---|
+| guesses | (user_id) | profile stats aggregates |
+| daily_challenge_guesses | (user_id) | daily stats, streaks |
+| league_rounds | (league_id, status) | leaderboards, current-round |
+| league_members | (user_id) | "my leagues" listing |
+
+Other hot paths were already covered by existing unique/composite indexes
+(xp_events, pack_attempts, push_tokens, notification_settings,
+competition_finishes, tournament_finishes — see the per-table sections).

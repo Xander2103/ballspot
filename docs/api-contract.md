@@ -804,6 +804,74 @@ Login at `/admin/login` with `admin@ballspot.local / password`. All admin routes
 
 ---
 
+## Security & Privacy endpoints (v1.8.1)
+
+### Rate limiting
+
+Every API route is behind a global throttle (120/min per user/IP); sensitive
+routes have stricter limits — the full table lives in
+**docs/security-hardening.md**. Exceeding a limit returns:
+
+```json
+// Response 429 (headers include Retry-After)
+{ "message": "Too many requests. Please try again in 42 seconds.", "retry_after": 42 }
+```
+
+### POST /register — beta code *(v1.8.1)*
+
+When `BALLPICKER_BETA_CODE` is set, registration additionally requires
+`"beta_code"` matching the configured code (case-insensitive):
+
+```json
+// Request (closed beta)
+{ "name": "...", "username": "...", "email": "...", "password": "...", "beta_code": "FRIENDS2026" }
+
+// Response 422 — missing/wrong code
+{ "message": "...", "errors": { "beta_code": ["..."] } }
+```
+
+When the env var is empty, `beta_code` is ignored and registration is open.
+
+### GET /api/me/export  *(auth required; NOT gated by verified; 5/hour)*
+
+GDPR data export. Returns everything stored about the caller as JSON:
+`account`, `notification_settings`, `push_tokens` (platform + timestamps
+only), `xp_events`, `badges`, `daily_guesses`, `tournament_guesses_summary`,
+`tournament_finishes`, `competition_finishes`, `pack_completions`, each list
+capped at 1000 rows. **Never contains** the password hash, API/reset/
+verification tokens, or raw push-token values.
+
+### DELETE /api/me/push-tokens  *(auth + verified required)*
+
+```json
+// Request — remove ONE device registration (must belong to the caller)
+{ "token": "ExponentPushToken[...]" }
+
+// Request — remove ALL of the caller's registrations
+{}
+
+// Response 200
+{ "status": "removed" }
+```
+
+The app calls this on logout; account deletion removes all registrations
+server-side.
+
+### DELETE /account — extended cleanup *(v1.8.1)*
+
+In addition to revoking tokens and anonymizing the row, deletion now removes
+the avatar file, push tokens, notification settings, and pending
+email/login verification codes.
+
+### Response caps *(v1.8.1)*
+
+- `GET /api/daily/leaderboard/weekly`: `data` capped at 100 entries; `meta`
+  (total_players, current_user_rank, nearby_users) still reflects the full field.
+- `GET /api/me/tournament-finishes`, `/api/me/competition-finishes`,
+  `/api/me/pack-completions`: capped at 100 rows (newest first).
+
+---
+
 ## Security Notes
 
 ### Ball position access control

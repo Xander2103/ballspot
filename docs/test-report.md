@@ -1,9 +1,51 @@
-# BallSpot v1.8.0 — Test Report
+# BallSpot v1.8.1 — Test Report
 
-Build date: 2026-07-23
+Build date: 2026-07-30
 
-**Backend:** 302 feature tests passing (was 286; +16 competition close, badge-count assertions 23→26).
+**Backend:** 334 feature tests passing (was 302; +32 across rate limiting, endpoint caps, security headers, deletion cleanup, push-token privacy, data export, beta code).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
+
+---
+
+## Security, Privacy & Test Readiness (v1.8.1)
+
+Hardening pass before external testing. New/extended suites:
+
+- **RateLimitTest (9):** register throttled per IP with clean 429 JSON
+  (`message` + `retry_after`); forgot-password per email; reset-password per
+  IP; email verify/resend per user; **admin login throttled** (was completely
+  unthrottled); guess endpoints carry `throttle:gameplay`; every API route
+  rides the global `throttle:api`; admin notification send throttled. Base
+  `TestCase` now flushes the cache per test so limiter windows never leak
+  between tests.
+- **EndpointCapsTest (4):** weekly leaderboard `data` capped at 100 while
+  `meta` still ranks the full field (verified with a 105-player field, rank
+  105 preserved); Trophy Room caps; admin challenge upload **rejects gif**,
+  accepts png (mimes tightened to jpeg/jpg/png/webp).
+- **SecurityHeadersTest (2):** nosniff / SAMEORIGIN / Referrer-Policy /
+  Permissions-Policy present on API and public web responses.
+- **AccountDeletionTest (+3 → 8):** deletion now also removes the avatar
+  file (and clears `avatar_path`), push tokens, notification settings and
+  pending verification codes; gameplay/XP history retained anonymized.
+- **PushTokenPrivacyTest (6):** register response never echoes the token;
+  `DELETE /me/push-tokens` removes own row(s) only (cannot touch another
+  user's registration); `ballspot:cleanup-login-codes` prunes tokens unseen
+  for 90+ days; `is_admin` never serializes.
+- **DataExportTest (4):** `GET /api/me/export` requires auth, works for
+  unverified users, contains account + activity data, and **never contains**
+  the password hash, API-token value, or raw push-token value.
+- **BetaCodeTest (4):** registration open when no code configured; required
+  + validated (case-insensitive, non-echoing) when `BALLPICKER_BETA_CODE` set.
+
+Stats endpoints were rewritten onto SQL aggregates and missing SQLite indexes
+added (`guesses.user_id`, `daily_challenge_guesses.user_id`,
+`league_rounds(league_id,status)`, `league_members.user_id`) — all existing
+suites still green, confirming no behavior change.
+
+Mobile: consent checkbox + Terms/Privacy links + optional beta-code field on
+Register; 429-aware API client; `signOut()` clears token, scheduled
+reminders, prompt flag and theme on logout/delete and de-registers the
+device push token on logout.
 
 ---
 

@@ -10,6 +10,32 @@ A social football guessing game. Spot the hidden ball. Beat your friends. Play t
 
 BallSpot shows football images with the ball hidden. Players tap where they think the ball is and earn points based on accuracy. Play the daily challenge against everyone, create leagues with friends, or climb the weekly leaderboard.
 
+## New in v1.8.1 — Security, Privacy & Test Readiness
+
+Hardening pass before external testing:
+
+- **Centralized rate limiting** — global API throttle plus strict limits on
+  register / password reset / email verification / guesses / push tokens /
+  admin login, with clean 429 JSON (`retry_after`) and a 429-aware mobile
+  client. Full table: [docs/security-hardening.md](docs/security-hardening.md).
+- **Database protection** — leaderboard responses capped (meta still ranks the
+  full field), Trophy Room lists capped, stats via SQL aggregates, missing
+  SQLite indexes added, admin packs list paginated.
+- **Complete account deletion** — now also removes the avatar file, push
+  tokens, notification settings and pending verification codes.
+- **GDPR data export** — `GET /api/me/export` (no secrets included).
+- **Push-token hygiene** — `DELETE /api/me/push-tokens`, logout de-registers
+  the device, stale tokens pruned after 90 days.
+- **Security headers + CORS** — nosniff/frame/referrer/permissions headers on
+  every response; `CORS_ALLOWED_ORIGINS` env replaces the wildcard default.
+- **Consent UX** — registration requires agreeing to the Terms & Privacy
+  Policy (with links); admin uploads restricted to jpeg/png/webp.
+- **Closed beta gate** — set `BALLPICKER_BETA_CODE` to require a shared code
+  at registration; leave empty for open registration.
+- **Docs** — [privacy data inventory](docs/privacy-data-inventory.md),
+  [privacy policy draft](docs/privacy-policy-draft.md) (needs legal review),
+  [test readiness checklist](docs/test-readiness-checklist.md).
+
 ## New in v1.7.7 — Tournament Completion, Winner XP & Trophy Finishes
 
 Tournaments now finish and reward players — all **virtual** (badges + XP ledger), no prizes/money:
@@ -436,9 +462,15 @@ The `backups/` folder is listed in `.gitignore` — backups are never committed.
 
 Users can delete their account from the Profile screen (Settings → Delete account). A confirmation modal is shown before deletion. On confirm:
 
-1. `DELETE /api/account` is called — account is anonymized, all tokens revoked
-2. The stored token is cleared from the device
+1. `DELETE /api/account` is called — all tokens revoked; the avatar file, push
+   tokens, notification settings and pending verification codes are deleted;
+   the account row is anonymized (gameplay history stays as "Deleted User")
+2. All local state is cleared from the device (token, scheduled reminders,
+   theme, notification prompt flag)
 3. The app navigates back to the Login screen
+
+Users can also download their data: `GET /api/me/export` returns a full JSON
+export (never includes password hashes, tokens, or push-token values).
 
 This satisfies Google Play and Apple App Store account deletion requirements.
 
@@ -467,6 +499,10 @@ Prints a read-only report covering environment config, content readiness, daily 
 
 - [API Contract](docs/api-contract.md)
 - [Security & Authentication](docs/security-auth.md)
+- [Security Hardening (v1.8.1)](docs/security-hardening.md)
+- [Privacy Data Inventory](docs/privacy-data-inventory.md)
+- [Privacy Policy Draft (needs legal review)](docs/privacy-policy-draft.md)
+- [Test Readiness Checklist](docs/test-readiness-checklist.md)
 - [Database Schema](docs/database-schema.md)
 - [Test Report](docs/test-report.md)
 - [Content Safety Guide](docs/content-safety.md)

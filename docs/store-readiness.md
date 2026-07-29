@@ -4,6 +4,23 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.8.1 store-relevant notes (Security, Privacy & Test Readiness)
+
+- **Account deletion is now complete** (avatar file, push tokens, settings and
+  pending codes removed; row anonymized) — satisfies the Play/App Store
+  deletion requirement more fully.
+- **Data export** exists (`GET /api/me/export`) — helpful for privacy reviews.
+- **Registration requires Terms/Privacy consent** (checkbox + links) — ensure
+  `/terms` and `/privacy` are live before submitting builds.
+- **Privacy policy draft** at docs/privacy-policy-draft.md — **must get legal
+  review** before the store listing links to it.
+- **Closed testing:** set `BALLPICKER_BETA_CODE` to gate registration during
+  internal/closed tracks; clear for open testing.
+- Before any external testing, walk docs/test-readiness-checklist.md
+  (HTTPS, CORS origins, APP_DEBUG=false, backups, rate-limit spot checks).
+
+---
+
 ## v1.8.0 store-relevant notes (Monthly Competition Close)
 
 - **Competition trophies are virtual only.** Closing a monthly (or weekly) competition awards
