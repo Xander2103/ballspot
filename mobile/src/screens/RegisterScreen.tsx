@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Text, StyleSheet, TextInput } from 'react-native';
+import { Text, StyleSheet, TextInput, Pressable, View, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -14,11 +14,15 @@ import { spacing } from '../theme/spacing';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? API_BASE.replace(/\/api$/, '');
+
 type FieldErrors = {
   name?: string;
   username?: string;
   email?: string;
   password?: string;
+  beta_code?: string;
 };
 
 export function RegisterScreen({ navigation }: Props) {
@@ -27,6 +31,8 @@ export function RegisterScreen({ navigation }: Props) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [betaCode, setBetaCode] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
@@ -51,9 +57,20 @@ export function RegisterScreen({ navigation }: Props) {
       return;
     }
 
+    if (!agreed) {
+      setFormError('Please agree to the Terms and Privacy Policy to create an account.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await authApi.register({ name: name.trim(), username: username.trim(), email: email.trim(), password });
+      const res = await authApi.register({
+        name: name.trim(),
+        username: username.trim(),
+        email: email.trim(),
+        password,
+        ...(betaCode.trim() ? { beta_code: betaCode.trim() } : {}),
+      });
       await tokenStorage.save(res.token);
       if (res.email_verified === true) {
         // Email verification disabled by config — account is already verified,
@@ -126,7 +143,38 @@ export function RegisterScreen({ navigation }: Props) {
         returnKeyType="done"
         onSubmitEditing={handleRegister}
       />
-      <AppButton title="Create Account" onPress={handleRegister} loading={loading} />
+      <AppInput
+        label="Beta code (if you have one)"
+        value={betaCode}
+        onChangeText={setBetaCode}
+        autoCapitalize="characters"
+        error={fieldErrors.beta_code}
+      />
+
+      {/* Terms/Privacy consent — required before account creation. */}
+      <Pressable
+        style={styles.consentRow}
+        onPress={() => setAgreed((v) => !v)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: agreed }}
+      >
+        <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
+          {agreed ? <Text style={styles.checkboxMark}>✓</Text> : null}
+        </View>
+        <Text style={styles.consentText}>
+          I agree to the{' '}
+          <Text style={styles.link} onPress={() => Linking.openURL(`${WEB_BASE}/terms`)}>
+            Terms
+          </Text>{' '}
+          and have read the{' '}
+          <Text style={styles.link} onPress={() => Linking.openURL(`${WEB_BASE}/privacy`)}>
+            Privacy Policy
+          </Text>
+          .
+        </Text>
+      </Pressable>
+
+      <AppButton title="Create Account" onPress={handleRegister} loading={loading} disabled={!agreed} />
     </Screen>
   );
 }
@@ -134,4 +182,27 @@ export function RegisterScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   formError: { color: colors.error, fontSize: 14, marginBottom: spacing.md },
+  consentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkboxMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  consentText: { flex: 1, color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
+  link: { color: colors.primary, fontWeight: '600' },
 });

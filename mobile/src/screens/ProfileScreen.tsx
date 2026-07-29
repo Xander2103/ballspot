@@ -12,7 +12,8 @@ import { RecentXpCard } from '../components/RecentXpCard';
 import { NotificationSettingsCard } from '../components/NotificationSettingsCard';
 import { authApi } from '../api/authApi';
 import { avatarApi } from '../api/avatarApi';
-import { tokenStorage } from '../storage/tokenStorage';
+import { signOut } from '../app/signOut';
+import { notifications } from '../services/notifications';
 import { useTheme } from '../theme/useTheme';
 import { THEME_META, ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
@@ -80,8 +81,12 @@ export function ProfileScreen({ navigation }: Props) {
   }
 
   async function handleLogout() {
+    // Server-side first, while the auth token still works: stop pushes to
+    // this device, then revoke the session. Both best-effort — a dead network
+    // must never trap the user in a signed-in state.
+    try { await notifications.unregisterPushToken(); } catch {}
     try { await authApi.logout(); } catch {}
-    await tokenStorage.remove();
+    await signOut();
     navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   }
 
@@ -90,8 +95,10 @@ export function ProfileScreen({ navigation }: Props) {
     setDeleting(true);
     setDeleteError('');
     try {
+      // The server removes ALL push registrations on deletion, so only the
+      // local cleanup is needed here.
       await authApi.deleteAccount();
-      await tokenStorage.remove();
+      await signOut();
       setShowDeleteModal(false);
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
     } catch {

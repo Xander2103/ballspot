@@ -30,4 +30,16 @@ export const localFlags = {
       // best-effort — a failed flag write just means we might re-ask once.
     }
   },
+
+  async remove(key: string): Promise<void> {
+    try {
+      if (Platform.OS === 'web') {
+        if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+      } else {
+        await SecureStore.deleteItemAsync(key);
+      }
+    } catch {
+      // best-effort
+    }
+  },
 };

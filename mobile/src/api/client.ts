@@ -28,6 +28,24 @@ async function request<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
+
+    // Rate limited: surface a clear, actionable message with the wait time
+    // (server sends Retry-After + a retry_after JSON field).
+    if (response.status === 429) {
+      const headerRetry = Number(response.headers.get('Retry-After'));
+      const retryAfter =
+        Number.isFinite(headerRetry) && headerRetry > 0
+          ? headerRetry
+          : typeof error?.retry_after === 'number'
+            ? error.retry_after
+            : 60;
+      throw {
+        status: 429,
+        retry_after: retryAfter,
+        message: `Too many attempts. Try again in ${retryAfter} seconds.`,
+      };
+    }
+
     throw { status: response.status, ...error };
   }
 

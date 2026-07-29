@@ -98,6 +98,22 @@ async function registerPushToken(): Promise<void> {
   }
 }
 
+/**
+ * Best-effort removal of this device's push registration on the backend.
+ * Called on logout so a signed-out device stops receiving announcements.
+ * If the device token cannot be read, nothing is removed (other devices'
+ * registrations must survive a single-device logout).
+ */
+async function unregisterPushToken(): Promise<void> {
+  if (!isSupported()) return;
+  try {
+    const { data: token } = await Notifications.getExpoPushTokenAsync();
+    if (token) await notificationsApi.unregisterPushToken(token);
+  } catch {
+    // Offline / no projectId — the stale row is pruned server-side after 90 days.
+  }
+}
+
 export interface ScheduleState {
   settings: NotificationSettings;
   /** Today's daily is done (or none exists) — suppress the daily reminder. */
@@ -149,6 +165,7 @@ export const notifications = {
   getPermissionStatus,
   requestPermission,
   registerPushToken,
+  unregisterPushToken,
   syncSchedules,
   cancelAll,
 };

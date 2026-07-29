@@ -2,7 +2,7 @@ import { apiClient } from './client';
 import { User, ProfileStats, AuthResponse, LoginResult, XpEventsResponse } from '../types/auth';
 
 export const authApi = {
-  register: (data: { name: string; username: string; email: string; password: string }) =>
+  register: (data: { name: string; username: string; email: string; password: string; beta_code?: string }) =>
     apiClient.request<AuthResponse>('/register', { method: 'POST', body: JSON.stringify(data) }),
 
   // Step 1: returns { requires_2fa, verification_id, ... } on success — no token yet.

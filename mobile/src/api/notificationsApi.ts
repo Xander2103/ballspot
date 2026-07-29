@@ -32,4 +32,14 @@ export const notificationsApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  /**
+   * Remove push registrations. With a token: only that device's registration.
+   * Without: all of the user's registrations (used on account deletion paths).
+   */
+  unregisterPushToken: (token?: string) =>
+    apiClient.request<{ status: string }>('/me/push-tokens', {
+      method: 'DELETE',
+      body: JSON.stringify(token ? { token } : {}),
+    }),
 };
