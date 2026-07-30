@@ -1,7 +1,6 @@
 {
   "cli": {
-    "version": ">= 21.4.0",
-    "appVersionSource": "remote"
+    "version": ">= 16.0.0"
   },
   "build": {
     "development": {
@@ -9,13 +8,40 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "ios": {
+        "distribution": "internal",
+        "env": {
+          "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
+        }
+      },
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
+        }
+      }
     },
     "production": {
-      "autoIncrement": true
+      "ios": {
+        "distribution": "store",
+        "env": {
+          "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
+        }
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "env": {
+          "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
+        }
+      }
     }
-  },
-  "submit": {
-    "production": {}
   }
 }

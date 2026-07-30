@@ -17,3 +17,5 @@ php artisan ballspot:backup-content
 database updates :
 php artisan migrate
 NIET php artisan migrate:fresh --seed!!!!
+
+BETACODE = BALLPICKER
