@@ -1,0 +1,4 @@
+../backend/
+backend/
+node_modules/
+.git/

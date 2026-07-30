@@ -1,20 +1,30 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "BallPicker",
+    "slug": "ballpicker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/web-app-manifest-512x512.png",
-    "userInterfaceStyle": "light",
+    "scheme": "ballpicker",
+    "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "be.vanmalderstudio.ballpicker",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "BallPicker needs access to your photos so you can choose a profile picture.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "be.vanmalderstudio.ballpicker",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#07111F",
         "foregroundImage": "./assets/web-app-manifest-512x512.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon-96x96.png"
@@ -29,6 +39,11 @@
           "photosPermission": "BallPicker needs access to your photos so you can choose a profile picture."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ad828c83-b084-4893-b775-905c2e752357"
+      }
+    }
   }
 }
