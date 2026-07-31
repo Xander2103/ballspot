@@ -4,6 +4,11 @@
 
 @section('content')
 @include('admin.partials.backup-reminder')
+@php
+    // Stored as decimal(8,6); show 3 decimals so the inputs stay short and editable.
+    $ballX = old('ball_x_ratio', $challenge->ball_x_ratio !== null ? round((float) $challenge->ball_x_ratio, 3) : null);
+    $ballY = old('ball_y_ratio', $challenge->ball_y_ratio !== null ? round((float) $challenge->ball_y_ratio, 3) : null);
+@endphp
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <a href="/admin/challenges" class="text-muted small">&larr; Back to Challenges</a>
@@ -116,10 +121,10 @@
             <div id="hidden-picker" class="image-picker-container mb-1">
                 <img id="hidden-preview" src="{{ asset('storage/' . $challenge->hidden_image_path) }}" alt="Current hidden image">
                 <div id="hidden-marker" class="ball-marker" style="
-                    left:{{ old('ball_x_ratio', $challenge->ball_x_ratio) * 100 }}%;
-                    top:{{ old('ball_y_ratio', $challenge->ball_y_ratio) * 100 }}%;"></div>
+                    left:{{ $ballX * 100 }}%;
+                    top:{{ $ballY * 100 }}%;"></div>
             </div>
-            <p class="text-muted small mb-3">Current: <span id="coords-display">x={{ old('ball_x_ratio', $challenge->ball_x_ratio) }}, y={{ old('ball_y_ratio', $challenge->ball_y_ratio) }}</span></p>
+            <p class="text-muted small mb-3">Current: <span id="coords-display">x={{ $ballX }}, y={{ $ballY }}</span></p>
             @endif
 
             <div class="mb-3">
@@ -148,8 +153,8 @@
             <div id="reveal-picker" class="image-picker-container mb-1">
                 <img id="reveal-preview" src="{{ asset('storage/' . $challenge->original_image_path) }}" alt="Current reveal image">
                 <div id="reveal-marker" class="ball-marker" style="
-                    left:{{ old('ball_x_ratio', $challenge->ball_x_ratio) * 100 }}%;
-                    top:{{ old('ball_y_ratio', $challenge->ball_y_ratio) * 100 }}%;"></div>
+                    left:{{ $ballX * 100 }}%;
+                    top:{{ $ballY * 100 }}%;"></div>
             </div>
             <p class="text-muted small mb-3">Click above to reposition from the reveal image.</p>
             @endif
@@ -181,7 +186,7 @@
                     <label for="ball_x_ratio" class="form-label fw-semibold">X (horizontal)</label>
                     <input type="number" id="ball_x_ratio" name="ball_x_ratio"
                            class="form-control @error('ball_x_ratio') is-invalid @enderror"
-                           value="{{ old('ball_x_ratio', $challenge->ball_x_ratio) }}" min="0" max="1" step="0.001" required>
+                           value="{{ $ballX }}" min="0" max="1" step="0.001" required>
                     @error('ball_x_ratio')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
@@ -189,7 +194,7 @@
                     <label for="ball_y_ratio" class="form-label fw-semibold">Y (vertical)</label>
                     <input type="number" id="ball_y_ratio" name="ball_y_ratio"
                            class="form-control @error('ball_y_ratio') is-invalid @enderror"
-                           value="{{ old('ball_y_ratio', $challenge->ball_y_ratio) }}" min="0" max="1" step="0.001" required>
+                           value="{{ $ballY }}" min="0" max="1" step="0.001" required>
                     @error('ball_y_ratio')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
             </div>
@@ -272,11 +277,20 @@
         return true; // existing images always visible
     }
 
+    // Coordinates are stored as 0..1 ratios. Three decimals is ~1px on a
+    // 1000px image — precise enough for scoring, short enough to hand-edit.
+    // Number -> String is locale independent, so this always emits dots.
+    function round3(v) {
+        return Math.round(v * 1000) / 1000;
+    }
+
     function applyPosition(x, y) {
-        xInput.value = x.toFixed(4);
-        yInput.value = y.toFixed(4);
+        x = round3(x);
+        y = round3(y);
+        xInput.value = x;
+        yInput.value = y;
         if (coordsDisplay) {
-            coordsDisplay.textContent = 'x=' + x.toFixed(4) + ' (' + Math.round(x * 100) + '%), y=' + y.toFixed(4) + ' (' + Math.round(y * 100) + '%)';
+            coordsDisplay.textContent = 'x=' + x + ' (' + Math.round(x * 100) + '%), y=' + y + ' (' + Math.round(y * 100) + '%)';
         }
         pickers.forEach(function (p) {
             if (!isVisible(p)) return;

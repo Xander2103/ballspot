@@ -6,6 +6,7 @@ npx expo start
 
 admin : 
 http://127.0.0.1:8000/admin/login
+https://ballpicker.vanmalderstudio.be/admin/challenges
 
 admin@ballspot.local
 password

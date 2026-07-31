@@ -13,6 +13,12 @@ use Illuminate\Support\Facades\Storage;
 
 class ChallengeController extends Controller
 {
+    /**
+     * Ball coordinates are 0..1 ratios. Three decimals is about one pixel on a
+     * 1000px image — precise enough for scoring, short enough to hand-edit.
+     */
+    private const BALL_RATIO_DECIMALS = 3;
+
     public function index(Request $request)
     {
         $query = Challenge::with(['sport', 'category', 'tags', 'subcategories'])
@@ -47,6 +53,8 @@ class ChallengeController extends Controller
 
     public function store(Request $request)
     {
+        $this->normalizeBallRatios($request);
+
         $data = $request->validate([
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
@@ -75,8 +83,8 @@ class ChallengeController extends Controller
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
             'status'                 => $data['status'],
-            'ball_x_ratio'           => $data['ball_x_ratio'],
-            'ball_y_ratio'           => $data['ball_y_ratio'],
+            'ball_x_ratio'           => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS),
+            'ball_y_ratio'           => round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS),
             'hidden_image_path'      => $hiddenPath,
             'original_image_path'    => $originalPath,
         ]);
@@ -98,6 +106,8 @@ class ChallengeController extends Controller
 
     public function update(Request $request, Challenge $challenge)
     {
+        $this->normalizeBallRatios($request);
+
         $data = $request->validate([
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
@@ -133,8 +143,8 @@ class ChallengeController extends Controller
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
             'status'                 => $data['status'],
-            'ball_x_ratio'           => $data['ball_x_ratio'],
-            'ball_y_ratio'           => $data['ball_y_ratio'],
+            'ball_x_ratio'           => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS),
+            'ball_y_ratio'           => round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS),
             'hidden_image_path'      => $data['hidden_image_path'] ?? $challenge->hidden_image_path,
             'original_image_path'    => $data['original_image_path'] ?? $challenge->original_image_path,
         ]);
@@ -143,6 +153,21 @@ class ChallengeController extends Controller
         $challenge->subcategories()->sync($data['subcategories'] ?? []);
 
         return redirect('/admin/challenges')->with('success', 'Challenge updated.');
+    }
+
+    /**
+     * Accept comma decimals ("0,515") from locale-formatted browsers or manual
+     * typing. The database and validator both expect dot decimals.
+     */
+    private function normalizeBallRatios(Request $request): void
+    {
+        foreach (['ball_x_ratio', 'ball_y_ratio'] as $field) {
+            $value = $request->input($field);
+
+            if (is_string($value) && str_contains($value, ',')) {
+                $request->merge([$field => str_replace(',', '.', $value)]);
+            }
+        }
     }
 
     /**
@@ -208,6 +233,11 @@ class ChallengeController extends Controller
 
         if (!$challenge->isReadyForDaily()) {
             return back()->with('error', "Challenge \"{$challenge->title}\" is not ready for daily use. It must be active and have a hidden image and ball position.");
+        }
+
+        // A challenge is a daily at most once, so this shortcut cannot recycle one.
+        if (DailyChallenge::where('challenge_id', $challenge->id)->exists()) {
+            return back()->with('error', "Challenge \"{$challenge->title}\" was already used as a daily challenge and cannot be scheduled again.");
         }
 
         $existing = DailyChallenge::whereDate('challenge_date', $data['date'])->first();

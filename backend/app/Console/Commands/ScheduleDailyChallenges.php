@@ -16,15 +16,17 @@ class ScheduleDailyChallenges extends Command
                             {--dry-run : Print planned schedule without writing}
                             {--force : Replace existing daily challenges}
                             {--sport= : Only use challenges from this sport slug (e.g. football, tennis). Omit to use all active challenges.}
-                            {--allow-coming-soon : Allow scheduling for a coming_soon/hidden sport (admin content prep).}';
+                            {--allow-coming-soon : Allow scheduling for a coming_soon/hidden sport (admin content prep).}
+                            {--allow-reuse : Emergency fallback. Reuse challenges that were already a daily, rotating least-recently-used first.}';
 
-    protected $description = 'Schedule daily challenges for the next N days using eligible active challenges';
+    protected $description = 'Schedule daily challenges for the next N days using eligible active challenges that have never been a daily';
 
     public function handle(): int
     {
-        $days   = (int) $this->option('days');
-        $dryRun = (bool) $this->option('dry-run');
-        $force  = (bool) $this->option('force');
+        $days       = (int) $this->option('days');
+        $dryRun     = (bool) $this->option('dry-run');
+        $force      = (bool) $this->option('force');
+        $allowReuse = (bool) $this->option('allow-reuse');
 
         $startRaw = $this->option('start');
         if ($startRaw !== null) {
@@ -75,13 +77,26 @@ class ScheduleDailyChallenges extends Command
             $poolQuery->where('sport_id', $sportId);
         }
         $allEligible = $poolQuery->get()->filter->isReadyForDaily();
-        $realContent = $allEligible->reject->isDemoContent();
-        $demoContent = $allEligible->filter->isDemoContent();
 
         if ($allEligible->isEmpty()) {
             $this->error('No eligible challenges found. Active challenges need a hidden image and ball position.');
             return self::FAILURE;
         }
+
+        // A challenge is a daily at most once. --allow-reuse is the manual
+        // escape hatch that restores the old least-recently-used rotation.
+        if (!$allowReuse) {
+            $everUsed    = DailyChallenge::distinct()->pluck('challenge_id')->map(fn ($id) => (int) $id)->all();
+            $allEligible = $allEligible->reject(fn ($c) => in_array((int) $c->id, $everUsed, true));
+
+            if ($allEligible->isEmpty()) {
+                $this->warn('All ready challenges have already been used as a daily challenge. Add new content, or re-run with --allow-reuse.');
+                return self::SUCCESS;
+            }
+        }
+
+        $realContent = $allEligible->reject->isDemoContent();
+        $demoContent = $allEligible->filter->isDemoContent();
 
         $usingDemo = false;
         if ($realContent->isEmpty()) {
@@ -108,6 +123,7 @@ class ScheduleDailyChallenges extends Command
         $replacedCount = 0;
         $skippedCount  = 0;
         $plannedCount  = 0;
+        $exhausted     = false;
 
         for ($i = 0; $i < $days; $i++) {
             $date     = $start->copy()->addDays($i)->toDateString();
@@ -122,6 +138,11 @@ class ScheduleDailyChallenges extends Command
             // Pick LRU challenge not yet used in this run
             $available = $sortedPool->filter(fn($c) => !in_array($c->id, $usedInRun, true));
             if ($available->isEmpty()) {
+                // Strict mode stops here rather than handing out a second turn.
+                if (!$allowReuse) {
+                    $exhausted = true;
+                    break;
+                }
                 $usedInRun = [];
                 $available = $sortedPool;
             }
@@ -155,6 +176,13 @@ class ScheduleDailyChallenges extends Command
         }
 
         $this->newLine();
+
+        if ($exhausted) {
+            $scheduled = $dryRun ? $plannedCount : $createdCount + $replacedCount;
+            $this->warn("Pool exhausted: scheduled {$scheduled} of {$days} requested days.");
+            $this->line('Every ready challenge has now been used as a daily. Add new challenges, or re-run with --allow-reuse.');
+            $this->newLine();
+        }
 
         if ($dryRun) {
             $this->info("Dry run complete — {$plannedCount} dates would be written, {$skippedCount} skipped.");

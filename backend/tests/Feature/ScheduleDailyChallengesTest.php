@@ -38,8 +38,11 @@ class ScheduleDailyChallengesTest extends TestCase
 
     public function test_command_creates_daily_challenges_for_requested_days(): void
     {
+        // Strict mode never reuses, so the pool must be at least as large as --days.
         $this->makeReadyChallenge('Challenge A');
         $this->makeReadyChallenge('Challenge B');
+        $this->makeReadyChallenge('Challenge C');
+        $this->makeReadyChallenge('Challenge D');
 
         $this->artisan('ballspot:schedule-daily-challenges', ['--days' => 4])
             ->assertExitCode(0);
@@ -50,6 +53,8 @@ class ScheduleDailyChallengesTest extends TestCase
     public function test_command_skips_existing_daily_challenges(): void
     {
         $challenge = $this->makeReadyChallenge();
+        $this->makeReadyChallenge('Challenge B');
+        $this->makeReadyChallenge('Challenge C');
         $today = today()->toDateString();
         DailyChallenge::create([
             'challenge_id'   => $challenge->id,
@@ -61,6 +66,95 @@ class ScheduleDailyChallengesTest extends TestCase
             ->assertExitCode(0);
 
         // today was already there; 2 new ones added for the following days
+        $this->assertDatabaseCount('daily_challenges', 3);
+    }
+
+    // ----- Strict no-reuse (default) -----
+
+    public function test_default_command_does_not_reuse_a_challenge_already_used_as_daily(): void
+    {
+        $used = $this->makeReadyChallenge('Already Used');
+        $fresh = $this->makeReadyChallenge('Fresh Challenge');
+
+        DailyChallenge::create([
+            'challenge_id'   => $used->id,
+            'challenge_date' => today()->subDays(10)->toDateString(),
+            'status'         => 'archived',
+        ]);
+
+        $this->artisan('ballspot:schedule-daily-challenges', ['--days' => 3])
+            ->assertExitCode(0);
+
+        $this->assertEquals(
+            1,
+            DailyChallenge::where('challenge_id', $used->id)->count(),
+            'A previously used challenge must not be scheduled again in strict mode.'
+        );
+        $this->assertEquals(
+            1,
+            DailyChallenge::where('challenge_id', $fresh->id)->count(),
+            'The one unused challenge should be scheduled exactly once.'
+        );
+    }
+
+    public function test_default_command_stops_gracefully_when_unused_pool_is_exhausted(): void
+    {
+        $this->makeReadyChallenge('Challenge A');
+        $this->makeReadyChallenge('Challenge B');
+
+        $this->artisan('ballspot:schedule-daily-challenges', ['--days' => 4])
+            ->expectsOutputToContain('Pool exhausted: scheduled 2 of 4 requested days.')
+            ->assertExitCode(0);
+
+        $this->assertDatabaseCount('daily_challenges', 2);
+
+        $usedIds = DailyChallenge::pluck('challenge_id')->toArray();
+        $this->assertCount(2, array_unique($usedIds));
+    }
+
+    public function test_default_command_succeeds_quietly_when_every_challenge_is_already_used(): void
+    {
+        $used = $this->makeReadyChallenge('Already Used');
+        DailyChallenge::create([
+            'challenge_id'   => $used->id,
+            'challenge_date' => today()->subDays(10)->toDateString(),
+            'status'         => 'archived',
+        ]);
+
+        $this->artisan('ballspot:schedule-daily-challenges', ['--days' => 3])
+            ->assertExitCode(0);
+
+        // Nothing new was created, and the historical row is untouched.
+        $this->assertDatabaseCount('daily_challenges', 1);
+    }
+
+    // ----- Legacy reuse behaviour, opt-in via --allow-reuse -----
+
+    public function test_allow_reuse_fills_every_requested_day_by_rotating_the_pool(): void
+    {
+        $this->makeReadyChallenge('Challenge A');
+        $this->makeReadyChallenge('Challenge B');
+
+        $this->artisan('ballspot:schedule-daily-challenges', ['--days' => 4, '--allow-reuse' => true])
+            ->assertExitCode(0);
+
+        $this->assertDatabaseCount('daily_challenges', 4);
+    }
+
+    public function test_allow_reuse_schedules_around_an_existing_date_using_a_single_challenge(): void
+    {
+        $challenge = $this->makeReadyChallenge();
+        $today = today()->toDateString();
+        DailyChallenge::create([
+            'challenge_id'   => $challenge->id,
+            'challenge_date' => $today,
+            'status'         => 'active',
+        ]);
+
+        $this->artisan('ballspot:schedule-daily-challenges', ['--days' => 3, '--allow-reuse' => true])
+            ->assertExitCode(0);
+
+        // today was already there; the same challenge is reused for the next 2 days
         $this->assertDatabaseCount('daily_challenges', 3);
     }
 

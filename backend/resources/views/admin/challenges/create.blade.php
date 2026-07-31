@@ -190,12 +190,21 @@
     var yInput = document.getElementById('ball_y_ratio');
     var coordsDisplay = document.getElementById('coords-display');
 
+    // Coordinates are stored as 0..1 ratios. Three decimals is ~1px on a
+    // 1000px image — precise enough for scoring, short enough to hand-edit.
+    // Number -> String is locale independent, so this always emits dots.
+    function round3(v) {
+        return Math.round(v * 1000) / 1000;
+    }
+
     // Update position inputs + display, then refresh all visible markers
     function applyPosition(x, y) {
-        xInput.value = x.toFixed(4);
-        yInput.value = y.toFixed(4);
-        coordsDisplay.textContent = 'Ball position: x=' + x.toFixed(4) +
-            ' (' + Math.round(x * 100) + '%), y=' + y.toFixed(4) +
+        x = round3(x);
+        y = round3(y);
+        xInput.value = x;
+        yInput.value = y;
+        coordsDisplay.textContent = 'Ball position: x=' + x +
+            ' (' + Math.round(x * 100) + '%), y=' + y +
             ' (' + Math.round(y * 100) + '%)';
         [['hidden-marker', 'hidden-picker-wrap'], ['reveal-marker', 'reveal-picker-wrap']].forEach(function (pair) {
             var m = document.getElementById(pair[0]);
