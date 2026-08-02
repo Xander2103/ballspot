@@ -5,6 +5,8 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker } from '../components/ImageGuessPicker';
+import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
+import { FullscreenButton } from '../components/FullscreenButton';
 import { packApi } from '../api/packApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
@@ -25,6 +27,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,6 +113,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
       {challenge.hidden_image_url ? (
         <View style={styles.imageCard}>
           <ImageGuessPicker imageUri={challenge.hidden_image_url} onGuess={handleGuess} interactive />
+          <FullscreenButton onPress={() => setFullscreen(true)} compact />
         </View>
       ) : (
         <View style={styles.noImage}><Text style={styles.noImageText}>Image unavailable</Text></View>
@@ -124,6 +128,8 @@ export function PackGuessScreen({ route, navigation }: Props) {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <AppButton title="Submit Guess" onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
       </View>
+
+      <FullscreenImageViewer visible={fullscreen} imageUri={challenge.hidden_image_url} onClose={() => setFullscreen(false)} />
     </Screen>
   );
 }

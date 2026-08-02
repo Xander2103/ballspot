@@ -5,6 +5,8 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker } from '../components/ImageGuessPicker';
+import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
+import { FullscreenButton } from '../components/FullscreenButton';
 import { dailyApi } from '../api/dailyApi';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
@@ -30,6 +32,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +163,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
       {imageUrl ? (
         <View style={styles.imageCard}>
           <ImageGuessPicker imageUri={imageUrl} onGuess={handleGuess} interactive />
+          <FullscreenButton onPress={() => setFullscreen(true)} compact />
         </View>
       ) : (
         <View style={styles.noImage}>
@@ -176,6 +180,8 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
         <AppButton title="Submit Guess" onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
       </View>
+
+      <FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} onClose={() => setFullscreen(false)} />
     </Screen>
   );
 }

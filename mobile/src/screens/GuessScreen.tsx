@@ -5,6 +5,8 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker } from '../components/ImageGuessPicker';
+import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
+import { FullscreenButton } from '../components/FullscreenButton';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -28,6 +30,7 @@ export function GuessScreen({ route, navigation }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     if (!leagueId || !roundId) {
@@ -190,6 +193,7 @@ export function GuessScreen({ route, navigation }: Props) {
             onGuess={handleGuess}
             interactive
           />
+          <FullscreenButton onPress={() => setFullscreen(true)} variant="static" compact />
         </View>
       ) : (
         <View style={styles.noImage}>
@@ -212,6 +216,12 @@ export function GuessScreen({ route, navigation }: Props) {
           disabled={!hasGuess}
         />
       </View>
+
+      <FullscreenImageViewer
+        visible={fullscreen}
+        imageUri={round.challenge.hidden_image_url}
+        onClose={() => setFullscreen(false)}
+      />
     </Screen>
   );
 }

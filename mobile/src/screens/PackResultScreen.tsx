@@ -1,10 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
+import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
+import { FullscreenButton } from '../components/FullscreenButton';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
@@ -17,6 +19,7 @@ export function PackResultScreen({ route, navigation }: Props) {
   const { slug, packName, result, imageUrl } = route.params;
   const { theme } = useTheme();
   const styles = createStyles(theme);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const r = result.result;
   const isReveal = !!r.reveal_image_url;
@@ -43,13 +46,24 @@ export function PackResultScreen({ route, navigation }: Props) {
         {/* Reveal image with markers */}
         {imageUrl ? (
           <View style={styles.imageCard}>
-            <ImageGuessPicker imageUri={imageUrl} markers={markers} interactive={false} />
+            <Pressable
+              onPress={() => setFullscreen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Open image fullscreen"
+            >
+              <View pointerEvents="none">
+                <ImageGuessPicker imageUri={imageUrl} markers={markers} interactive={false} />
+              </View>
+            </Pressable>
+            <FullscreenButton onPress={() => setFullscreen(true)} />
             <View style={styles.legendRow}>
               <Text style={styles.legend}>🔵 Your guess {pct(r.guessed_x)}, {pct(r.guessed_y)}</Text>
               <Text style={styles.legend}>🎯 Actual {pct(r.ball_x_ratio)}, {pct(r.ball_y_ratio)}</Text>
             </View>
           </View>
-        ) : null}
+        ) : (
+          <View style={styles.noImage}><Text style={styles.noImageText}>Image unavailable</Text></View>
+        )}
 
         {/* New badges */}
         {badges.length > 0 ? (
@@ -96,6 +110,8 @@ export function PackResultScreen({ route, navigation }: Props) {
           </>
         )}
       </View>
+
+      <FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} onClose={() => setFullscreen(false)} />
     </Screen>
   );
 }
@@ -122,5 +138,7 @@ function createStyles(theme: ThemeTokens) {
     progressCard: { alignItems: 'center', backgroundColor: theme.surface, borderRadius: 12, paddingVertical: spacing.md, borderWidth: 1, borderColor: theme.border },
     progressText: { fontSize: 15, fontWeight: '600', color: theme.text },
     footer: { padding: spacing.md, gap: spacing.sm, backgroundColor: theme.background, borderTopWidth: 1, borderTopColor: theme.border },
+    noImage: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xl },
+    noImageText: { color: theme.textMuted, fontSize: 14, fontStyle: 'italic' },
   });
 }
