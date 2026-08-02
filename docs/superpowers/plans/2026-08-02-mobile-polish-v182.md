@@ -35,6 +35,7 @@
 | File | Responsibility |
 |---|---|
 | `mobile/src/components/FullscreenImageViewer.tsx` | Dark full-screen modal image viewer: `contain` fit, X button, tap-to-close, Android hardware back. |
+| `mobile/src/components/FullscreenButton.tsx` | The single "View fullscreen" button definition, used by all five image surfaces. |
 | `mobile/src/components/ResultImageSection.tsx` | The reveal image + "View fullscreen" button + guess-vs-ball legend block shared by `ResultScreen` and `DailyResultScreen`. |
 | `mobile/src/components/HeaderExitButton.tsx` | Themed header-left button used by game-mode screens to leave to Home/Packs. |
 | `mobile/src/app/navigationActions.ts` | `goHome()` / `goPacks()` stack resets + `useHardwareBack()` hook. |
@@ -66,14 +67,19 @@
 
 ---
 
-## Task 1: Fullscreen image viewer component
+## Task 1: Fullscreen image viewer + shared trigger button
 
 **Files:**
 - Create: `mobile/src/components/FullscreenImageViewer.tsx`
+- Create: `mobile/src/components/FullscreenButton.tsx`
 
 **Interfaces:**
-- Consumes: nothing (leaf component).
-- Produces: `export function FullscreenImageViewer(props: { visible: boolean; imageUri: string | null; onClose: () => void }): React.ReactElement | null`
+- Consumes: nothing (leaf components).
+- Produces:
+  - `export function FullscreenImageViewer(props: { visible: boolean; imageUri: string | null; onClose: () => void }): React.ReactElement | null`
+  - `export function FullscreenButton(props: { onPress: () => void; variant?: 'themed' | 'static'; compact?: boolean }): React.ReactElement`
+
+The button is a single shared component on purpose: five screens trigger the viewer, and duplicating the markup and styles five times is exactly the defect a reviewer would (correctly) flag.
 
 - [ ] **Step 1: Create the component**
 
@@ -152,16 +158,73 @@ const styles = StyleSheet.create({
 });
 ```
 
-- [ ] **Step 2: Typecheck**
+- [ ] **Step 2: Create the shared trigger button**
+
+Create `mobile/src/components/FullscreenButton.tsx`. The two variants exist because the result screens use the static `theme/colors` palette while the pack/daily screens are themed — one component, two palettes, no duplicated markup:
+
+```tsx
+import React from 'react';
+import { Pressable, Text, StyleSheet } from 'react-native';
+import { useTheme } from '../theme/useTheme';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+
+interface Props {
+  onPress: () => void;
+  /**
+   * 'themed' follows the user's selected theme (pack / daily screens).
+   * 'static' uses the fixed palette the result screens already use, so
+   * nothing changes visually there.
+   */
+  variant?: 'themed' | 'static';
+  /** Tighter padding for the guess screens, where vertical space is scarce. */
+  compact?: boolean;
+}
+
+/** The single "View fullscreen" button. Used by every image surface. */
+export function FullscreenButton({ onPress, variant = 'themed', compact = false }: Props) {
+  const { theme } = useTheme();
+  const surface = variant === 'static' ? colors.surface : theme.surface;
+  const border  = variant === 'static' ? colors.border  : theme.border;
+  const accent  = variant === 'static' ? colors.primary : theme.primary;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.button,
+        compact ? styles.compact : styles.regular,
+        { backgroundColor: surface, borderColor: border },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="View fullscreen"
+    >
+      <Text style={[styles.text, compact && styles.textCompact, { color: accent }]}>
+        ⛶  View fullscreen
+      </Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  button: { alignSelf: 'center', marginTop: spacing.sm, borderRadius: 10, borderWidth: 1 },
+  regular: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  compact: { paddingVertical: spacing.xs, paddingHorizontal: spacing.md },
+  text: { fontSize: 14, fontWeight: '700' },
+  textCompact: { fontSize: 13 },
+});
+```
+
+- [ ] **Step 3: Typecheck**
 
 Run from `mobile/`: `npx tsc --noEmit`
 Expected: no errors.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add mobile/src/components/FullscreenImageViewer.tsx
-git commit -m "feat(mobile): add FullscreenImageViewer component"
+git add mobile/src/components/FullscreenImageViewer.tsx mobile/src/components/FullscreenButton.tsx
+git commit -m "feat(mobile): add FullscreenImageViewer and shared FullscreenButton"
 ```
 
 ---
@@ -188,6 +251,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { ImageGuessPicker, Marker } from './ImageGuessPicker';
 import { FullscreenImageViewer } from './FullscreenImageViewer';
+import { FullscreenButton } from './FullscreenButton';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
@@ -236,14 +300,7 @@ export function ResultImageSection({
         </View>
       </Pressable>
 
-      <Pressable
-        onPress={() => setFullscreen(true)}
-        style={styles.fullscreenBtn}
-        accessibilityRole="button"
-        accessibilityLabel="View fullscreen"
-      >
-        <Text style={styles.fullscreenBtnText}>⛶  View fullscreen</Text>
-      </Pressable>
+      <FullscreenButton onPress={() => setFullscreen(true)} variant="static" />
 
       <View style={styles.legend}>
         <View style={styles.legendRow}>
@@ -283,17 +340,6 @@ export function ResultImageSection({
 const styles = StyleSheet.create({
   revealHint: { marginBottom: 6, paddingHorizontal: spacing.xs },
   revealHintText: { fontSize: 11, color: colors.textMuted, fontStyle: 'italic', textAlign: 'right' },
-  fullscreenBtn: {
-    marginTop: spacing.sm,
-    alignSelf: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 10,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  fullscreenBtnText: { fontSize: 14, fontWeight: '700', color: colors.primary },
   legend: {
     backgroundColor: colors.surface,
     borderRadius: 12,
@@ -467,20 +513,21 @@ git commit -m "feat(mobile): move reveal image under score card and add fullscre
 - Modify: `mobile/src/screens/PackGuessScreen.tsx`
 
 **Interfaces:**
-- Consumes: `FullscreenImageViewer` (Task 1).
+- Consumes: `FullscreenImageViewer`, `FullscreenButton` (Task 1).
 - Produces: nothing new.
 
-The guess screens keep their tap-to-place-guess behaviour on the image, so fullscreen there is reachable only through the explicit button.
+The guess screens keep their tap-to-place-guess behaviour on the image, so fullscreen there is reachable only through the explicit button. All four screens use the shared `FullscreenButton` — do not re-declare the button markup or its styles anywhere.
 
 - [ ] **Step 1: PackResultScreen — image directly under score + fullscreen**
 
 In `mobile/src/screens/PackResultScreen.tsx`:
 
-1. Change the React import and add state + the viewer import:
+1. Change the React import and add the shared component imports:
 
 ```tsx
 import React, { useState } from 'react';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
+import { FullscreenButton } from '../components/FullscreenButton';
 ```
 
 2. Inside the component, after `const styles = createStyles(theme);` add:
@@ -503,14 +550,7 @@ import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
                 <ImageGuessPicker imageUri={imageUrl} markers={markers} interactive={false} />
               </View>
             </Pressable>
-            <Pressable
-              onPress={() => setFullscreen(true)}
-              style={styles.fullscreenBtn}
-              accessibilityRole="button"
-              accessibilityLabel="View fullscreen"
-            >
-              <Text style={styles.fullscreenBtnText}>⛶  View fullscreen</Text>
-            </Pressable>
+            <FullscreenButton onPress={() => setFullscreen(true)} />
             <View style={styles.legendRow}>
               <Text style={styles.legend}>🔵 Your guess {pct(r.guessed_x)}, {pct(r.guessed_y)}</Text>
               <Text style={styles.legend}>🎯 Actual {pct(r.ball_x_ratio)}, {pct(r.ball_y_ratio)}</Text>
@@ -532,13 +572,6 @@ import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 6. Add styles to `createStyles`:
 
 ```tsx
-    fullscreenBtn: {
-      marginTop: spacing.sm, alignSelf: 'center',
-      paddingVertical: spacing.sm, paddingHorizontal: spacing.lg,
-      borderRadius: 10, backgroundColor: theme.surfaceElevated,
-      borderWidth: 1, borderColor: theme.border,
-    },
-    fullscreenBtnText: { fontSize: 14, fontWeight: '700', color: theme.primary },
     noImage: { alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xl },
     noImageText: { color: theme.textMuted, fontSize: 14, fontStyle: 'italic' },
 ```
@@ -551,8 +584,8 @@ In `mobile/src/screens/GuessScreen.tsx`:
 
 ```tsx
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
+import { FullscreenButton } from '../components/FullscreenButton';
 ```
-and add `Pressable` to the `react-native` import list.
 
 2. Add state next to the other `useState` calls:
 
@@ -560,17 +593,10 @@ and add `Pressable` to the `react-native` import list.
   const [fullscreen, setFullscreen] = useState(false);
 ```
 
-3. Inside the `styles.imageCard` `View`, directly after `<ImageGuessPicker ... />`, add:
+3. Inside the `styles.imageCard` `View`, directly after `<ImageGuessPicker ... />`, add (this screen uses the static palette, like the rest of `GuessScreen`):
 
 ```tsx
-          <Pressable
-            onPress={() => setFullscreen(true)}
-            style={styles.fullscreenBtn}
-            accessibilityRole="button"
-            accessibilityLabel="View fullscreen"
-          >
-            <Text style={styles.fullscreenBtnText}>⛶  View fullscreen</Text>
-          </Pressable>
+          <FullscreenButton onPress={() => setFullscreen(true)} variant="static" compact />
 ```
 
 4. Before the closing `</Screen>`:
@@ -583,49 +609,22 @@ and add `Pressable` to the `react-native` import list.
       />
 ```
 
-5. Add to the `StyleSheet.create` block:
-
-```tsx
-  fullscreenBtn: {
-    marginTop: spacing.sm, alignSelf: 'center',
-    paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
-    borderRadius: 10, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  fullscreenBtnText: { fontSize: 13, fontWeight: '700', color: colors.primary },
-```
+No new styles are needed — the button carries its own.
 
 - [ ] **Step 3: DailyChallengeScreen — same button**
 
-Apply the identical change in `mobile/src/screens/DailyChallengeScreen.tsx` (it is themed, so use theme tokens):
+Apply the equivalent change in `mobile/src/screens/DailyChallengeScreen.tsx`. It is themed, so use the default `themed` variant:
 
-- imports: add `Pressable` to `react-native`, add `import { FullscreenImageViewer } from '../components/FullscreenImageViewer';`
+- imports: `import { FullscreenImageViewer } from '../components/FullscreenImageViewer';` and `import { FullscreenButton } from '../components/FullscreenButton';`
 - state: `const [fullscreen, setFullscreen] = useState(false);`
 - inside `styles.imageCard`, after `<ImageGuessPicker ... />`:
 
 ```tsx
-          <Pressable
-            onPress={() => setFullscreen(true)}
-            style={styles.fullscreenBtn}
-            accessibilityRole="button"
-            accessibilityLabel="View fullscreen"
-          >
-            <Text style={styles.fullscreenBtnText}>⛶  View fullscreen</Text>
-          </Pressable>
+          <FullscreenButton onPress={() => setFullscreen(true)} compact />
 ```
 
 - before `</Screen>`: `<FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} onClose={() => setFullscreen(false)} />`
-- in `createStyles`:
-
-```tsx
-    fullscreenBtn: {
-      marginTop: spacing.sm, alignSelf: 'center',
-      paddingVertical: spacing.xs, paddingHorizontal: spacing.md,
-      borderRadius: 10, backgroundColor: theme.surface,
-      borderWidth: 1, borderColor: theme.border,
-    },
-    fullscreenBtnText: { fontSize: 13, fontWeight: '700', color: theme.primary },
-```
+- no new styles.
 
 - [ ] **Step 4: PackGuessScreen — same button**
 
