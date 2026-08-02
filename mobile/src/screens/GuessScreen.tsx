@@ -46,50 +46,35 @@ export function GuessScreen({ route, navigation }: Props) {
     let cancelled = false;
 
     roundApi.currentRound(leagueId)
-      .then(async (res) => {
+      .then((res) => {
         if (cancelled) return;
+
+        // current-round already excludes rounds this user has guessed, so a
+        // matching id proves the round is still unplayed. No result probe is
+        // needed (it could only ever 404) — a mismatch means the round moved on.
         if (!res.current_round || res.current_round.id !== roundId) {
-          Alert.alert('No Round', 'This round is no longer available.', [
+          Alert.alert('Round unavailable', 'This round is no longer available. It may already be played.', [
             { text: 'OK', onPress: () => goHome(navigation) },
           ]);
           setLoading(false);
           return;
         }
 
-        // Check if already guessed — redirect to Result if so
-        try {
-          const existing = await roundApi.result(roundId);
-          if (!cancelled && existing) {
-            navigation.replace('Result', {
-              roundId,
-              leagueId,
-              imageUrl: res.current_round.challenge.hidden_image_url,
-              leagueName,
-              categoryName: res.current_round.challenge.category?.name ?? null,
-              challengeTitle: res.current_round.challenge.title,
-            });
-            return;
-          }
-        } catch {
-          // 404 means not yet guessed — proceed normally
-        }
-
-        if (!cancelled) {
-          setRound(res.current_round);
-          setProgress(res.progress ?? null);
-          setDailyContext({
-            roundsPerDay: res.rounds_per_day,
-            playedToday: res.played_today_count,
-            remainingToday: res.remaining_today_count,
-          });
-          setLoading(false);
-        }
+        setRound(res.current_round);
+        setProgress(res.progress ?? null);
+        setDailyContext({
+          roundsPerDay: res.rounds_per_day,
+          playedToday: res.played_today_count,
+          remainingToday: res.remaining_today_count,
+        });
+        setLoading(false);
       })
       .catch(() => {
-        if (!cancelled) Alert.alert('Error', 'Failed to load round');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
+        Alert.alert('Connection problem', 'Could not load this round. Check your connection and try again.', [
+          { text: 'OK', onPress: () => goHome(navigation) },
+        ]);
+        setLoading(false);
       });
 
     return () => { cancelled = true; };

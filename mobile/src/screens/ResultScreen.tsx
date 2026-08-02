@@ -49,14 +49,24 @@ export function ResultScreen({ route, navigation }: Props) {
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [nextRound, setNextRound] = useState<CurrentRoundResponse | null>(null);
+  const [loadError, setLoadError] = useState<'missing' | 'network' | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    if (!roundId) { setLoading(false); return; }
+    if (!roundId) { setLoading(false); setLoadError('missing'); return; }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
     roundApi.result(roundId)
-      .then(setResult)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [roundId]);
+      .then((r) => { if (!cancelled) setResult(r); })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        // 404 = this round has no guess from this user (nothing to retry).
+        setLoadError((e as { status?: number })?.status === 404 ? 'missing' : 'network');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [roundId, reloadKey]);
 
   useEffect(() => {
     if (!leagueId) return;
@@ -76,8 +86,24 @@ export function ResultScreen({ route, navigation }: Props) {
   if (!result) {
     return (
       <Screen padding>
-        <Text style={{ color: colors.text }}>No result found.</Text>
-        <AppButton title="Back Home" onPress={() => goHome(navigation)} style={{ marginTop: spacing.lg }} />
+        <Text style={{ color: colors.text }}>
+          {loadError === 'network'
+            ? 'Could not load this result. Check your connection.'
+            : 'No result found for this round.'}
+        </Text>
+        {loadError === 'network' ? (
+          <AppButton
+            title="Try again"
+            onPress={() => setReloadKey((k) => k + 1)}
+            style={{ marginTop: spacing.lg }}
+          />
+        ) : null}
+        <AppButton
+          title="Back Home"
+          onPress={() => goHome(navigation)}
+          variant={loadError === 'network' ? 'secondary' : 'primary'}
+          style={{ marginTop: spacing.sm }}
+        />
       </Screen>
     );
   }
