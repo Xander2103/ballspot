@@ -103,7 +103,7 @@ export function PackResultScreen({ route, navigation }: Props) {
         {completed ? (
           <>
             <AppButton title="View Trophy Room" onPress={() => navigation.navigate('TrophyRoom')} />
-            <AppButton title="Back to Packs" onPress={() => navigation.navigate('Packs')} variant="secondary" />
+            <AppButton title="Back to Packs" onPress={() => goPacks(navigation)} variant="secondary" />
           </>
         ) : (
           <>

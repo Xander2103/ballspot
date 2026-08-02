@@ -50,7 +50,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
 
         if (!res.has_daily || !res.daily_challenge) {
           Alert.alert('No Challenge', 'No daily challenge is available today.', [
-            { text: 'OK', onPress: () => navigation.navigate('Home') },
+            { text: 'OK', onPress: () => goHome(navigation) },
           ]);
           setLoading(false);
           return;
@@ -62,7 +62,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
       .catch(() => {
         if (!cancelled) {
           Alert.alert('Error', 'Failed to load daily challenge.', [
-            { text: 'OK', onPress: () => navigation.navigate('Home') },
+            { text: 'OK', onPress: () => goHome(navigation) },
           ]);
           setLoading(false);
         }
