@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -8,6 +8,7 @@ import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { useTheme } from '../theme/useTheme';
+import { goPacks, useHardwareBack } from '../app/navigationActions';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 
@@ -16,6 +17,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PackResult'>;
 const pct = (n: number) => `${Math.round((Number.isFinite(n) ? n : 0) * 100)}%`;
 
 export function PackResultScreen({ route, navigation }: Props) {
+  useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
   const { slug, packName, result, imageUrl } = route.params;
   const { theme } = useTheme();
   const styles = createStyles(theme);

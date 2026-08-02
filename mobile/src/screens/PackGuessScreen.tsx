@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -8,6 +8,7 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { packApi } from '../api/packApi';
+import { goPacks, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
@@ -16,6 +17,7 @@ import type { PackAttemptState, PackChallengeSummary } from '../types/pack';
 type Props = NativeStackScreenProps<RootStackParamList, 'PackGuess'>;
 
 export function PackGuessScreen({ route, navigation }: Props) {
+  useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
   const { slug, packName } = route.params;
   const { theme } = useTheme();
   const styles = createStyles(theme);

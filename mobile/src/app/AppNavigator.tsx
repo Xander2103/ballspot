@@ -35,6 +35,8 @@ import { TrophyRoomScreen } from '../screens/TrophyRoomScreen';
 import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
 import { DailyResultScreen } from '../screens/DailyResultScreen';
 import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
+import { HeaderExitButton } from '../components/HeaderExitButton';
+import { goHome, goPacks } from './navigationActions';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -126,18 +128,72 @@ export function AppNavigator() {
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen name="Packs" component={PacksScreen} options={{ title: 'Challenge Packs' }} />
         <Stack.Screen name="PackDetail" component={PackDetailScreen} options={({ route }) => ({ title: route.params.name })} />
-        <Stack.Screen name="PackGuess" component={PackGuessScreen} options={({ route }) => ({ title: route.params.packName, gestureEnabled: false })} />
-        <Stack.Screen name="PackResult" component={PackResultScreen} options={{ title: 'Pack Result', gestureEnabled: false, headerBackVisible: false }} />
+        <Stack.Screen
+          name="PackGuess"
+          component={PackGuessScreen}
+          options={({ route, navigation }) => ({
+            title: route.params.packName,
+            gestureEnabled: false,
+            headerBackVisible: false,
+            headerLeft: () => <HeaderExitButton label="Packs" onPress={() => goPacks(navigation)} />,
+          })}
+        />
+        <Stack.Screen
+          name="PackResult"
+          component={PackResultScreen}
+          options={({ navigation }) => ({
+            title: 'Pack Result',
+            gestureEnabled: false,
+            headerBackVisible: false,
+            headerLeft: () => <HeaderExitButton label="Packs" onPress={() => goPacks(navigation)} />,
+          })}
+        />
         <Stack.Screen name="RankOverview" component={RankOverviewScreen} options={{ title: 'All Ranks' }} />
         <Stack.Screen name="TrophyRoom" component={TrophyRoomScreen} options={{ title: 'Trophy Room' }} />
         <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />
         <Stack.Screen name="JoinLeague" component={JoinLeagueScreen} options={{ title: 'Join Tournament' }} />
         <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} options={({ route }) => ({ title: route.params.leagueName })} />
-        <Stack.Screen name="Guess" component={GuessScreen} options={{ title: 'Make Your Guess', gestureEnabled: false }} />
-        <Stack.Screen name="Result" component={ResultScreen} options={{ title: 'Round Result', gestureEnabled: false }} />
+        <Stack.Screen
+          name="Guess"
+          component={GuessScreen}
+          options={({ navigation }) => ({
+            title: 'Make Your Guess',
+            gestureEnabled: false,
+            headerBackVisible: false,
+            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+          })}
+        />
+        <Stack.Screen
+          name="Result"
+          component={ResultScreen}
+          options={({ navigation }) => ({
+            title: 'Round Result',
+            gestureEnabled: false,
+            headerBackVisible: false,
+            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+          })}
+        />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={({ route }) => ({ title: route.params.leagueName })} />
-        <Stack.Screen name="DailyChallenge" component={DailyChallengeScreen} options={{ title: 'Daily Ball Challenge', gestureEnabled: false }} />
-        <Stack.Screen name="DailyResult" component={DailyResultScreen} options={{ title: 'Daily Result', gestureEnabled: false }} />
+        <Stack.Screen
+          name="DailyChallenge"
+          component={DailyChallengeScreen}
+          options={({ navigation }) => ({
+            title: 'Daily Ball Challenge',
+            gestureEnabled: false,
+            headerBackVisible: false,
+            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+          })}
+        />
+        <Stack.Screen
+          name="DailyResult"
+          component={DailyResultScreen}
+          options={({ navigation }) => ({
+            title: 'Daily Result',
+            gestureEnabled: false,
+            headerBackVisible: false,
+            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+          })}
+        />
         <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: 'Weekly Leaderboard' }} />
       </Stack.Navigator>
     </NavigationContainer>

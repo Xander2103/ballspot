@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -12,6 +12,7 @@ import { RankProgressCard } from '../components/RankProgressCard';
 import { RankUpCard } from '../components/RankUpCard';
 import { TournamentCompletionCard } from '../components/TournamentCompletionCard';
 import { roundApi } from '../api/roundApi';
+import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { GuessResult } from '../types/guess';
@@ -43,6 +44,7 @@ function getDistanceFeedback(distance: number): string {
 }
 
 export function ResultScreen({ route, navigation }: Props) {
+  useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { roundId, leagueId, imageUrl, leagueName, categoryName, challengeTitle, newBadges, rankProgress, rankUp, tournamentCompletion } = route.params;
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export function ResultScreen({ route, navigation }: Props) {
     return (
       <Screen padding>
         <Text style={{ color: colors.text }}>No result found.</Text>
-        <AppButton title="Back to Tournament" onPress={() => navigation.goBack()} style={{ marginTop: spacing.lg }} />
+        <AppButton title="Back Home" onPress={() => goHome(navigation)} style={{ marginTop: spacing.lg }} />
       </Screen>
     );
   }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -8,6 +8,7 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { roundApi } from '../api/roundApi';
+import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { LeagueRound, CurrentRoundProgress } from '../types/challenge';
@@ -21,6 +22,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 };
 
 export function GuessScreen({ route, navigation }: Props) {
+  useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { leagueId, roundId, leagueName } = route.params;
   const [round, setRound] = useState<LeagueRound | null>(null);
   const [progress, setProgress] = useState<CurrentRoundProgress | null>(null);
@@ -35,7 +37,7 @@ export function GuessScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (!leagueId || !roundId) {
       Alert.alert('Error', 'Invalid round — missing league or round ID.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+        { text: 'OK', onPress: () => goHome(navigation) },
       ]);
       setLoading(false);
       return;
@@ -48,7 +50,7 @@ export function GuessScreen({ route, navigation }: Props) {
         if (cancelled) return;
         if (!res.current_round || res.current_round.id !== roundId) {
           Alert.alert('No Round', 'This round is no longer available.', [
-            { text: 'OK', onPress: () => navigation.goBack() },
+            { text: 'OK', onPress: () => goHome(navigation) },
           ]);
           setLoading(false);
           return;

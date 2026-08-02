@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -11,6 +11,7 @@ import { NewBadgesCard } from '../components/NewBadgesCard';
 import { RankProgressCard } from '../components/RankProgressCard';
 import { RankUpCard } from '../components/RankUpCard';
 import { dailyApi } from '../api/dailyApi';
+import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { DailyGuessResult, DailyStats, TodayResponse } from '../types/daily';
@@ -41,6 +42,7 @@ function getDistanceFeedback(distance: number): string {
 }
 
 export function DailyResultScreen({ route, navigation }: Props) {
+  useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { dailyChallengeId, newBadges, rankProgress, rankUp } = route.params;
 
   const [result, setResult] = useState<DailyGuessResult | null>(null);
@@ -84,7 +86,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
         <Text style={{ color: colors.text }}>No result found.</Text>
         <AppButton
           title="Back Home"
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => goHome(navigation)}
           style={{ marginTop: spacing.lg }}
         />
       </Screen>
@@ -171,7 +173,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
       />
       <AppButton
         title="Back Home"
-        onPress={() => navigation.navigate('Home')}
+        onPress={() => goHome(navigation)}
         variant="secondary"
       />
     </Screen>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -8,6 +8,7 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { dailyApi } from '../api/dailyApi';
+import { goHome, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
@@ -22,6 +23,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 };
 
 export function DailyChallengeScreen({ route, navigation }: Props) {
+  useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { dailyChallengeId } = route.params;
   const { theme } = useTheme();
   const styles = createStyles(theme);
