@@ -28,6 +28,7 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
   const [aspect, setAspect]           = useState<number>(FALLBACK_ASPECT);
   const [guess, setGuess]             = useState<{ xRatio: number; yRatio: number } | null>(null);
   const [dimensionsLoaded, setDimensionsLoaded] = useState(false);
+  const [failed, setFailed]           = useState(false);
 
   // Load natural image dimensions to set the container aspect ratio exactly,
   // preventing any cropping of the challenge image.
@@ -35,6 +36,7 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
     if (!imageUri) return;
     let cancelled = false;
     setDimensionsLoaded(false);
+    setFailed(false);
     Image.getSize(
       imageUri,
       (w, h) => {
@@ -44,7 +46,8 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
         }
       },
       () => {
-        if (!cancelled) setDimensionsLoaded(true);
+        // One failed probe only — never retried, so a dead URL cannot loop.
+        if (!cancelled) { setDimensionsLoaded(true); setFailed(true); }
       }
     );
     return () => { cancelled = true; };
@@ -108,7 +111,18 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
       onLayout={handleLayout}
     >
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Image source={{ uri: imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        {failed ? (
+          <View style={styles.failed}>
+            <Text style={styles.failedText}>Image unavailable</Text>
+          </View>
+        ) : (
+          <Image
+            source={{ uri: imageUri }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            onError={() => setFailed(true)}
+          />
+        )}
       </View>
 
       {interactive && (
@@ -172,4 +186,11 @@ const styles = StyleSheet.create({
   ghostEmoji: {
     fontSize: 20,
   },
+  failed: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceElevated,
+  },
+  failedText: { color: colors.textMuted, fontSize: 14, fontStyle: 'italic' },
 });
