@@ -66,6 +66,7 @@ export function GuessScreen({ route, navigation }: Props) {
               imageUrl: res.current_round.challenge.hidden_image_url,
               leagueName,
               categoryName: res.current_round.challenge.category?.name ?? null,
+              challengeTitle: res.current_round.challenge.title,
             });
             return;
           }
@@ -118,6 +119,7 @@ export function GuessScreen({ route, navigation }: Props) {
         imageUrl: round!.challenge.hidden_image_url,
         leagueName,
         categoryName: round!.challenge.category?.name ?? null,
+        challengeTitle: round!.challenge.title,
         newBadges,
         rankProgress,
         rankUp,
@@ -167,7 +169,6 @@ export function GuessScreen({ route, navigation }: Props) {
             </View>
           </View>
         </View>
-        <Text style={styles.challengeTitle}>{round.challenge.title}</Text>
         {progress && (
           <Text style={styles.roundContext}>
             Round {round.round_number} of {progress.total}
@@ -282,12 +283,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
-  },
-  challengeTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
   },
   roundContext: {
     fontSize: 12,

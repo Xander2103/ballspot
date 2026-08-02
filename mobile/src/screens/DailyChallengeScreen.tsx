@@ -149,7 +149,6 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
             </View>
           </View>
         </View>
-        <Text style={styles.challengeTitle}>{challenge.challenge.title}</Text>
         <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
         {challenge.challenge.tags && challenge.challenge.tags.length > 0 ? (
           <View style={styles.tagRow}>
@@ -202,7 +201,6 @@ function createStyles(theme: ThemeTokens) {
     catText: { fontSize: 10, fontWeight: '600', color: theme.textSecondary, letterSpacing: 0.5 },
     diffBadge: { borderRadius: 6, paddingHorizontal: spacing.sm, paddingVertical: 2 },
     diffText: { fontSize: 10, fontWeight: '800', letterSpacing: 1 },
-    challengeTitle: { fontSize: 20, fontWeight: '700', color: theme.text, marginBottom: 4 },
     instruction: { fontSize: 13, color: theme.textSecondary, fontStyle: 'italic' },
     tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
     tagChip: { backgroundColor: theme.surfaceElevated, borderRadius: 6, paddingHorizontal: spacing.sm, paddingVertical: 2 },

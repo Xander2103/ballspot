@@ -105,7 +105,6 @@ export function PackGuessScreen({ route, navigation }: Props) {
     <Screen scroll={false} padding={false}>
       <View style={styles.infoCard}>
         <Text style={styles.progressLabel}>Challenge {step} / {total}</Text>
-        <Text style={styles.title}>{challenge.title}</Text>
         <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${total > 0 ? (attempt.completed_count / total) * 100 : 0}%` }]} />
@@ -144,7 +143,6 @@ function createStyles(theme: ThemeTokens) {
       paddingBottom: spacing.sm, borderBottomWidth: 1, borderBottomColor: theme.border,
     },
     progressLabel: { fontSize: 12, color: theme.textSecondary, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '700' },
-    title: { fontSize: 20, fontWeight: '700', color: theme.text, marginTop: 2 },
     instruction: { fontSize: 13, color: theme.textSecondary, fontStyle: 'italic', marginTop: 2 },
     progressBar: { height: 6, borderRadius: 3, backgroundColor: theme.surfaceElevated, marginTop: spacing.sm, overflow: 'hidden' },
     progressFill: { height: '100%', backgroundColor: theme.primary },

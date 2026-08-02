@@ -87,9 +87,8 @@ function DailyCard({
       <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
       {today.daily_challenge?.challenge && (
         <Text style={styles.dailyChallengeInfo}>
-          {today.daily_challenge.challenge.title}
-          {today.daily_challenge.challenge.category ? ` · ${today.daily_challenge.challenge.category.name}` : ''}
-          {' · '}{today.daily_challenge.challenge.difficulty}
+          {today.daily_challenge.challenge.category ? `${today.daily_challenge.challenge.category.name} · ` : ''}
+          {today.daily_challenge.challenge.difficulty}
         </Text>
       )}
       {!!stats?.current_streak && <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>}
