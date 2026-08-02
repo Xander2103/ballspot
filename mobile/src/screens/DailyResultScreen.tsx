@@ -4,7 +4,8 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
-import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
+import { Marker } from '../components/ImageGuessPicker';
+import { ResultImageSection } from '../components/ResultImageSection';
 import { RankInsight } from '../components/RankInsight';
 import { NewBadgesCard } from '../components/NewBadgesCard';
 import { RankProgressCard } from '../components/RankProgressCard';
@@ -37,11 +38,6 @@ function getDistanceFeedback(distance: number): string {
   if (distance <= 0.10) return 'Very close';
   if (distance <= 0.25) return 'A bit off';
   return 'Way off';
-}
-
-function pct(ratio: number): string {
-  if (!Number.isFinite(ratio)) return '?';
-  return `${Math.round(ratio * 100)}%`;
 }
 
 export function DailyResultScreen({ route, navigation }: Props) {
@@ -102,6 +98,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
   const displayImageUrl = result.reveal_image_url ?? hiddenImageUrl;
   const isRevealImage = !!result.reveal_image_url;
   const categoryName = today?.daily_challenge?.challenge?.category?.name ?? null;
+  const challengeTitle = today?.daily_challenge?.challenge?.title ?? null;
   const streak = stats?.current_streak ?? 0;
 
   const markers: Marker[] = [
@@ -134,7 +131,25 @@ export function DailyResultScreen({ route, navigation }: Props) {
         ) : null}
       </View>
 
-      {/* New badges unlocked */}
+      {/* Reveal image + legend — directly under the score card */}
+      {displayImageUrl ? (
+        <ResultImageSection
+          imageUri={displayImageUrl}
+          markers={markers}
+          isRevealImage={isRevealImage}
+          guessXRatio={result.guess_x_ratio}
+          guessYRatio={result.guess_y_ratio}
+          ballXRatio={result.ball_x_ratio}
+          ballYRatio={result.ball_y_ratio}
+          title={challengeTitle}
+        />
+      ) : (
+        <View style={styles.noImage}>
+          <Text style={styles.noImageText}>Image unavailable</Text>
+        </View>
+      )}
+
+      {/* Rank up / XP progress / new badges */}
       {rankUp ? <RankUpCard rankUp={rankUp} /> : null}
       {rankProgress ? <RankProgressCard progress={rankProgress} /> : null}
       {newBadges && newBadges.length > 0 ? <NewBadgesCard badges={newBadges} /> : null}
@@ -146,56 +161,6 @@ export function DailyResultScreen({ route, navigation }: Props) {
           totalPlayers={result.total_players}
           betterThanPercentage={result.better_than_percentage}
         />
-      ) : null}
-
-      {/* Image with markers */}
-      {displayImageUrl ? (
-        <>
-          {isRevealImage && (
-            <View style={styles.revealHint}>
-              <Text style={styles.revealHintText}>Reveal photo — the real ball is visible in the image</Text>
-            </View>
-          )}
-          <ImageGuessPicker
-            imageUri={displayImageUrl}
-            interactive={false}
-            markers={markers}
-          />
-
-          {/* Legend */}
-          <View style={styles.legend}>
-            <View style={styles.legendRow}>
-              <View style={styles.legendGhostIcon}>
-                <Text style={styles.legendGhostEmoji}>⚽</Text>
-              </View>
-              <View>
-                <Text style={styles.legendTitle}>Your guess</Text>
-                <Text style={styles.legendCoord}>
-                  {pct(result.guess_x_ratio)}, {pct(result.guess_y_ratio)}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.legendDivider} />
-            <View style={styles.legendRow}>
-              {isRevealImage ? (
-                <View style={styles.legendGlowIcon} />
-              ) : (
-                <View style={styles.legendDefaultIcon} />
-              )}
-              <View>
-                <Text style={styles.legendTitle}>Ball position</Text>
-                <Text style={styles.legendCoord}>
-                  {pct(result.ball_x_ratio)}, {pct(result.ball_y_ratio)}
-                </Text>
-              </View>
-            </View>
-            {isRevealImage ? (
-              <Text style={styles.legendHint}>Your ghost ball shows your guess. The real ball is visible in the photo.</Text>
-            ) : (
-              <Text style={styles.legendHint}>The marker shows the approximate ball position.</Text>
-            )}
-          </View>
-        </>
       ) : null}
 
       {/* Actions */}
@@ -275,83 +240,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.warning,
   },
-  revealHint: {
-    marginBottom: 6,
-    paddingHorizontal: spacing.xs,
-  },
-  revealHintText: {
-    fontSize: 11,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-    textAlign: 'right',
-  },
-  legend: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  legendGhostIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.85)',
-    opacity: 0.72,
+  noImage: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: spacing.xl,
   },
-  legendGhostEmoji: {
-    fontSize: 16,
-  },
-  legendGlowIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'transparent',
-    borderWidth: 3,
-    borderColor: '#00E676',
-    shadowColor: '#00E676',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-  },
-  legendDefaultIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(0,230,118,0.85)',
-    borderWidth: 3,
-    borderColor: '#ffffff',
-  },
-  legendTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  legendCoord: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  legendDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.xs,
-  },
-  legendHint: {
-    fontSize: 11,
+  noImageText: {
     color: colors.textMuted,
+    fontSize: 14,
     fontStyle: 'italic',
-    marginTop: spacing.xs,
-    textAlign: 'center',
   },
   leaderboardBtn: {
     marginBottom: spacing.sm,

@@ -56,7 +56,7 @@ export type RootStackParamList = {
   JoinLeague: undefined;
   LeagueDetail: { leagueId: number; leagueName: string };
   Guess: { leagueId: number; roundId: number; leagueName: string };
-  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null; tournamentCompletion?: TournamentCompletion };
+  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null; challengeTitle?: string | null; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null; tournamentCompletion?: TournamentCompletion };
   Leaderboard: { leagueId: number; leagueName: string };
   DailyChallenge: { dailyChallengeId: number };
   DailyResult: { dailyChallengeId: number; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null };
