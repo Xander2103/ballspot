@@ -1224,9 +1224,12 @@ In `docs/store-readiness.md`, add a "Media / storage" checklist section:
 ```markdown
 ### Media / storage
 
-- `APP_URL` in the production `.env` must be the public HTTPS base URL — `asset('storage/…')`
-  builds every challenge/avatar image URL from it. A wrong value renders as broken images in
-  the mobile app while the admin (same-origin) still looks fine.
+- Challenge/avatar image URLs are built with `asset('storage/…')`, which in this app resolves
+  off the **incoming request's Host header** (`request->root()`) — nothing calls
+  `URL::forceRootUrl()`, so `APP_URL` does NOT drive it. Ensure the proxy/load balancer
+  forwards the original `Host` header and scheme unmodified, or the mobile app receives
+  URLs pointing at the wrong origin while the admin (same-origin) still looks fine.
+  Set `ASSET_URL` if serving assets from a CDN.
 - `php artisan storage:link` must have been run on the server (creates `public/storage`).
 - `FILESYSTEM_DISK=public` for uploaded challenge and avatar images.
 - Regression guard: `backend/tests/Feature/ImageUrlTest.php`.
