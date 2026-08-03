@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CompetitionFinish;
 use App\Models\DailyChallengeGuess;
+use App\Models\FriendRequest;
 use App\Models\Guess;
 use App\Models\NotificationSetting;
 use App\Models\PackAttempt;
@@ -41,6 +42,9 @@ class DataExportController extends Controller
                 'selected_theme' => $user->selected_theme,
                 'preferred_sport' => $user->preferredSport?->name,
                 'avatar_url'     => $user->avatarUrl(),
+                // The subject's own share code. Safe here (this endpoint is
+                // self-scoped); never included for any other user below.
+                'friend_code'    => $user->friend_code,
             ],
 
             'notification_settings' => NotificationSetting::where('user_id', $user->id)
@@ -51,6 +55,45 @@ class DataExportController extends Controller
                 ->orderByDesc('last_seen_at')
                 ->limit(self::MAX_ROWS)
                 ->get(['platform', 'created_at', 'last_seen_at']),
+
+            // Who the subject is connected to. Only the counterpart's public
+            // identity (username/display name) — never their email or their
+            // friend_code, which are that other person's data, not the
+            // subject's. `DataExportTest` asserts both exclusions.
+            'friends' => $user->friends()
+                ->orderBy('username')
+                ->limit(self::MAX_ROWS)
+                ->get()
+                ->map(fn ($f) => [
+                    'username'  => $f->username,
+                    'name'      => $f->name,
+                    'friends_since' => $f->pivot?->created_at?->toISOString(),
+                ]),
+
+            'friend_requests' => [
+                'incoming' => FriendRequest::where('recipient_id', $user->id)
+                    ->where('status', FriendRequest::STATUS_PENDING)
+                    ->with('requester:id,username,name')
+                    ->limit(self::MAX_ROWS)
+                    ->get()
+                    ->map(fn ($r) => [
+                        'username'   => $r->requester?->username,
+                        'name'       => $r->requester?->name,
+                        'status'     => $r->status,
+                        'created_at' => $r->created_at?->toISOString(),
+                    ]),
+                'outgoing' => FriendRequest::where('requester_id', $user->id)
+                    ->where('status', FriendRequest::STATUS_PENDING)
+                    ->with('recipient:id,username,name')
+                    ->limit(self::MAX_ROWS)
+                    ->get()
+                    ->map(fn ($r) => [
+                        'username'   => $r->recipient?->username,
+                        'name'       => $r->recipient?->name,
+                        'status'     => $r->status,
+                        'created_at' => $r->created_at?->toISOString(),
+                    ]),
+            ],
 
             'xp_events' => XpEvent::where('user_id', $user->id)
                 ->orderByDesc('created_at')

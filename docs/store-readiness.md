@@ -325,3 +325,41 @@ BallSpot implements account deletion as anonymization to preserve leaderboard in
 - User row remains in DB (foreign key references from scores/guesses stay valid)
 
 This satisfies Google Play and Apple App Store account deletion requirements. The `/support` page documents the self-service deletion flow for users who prefer to contact support.
+
+---
+
+## v1.8.2 store-relevant notes
+
+- **NEW device permission: camera.** This is the first release that requests camera access, so
+  it is a genuine app-review surface — expect reviewers to look for justification.
+  - Purpose is narrow and honest: scanning another player's **friend-code QR** on the Friends
+    screen. It is requested **only** when the user taps "Scan QR code" — never at launch, never
+    in the background.
+  - iOS string (`mobile/app.json` → `ios.infoPlist.NSCameraUsageDescription`, and the
+    `expo-camera` config plugin's `cameraPermission`):
+    *"BallPicker needs your camera only to scan a friend's QR code."*
+  - **No image or video is stored, uploaded or transmitted.** The scanner reads a QR payload
+    and extracts a friend code; nothing else touches the frame.
+  - **Graceful denial is implemented**: a "Camera access needed" screen distinguishes
+    can-ask-again (shows *Allow camera*) from permanently denied (points at device settings),
+    and both offer manual friend-code entry, so the feature is never a dead end. Reviewers
+    frequently test exactly this path.
+  - Android: `expo-camera` adds `android.permission.CAMERA`. The manifest already carried
+    `RECORD_AUDIO` from before; BallPicker does not record audio, so consider removing it from
+    `app.json` → `android.permissions` before an Android submission to avoid an unjustified
+    permission on the store listing.
+- **Friends is a social feature, but there is no chat.** Users can add each other by code or QR
+  and view a public profile (username, avatar, rank/XP, aggregate stats, badge counts). There is
+  **no messaging, no free-text user-to-user content, and no realtime**, so this does not add a
+  UGC moderation surface beyond the existing avatar/username review path. Email addresses are
+  never exposed to other players.
+- **No new monetization.** No IAP, no ads, no purchases, no real-money rewards. Friends,
+  tournament hiding and the fullscreen image viewer are all cosmetic/organisational.
+- **A new binary is mandatory — OTA is not sufficient.** `expo-camera`, `expo-clipboard`,
+  `react-native-svg` and `react-native-qrcode-svg` are native modules, and `app.json` gained the
+  `expo-camera` config plugin plus a new Info.plist key. An `eas update` would ship JS that
+  calls native code absent from the installed binary and **would crash on launch of the scanner
+  screen**. Ship `eas build` → `eas submit`.
+- **Privacy questionnaire deltas** (App Store Connect / Play Data safety): add **Camera** as a
+  permission used but *not* collected; friend code / friend relationships are collected and
+  linked to the account, used for app functionality only, never for tracking or advertising.

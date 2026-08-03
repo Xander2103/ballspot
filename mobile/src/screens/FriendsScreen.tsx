@@ -243,7 +243,15 @@ export function FriendsScreen({ navigation, route }: Props) {
               <Text style={styles.rowName}>{f.name}</Text>
               <Text style={styles.rowSub}>@{f.username} · {f.rank_name} · {f.total_xp} XP</Text>
             </View>
-            <TouchableOpacity onPress={() => setRemoveTarget(f)} style={styles.actionBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            {/* stopPropagation: this sits inside the row's own TouchableOpacity,
+                so without it a Remove tap can also open the friend's profile. */}
+            <TouchableOpacity
+              onPress={(e) => { e.stopPropagation(); setRemoveTarget(f); }}
+              style={styles.actionBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${f.name} from your friends`}
+            >
               <Text style={styles.rejectText}>Remove</Text>
             </TouchableOpacity>
           </TouchableOpacity>

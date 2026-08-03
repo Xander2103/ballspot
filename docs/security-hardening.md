@@ -33,6 +33,20 @@ Read-heavy endpoints (leaderboards, packs, ranks, stats, XP events,
 notification settings) ride the global `api` limiter — high enough for normal
 play, a hard cap for scraping.
 
+**Known gap — public-profile enumeration.** `GET /api/users/{user}/public-profile`
+takes a sequential user id and rides only the global `api` limiter (120/min), so
+an authenticated account can walk the id space and harvest every player's
+username, display name, avatar URL, rank/XP and aggregate stats at roughly
+170k profiles/day. No private field is exposed (see `PublicProfileTest`) and the
+data largely matches what leaderboards already show, so this is a scraping
+concern rather than a leak. Two mitigations, neither applied yet — both are
+product decisions:
+
+1. A dedicated `public-profile` limiter (~60/min) — cheap, no UX change at
+   realistic browsing speeds.
+2. Restricting the endpoint to friends + people you share a tournament with —
+   stronger, but changes the feature's reach.
+
 **429 response shape (API):**
 
 ```json
@@ -134,11 +148,19 @@ pack, notification and status changes. Keep it append-only.
 ## Account deletion & export
 
 - `DELETE /api/account`: revokes all tokens → deletes avatar file → deletes
-  push tokens, notification settings, pending verification codes → anonymizes
-  the user row (name/email/username/password). Gameplay history is retained
-  against the anonymized row (disclosed in the privacy policy).
+  push tokens, notification settings, pending verification codes → **deletes
+  friendships and friend requests (both directions) and nulls `friend_code`**
+  → anonymizes the user row (name/email/username/password). Gameplay history is
+  retained against the anonymized row (disclosed in the privacy policy).
+  - **Invariant:** deletion anonymizes rather than removes the `users` row, so
+    `ON DELETE CASCADE` never fires. Every new table referencing `users` must be
+    added to this teardown explicitly or it will survive an erasure request.
+    `AccountDeletionTest` is the regression guard.
 - `GET /api/me/export` (auth, not verified-gated, 5/hour): full JSON export,
-  never includes password hash, tokens, or raw push-token values.
+  never includes password hash, tokens, or raw push-token values. Includes the
+  caller's own `friend_code`, friends and pending requests; for the counterpart
+  of a friendship/request it returns username + display name only, never their
+  email or friend code.
 - `DELETE /api/me/push-tokens`: body `{ "token": "..." }` removes that
   device's registration (scoped to the caller); empty body removes all of the
   caller's registrations. The app calls this on logout.

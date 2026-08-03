@@ -79,4 +79,37 @@ class DataExportTest extends TestCase
 
         $this->actingAs($user, 'sanctum')->getJson('/api/me/export')->assertOk();
     }
+
+    public function test_export_includes_friends_data(): void
+    {
+        $user   = User::factory()->create(['username' => 'exporter']);
+        $friend = User::factory()->create(['username' => 'buddy']);
+        $sender = User::factory()->create(['username' => 'asker']);
+
+        \App\Models\Friendship::create(['user_id' => $user->id,   'friend_id' => $friend->id]);
+        \App\Models\Friendship::create(['user_id' => $friend->id, 'friend_id' => $user->id]);
+        \App\Models\FriendRequest::create([
+            'requester_id' => $sender->id, 'recipient_id' => $user->id, 'status' => 'pending',
+        ]);
+
+        $res = $this->actingAs($user, 'sanctum')->getJson('/api/me/export')->assertOk();
+
+        // The subject's own share code is their data (Art. 15).
+        $res->assertJsonPath('account.friend_code', $user->friend_code);
+        $res->assertJsonPath('friends.0.username', 'buddy');
+        $res->assertJsonPath('friend_requests.incoming.0.username', 'asker');
+    }
+
+    public function test_export_never_exposes_other_users_emails_or_friend_codes(): void
+    {
+        $user   = User::factory()->create();
+        $friend = User::factory()->create(['email' => 'buddy-private@example.com']);
+        \App\Models\Friendship::create(['user_id' => $user->id,   'friend_id' => $friend->id]);
+        \App\Models\Friendship::create(['user_id' => $friend->id, 'friend_id' => $user->id]);
+
+        $raw = $this->actingAs($user, 'sanctum')->getJson('/api/me/export')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('buddy-private@example.com', $raw, "friend's email leaked");
+        $this->assertStringNotContainsString($friend->friend_code, $raw, "friend's friend_code leaked");
+    }
 }

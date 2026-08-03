@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\EmailVerificationCode;
+use App\Models\FriendRequest;
+use App\Models\Friendship;
 use App\Models\LoginVerificationCode;
 use App\Models\NotificationSetting;
 use App\Models\PushToken;
@@ -162,5 +164,44 @@ class AccountDeletionTest extends TestCase
 
         // Score/XP history survives (anonymized via the user row).
         $this->assertDatabaseHas('xp_events', ['user_id' => $user->id]);
+    }
+
+    public function test_deletion_removes_friendships_and_pending_requests(): void
+    {
+        $user   = $this->makeUser();
+        $friend = $this->makeUser('-friend');
+        $sender = $this->makeUser('-sender');
+        $token  = $user->createToken('mobile')->plainTextToken;
+
+        Friendship::create(['user_id' => $user->id,   'friend_id' => $friend->id]);
+        Friendship::create(['user_id' => $friend->id, 'friend_id' => $user->id]);
+        FriendRequest::create([
+            'requester_id' => $sender->id, 'recipient_id' => $user->id, 'status' => 'pending',
+        ]);
+        FriendRequest::create([
+            'requester_id' => $user->id, 'recipient_id' => $friend->id, 'status' => 'pending',
+        ]);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson('/api/account')->assertOk();
+
+        // The row is anonymized rather than deleted, so the FK cascade never
+        // fires — a deleted account must not linger in anyone's social graph.
+        $this->assertDatabaseCount('friendships', 0);
+        $this->assertDatabaseCount('friend_requests', 0);
+    }
+
+    public function test_deletion_clears_the_friend_code(): void
+    {
+        $user  = $this->makeUser();
+        $token = $user->createToken('mobile')->plainTextToken;
+
+        $this->assertNotEmpty($user->friend_code);
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson('/api/account')->assertOk();
+
+        // Otherwise the code still resolves and a deleted account stays addable.
+        $this->assertNull($user->fresh()->friend_code);
     }
 }
