@@ -10,7 +10,9 @@ import { Avatar } from '../components/Avatar';
 import { RankCard } from '../components/RankCard';
 import { RecentXpCard } from '../components/RecentXpCard';
 import { NotificationSettingsCard } from '../components/NotificationSettingsCard';
+import { ProfileHistoryCard } from '../components/ProfileHistoryCard';
 import { authApi } from '../api/authApi';
+import { badgeApi } from '../api/badgeApi';
 import { avatarApi } from '../api/avatarApi';
 import { signOut } from '../app/signOut';
 import { notifications } from '../services/notifications';
@@ -18,6 +20,7 @@ import { useTheme } from '../theme/useTheme';
 import { THEME_META, ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { User, ProfileStats, XpEvent } from '../types/auth';
+import type { TournamentFinish } from '../types/badge';
 
 const APP_VERSION = '1.0.0';
 
@@ -39,11 +42,22 @@ export function ProfileScreen({ navigation }: Props) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState('');
   const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
+  const [history, setHistory] = useState<TournamentFinish[]>([]);
 
   const loadProfile = useCallback(() => {
-    // Profile shows at most 5 recent XP events.
-    return Promise.all([authApi.me(), authApi.stats(), authApi.xpEvents(5).catch(() => null)])
-      .then(([me, s, xp]) => { setUser(me); setStats(s); if (xp) setXpEvents(xp.data.slice(0, 5)); })
+    // Profile shows at most 5 recent XP events and 10 history entries.
+    return Promise.all([
+      authApi.me(),
+      authApi.stats(),
+      authApi.xpEvents(5).catch(() => null),
+      badgeApi.finishes().catch(() => null),
+    ])
+      .then(([me, s, xp, finishes]) => {
+        setUser(me);
+        setStats(s);
+        if (xp) setXpEvents(xp.data.slice(0, 5));
+        if (finishes) setHistory(finishes.slice(0, 10));
+      })
       .catch(() => {});
   }, []);
 
@@ -190,6 +204,17 @@ export function ProfileScreen({ navigation }: Props) {
       ) : (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>No XP activity yet.</Text>
+        </View>
+      )}
+
+      {/* Tournament history — stays here even if the tournament was removed
+          from the Home list. */}
+      <Text style={styles.sectionTitle}>History</Text>
+      {history.length > 0 ? (
+        <ProfileHistoryCard finishes={history} />
+      ) : (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>No finished tournaments yet.</Text>
         </View>
       )}
 
