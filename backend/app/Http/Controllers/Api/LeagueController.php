@@ -21,10 +21,35 @@ class LeagueController extends Controller
         $leagues = $request->user()
             ->leagues()
             ->where('status', '!=', 'cancelled')
+            // Completed tournaments the user chose to remove from their list.
+            // History (tournament_finishes) is unaffected.
+            ->wherePivotNull('hidden_at')
             ->with(['rounds', 'members', 'sport'])
             ->get();
 
         return LeagueResource::collection($leagues);
+    }
+
+    /**
+     * POST /leagues/{league}/hide — remove a FINISHED tournament from this
+     * user's own list. Nothing is deleted: the membership row stays, and so do
+     * guesses, scores, leaderboard rows, XP, badges and tournament_finishes.
+     */
+    public function hide(Request $request, League $league)
+    {
+        $userId = $request->user()->id;
+
+        if (!$league->members()->where('user_id', $userId)->exists()) {
+            return response()->json(['message' => 'Not a member of this league'], 403);
+        }
+        if ($league->status !== 'completed') {
+            return response()->json(['message' => 'Only finished tournaments can be removed from your list.'], 422);
+        }
+
+        // Idempotent: hiding an already-hidden tournament is a no-op success.
+        $league->members()->updateExistingPivot($userId, ['hidden_at' => now()]);
+
+        return response()->noContent();
     }
 
     public function store(CreateLeagueRequest $request)

@@ -68,7 +68,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function leagues(): BelongsToMany
     {
-        return $this->belongsToMany(League::class, 'league_members')->withPivot('joined_at');
+        return $this->belongsToMany(League::class, 'league_members')->withPivot('joined_at', 'hidden_at');
     }
 
     public function badges(): BelongsToMany

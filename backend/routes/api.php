@@ -107,6 +107,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/leagues/{league}',               [LeagueController::class, 'show']);
         Route::post('/leagues/{league}/start',        [LeagueController::class, 'start']);
         Route::delete('/leagues/{league}',            [LeagueController::class, 'destroy']);
+        // Per-user "remove from my list" for finished tournaments — deletes nothing.
+        Route::post('/leagues/{league}/hide',         [LeagueController::class, 'hide']);
         Route::delete('/leagues/{league}/members/{user}', [LeagueController::class, 'removeMember']);
         Route::get('/leagues/{league}/current-round', [LeagueController::class, 'currentRound']);
         Route::get('/leagues/{league}/leaderboard',   [LeaderboardController::class, 'index']);

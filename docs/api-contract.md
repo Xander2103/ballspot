@@ -1555,3 +1555,22 @@ hash, `is_admin`, `email_verified_at` or the target's `friend_code`;
   "has_pending_request": true  // a pending request exists in either direction
 } }
 ```
+
+---
+
+## Hide a finished tournament (v1.8.2)
+
+### POST /api/leagues/{league}/hide  *(auth + verified)*
+
+Removes a **finished** tournament from the caller's own tournament list. This is
+a per-user view preference, not a delete: the `league_members` row survives with
+`hidden_at` set, and guesses, scores, leaderboards, XP, badges and
+`tournament_finishes` are all untouched. Other members are unaffected, and the
+tournament still appears in the caller's Profile history and Trophy Room.
+
+- `204` on success — **idempotent**, hiding an already-hidden tournament succeeds
+- `403` when the caller is not a member of that tournament
+- `422` when the tournament is not `completed` (active/lobby cannot be hidden)
+
+`GET /api/leagues` filters hidden rows out via `wherePivotNull('hidden_at')`.
+There is deliberately no unhide endpoint in this version.

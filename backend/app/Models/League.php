@@ -16,6 +16,6 @@ class League extends Model
 
     public function owner(): BelongsTo { return $this->belongsTo(User::class, 'owner_user_id'); }
     public function sport(): BelongsTo { return $this->belongsTo(Sport::class); }
-    public function members(): BelongsToMany { return $this->belongsToMany(User::class, 'league_members')->withPivot('joined_at'); }
+    public function members(): BelongsToMany { return $this->belongsToMany(User::class, 'league_members')->withPivot('joined_at', 'hidden_at'); }
     public function rounds(): HasMany { return $this->hasMany(LeagueRound::class); }
 }

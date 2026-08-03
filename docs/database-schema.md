@@ -105,8 +105,10 @@ Default seeded categories (football): General, Corner Kicks, Dribbles, Goalkeepe
 | league_id | bigint FK → leagues | cascade delete |
 | user_id | bigint FK → users | cascade delete |
 | joined_at | datetime |
+| hidden_at | datetime nullable | v1.8.2. Per-user "remove this finished tournament from my list". Set by `POST /api/leagues/{league}/hide`; filtered with `wherePivotNull('hidden_at')` in `LeagueController::index`. Nothing is deleted — guesses, scores, leaderboards, XP, badges and `tournament_finishes` are untouched, and the tournament still appears in Profile history. Living on the membership pivot makes "you can only hide a tournament you belong to" structural rather than a check that can be forgotten. |
 | created_at / updated_at | timestamp |
 | | unique(league_id, user_id) |
+| | index(user_id, hidden_at) |
 
 ## league_rounds
 | Column | Type | Notes |
