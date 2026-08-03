@@ -4,11 +4,14 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
-### Media / storage
+## Media / storage
 
-- `APP_URL` in the production `.env` must be the public HTTPS base URL — `asset('storage/…')`
-  builds every challenge/avatar image URL from it. A wrong value renders as broken images in
-  the mobile app while the admin (same-origin) still looks fine.
+- Challenge/avatar images are built via `asset('storage/…')`, which in this app resolves off
+  the incoming request's Host header (no `URL::forceRootUrl()` is configured) — ensure the
+  proxy/load balancer forwards the original `Host` header and scheme unmodified; `APP_URL` only
+  matters if `forceRootUrl()` is later added, or set `ASSET_URL` for a CDN. A wrong/rewritten
+  Host header renders as broken images in the mobile app while the admin (same-origin) still
+  looks fine.
 - `php artisan storage:link` must have been run on the server (creates `public/storage`).
 - `FILESYSTEM_DISK=public` for uploaded challenge and avatar images.
 - Regression guard: `backend/tests/Feature/ImageUrlTest.php`.
