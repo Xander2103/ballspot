@@ -28,7 +28,34 @@ class User extends Authenticatable implements MustVerifyEmail
 
     // is_admin is hidden so a raw User serialization can never advertise
     // which accounts are worth attacking (admin checks are server-side only).
-    protected $hidden = ['password', 'remember_token', 'is_admin'];
+    // friend_code is a share secret and must never leak through a raw
+    // serialization of another user, so it is hidden (and never fillable).
+    protected $hidden = ['password', 'remember_token', 'is_admin', 'friend_code'];
+
+    /** Unambiguous alphabet — no O/0, I/1, so codes survive being read aloud. */
+    private const FRIEND_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+    protected static function booted(): void
+    {
+        static::creating(function (User $user) {
+            if (empty($user->friend_code)) {
+                $user->friend_code = static::generateFriendCode();
+            }
+        });
+    }
+
+    /** A fresh 8-character code that is not already taken. */
+    public static function generateFriendCode(): string
+    {
+        do {
+            $code = '';
+            for ($i = 0; $i < 8; $i++) {
+                $code .= self::FRIEND_CODE_ALPHABET[random_int(0, strlen(self::FRIEND_CODE_ALPHABET) - 1)];
+            }
+        } while (static::where('friend_code', $code)->exists());
+
+        return $code;
+    }
 
     protected function casts(): array
     {
@@ -85,5 +112,23 @@ class User extends Authenticatable implements MustVerifyEmail
     public function avatarUrl(): ?string
     {
         return $this->avatar_path ? asset('storage/' . $this->avatar_path) : null;
+    }
+
+    /** Directed friendship rows owned by this user. */
+    public function friendships(): HasMany
+    {
+        return $this->hasMany(Friendship::class, 'user_id');
+    }
+
+    /** The users this user is friends with. */
+    public function friends(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'friendships', 'user_id', 'friend_id')->withTimestamps();
+    }
+
+    /** True when `$other` is already a confirmed friend. */
+    public function isFriendsWith(User $other): bool
+    {
+        return Friendship::where('user_id', $this->id)->where('friend_id', $other->id)->exists();
     }
 }
