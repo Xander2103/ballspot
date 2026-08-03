@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\ChallengePackController;
 use App\Http\Controllers\Api\PackPlayController;
 use App\Http\Controllers\Api\DailyChallengeController;
+use App\Http\Controllers\Api\FriendController;
 use App\Http\Controllers\Api\LeagueController;
 use App\Http\Controllers\Api\RoundController;
 use App\Http\Controllers\Api\LeaderboardController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\PushTokenController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PreferenceController;
 use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PublicProfileController;
 use App\Http\Controllers\Api\RankController;
 use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\SportController;
@@ -72,6 +74,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/me/push-tokens',         [PushTokenController::class, 'destroy'])->middleware('throttle:push-tokens');
         Route::post('/me/avatar',       [AvatarController::class, 'store']);
         Route::delete('/me/avatar',     [AvatarController::class, 'destroy']);
+
+        // Friends — first version: codes, requests, list. No chat, no realtime.
+        // /friends/requests stays above any wildcard /friends/{...} route.
+        Route::get('/me/friend-code',    [FriendController::class, 'friendCode']);
+        Route::get('/friends',           [FriendController::class, 'index']);
+        Route::get('/friends/requests',  [FriendController::class, 'requests']);
+        Route::post('/friends/requests', [FriendController::class, 'store'])->middleware('throttle:friends');
+        Route::post('/friends/requests/{friendRequest}/accept', [FriendController::class, 'accept'])->middleware('throttle:friends');
+        Route::post('/friends/requests/{friendRequest}/reject', [FriendController::class, 'reject'])->middleware('throttle:friends');
+        Route::delete('/friends/{user}', [FriendController::class, 'destroy'])->middleware('throttle:friends');
+
+        // Read-only public view of another player (explicit field allow-list).
+        Route::get('/users/{user}/public-profile', [PublicProfileController::class, 'show']);
 
         Route::get('/badges',    [BadgeController::class, 'index']);
         Route::get('/me/badges', [BadgeController::class, 'mine']);

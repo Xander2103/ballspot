@@ -79,6 +79,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by('push|' . ($request->user()?->id ?: $request->ip()));
         });
 
+        // Friend writes: request/accept/reject/remove. Well above human use,
+        // low enough to stop friend-code enumeration scripts.
+        RateLimiter::for('friends', function (Request $request) {
+            return Limit::perMinute(20)->by('friends|' . ($request->user()?->id ?: $request->ip()));
+        });
+
         // GDPR data export: heavyweight response, rarely needed.
         RateLimiter::for('export', function (Request $request) {
             return Limit::perHour(5)->by('export|' . ($request->user()?->id ?: $request->ip()));

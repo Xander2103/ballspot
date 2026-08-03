@@ -23,6 +23,7 @@ API route; stricter route-level limiters stack on top of it.
 | `email-verify` | `POST /api/email/verify` | 10/min per user |
 | `email-resend` | `POST /api/email/verification-notification` | 3/min per user |
 | `gameplay` | daily / tournament / pack guess submits | 30/min per user |
+| `friends` | `POST`/`DELETE` friend endpoints | 20/min per user (IP fallback) |
 | `push-tokens` | `POST` + `DELETE /api/me/push-tokens` | 10/min per user |
 | `export` | `GET /api/me/export` | 5/hour per user |
 | `admin-login` | `POST /admin/login` | 5/min per IP |

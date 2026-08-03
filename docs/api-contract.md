@@ -1420,3 +1420,138 @@ Only CLOSED periods ever appear — the live leaderboard position is never retur
 
 `/admin/competition` additionally shows the previous period, whether it is closed, the last
 closed competition, and the copy-paste close command (read-only — no one-click awarding).
+
+---
+
+## Friends (v1.8.2)
+
+First version: friend codes, requests, list. No chat, no realtime, no presence.
+Every route is inside the `auth:sanctum` + `verified` group. The four write routes
+carry `throttle:friends` (20/min per user, IP fallback).
+
+`FriendSummary` is the public-safe shape used everywhere a player is listed —
+it never contains email, `friend_code`, `is_admin` or any auth/session data:
+
+```jsonc
+{ "id": 7, "name": "Sam", "username": "sam", "avatar_url": null,
+  "rank_name": "Pro", "level": 4, "total_xp": 1240 }
+```
+
+`RequestItem` wraps the *other* party (the requester for incoming, the recipient
+for outgoing) so the client never has to work out which side it is looking at:
+
+```jsonc
+{ "id": 12, "status": "pending", "created_at": "2026-08-02T10:00:00Z",
+  "user": { /* FriendSummary */ } }
+```
+
+### GET /api/me/friend-code  *(auth + verified)*
+
+The caller's own share code. Regenerated on read if missing (accounts created
+before the backfill migration). A friend code is only ever returned for **self**.
+
+```jsonc
+// Response 200
+{ "friend_code": "B6J8PTGE" }
+```
+
+Codes are 8 characters from `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` — no O/0 or I/1,
+so a code survives being read aloud.
+
+### GET /api/friends  *(auth + verified)*
+
+Confirmed friends, ordered by username, capped at 200 rows.
+
+```jsonc
+// Response 200
+{ "data": [ { /* FriendSummary */ } ] }
+```
+
+### GET /api/friends/requests  *(auth + verified)*
+
+Pending requests only, split by direction, newest first, capped at 200 rows each.
+
+```jsonc
+// Response 200
+{ "incoming": [ { /* RequestItem, user = requester */ } ],
+  "outgoing": [ { /* RequestItem, user = recipient */ } ] }
+```
+
+### POST /api/friends/requests  *(auth + verified, throttle:friends)*
+
+```jsonc
+// Request
+{ "friend_code": "B6J8PTGE" }   // case-insensitive, trimmed
+```
+
+```jsonc
+// Response 201
+{ "data": { /* RequestItem, user = recipient */ } }
+```
+
+| Status | When |
+|---|---|
+| 404 | No player has that friend code |
+| 422 | Own code, already friends, or a pending request already exists in either direction |
+
+A previously rejected/cancelled request in the same direction is **reopened**
+(`updateOrCreate`) rather than duplicated — the `(requester_id, recipient_id)`
+unique index guarantees one row per direction per pair.
+
+### POST /api/friends/requests/{friendRequest}/accept  *(auth + verified, throttle:friends)*
+
+Only the **recipient** may accept. Writes both friendship directions plus the
+status change in a single transaction.
+
+```jsonc
+// Response 200
+{ "data": { /* FriendSummary of the requester */ } }
+```
+
+| Status | When |
+|---|---|
+| 403 | Caller is not the recipient |
+| 422 | Request is no longer pending |
+
+### POST /api/friends/requests/{friendRequest}/reject  *(auth + verified, throttle:friends)*
+
+Only the recipient may reject. Creates no friendship.
+
+```jsonc
+// Response 200
+{ "message": "Request rejected." }
+```
+
+Same 403 / 422 rules as accept.
+
+### DELETE /api/friends/{user}  *(auth + verified, throttle:friends)*
+
+Removes **both** directions. Either side can do this; the other side is not notified.
+
+- `204` on success
+- `404` when the two are not friends
+
+### GET /api/users/{user}/public-profile  *(auth + verified)*
+
+Read-only public view of another player, readable by any authenticated + verified
+player who has the user's id. Hand-built rather than reusing `UserResource` —
+every field is an explicit allow-list decision. It never returns email, password
+hash, `is_admin`, `email_verified_at` or the target's `friend_code`;
+`PublicProfileTest` asserts exactly that.
+
+```jsonc
+// Response 200
+{ "data": {
+  "id": 7, "name": "Sam", "username": "sam", "avatar_url": null,
+  "rank": { /* full PlayerRank payload — name, level, total_xp, progress, … */ },
+  "total_xp": 1240,
+  "stats": {
+    "tournaments_played": 4, "tournaments_completed": 2,
+    "guesses_count": 37, "total_score": 21840, "average_score": 590.3,
+    "daily_challenges_played": 12, "best_daily_score": 980
+  },
+  "badges": { "earned_count": 9, "total_count": 26 },
+  "is_friend": false,          // relative to the *viewer*
+  "has_pending_request": true  // a pending request exists in either direction
+} }
+```
