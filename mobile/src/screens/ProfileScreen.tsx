@@ -167,6 +167,22 @@ export function ProfileScreen({ navigation }: Props) {
         <Text style={styles.ranksAction}>Open ›</Text>
       </TouchableOpacity>
 
+      {/* Friends entry point */}
+      <TouchableOpacity
+        style={styles.ranksCard}
+        activeOpacity={0.8}
+        onPress={() => navigation.navigate('Friends')}
+      >
+        <View style={styles.ranksLeft}>
+          <Text style={styles.ranksIcon}>👥</Text>
+          <View style={styles.ranksTextWrap}>
+            <Text style={styles.ranksTitle}>Friends</Text>
+            <Text style={styles.ranksSubtitle}>Your friend code, requests and friends list.</Text>
+          </View>
+        </View>
+        <Text style={styles.ranksAction}>Open ›</Text>
+      </TouchableOpacity>
+
       {/* Recent XP activity — capped at 5 items */}
       <Text style={styles.sectionTitle}>Recent XP</Text>
       {xpEvents.length > 0 ? (

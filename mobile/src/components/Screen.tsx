@@ -24,7 +24,10 @@ export function Screen({ children, scroll, style, padding = true }: Props) {
       {scroll ? (
         <ScrollView
           style={[styles.scroll, bg]}
-          contentContainerStyle={[styles.inner, padding && styles.padding, style]}
+          // flexGrow, not flex: `flex: 1` on a content container pins it to the
+          // viewport height, so anything taller is clipped instead of scrolling.
+          // flexGrow still fills the screen when the content is short.
+          contentContainerStyle={[styles.scrollInner, padding && styles.padding, style]}
           keyboardShouldPersistTaps="handled"
         >
           {children}
@@ -38,5 +41,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   scroll: { flex: 1 },
   inner: { flex: 1 },
+  scrollInner: { flexGrow: 1 },
   padding: { padding: 20 },
 });

@@ -350,6 +350,20 @@ export function HomeScreen({ navigation }: Props) {
                 </View>
                 <Text style={styles.packsChevron}>›</Text>
               </TouchableOpacity>
+
+              {/* Friends entry point */}
+              <TouchableOpacity
+                style={styles.packsCard}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate('Friends')}
+              >
+                <Text style={styles.packsEmoji}>👥</Text>
+                <View style={styles.packsText}>
+                  <Text style={styles.packsTitle}>Friends</Text>
+                  <Text style={styles.packsSubtitle}>Share your code and see how your friends rank.</Text>
+                </View>
+                <Text style={styles.packsChevron}>›</Text>
+              </TouchableOpacity>
             </View>
           }
           ListEmptyComponent={

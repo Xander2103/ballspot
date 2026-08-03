@@ -35,6 +35,9 @@ import { TrophyRoomScreen } from '../screens/TrophyRoomScreen';
 import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
 import { DailyResultScreen } from '../screens/DailyResultScreen';
 import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
+import { FriendsScreen } from '../screens/FriendsScreen';
+import { FriendProfileScreen } from '../screens/FriendProfileScreen';
+import { ScanFriendCodeScreen } from '../screens/ScanFriendCodeScreen';
 import { HeaderExitButton } from '../components/HeaderExitButton';
 import { goHome, goPacks } from './navigationActions';
 
@@ -63,6 +66,10 @@ export type RootStackParamList = {
   DailyChallenge: { dailyChallengeId: number };
   DailyResult: { dailyChallengeId: number; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null };
   WeeklyLeaderboard: undefined;
+  /** `scannedCode` is how ScanFriendCodeScreen hands a scanned code back. */
+  Friends: { scannedCode?: string } | undefined;
+  FriendProfile: { userId: number; username: string };
+  ScanFriendCode: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -195,6 +202,9 @@ export function AppNavigator() {
           })}
         />
         <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: 'Weekly Leaderboard' }} />
+        <Stack.Screen name="Friends" component={FriendsScreen} options={{ title: 'Friends' }} />
+        <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={({ route }) => ({ title: `@${route.params.username}` })} />
+        <Stack.Screen name="ScanFriendCode" component={ScanFriendCodeScreen} options={{ title: 'Scan friend code' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
