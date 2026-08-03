@@ -25,6 +25,10 @@ export const leagueApi = {
   cancel: (id: number) =>
     apiClient.request<void>(`/leagues/${id}`, { method: 'DELETE' }),
 
+  /** Remove a FINISHED tournament from this user's list. History is kept. */
+  hide: (id: number) =>
+    apiClient.request<void>(`/leagues/${id}/hide`, { method: 'POST' }),
+
   removeMember: (leagueId: number, userId: number) =>
     apiClient.request<void>(`/leagues/${leagueId}/members/${userId}`, { method: 'DELETE' }),
 

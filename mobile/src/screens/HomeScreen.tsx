@@ -102,11 +102,13 @@ function DailyCard({
 }
 
 function TournamentCard({
-  item, onPress, onDelete, styles, theme,
+  item, onPress, onDelete, onHide, styles, theme,
 }: {
   item: League;
   onPress: () => void;
   onDelete?: () => void;
+  /** Remove a finished tournament from this user's list — deletes nothing. */
+  onHide?: () => void;
   styles: Styles;
   theme: ThemeTokens;
 }) {
@@ -125,6 +127,17 @@ function TournamentCard({
         <View style={[styles.statusBadge, { borderColor: statusColor }]}>
           <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
         </View>
+        {item.status === 'completed' && onHide ? (
+          <TouchableOpacity
+            onPress={(e) => { e.stopPropagation(); onHide(); }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.hideBtn}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove ${item.name} from your list`}
+          >
+            <Text style={styles.hideBtnText}>✕</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       <Text style={styles.cardMeta}>
         {item.sport?.name ? `${item.sport.name} · ` : ''}Code: {item.join_code} · {item.members_count} players
@@ -153,6 +166,9 @@ export function HomeScreen({ navigation }: Props) {
   const [cancelTarget, setCancelTarget] = useState<League | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
+  const [hideTarget, setHideTarget] = useState<League | null>(null);
+  const [hiding, setHiding] = useState(false);
+  const [hideError, setHideError] = useState('');
 
   const [todayDaily, setTodayDaily] = useState<TodayResponse | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
@@ -260,6 +276,23 @@ export function HomeScreen({ navigation }: Props) {
     }
   }
 
+  async function handleHide() {
+    if (!hideTarget || hiding) return;
+    setHiding(true);
+    setHideError('');
+    const id = hideTarget.id;
+    try {
+      await leagueApi.hide(id);
+      // Optimistic — the server keeps every result, only this list changes.
+      setLeagues((prev) => prev.filter((l) => l.id !== id));
+      setHideTarget(null);
+    } catch {
+      setHideError('Could not remove the tournament. Please try again.');
+    } finally {
+      setHiding(false);
+    }
+  }
+
   const active = leagues.filter(l => l.status === 'lobby' || l.status === 'active');
   const completed = leagues.filter(l => l.status === 'completed');
   const sections = [
@@ -312,6 +345,7 @@ export function HomeScreen({ navigation }: Props) {
               theme={theme}
               onPress={() => navigation.navigate('LeagueDetail', { leagueId: item.id, leagueName: item.name })}
               onDelete={() => setCancelTarget(item)}
+              onHide={() => setHideTarget(item)}
             />
           )}
           contentContainerStyle={styles.list}
@@ -401,6 +435,19 @@ export function HomeScreen({ navigation }: Props) {
       />
 
       <ConfirmModal
+        visible={!!hideTarget}
+        title="Remove tournament?"
+        message="This will remove it from your list. Your result/history will stay saved."
+        confirmLabel="Remove"
+        cancelLabel="Cancel"
+        onConfirm={handleHide}
+        onCancel={() => { setHideTarget(null); setHideError(''); }}
+        loading={hiding}
+        errorText={hideError}
+        destructive
+      />
+
+      <ConfirmModal
         visible={notifPromptVisible}
         title="Stay in the game"
         message="Get a reminder when your Daily Challenge is ready or when a tournament needs your guess."
@@ -463,6 +510,8 @@ function createStyles(theme: ThemeTokens) {
       borderWidth: 1, borderColor: theme.border, marginBottom: spacing.sm,
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+    hideBtn: { marginLeft: spacing.sm, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
+    hideBtnText: { fontSize: 15, fontWeight: '700', color: theme.textMuted, lineHeight: 18 },
     cardName: { fontSize: 16, fontWeight: '700', color: theme.text, flex: 1, marginRight: spacing.sm },
     statusBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
     statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
