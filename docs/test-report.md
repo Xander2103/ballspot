@@ -1189,11 +1189,13 @@ Sprint plan: `docs/superpowers/plans/2026-08-02-mobile-polish-v182.md` (17 tasks
 Run: `cd backend && php artisan test`
 
 ```
-Tests:    1 skipped, 395 passed (1470 assertions)
-Duration: ~13s
+Tests:    1 skipped, 399 passed (1483 assertions)
+Duration: ~28s
 ```
 
-Up from 369 passed at the start of the sprint. New test files:
+Up from 369 passed at the start of the sprint (395 after the 17 tasks, plus 4
+added by the pre-build code review — see "Code review outcome" below).
+New test files:
 
 | File | Tests | Covers |
 |---|---|---|
@@ -1254,3 +1256,40 @@ OTA update is not sufficient — a new EAS build and store submission is require
 Migrations added: `users.friend_code` (+ backfill), `friend_requests`, `friendships`,
 `league_members.hidden_at`. All are guarded with `Schema::hasColumn`/`hasTable` and are
 safe to run on production data with `php artisan migrate`.
+
+### Code review outcome (pre-build, v1.8.2)
+
+A strict review of `a68a40d..53c222d` before the EAS build found **two real GDPR
+defects**, both reproduced with failing tests before being fixed (`010ac62`):
+
+| # | Severity | Issue | Fix |
+|---|---|---|---|
+| 1 | **High (GDPR erasure)** | `DELETE /api/account` anonymizes the `users` row instead of deleting it, so `ON DELETE CASCADE` on `friendships` / `friend_requests` never fired. A deleted account stayed in other players' friends lists as "Deleted User", its pending requests stayed actionable, and its `friend_code` still resolved so it remained addable. | Both tables cleared explicitly; `friend_code` nulled. Set outside `update()` — it is deliberately not `$fillable`, so mass assignment would have silently dropped it. |
+| 2 | **Medium (GDPR Art. 15)** | `GET /api/me/export` omitted every friends field — friend code, friends, pending requests — all of which are the subject's personal data. | Added to the export, with the counterpart reduced to username + display name; a test asserts no other user's email or friend code can appear. |
+| 3 | Low (mobile) | The Remove button on the Friends list sat inside the row's own `TouchableOpacity` without `stopPropagation`, so one tap could both open the remove modal and navigate to the friend's profile. | `stopPropagation` added, matching the existing `HomeScreen` convention. |
+
+New regression guards: `AccountDeletionTest::test_deletion_removes_friendships_and_pending_requests`,
+`::test_deletion_clears_the_friend_code`, `DataExportTest::test_export_includes_friends_data`,
+`::test_export_never_exposes_other_users_emails_or_friend_codes`.
+
+**Structural invariant recorded** in `docs/security-hardening.md`: because deletion
+anonymizes rather than removes the user row, every future table referencing `users`
+must be added to the teardown explicitly or it will survive an erasure request.
+
+Verified as correct during the review, no change needed: all 9 new routes sit behind
+`auth:sanctum` + `verified` (writes additionally `throttle:friends`); `PushToken::$hidden`
+keeps raw tokens out of every API response; `ExpoPushService::recipientTokens` excludes
+opted-out users from both `all` and `opted_in` sends; `LeagueResource` maps pivot fields
+explicitly so adding `hidden_at` to `withPivot` changed no response shape; all four
+migrations are additive and `hasColumn`/`hasTable`-guarded.
+
+**Accepted risks, not fixed** (documented, product decisions):
+
+- `GET /api/users/{id}/public-profile` takes a sequential id under only the global
+  120/min limiter — enumerable at ~170k profiles/day. No private field is exposed and
+  it mirrors leaderboard data, but see `docs/security-hardening.md` for two mitigations.
+- `FriendController::index`/`requests` call `PlayerRankService::forUser()` per row
+  (2-3 queries each, 200-row cap), an N+1 that will matter if friend counts grow.
+  Fine at beta scale; fix with a batched XP aggregate before wide release.
+- `app.json` still declares `android.permission.RECORD_AUDIO` (pre-existing). BallPicker
+  records no audio; worth removing before any Android submission.
