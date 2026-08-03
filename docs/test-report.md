@@ -1177,3 +1177,80 @@ The `GET /leagues/{id}/current-round` and `GET /api/daily/today` endpoints delib
 - [ ] Global all-time leaderboard
 - [ ] Share score via native share sheet
 - [ ] Difficulty-based scoring multiplier
+
+---
+
+## v1.8.2 — mobile polish
+
+Sprint plan: `docs/superpowers/plans/2026-08-02-mobile-polish-v182.md` (17 tasks, all implemented).
+
+### Backend suite
+
+Run: `cd backend && php artisan test`
+
+```
+Tests:    1 skipped, 395 passed (1470 assertions)
+Duration: ~13s
+```
+
+Up from 369 passed at the start of the sprint. New test files:
+
+| File | Tests | Covers |
+|---|---|---|
+| `FriendsTest` | 16 | Friend code generation/uniqueness, auth gate on all 7 routes, send/accept/reject/remove, case-insensitive lookup, self-request, duplicate-request and already-friends guards, incoming/outgoing split |
+| `PublicProfileTest` | 4 | Auth gate, field allow-list, **never leaks email / password / is_admin / friend_code / email_verified_at**, friendship state |
+| `LeagueHideTest` | 8 | Auth gate, member-only, completed-only (422 on active/lobby), idempotency, list filtering, other members unaffected, **hidden tournament still in Profile history** |
+| `ImageUrlTest` | 1 | Absolute storage URL regression guard (Task 7) |
+
+The single skipped test is pre-existing and unrelated to this sprint.
+
+### Mobile typecheck
+
+Run: `cd mobile && npx tsc --noEmit` — **clean, no output.**
+
+### Web export smoke test
+
+Run: `cd mobile && npx expo export --platform web` — **succeeded.**
+
+```
+Web Bundled 7552ms index.ts (763 modules)
+Exported: dist
+```
+
+`expo-camera` bundled for web without error, so the `Platform.OS === 'web'` guard the
+plan held in reserve for `CameraView` was **not needed**. Camera capability on web is
+still limited at runtime; the scanner's permission-denied path offers manual code entry.
+
+### Manual device checklist
+
+**NOT RUN — no device or simulator was available in this environment.** Every item in
+Task 17 Step 4 remains outstanding and must be worked through on real hardware before
+release. The items that no automated check in this sprint covers, and which therefore
+carry the most risk:
+
+- Fullscreen viewer open/close via X, background tap and Android hardware back.
+- Game-mode back behaviour (tournament → Home, pack → Packs, Android hardware back).
+- Reveal-image placement directly under the score card on both result screens.
+- Network inspector: no `/result` 404 before submitting, no repeated failing image requests.
+- Friends end-to-end across two accounts (send → accept → both lists).
+- **QR scan against a second device** — QR *rendering* and the scanner's parse/permission
+  branches are typechecked only; no scan has been executed.
+- Scroll behaviour on iPhone and Android after the `Screen` contentContainer fix below.
+
+### Fix worth re-verifying on device
+
+`Screen`'s scroll branch passed `flex: 1` as `contentContainerStyle`, which pins the
+content container to the viewport height so taller content is clipped instead of
+scrolling. Changed to `flexGrow: 1`. This is the canonical fix and cannot regress a
+screen that already fitted, but it touches **all 22 screens** that use `<Screen scroll>`,
+so scrolling deserves a pass on device.
+
+### Deployment note
+
+`expo-camera`, `expo-clipboard`, `react-native-svg` and `react-native-qrcode-svg` are
+native dependencies and `app.json` gained the `expo-camera` config plugin. **A JS-only
+OTA update is not sufficient — a new EAS build and store submission is required.**
+
+Migrations added: `users.friend_code` (+ backfill), `friend_requests`, `friendships`,
+`league_members.hidden_at`. All are guarded with `Schema::hasColumn`/`hasTable` and are
+safe to run on production data with `php artisan migrate`.
