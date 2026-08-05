@@ -15,6 +15,9 @@ class FriendController extends Controller
     /** Hard cap on any self-scoped list, mirroring ProfileController. */
     public const MAX_LIST_ROWS = 200;
 
+    /** How long a declined request blocks the same requester from retrying. */
+    public const REJECTED_COOLDOWN_DAYS = 30;
+
     public function __construct(private PlayerRankService $rankService) {}
 
     // GET /api/me/friend-code
@@ -101,6 +104,22 @@ class FriendController extends Controller
 
         if ($existing) {
             return response()->json(['message' => 'There is already a pending request with this player.'], 422);
+        }
+
+        // A rejection must stick for a while. Without this the duplicate guard
+        // above (pending-only) lets a rejected requester immediately re-open the
+        // same row, so someone holding a friend code can re-request forever —
+        // there is no block feature to fall back on.
+        $rejected = FriendRequest::where('requester_id', $me->id)
+            ->where('recipient_id', $target->id)
+            ->where('status', FriendRequest::STATUS_REJECTED)
+            ->where('updated_at', '>', now()->subDays(self::REJECTED_COOLDOWN_DAYS))
+            ->exists();
+
+        if ($rejected) {
+            return response()->json([
+                'message' => 'This player declined your request. You can try again later.',
+            ], 422);
         }
 
         // updateOrCreate so a previously rejected/cancelled request in the same

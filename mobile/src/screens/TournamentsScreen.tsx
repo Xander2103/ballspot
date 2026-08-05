@@ -4,6 +4,7 @@ import { MainTabScreenProps } from '../app/MainTabs';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { EmptyState } from '../components/EmptyState';
 import { leagueApi } from '../api/leagueApi';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
@@ -75,6 +76,7 @@ export function TournamentsScreen({ navigation }: Props) {
 
   const [leagues, setLeagues] = useState<League[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<League | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
@@ -85,8 +87,11 @@ export function TournamentsScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     try {
       setLeagues(await leagueApi.list());
+      setLoadFailed(false);
     } catch {
-      // silent — keep whatever we had
+      // Only surface a failure on a cold list; if we already have tournaments
+      // on screen, keep showing them rather than blanking on a flaky refresh.
+      setLeagues((prev) => { setLoadFailed(prev.length === 0); return prev; });
     } finally {
       setLoading(false);
     }
@@ -131,9 +136,13 @@ export function TournamentsScreen({ navigation }: Props) {
 
   const active = leagues.filter(l => l.status === 'lobby' || l.status === 'active');
   const completed = leagues.filter(l => l.status === 'completed');
-  const sections = [
-    ...(active.length > 0 ? [{ title: 'Your Tournaments', data: active }] : []),
-    ...(completed.length > 0 ? [{ title: 'Completed', data: completed }] : []),
+
+  // Once the user has ANY tournament, keep both sections visible so a section
+  // that happens to be empty reads as "nothing here yet" rather than silently
+  // vanishing. With nothing at all, ListEmptyComponent covers the whole screen.
+  const sections = active.length + completed.length === 0 ? [] : [
+    { title: 'Your Tournaments', data: active, emptyText: 'No lobby or active tournaments right now.' },
+    { title: 'Completed', data: completed, emptyText: 'No completed tournaments yet.' },
   ];
 
   if (loading) {
@@ -171,12 +180,25 @@ export function TournamentsScreen({ navigation }: Props) {
             <AppButton title="Join" onPress={() => navigation.navigate('JoinLeague')} variant="secondary" style={styles.actionBtn} />
           </View>
         }
+        renderSectionFooter={({ section }) =>
+          section.data.length === 0
+            ? <EmptyState compact message={section.emptyText} />
+            : null
+        }
         ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Text style={styles.emptyIcon}>⚽</Text>
-            <Text style={styles.emptyTitle}>No tournaments yet</Text>
-            <Text style={styles.emptyText}>Create a tournament and invite friends to play!</Text>
-          </View>
+          loadFailed ? (
+            <EmptyState
+              title="Couldn't load your tournaments"
+              message="Check your connection and try again."
+              actions={[{ label: 'Retry', onPress: () => { setLoading(true); load(); } }]}
+            />
+          ) : (
+            <EmptyState
+              icon="⚽"
+              title="No tournaments yet"
+              message="Create one or join with a code."
+            />
+          )
         }
         stickySectionHeadersEnabled={false}
       />
@@ -235,9 +257,5 @@ function createStyles(theme: ThemeTokens) {
     cardMeta: { fontSize: 13, color: theme.textSecondary },
     deleteBtn: { marginTop: spacing.sm, alignSelf: 'flex-start' },
     deleteBtnText: { fontSize: 12, color: theme.danger, fontWeight: '600' },
-    emptyWrap: { paddingVertical: spacing.xxl, alignItems: 'center' },
-    emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-    emptyTitle: { fontSize: 18, fontWeight: '700', color: theme.text, marginBottom: spacing.sm },
-    emptyText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center' },
   });
 }

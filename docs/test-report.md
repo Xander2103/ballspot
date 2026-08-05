@@ -5,6 +5,11 @@ Build date: 2026-07-30
 **Backend:** 334 feature tests passing (was 302; +32 across rate limiting, endpoint caps, security headers, deletion cleanup, push-token privacy, data export, beta code).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
 
+> **Current suite (2026-08-05): 430 passed, 1 skipped, 1583 assertions.** The
+> per-version figures in this document are historical snapshots taken at the end
+> of each sprint; the latest run is in "Pre-launch security & privacy audit" at
+> the end of the file.
+
 ---
 
 ## Security, Privacy & Test Readiness (v1.8.1)
@@ -1293,3 +1298,110 @@ migrations are additive and `hasColumn`/`hasTable`-guarded.
   Fine at beta scale; fix with a batched XP aggregate before wide release.
 - `app.json` still declares `android.permission.RECORD_AUDIO` (pre-existing). BallPicker
   records no audio; worth removing before any Android submission.
+  *(Resolved in the pre-launch audit below.)*
+
+---
+
+## Pre-launch security & privacy audit (2026-08-05)
+
+A dedicated security/privacy pass before the public build. Findings were fixed
+and pinned with tests rather than only documented.
+
+### Backend suite
+
+Run: `cd backend && php artisan test`
+
+```
+Tests:    1 skipped, 430 passed (1583 assertions)
+```
+
+Up from **400 passed**. The single skipped test is pre-existing and unrelated.
+
+### New test files
+
+| File | Tests | Covers |
+|---|---|---|
+| `SecurityRegressionTest` | 19 | The gameplay-integrity and session/teardown fixes below |
+| `ConsentAndLegalTest` | 11 | Registration consent enforcement, the consent record on the user row, and the served legal pages |
+
+**`SecurityRegressionTest` pins:**
+
+- **Daily challenges are today-only** — a guess against a daily whose
+  `challenge_date` is not today is rejected. Previously only `status` was
+  checked, so past/future dailies were playable (fabricated streaks, monthly
+  competition farming).
+- **Tournament guesses require `league->status === 'active'`** — cancelled
+  tournaments were still accepting guesses.
+- **`rounds_per_day` is enforced on the write path**, not only when reading
+  `current-round`; a client could otherwise burn every round at once.
+- **Pack replays award no XP** when the pack is already completed (the ledger
+  dedupes on per-attempt ids, so every replay previously re-awarded full guess
+  + completion XP).
+- **Account deletion** also clears `is_admin` and `email_verified_at` and
+  deletes the user's `sessions` rows.
+- **Password reset** deletes the user's `sessions` rows (it previously revoked
+  only Sanctum tokens, despite a docblock claiming otherwise).
+- **Admin web login** no longer passes `remember: true` (a ~400-day recaller
+  cookie on the most privileged account) and now requires a verified email.
+- **Push tokens** — Expo token format is validated by regex and registrations
+  are capped at 10 per user, while an existing device can still re-register at
+  the cap.
+- **New rate limiters** — `uploads` (6/min) on `POST /api/me/avatar` (previously
+  unthrottled) and `profile-lookup` (30/min per user + 300/hour per IP) on
+  `GET /api/users/{user}/public-profile` (previously walkable at the global
+  120/min); an IP-independent 50/hour-per-email limit on login; and
+  `throttle:admin-send` on `POST /admin/notifications`, which can fan out to
+  every device via `send_now` and was unthrottled.
+- **`Route::resource('challenges')` is `->except(['show'])`** — the `show`
+  route had no controller method and returned a 500.
+
+- **A declined friend request sticks** — the same requester cannot immediately
+  re-send after a rejection (30-day cooldown, `FriendController::REJECTED_COOLDOWN_DAYS`),
+  and can send again once the cooldown lapses. Closes an unbounded harassment
+  loop, since there is no block feature.
+
+**`ConsentAndLegalTest` pins:**
+
+- `POST /api/register` **requires** `terms_accepted` and `age_confirmed` (both
+  must be `accepted`) and 422s without them.
+- A successful registration stamps `users.terms_accepted_at` and
+  `users.terms_version` from `config('ballspot.legal.terms_version')`.
+- Neither consent column is mass-assignable (a client-supplied value cannot
+  forge the timestamp or version).
+
+### Updated fixtures
+
+The register payloads in `AuthTest`, `RateLimitTest`, `EmailVerificationTest`
+and `BetaCodeTest` were updated for the two new required consent fields.
+
+> ⚠️ **Breaking API change.** Installed mobile builds that do not send
+> `terms_accepted` and `age_confirmed` will get a **422** on register — backend
+> and mobile must ship together. See docs/store-readiness.md.
+
+### Also verified / changed, not directly test-covered
+
+- `backend/routes/console.php` now registers the maintenance schedule
+  (`ballspot:cleanup-login-codes` hourly, `ballspot:schedule-daily-challenges`
+  daily 00:05, `ballspot:close-competition` monthly, `sanctum:prune-expired`
+  daily). **Nothing was scheduled before**, so the retention promises in the
+  privacy policy were not being kept. Requires one `schedule:run` cron entry.
+- The served `/privacy` and `/terms` pages were rewritten; both still contain
+  operator placeholders — a **launch blocker**, tracked in
+  docs/store-readiness.md.
+- `mobile/app.json`: `android.permission.RECORD_AUDIO` removed, added to
+  `blockedPermissions`, and `recordAudioAndroid: false` set on `expo-camera`.
+  Manifest-level, so it needs a new binary.
+
+### Known risks left open
+
+Not fixed this pass; each is a recorded decision rather than an oversight. The
+full list with rationale is in docs/security-hardening.md → "Remaining risks":
+no second factor on admin *web* login, `SANCTUM_TOKEN_EXPIRATION_MINUTES` blank
+by default (tokens never expire) with no "log out all devices" endpoint, no
+trusted-proxy config (which would collapse every IP-keyed limiter behind a load
+balancer), no HSTS/HTTPS forcing in the app, `MAIL_MAILER` defaulting to `log`,
+public profiles still enumerable by sequential id (including anonymised
+accounts), re-sendable rejected friend requests with no block feature, unhandled
+Expo `DeviceNotRegistered` receipts, push tokens not revoked server-side on
+logout, non-idempotent synchronous announcement fan-out, and reporting only via
+the support email.

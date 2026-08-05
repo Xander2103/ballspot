@@ -27,6 +27,23 @@ return [
     // the framework name). Kept configurable as the product is renamed.
     'app_name'      => env('BALLSPOT_APP_NAME', 'BallPicker'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Legal / consent
+    |--------------------------------------------------------------------------
+    | minimum_age is the age users attest to at registration and is rendered in
+    | the Terms and Privacy pages. 16 is the GDPR Art. 8 default; several member
+    | states set it as low as 13. Lower it only with legal advice for the
+    | markets you actually ship to.
+    |
+    | terms_version is stamped on each account at registration so a later policy
+    | change can be re-consented rather than silently applied.
+    */
+    'legal' => [
+        'minimum_age'   => (int) env('BALLSPOT_MINIMUM_AGE', 16),
+        'terms_version' => env('BALLSPOT_TERMS_VERSION', '2026-08'),
+    ],
+
     // Closed-beta gate: when set, registration requires a matching beta_code
     // (case-insensitive). Empty/null = registration open. Share one code with
     // testers; rotate by changing the env value.

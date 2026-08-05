@@ -29,6 +29,12 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
+        // Record the consent moment so acceptance can be demonstrated later.
+        // Set outside create() — these are deliberately not mass-assignable.
+        $user->terms_accepted_at = now();
+        $user->terms_version     = (string) config('ballspot.legal.terms_version', '2026-08');
+        $user->save();
+
         if ($this->emailVerificationRequired()) {
             $emailVerification->send($user, $request->ip(), $request->userAgent(), force: true);
         } else {

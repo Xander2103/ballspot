@@ -10,15 +10,31 @@ use Illuminate\Http\Request;
 
 class PushTokenController extends Controller
 {
+    /**
+     * Ceiling on registrations per account. A person realistically has a
+     * handful of devices; the cap stops one account from accumulating
+     * unbounded rows that every announcement would then fan out to.
+     */
+    public const MAX_TOKENS_PER_USER = 10;
+
     // POST /api/me/push-tokens
     public function store(RegisterPushTokenRequest $request): JsonResponse
     {
         $data = $request->validated();
         $user = $request->user();
 
-        // Token is globally unique. Re-registering an existing token reassigns
-        // it to the current user (device switched accounts) and refreshes its
-        // metadata. Raw tokens are never returned.
+        $existing = PushToken::where('token', $data['token'])->first();
+
+        // Reassignment is intentional: when a device switches accounts the OS
+        // hands the new user the same Expo token, and it must follow them.
+        // Only the device itself knows its token — it is never returned by any
+        // API — so this is not a path to capture someone else's device.
+        if (!$existing && $this->tokenCountFor($user->id) >= self::MAX_TOKENS_PER_USER) {
+            return response()->json([
+                'message' => 'Too many registered devices. Remove one before adding another.',
+            ], 422);
+        }
+
         PushToken::updateOrCreate(
             ['token' => $data['token']],
             [
@@ -30,6 +46,11 @@ class PushTokenController extends Controller
         );
 
         return response()->json(['status' => 'registered'], 201);
+    }
+
+    private function tokenCountFor(int $userId): int
+    {
+        return PushToken::where('user_id', $userId)->count();
     }
 
     // DELETE /api/me/push-tokens

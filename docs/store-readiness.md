@@ -4,6 +4,40 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## 🚫 LAUNCH BLOCKER — legal pages contain unfilled placeholders
+
+The served legal pages were rewritten in the 2026-08-05 pre-launch audit
+(`backend/resources/views/public/privacy.blade.php` and `terms.blade.php`). Both
+deliberately ship with placeholders that **must be replaced with the real
+operator details before the pages are linked from any public store listing**:
+
+- `[OPERATOR LEGAL NAME]`
+- `[ADDRESS]`
+- `[COUNTRY]`
+- `[HOSTING PROVIDER]`
+- `[EMAIL PROVIDER]`
+
+A privacy policy that does not name the data controller is not a valid privacy
+policy under GDPR, and both stores require a working, accurate policy URL. Grep
+for `[OPERATOR LEGAL NAME]` in `backend/resources/views/public/` before
+submitting — a hit means **do not submit**.
+
+The rewrite also replaced a stale (June 2026) policy that contained a **false
+statement** — "We do not share your data with other users beyond your display
+name and scores on leaderboards" — which the public-profile endpoint
+contradicts. The new policy discloses avatars, push tokens (platform,
+`last_seen`), notification preferences and timezone, the friend code / QR /
+camera flow, friendships and friend requests, IP + user-agent captured on login
+and verification codes, the exact public-profile field list, third-party
+processors (hosting, Expo push, APNs, FCM, email provider, App Store/TestFlight),
+legal bases, retention periods, GDPR rights, the minimum age, and the fact that
+account deletion **anonymises rather than erases** (gameplay history is retained
+unlinked). `terms.blade.php` gained a minimum-age section and a "Your content
+and conduct" section covering objectionable content, with a report path to the
+support email and the friend-removal path.
+
+---
+
 ## Media / storage
 
 - Challenge/avatar images are built via `asset('storage/…')`, which in this app resolves off
@@ -18,16 +52,60 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## Pre-launch audit store-relevant notes (2026-08-05)
+
+- **Registration consent is now enforced server-side.** `POST /api/register`
+  **requires** `terms_accepted` and `age_confirmed` (both must be `accepted`);
+  `AuthController::register` stamps `users.terms_accepted_at` and
+  `users.terms_version` from `config('ballspot.legal.terms_version')`. Until now
+  only the mobile checkbox existed, so consent was never actually recorded.
+  - ⚠️ **Breaking API change — backend and mobile must ship together.** Any
+    installed build that does not send the two fields gets a **422** on
+    register. Do not deploy the backend ahead of the store build.
+- **Minimum age is 16** (`config('ballspot.legal.minimum_age')`, env
+  `BALLSPOT_MINIMUM_AGE`, GDPR Art. 8 default). It is stated on `/terms` and
+  confirmed at registration. Keep the store listing's age rating and the
+  in-app confirmation consistent with this value; if you localise to a country
+  with a lower digital-consent age, change the env value, not the copy alone.
+- **`android.permission.RECORD_AUDIO` has been removed** from
+  `mobile/app.json`. It is now also listed in `android.blockedPermissions`, and
+  the `expo-camera` plugin is configured with `recordAudioAndroid: false` so the
+  plugin cannot reintroduce it. BallPicker records no audio, so this removes an
+  unjustifiable permission from the Play listing. **Requires a new binary** —
+  permissions live in the native manifest, so an OTA update will not drop it.
+- **Account deletion is more complete**: it now also clears `is_admin` and
+  `email_verified_at` and deletes the user's `sessions` rows. `terms_accepted_at`
+  / `terms_version` are deliberately retained on the anonymised row as the
+  consent record.
+- **Data-safety form deltas:** the served privacy policy now discloses IP
+  address and user-agent capture on login/verification (security purpose, not
+  shared, not used for tracking). Make sure the Play Data safety and App Store
+  privacy answers match the new policy text rather than the old one.
+- New env vars to set before submission: `BALLSPOT_TERMS_VERSION` (default
+  `2026-08`) and `BALLSPOT_MINIMUM_AGE` (default `16`). See
+  docs/security-hardening.md for the full production env table (including
+  `SANCTUM_TOKEN_EXPIRATION_MINUTES`, a real `MAIL_MAILER`, trusted proxies and
+  the required `schedule:run` cron entry — without that cron the retention
+  promises in the privacy policy are not kept).
+
+---
+
 ## v1.8.1 store-relevant notes (Security, Privacy & Test Readiness)
 
 - **Account deletion is now complete** (avatar file, push tokens, settings and
   pending codes removed; row anonymized) — satisfies the Play/App Store
   deletion requirement more fully.
 - **Data export** exists (`GET /api/me/export`) — helpful for privacy reviews.
-- **Registration requires Terms/Privacy consent** (checkbox + links) — ensure
-  `/terms` and `/privacy` are live before submitting builds.
+- **Registration shows a Terms/Privacy consent checkbox + links** in the mobile
+  app — ensure `/terms` and `/privacy` are live before submitting builds.
+  - ⚠️ **Correction:** in v1.8.1 this was a *client-side checkbox only* — the
+    API accepted a registration with no consent at all and stored no record of
+    it. Server-side enforcement and the stored consent record arrived in the
+    2026-08-05 pre-launch audit (see the section above).
 - **Privacy policy draft** at docs/privacy-policy-draft.md — **must get legal
-  review** before the store listing links to it.
+  review** before the store listing links to it. The *served* pages
+  (`/privacy`, `/terms`) were rewritten on 2026-08-05 and still contain
+  operator placeholders — see the launch blocker at the top of this document.
 - **Closed testing:** set `BALLPICKER_BETA_CODE` to gate registration during
   internal/closed tracks; clear for open testing.
 - Before any external testing, walk docs/test-readiness-checklist.md
@@ -242,6 +320,9 @@ Before submitting a build for internal testing (Play Store internal track / Test
 - [ ] Daily challenge scheduled for today and the next 7 days
 - [ ] Storage symlink exists (`php artisan storage:link`)
 - [ ] `/privacy`, `/terms`, `/support` public pages load correctly in a browser
+- [ ] **No `[OPERATOR LEGAL NAME]` / `[ADDRESS]` / `[COUNTRY]` / `[HOSTING PROVIDER]` / `[EMAIL PROVIDER]` placeholders remain** in `backend/resources/views/public/` (launch blocker)
+- [ ] `schedule:run` cron entry installed and `php artisan schedule:list` shows the four maintenance commands (see docs/security-hardening.md)
+- [ ] Mobile build sends `terms_accepted` + `age_confirmed` on register (older builds get a 422 — ship backend and mobile together)
 - [ ] `BALLSPOT_SUPPORT_EMAIL` set to a real monitored address in `.env`
 - [ ] `BALLSPOT_WEB_URL` set to the public server URL (not localhost)
 - [ ] `EXPO_PUBLIC_WEB_URL` set in mobile `.env` (or Expo env config) to match backend URL
@@ -261,7 +342,7 @@ Before submitting a build for internal testing (Play Store internal track / Test
 - [ ] Account deletion: users can delete their account from inside the app (Profile → Delete account). See `DELETE /api/account`.
 - [ ] Privacy Policy URL submitted in Play Console: `https://yourdomain.com/privacy`
 - [ ] Support email submitted: `BALLSPOT_SUPPORT_EMAIL`
-- [ ] App does not request more permissions than needed (no location, camera, microphone; **photo-library access added in v1.7** for avatar upload — verify the `photosPermission` string is clear and accurate)
+- [ ] App does not request more permissions than needed: no location, **no microphone** (`RECORD_AUDIO` removed and blocked in the 2026-08-05 audit); **photo-library access added in v1.7** for avatar upload (verify the `photosPermission` string is clear and accurate) and **camera added in v1.8.2** for friend-code QR scanning only (verify `NSCameraUsageDescription`)
 - [ ] Content rating questionnaire completed (no violence, no gambling, no real money)
 
 ### Required by Apple TestFlight / App Store
@@ -344,10 +425,12 @@ This satisfies Google Play and Apple App Store account deletion requirements. Th
     can-ask-again (shows *Allow camera*) from permanently denied (points at device settings),
     and both offer manual friend-code entry, so the feature is never a dead end. Reviewers
     frequently test exactly this path.
-  - Android: `expo-camera` adds `android.permission.CAMERA`. The manifest already carried
-    `RECORD_AUDIO` from before; BallPicker does not record audio, so consider removing it from
-    `app.json` → `android.permissions` before an Android submission to avoid an unjustified
-    permission on the store listing.
+  - Android: `expo-camera` adds `android.permission.CAMERA`. The manifest also carried
+    `RECORD_AUDIO` from before; BallPicker does not record audio. **Resolved in the
+    2026-08-05 pre-launch audit** — removed from `app.json` → `android.permissions`, added
+    to `android.blockedPermissions`, and `recordAudioAndroid: false` set on the
+    `expo-camera` plugin so it cannot be reintroduced. A new binary is required for the
+    change to reach the manifest.
 - **Friends is a social feature, but there is no chat.** Users can add each other by code or QR
   and view a public profile (username, avatar, rank/XP, aggregate stats, badge counts). There is
   **no messaging, no free-text user-to-user content, and no realtime**, so this does not add a

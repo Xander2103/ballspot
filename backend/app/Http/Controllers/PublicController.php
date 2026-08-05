@@ -11,6 +11,7 @@ class PublicController extends Controller
         return view('public.privacy', [
             'supportEmail' => config('ballspot.support_email'),
             'webUrl'       => config('ballspot.web_url'),
+            'minimumAge'   => config('ballspot.legal.minimum_age'),
         ]);
     }
 
@@ -18,6 +19,7 @@ class PublicController extends Controller
     {
         return view('public.terms', [
             'supportEmail' => config('ballspot.support_email'),
+            'minimumAge'   => config('ballspot.legal.minimum_age'),
         ]);
     }
 

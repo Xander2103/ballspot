@@ -142,6 +142,16 @@ class DailyChallengeController extends Controller
             return response()->json(['message' => 'This daily challenge is not active.'], 422);
         }
 
+        // The date gate lives on the read path (`today()` scopes by date) but
+        // route-model binding lets any id reach this write path. Without this
+        // check a new account can back-play every past daily in one sitting:
+        // that fabricates streaks (DailyStreakService derives them from the set
+        // of challenge_dates played, not when they were played) and hands them
+        // the monthly competition, which sums guesses by challenge_date.
+        if (!$dailyChallenge->challenge_date->isToday()) {
+            return response()->json(['message' => 'This daily challenge is not available today.'], 422);
+        }
+
         $data = $request->validate([
             'guess_x_ratio' => 'required|numeric|min:0|max:1',
             'guess_y_ratio' => 'required|numeric|min:0|max:1',

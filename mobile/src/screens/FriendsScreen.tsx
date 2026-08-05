@@ -10,6 +10,7 @@ import { AppInput } from '../components/AppInput';
 import { Avatar } from '../components/Avatar';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { EmptyState } from '../components/EmptyState';
 import { friendsApi } from '../api/friendsApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
@@ -140,11 +141,10 @@ export function FriendsScreen({ navigation, route }: Props) {
   if (loadFailed) {
     return (
       <Screen padding>
-        <Text style={styles.loadError}>Could not load your friends. Check your connection.</Text>
-        <AppButton
-          title="Try again"
-          onPress={() => { setLoading(true); load(); }}
-          style={{ marginTop: spacing.lg }}
+        <EmptyState
+          title="Couldn't load your friends"
+          message="Check your connection and try again."
+          actions={[{ label: 'Retry', onPress: () => { setLoading(true); load(); } }]}
         />
       </Screen>
     );
@@ -186,7 +186,7 @@ export function FriendsScreen({ navigation, route }: Props) {
         initiallyExpanded
       >
         {friends.length === 0 ? (
-          <Text style={styles.emptyText}>No friends yet. Share your code to get started.</Text>
+          <EmptyState compact message="No friends yet. Share your code above to get started." />
         ) : (
           <>
             <AppInput
@@ -198,7 +198,7 @@ export function FriendsScreen({ navigation, route }: Props) {
               accessibilityLabel="Search your friends"
             />
             {visibleFriends.length === 0 ? (
-              <Text style={styles.emptyText}>No friends match your search.</Text>
+              <EmptyState compact message="No friends match your search." />
             ) : (
               visibleFriends.map((f, i) => (
                 <TouchableOpacity
@@ -237,7 +237,7 @@ export function FriendsScreen({ navigation, route }: Props) {
         initiallyExpanded={incoming.length > 0}
       >
         {incoming.length === 0 ? (
-          <Text style={styles.emptyText}>No incoming requests.</Text>
+          <EmptyState compact message="No incoming requests right now." />
         ) : (
           incoming.map((item, i) => (
             <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
@@ -260,7 +260,7 @@ export function FriendsScreen({ navigation, route }: Props) {
       {/* Outgoing — collapsed by default. */}
       <CollapsibleSection title="Sent requests" summary={outgoing.length > 0 ? `${outgoing.length}` : undefined}>
         {outgoing.length === 0 ? (
-          <Text style={styles.emptyText}>No pending sent requests.</Text>
+          <EmptyState compact message="No pending sent requests." />
         ) : (
           outgoing.map((item, i) => (
             <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
@@ -315,7 +315,6 @@ export function FriendsScreen({ navigation, route }: Props) {
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     center: { flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' },
-    loadError: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
     sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.sm },
     codeCard: { backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border, padding: spacing.md, alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
     code: { fontSize: 24, fontWeight: '800', letterSpacing: 3, color: theme.primary },
@@ -323,7 +322,6 @@ function createStyles(theme: ThemeTokens) {
     codeHint: { fontSize: 12, color: theme.textMuted, textAlign: 'center' },
     error: { color: theme.danger, fontSize: 13, marginBottom: spacing.sm },
     notice: { color: theme.success, fontSize: 13, marginBottom: spacing.sm },
-    emptyText: { fontSize: 13, color: theme.textMuted, fontStyle: 'italic' },
     // Flat rows: the CollapsibleSection provides the card, rows just divide.
     row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
     rowDivider: { borderTopWidth: 1, borderTopColor: theme.border },

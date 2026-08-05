@@ -8,8 +8,10 @@ use App\Http\Requests\ResetPasswordRequest;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class PasswordResetController extends Controller
@@ -48,6 +50,14 @@ class PasswordResetController extends Controller
 
                 // Revoke all existing Sanctum API tokens after a reset.
                 $user->tokens()->delete();
+
+                // ...and the database-backed web sessions behind the admin
+                // panel, which Sanctum revocation does not touch. Without this
+                // a hijacked admin session survives the one remediation the
+                // product offers.
+                if (Schema::hasTable('sessions')) {
+                    DB::table('sessions')->where('user_id', $user->id)->delete();
+                }
 
                 event(new PasswordReset($user));
             }

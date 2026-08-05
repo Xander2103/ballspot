@@ -20,7 +20,9 @@ Route::post('/admin/logout', [\App\Http\Controllers\Admin\AuthController::class,
 
 // Admin protected area
 Route::prefix('admin')->middleware('admin')->group(function () {
-    Route::resource('challenges', \App\Http\Controllers\Admin\ChallengeController::class);
+    // No show() on the controller — registering the route would make
+    // GET /admin/challenges/{id} a 500 (BadMethodCallException).
+    Route::resource('challenges', \App\Http\Controllers\Admin\ChallengeController::class)->except(['show']);
     Route::get('challenges/{challenge}/preview', [\App\Http\Controllers\Admin\ChallengeController::class, 'preview'])->name('admin.challenges.preview');
     Route::post('challenges/{challenge}/status', [\App\Http\Controllers\Admin\ChallengeController::class, 'updateStatus'])->name('admin.challenges.status');
     Route::post('challenges/{challenge}/set-as-daily', [\App\Http\Controllers\Admin\ChallengeController::class, 'setAsDaily'])->name('admin.challenges.set-as-daily');
@@ -50,7 +52,9 @@ Route::prefix('admin')->middleware('admin')->group(function () {
         ->name('admin.sports.status');
 
     Route::get('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('admin.notifications.index');
-    Route::post('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'store'])->name('admin.notifications.store');
+    // Throttled like /send: store() also fans out to every device when the
+    // composer is submitted with send_now.
+    Route::post('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'store'])->name('admin.notifications.store')->middleware('throttle:admin-send');
     Route::post('notifications/{adminNotification}/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('admin.notifications.send')->middleware('throttle:admin-send');
 
     Route::prefix('daily')->name('admin.daily.')->group(function () {

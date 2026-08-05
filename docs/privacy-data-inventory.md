@@ -15,6 +15,7 @@ reviewed by a lawyer before public launch.**
 | Email address | `users.email` | Account identity, login, verification/reset/2FA emails | Contract (providing the service) | Until account deletion (then replaced with `deleted-{id}@ballspot.deleted`) | User (own), admins (DB), mail provider in transit |
 | Display name + username | `users.name`, `users.username` | Identity in-app and on leaderboards | Contract | Until deletion (anonymized to "Deleted User" / `deleted-{id}`) | All players (leaderboards show username/name) |
 | Password hash | `users.password` | Authentication. Bcrypt hash — never plaintext, never exported | Contract | Until deletion (replaced with a random hash) | Nobody (hash only) |
+| Consent record | `users.terms_accepted_at` (timestamp), `users.terms_version` (string) — migration `2026_08_05_000001_add_consent_to_users` | Evidence that the account holder accepted the Terms + Privacy Policy and confirmed the minimum age at registration. `POST /api/register` **requires** `terms_accepted` and `age_confirmed`; both columns are stamped server-side (`now()` and `config('ballspot.legal.terms_version')`) and neither is mass-assignable | Legal obligation / accountability (GDPR Art. 7(1) — being able to demonstrate consent) | **Kept on the anonymized row after account deletion** (see below) | Server-side only; admins (DB) |
 | Avatar image | `storage/app/public/avatars/*`, `users.avatar_path` | Optional profile photo | Consent (optional upload) | Deleted immediately on account deletion or avatar removal | Public URL while account exists |
 | Email-verification codes | `email_verification_codes` (bcrypt `code_hash` only) | Verify email at registration | Contract | Purged opportunistically + `ballspot:cleanup-login-codes`; deleted on account deletion | Nobody (hash only) |
 | Login 2FA codes + IP + user agent | `login_verification_codes` | Secure admin/forced-2FA login; IP/UA recorded for abuse detection | Legitimate interest (security) | Same cleanup as above; deleted on account deletion | Admins (DB) |
@@ -70,6 +71,13 @@ outlive the account has to be deleted explicitly. Currently deleted explicitly:
 Retained, deliberately, linked to the anonymized row: guesses, XP events,
 badges, tournament/competition finishes, pack attempts. Rationale: leaderboard
 and other players' history integrity.
+
+Also retained, deliberately: **`terms_accepted_at` and `terms_version`**. They
+are not cleared on deletion — they are the accountability record that consent
+was actually given, and by then the identity they were attached to has already
+been severed (the row is "Deleted User" with a `@ballspot.deleted` address).
+Keeping them proves *that* a consent existed for that account id without
+identifying anyone.
 
 > Anything added later that references `users` must be added to this list, or it
 > will silently survive an erasure request. `AccountDeletionTest` is the guard.

@@ -23,11 +23,22 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt($credentials, remember: true)) {
+        // No "remember me" for the admin panel. Laravel's recaller cookie lasts
+        // ~400 days; on the account that can push to every device and manage all
+        // content, a single exfiltrated cookie must not be durable access.
+        // Sessions expire with SESSION_LIFETIME instead.
+        if (Auth::attempt($credentials)) {
             if (!auth()->user()->is_admin) {
                 Auth::logout();
                 return back()->withErrors(['email' => 'Access denied.']);
             }
+
+            // Match the API path, which refuses unverified accounts.
+            if (!auth()->user()->hasVerifiedEmail()) {
+                Auth::logout();
+                return back()->withErrors(['email' => 'Verify your email address before signing in.']);
+            }
+
             $request->session()->regenerate();
             return redirect('/admin/challenges');
         }

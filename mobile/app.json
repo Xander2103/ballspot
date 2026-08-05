@@ -24,7 +24,7 @@
         "foregroundImage": "./assets/web-app-manifest-512x512.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": [
+      "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -44,7 +44,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "BallPicker needs your camera only to scan a friend's QR code."
+          "cameraPermission": "BallPicker needs your camera only to scan a friend's QR code.",
+          "recordAudioAndroid": false
         }
       ]
     ],

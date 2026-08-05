@@ -72,7 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/me/notification-settings',  [NotificationSettingsController::class, 'update']);
         Route::post('/me/push-tokens',           [PushTokenController::class, 'store'])->middleware('throttle:push-tokens');
         Route::delete('/me/push-tokens',         [PushTokenController::class, 'destroy'])->middleware('throttle:push-tokens');
-        Route::post('/me/avatar',       [AvatarController::class, 'store']);
+        Route::post('/me/avatar',       [AvatarController::class, 'store'])->middleware('throttle:uploads');
         Route::delete('/me/avatar',     [AvatarController::class, 'destroy']);
 
         // Friends — first version: codes, requests, list. No chat, no realtime.
@@ -86,7 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/friends/{user}', [FriendController::class, 'destroy'])->middleware('throttle:friends');
 
         // Read-only public view of another player (explicit field allow-list).
-        Route::get('/users/{user}/public-profile', [PublicProfileController::class, 'show']);
+        Route::get('/users/{user}/public-profile', [PublicProfileController::class, 'show'])
+            ->middleware('throttle:profile-lookup');
 
         Route::get('/badges',    [BadgeController::class, 'index']);
         Route::get('/me/badges', [BadgeController::class, 'mine']);

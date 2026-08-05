@@ -11,6 +11,7 @@ import { RankCard } from '../components/RankCard';
 import { NotificationSettingsCard } from '../components/NotificationSettingsCard';
 import { ProfileHistoryCard } from '../components/ProfileHistoryCard';
 import { CollapsibleSection } from '../components/CollapsibleSection';
+import { EmptyState } from '../components/EmptyState';
 import { StatList } from '../components/StatList';
 import { authApi } from '../api/authApi';
 import { badgeApi } from '../api/badgeApi';
@@ -43,20 +44,27 @@ export function ProfileScreen({ navigation }: Props) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState('');
   const [history, setHistory] = useState<TournamentFinish[]>([]);
+  const [profileFailed, setProfileFailed] = useState(false);
+  const [statsFailed, setStatsFailed] = useState(false);
+  const [historyFailed, setHistoryFailed] = useState(false);
 
-  const loadProfile = useCallback(() => {
-    // Profile shows at most 10 history entries. Recent XP lives on All Ranks.
-    return Promise.all([
+  const loadProfile = useCallback(async () => {
+    // allSettled, not all: one failing section must not blank the whole
+    // screen. Profile shows at most 10 history entries; Recent XP lives on
+    // All Ranks.
+    const [meRes, statsRes, finishRes] = await Promise.allSettled([
       authApi.me(),
       authApi.stats(),
-      badgeApi.finishes().catch(() => null),
-    ])
-      .then(([me, s, finishes]) => {
-        setUser(me);
-        setStats(s);
-        if (finishes) setHistory(finishes.slice(0, 10));
-      })
-      .catch(() => {});
+      badgeApi.finishes(),
+    ]);
+
+    if (meRes.status === 'fulfilled') setUser(meRes.value);
+    if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+    if (finishRes.status === 'fulfilled') setHistory(finishRes.value.slice(0, 10));
+
+    setProfileFailed(meRes.status === 'rejected');
+    setStatsFailed(statsRes.status === 'rejected');
+    setHistoryFailed(finishRes.status === 'rejected');
   }, []);
 
   useEffect(() => {
@@ -129,8 +137,23 @@ export function ProfileScreen({ navigation }: Props) {
     );
   }
 
+  // Only a failed /me leaves nothing to render; every other section degrades
+  // to its own small retry below.
+  if (profileFailed && !user) {
+    return (
+      <Screen padding>
+        <EmptyState
+          title="Couldn't load your profile"
+          message="Check your connection and try again."
+          actions={[{ label: 'Retry', onPress: () => { setLoading(true); loadProfile().finally(() => setLoading(false)); } }]}
+        />
+      </Screen>
+    );
+  }
+
   const sport = user?.preferred_sport ?? null;
   const activeThemeLabel = THEME_META.find((m) => m.name === themeName)?.label;
+  const retryProfile = () => { loadProfile(); };
 
   return (
     <Screen scroll padding>
@@ -149,6 +172,15 @@ export function ProfileScreen({ navigation }: Props) {
 
       {/* Progression cluster: rank card, all ranks, then the XP that feeds it. */}
       {stats?.rank ? <RankCard rank={stats.rank} /> : null}
+      {statsFailed && !stats ? (
+        <View style={styles.retryCard}>
+          <EmptyState
+            compact
+            message="Couldn't load your rank and stats."
+            actions={[{ label: 'Retry', onPress: retryProfile }]}
+          />
+        </View>
+      ) : null}
 
       <TouchableOpacity
         style={styles.entryCard}
@@ -185,8 +217,14 @@ export function ProfileScreen({ navigation }: Props) {
       <CollapsibleSection title="History" summary={history.length > 0 ? `${history.length} finished` : undefined}>
         {history.length > 0 ? (
           <ProfileHistoryCard finishes={history} flat />
+        ) : historyFailed ? (
+          <EmptyState
+            compact
+            message="Couldn't load your history."
+            actions={[{ label: 'Retry', onPress: retryProfile }]}
+          />
         ) : (
-          <Text style={styles.emptyText}>No finished tournaments yet.</Text>
+          <EmptyState compact message="No finished tournaments yet." />
         )}
       </CollapsibleSection>
 
@@ -339,7 +377,10 @@ function createStyles(theme: ThemeTokens) {
     entryTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
     entrySubtitle: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
     entryAction: { fontSize: 20, fontWeight: '700', color: theme.textMuted },
-    emptyText: { fontSize: 13, color: theme.textMuted, fontStyle: 'italic' },
+    retryCard: {
+      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
+      paddingHorizontal: spacing.md, marginBottom: spacing.sm,
+    },
     trophyCard: { marginBottom: spacing.lg },
     sportRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     sportEmoji: { fontSize: 22 },

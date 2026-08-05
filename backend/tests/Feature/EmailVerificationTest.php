@@ -18,6 +18,7 @@ class EmailVerificationTest extends TestCase
     private array $registerPayload = [
         'name' => 'New Player', 'username' => 'newplayer',
         'email' => 'newplayer@example.com', 'password' => 'password123',
+        'terms_accepted' => true, 'age_confirmed' => true,
     ];
 
     /** Register and return [token, plainCode], capturing the emailed code. */

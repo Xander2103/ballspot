@@ -66,6 +66,19 @@ class PackPlayService
             ->first();
     }
 
+    /**
+     * True when the user already finished this pack in an earlier attempt, so
+     * the current attempt is a replay and must not pay XP again.
+     */
+    private function hasCompletedBefore(User $user, PackAttempt $attempt): bool
+    {
+        return PackAttempt::where('user_id', $user->id)
+            ->where('challenge_pack_id', $attempt->challenge_pack_id)
+            ->where('status', PackAttempt::STATUS_COMPLETED)
+            ->whereKeyNot($attempt->getKey())
+            ->exists();
+    }
+
     /** The challenge the attempt currently expects, or null if finished. */
     public function currentChallenge(PackAttempt $attempt): ?Challenge
     {
@@ -91,6 +104,13 @@ class PackPlayService
             abort(422, 'This pack attempt is not active.');
         }
 
+        // Packs stay replayable, but only the FIRST completion pays out. The XP
+        // ledger dedupes on (user, source_type, source_id) and both pack keys
+        // are per-attempt ids, so without this a finished pack could be
+        // restarted indefinitely — with every ball position already known — for
+        // full guess + completion XP each time.
+        $isReplay = $this->hasCompletedBefore($user, $attempt);
+
         $ids        = $attempt->challengeIds();
         $expectedId = $ids[$attempt->current_index] ?? null;
         if ($expectedId === null) {
@@ -105,7 +125,7 @@ class PackPlayService
 
         $xpBefore = $this->xpService->getTotalXp($user);
 
-        $result = DB::transaction(function () use ($attempt, $challenge, $challengeId, $x, $y, $score, $user) {
+        $result = DB::transaction(function () use ($attempt, $challenge, $challengeId, $x, $y, $score, $user, $isReplay) {
             $guess = PackAttemptGuess::create([
                 'pack_attempt_id' => $attempt->id,
                 'challenge_id'    => $challengeId,
@@ -116,15 +136,18 @@ class PackPlayService
                 'result'          => ['score' => $score['score'], 'distance' => $score['distance']],
             ]);
 
-            // Per-guess XP (= score), deduped on the guess id so replays are safe.
-            $this->xpService->awardXp(
-                $user,
-                XpEvent::SOURCE_PACK_GUESS,
-                $guess->id,
-                (int) $score['score'],
-                'Pack challenge completed',
-                ['pack_attempt_id' => $attempt->id, 'challenge_pack_id' => $attempt->challenge_pack_id],
-            );
+            // Per-guess XP (= score). Skipped entirely on a replay of a pack the
+            // user has already completed.
+            if (!$isReplay) {
+                $this->xpService->awardXp(
+                    $user,
+                    XpEvent::SOURCE_PACK_GUESS,
+                    $guess->id,
+                    (int) $score['score'],
+                    'Pack challenge completed',
+                    ['pack_attempt_id' => $attempt->id, 'challenge_pack_id' => $attempt->challenge_pack_id],
+                );
+            }
 
             $attempt->total_score += (int) $score['score'];
             $attempt->current_index += 1;
@@ -143,15 +166,19 @@ class PackPlayService
         $newBadges    = [];
 
         if ($completed) {
-            $completionXp = (int) config('ballspot.xp.pack_completion', 250);
-            $this->xpService->awardXp(
-                $user,
-                XpEvent::SOURCE_PACK_COMPLETION,
-                $attempt->id,
-                $completionXp,
-                'Pack completed',
-                ['challenge_pack_id' => $attempt->challenge_pack_id],
-            );
+            if (!$isReplay) {
+                $completionXp = (int) config('ballspot.xp.pack_completion', 250);
+                $this->xpService->awardXp(
+                    $user,
+                    XpEvent::SOURCE_PACK_COMPLETION,
+                    $attempt->id,
+                    $completionXp,
+                    'Pack completed',
+                    ['challenge_pack_id' => $attempt->challenge_pack_id],
+                );
+            }
+            // Badges stay evaluated on replays — they are idempotent, so this
+            // only ever back-fills one the user legitimately qualified for.
             $newBadges = $this->badgeService->evaluatePackCompletion($user, $attempt->load('guesses'));
         }
 

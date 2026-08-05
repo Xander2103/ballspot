@@ -36,8 +36,29 @@ class RoundController extends Controller
             return response()->json(['message' => 'This round is closed'], 422);
         }
 
+        // Cancelling a tournament only flips the league row — its rounds stay
+        // 'open', so without this the league's own members can keep scoring
+        // (and earning XP) into a tournament that was shut down.
+        if ($round->league->status !== 'active') {
+            return response()->json(['message' => 'This tournament is not active'], 422);
+        }
+
         if (Guess::where('league_round_id', $round->id)->where('user_id', $userId)->exists()) {
             return response()->json(['message' => 'Already submitted a guess for this round'], 422);
+        }
+
+        // rounds_per_day was previously enforced only when handing out the next
+        // round (LeagueController::currentRound). Round ids are sequential, so
+        // a client could skip that read and burn every round of a multi-day
+        // tournament in one minute — which also wins score ties, since those
+        // break on the earliest last-guess time.
+        $playedToday = Guess::whereHas('round', fn ($q) => $q->where('league_id', $round->league_id))
+            ->where('user_id', $userId)
+            ->whereDate('submitted_at', now()->toDateString())
+            ->count();
+
+        if ($playedToday >= $round->league->rounds_per_day) {
+            return response()->json(['message' => 'You have played all rounds available for today.'], 422);
         }
 
         $challenge = $round->challenge;

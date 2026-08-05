@@ -5,6 +5,7 @@ import {
 import { MainTabScreenProps } from '../app/MainTabs';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
+import { EmptyState } from '../components/EmptyState';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { Avatar } from '../components/Avatar';
 import { leagueApi } from '../api/leagueApi';
@@ -52,8 +53,8 @@ function DailyCard({
         <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
         <Text style={styles.dailyCardEmpty}>
           {isOtherSport
-            ? `No daily challenge for ${sportName} today. Try Football or come back tomorrow.`
-            : 'No challenge today. Check back tomorrow!'}
+            ? `No ${sportName} daily today — try Football, or the next one lands tomorrow.`
+            : 'No challenge today. The next daily lands tomorrow.'}
         </Text>
       </View>
     );
@@ -222,7 +223,9 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      {/* flex:1 so the list fills exactly the space under the header and
+          scrolls within it, instead of sizing itself to its content. */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {/* Selected sport chip */}
         <TouchableOpacity
           style={styles.sportChip}
@@ -242,6 +245,21 @@ export function HomeScreen({ navigation }: Props) {
         ) : (
           <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} styles={styles} />
         )}
+
+        {/* Nothing to play today — offer the two things that are always
+            available, so Home never dead-ends. */}
+        {!dailyLoading && !todayDaily?.has_daily ? (
+          <View style={styles.dailyFallback}>
+            <EmptyState
+              compact
+              message="No daily yet. Play a pack or join a tournament while you wait."
+              actions={[
+                { label: 'Play packs', onPress: () => navigation.navigate('Packs') },
+                { label: 'View tournaments', onPress: () => navigation.navigate('Tournaments') },
+              ]}
+            />
+          </View>
+        ) : null}
 
         {/* Challenge Packs discovery entry point */}
         <TouchableOpacity
@@ -280,24 +298,29 @@ function createStyles(theme: ThemeTokens) {
       backgroundColor: theme.surface,
       borderBottomWidth: 1,
       borderBottomColor: theme.border,
-      paddingTop: spacing.xs,
+      paddingTop: spacing.sm,
     },
-    // Sized from the asset's real 2172x724 ratio, so the wordmark is never
-    // letterboxed or cropped and scales with the phone width.
+    // The wordmark asset is 2172x724 with no @2x/@3x suffix, so RN reads its
+    // intrinsic size as 2172x724 *dp*. An explicit height is REQUIRED: without
+    // one the Image reserves that intrinsic height and swallows the screen.
+    // `contain` keeps the full wordmark visible inside this box, never cropped.
     brandImage: {
-      width: '70%',
-      maxWidth: 300,
-      aspectRatio: 2172 / 724,
-      alignSelf: 'center',
+      width: '100%',
+      height: 48,
     },
     topBar: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.md,
+      paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md,
     },
     topBarLeft: { flex: 1 },
     greeting: { fontSize: 18, fontWeight: '700', color: theme.text },
     sub: { fontSize: 13, color: theme.textSecondary },
+    scroll: { flex: 1 },
     content: { padding: spacing.md, paddingBottom: spacing.xl },
+    dailyFallback: {
+      backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md,
+    },
     sportChip: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       backgroundColor: theme.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border,

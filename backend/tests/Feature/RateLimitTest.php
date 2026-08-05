@@ -25,6 +25,7 @@ class RateLimitTest extends TestCase
         $this->postJson('/api/register', [
             'name' => 'Test', 'username' => 'tester',
             'email' => 'tester@example.com', 'password' => 'password123',
+            'terms_accepted' => true, 'age_confirmed' => true,
         ])->assertStatus(201);
     }
 
@@ -38,6 +39,7 @@ class RateLimitTest extends TestCase
         $response = $this->postJson('/api/register', [
             'name' => 'Late', 'username' => 'late',
             'email' => 'late@example.com', 'password' => 'password123',
+            'terms_accepted' => true, 'age_confirmed' => true,
         ]);
 
         $response->assertStatus(429)

@@ -39,6 +39,10 @@ class DataExportController extends Controller
                 'email'          => $user->email,
                 'email_verified' => $user->hasVerifiedEmail(),
                 'created_at'     => $user->created_at?->toISOString(),
+                // Consent record (GDPR Art. 7(1)) — the subject is entitled to
+                // see what they accepted and when.
+                'terms_accepted_at' => $user->terms_accepted_at?->toISOString(),
+                'terms_version'     => $user->terms_version,
                 'selected_theme' => $user->selected_theme,
                 'preferred_sport' => $user->preferredSport?->name,
                 'avatar_url'     => $user->avatarUrl(),
@@ -70,9 +74,11 @@ class DataExportController extends Controller
                     'friends_since' => $f->pivot?->created_at?->toISOString(),
                 ]),
 
+            // All statuses, not just pending: declined and accepted rows are
+            // retained until account deletion, so an export limited to pending
+            // would understate what is actually held about the subject.
             'friend_requests' => [
                 'incoming' => FriendRequest::where('recipient_id', $user->id)
-                    ->where('status', FriendRequest::STATUS_PENDING)
                     ->with('requester:id,username,name')
                     ->limit(self::MAX_ROWS)
                     ->get()
@@ -83,7 +89,6 @@ class DataExportController extends Controller
                         'created_at' => $r->created_at?->toISOString(),
                     ]),
                 'outgoing' => FriendRequest::where('requester_id', $user->id)
-                    ->where('status', FriendRequest::STATUS_PENDING)
                     ->with('recipient:id,username,name')
                     ->limit(self::MAX_ROWS)
                     ->get()

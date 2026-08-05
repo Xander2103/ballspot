@@ -11,10 +11,12 @@ class BetaCodeTest extends TestCase
     private function registerPayload(array $overrides = []): array
     {
         return array_merge([
-            'name'     => 'Beta Tester',
-            'username' => 'betatester',
-            'email'    => 'beta@example.com',
-            'password' => 'password123',
+            'name'           => 'Beta Tester',
+            'username'       => 'betatester',
+            'email'          => 'beta@example.com',
+            'password'       => 'password123',
+            'terms_accepted' => true,
+            'age_confirmed'  => true,
         ], $overrides);
     }
 

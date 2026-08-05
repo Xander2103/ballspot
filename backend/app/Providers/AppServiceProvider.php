@@ -90,6 +90,22 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour(5)->by('export|' . ($request->user()?->id ?: $request->ip()));
         });
 
+        // Avatar upload: the only multi-megabyte write in the API. The global
+        // 120/min would otherwise allow ~240 MB/min of uploads per account.
+        RateLimiter::for('uploads', function (Request $request) {
+            return Limit::perMinute(6)->by('up|' . ($request->user()?->id ?: $request->ip()));
+        });
+
+        // Public profile lookups. User ids are sequential, so the global limiter
+        // alone allowed walking the entire user directory (~172k profiles/day).
+        // Keyed on IP as well so extra accounts do not multiply the budget.
+        RateLimiter::for('profile-lookup', function (Request $request) {
+            return [
+                Limit::perMinute(30)->by('pl-u|' . ($request->user()?->id ?: $request->ip())),
+                Limit::perHour(300)->by('pl-ip|' . $request->ip()),
+            ];
+        });
+
         // Admin session login: strict brute-force gate (admins also have
         // forced 2FA on the API path; this protects the web form).
         RateLimiter::for('admin-login', function (Request $request) {
@@ -100,12 +116,17 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('admin-send', function (Request $request) {
             return Limit::perMinute(10)->by('admin-send|' . ($request->user()?->id ?: $request->ip()));
         });
-        // Credential submission: per email+IP (tight) and per IP (looser).
+        // Credential submission: per email+IP (tight), per IP (looser), and a
+        // per-email hourly ceiling. The last one is IP-independent on purpose —
+        // without it, an attacker with N addresses gets 5 guesses/min *per IP*
+        // against one victim account, which no other limit here bounds. Hourly
+        // (not per-minute) so a spammer cannot cheaply lock a victim out.
         RateLimiter::for('login', function (Request $request) {
             $email = strtolower((string) $request->input('email'));
             return [
                 Limit::perMinute(5)->by($email . '|' . $request->ip()),
                 Limit::perMinute(20)->by('ip|' . $request->ip()),
+                Limit::perHour(50)->by('login-email|' . $email),
             ];
         });
 

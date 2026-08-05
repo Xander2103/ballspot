@@ -58,7 +58,7 @@ export function RegisterScreen({ navigation }: Props) {
     }
 
     if (!agreed) {
-      setFormError('Please agree to the Terms and Privacy Policy to create an account.');
+      setFormError('Please confirm your age and agree to the Terms and Privacy Policy to create an account.');
       return;
     }
 
@@ -69,6 +69,8 @@ export function RegisterScreen({ navigation }: Props) {
         username: username.trim(),
         email: email.trim(),
         password,
+        terms_accepted: true,
+        age_confirmed: true,
         ...(betaCode.trim() ? { beta_code: betaCode.trim() } : {}),
       });
       await tokenStorage.save(res.token);
@@ -162,7 +164,7 @@ export function RegisterScreen({ navigation }: Props) {
           {agreed ? <Text style={styles.checkboxMark}>✓</Text> : null}
         </View>
         <Text style={styles.consentText}>
-          I agree to the{' '}
+          I am at least 16 years old, I agree to the{' '}
           <Text style={styles.link} onPress={() => Linking.openURL(`${WEB_BASE}/terms`)}>
             Terms
           </Text>{' '}

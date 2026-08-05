@@ -11,7 +11,9 @@ use App\Models\NotificationSetting;
 use App\Models\PushToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -56,13 +58,36 @@ class AccountController extends Controller
             'avatar_path' => null,
         ]);
 
-        // Set outside update(): friend_code is deliberately not fillable, so a
-        // mass assignment would silently drop it. Nulling it stops the code
-        // resolving — a deleted account must not stay addable by anyone still
-        // holding it.
-        $user->friend_code = null;
+        // Set outside update(): these are deliberately not fillable, so a mass
+        // assignment would silently drop them.
+        //   friend_code — nulled so the code stops resolving; a deleted account
+        //     must not stay addable by anyone still holding it.
+        //   is_admin — an admin who deletes their account must not keep panel
+        //     access; EnsureIsAdmin only checks auth + this flag.
+        //   email_verified_at — the anonymized address was never verified, and
+        //     leaving it set would carry verification onto a bogus email.
+        $user->friend_code       = null;
+        $user->is_admin          = false;
+        $user->email_verified_at = null;
         $user->save();
 
+        // API tokens are revoked above, but the admin panel runs on database
+        // sessions, which survive independently of Sanctum.
+        $this->purgeWebSessions($id);
+
         return response()->json(['message' => 'Your account has been deleted.']);
+    }
+
+    /**
+     * Drop any database-backed web sessions for the user. No-op when the app
+     * is configured with a non-database session driver.
+     */
+    private function purgeWebSessions(int $userId): void
+    {
+        if (!Schema::hasTable('sessions')) {
+            return;
+        }
+
+        DB::table('sessions')->where('user_id', $userId)->delete();
     }
 }
