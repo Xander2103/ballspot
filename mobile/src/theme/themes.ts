@@ -178,7 +178,9 @@ export const themes: Record<ThemeName, ThemeTokens> = {
   high_contrast,
 };
 
-export const DEFAULT_THEME: ThemeName = 'classic';
+// Pitch Green is the default look for anyone without a saved preference;
+// users who picked a theme keep it (local storage / server value wins).
+export const DEFAULT_THEME: ThemeName = 'pitch_green';
 
 export function isThemeName(value: unknown): value is ThemeName {
   return typeof value === 'string' && value in themes;

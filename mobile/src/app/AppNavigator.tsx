@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
 import { useTheme } from '../theme/useTheme';
@@ -17,7 +17,7 @@ import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from '../screens/ResetPasswordScreen';
-import { HomeScreen } from '../screens/HomeScreen';
+import { MainTabs, MainTabParamList } from './MainTabs';
 import { SportSelectionScreen } from '../screens/SportSelectionScreen';
 import { CreateLeagueScreen } from '../screens/CreateLeagueScreen';
 import { JoinLeagueScreen } from '../screens/JoinLeagueScreen';
@@ -25,7 +25,6 @@ import { LeagueDetailScreen } from '../screens/LeagueDetailScreen';
 import { GuessScreen } from '../screens/GuessScreen';
 import { ResultScreen } from '../screens/ResultScreen';
 import { LeaderboardScreen } from '../screens/LeaderboardScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
 import { PacksScreen } from '../screens/PacksScreen';
 import { PackDetailScreen } from '../screens/PackDetailScreen';
 import { PackGuessScreen } from '../screens/PackGuessScreen';
@@ -35,7 +34,6 @@ import { TrophyRoomScreen } from '../screens/TrophyRoomScreen';
 import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
 import { DailyResultScreen } from '../screens/DailyResultScreen';
 import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
-import { FriendsScreen } from '../screens/FriendsScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { ScanFriendCodeScreen } from '../screens/ScanFriendCodeScreen';
 import { HeaderExitButton } from '../components/HeaderExitButton';
@@ -48,9 +46,10 @@ export type RootStackParamList = {
   Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { email?: string; token?: string } | undefined;
-  Home: undefined;
+  /** Bottom-tab host (Play / Tournaments / Friends / Profile). Keeps the
+      historical 'Home' name so every existing reset/navigate keeps working. */
+  Home: NavigatorScreenParams<MainTabParamList> | undefined;
   SportSelection: { mode?: 'onboarding' | 'change'; currentSportId?: number | null } | undefined;
-  Profile: undefined;
   Packs: undefined;
   PackDetail: { slug: string; name: string };
   PackGuess: { slug: string; packName: string };
@@ -66,8 +65,6 @@ export type RootStackParamList = {
   DailyChallenge: { dailyChallengeId: number };
   DailyResult: { dailyChallengeId: number; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null };
   WeeklyLeaderboard: undefined;
-  /** `scannedCode` is how ScanFriendCodeScreen hands a scanned code back. */
-  Friends: { scannedCode?: string } | undefined;
   FriendProfile: { userId: number; username: string };
   ScanFriendCode: undefined;
 };
@@ -130,9 +127,8 @@ export function AppNavigator() {
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />
-        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Home" component={MainTabs} options={{ headerShown: false }} />
         <Stack.Screen name="SportSelection" component={SportSelectionScreen} options={{ title: 'Choose Sport' }} />
-        <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
         <Stack.Screen name="Packs" component={PacksScreen} options={{ title: 'Challenge Packs' }} />
         <Stack.Screen name="PackDetail" component={PackDetailScreen} options={({ route }) => ({ title: route.params.name })} />
         <Stack.Screen
@@ -202,7 +198,6 @@ export function AppNavigator() {
           })}
         />
         <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: 'Weekly Leaderboard' }} />
-        <Stack.Screen name="Friends" component={FriendsScreen} options={{ title: 'Friends' }} />
         <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={({ route }) => ({ title: `@${route.params.username}` })} />
         <Stack.Screen name="ScanFriendCode" component={ScanFriendCodeScreen} options={{ title: 'Scan friend code' }} />
       </Stack.Navigator>

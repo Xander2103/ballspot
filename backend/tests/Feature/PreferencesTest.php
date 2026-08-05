@@ -31,16 +31,27 @@ class PreferencesTest extends TestCase
         $this->patchJson('/api/me/preferences', [])->assertUnauthorized();
     }
 
-    public function test_defaults_to_classic_theme_and_no_sport(): void
+    public function test_defaults_to_pitch_green_theme_and_no_sport(): void
     {
         [, $token] = $this->auth();
 
         $res = $this->withToken($token)->getJson('/api/me/preferences');
 
         $res->assertOk();
-        $res->assertJsonPath('selected_theme', 'classic');
+        $res->assertJsonPath('selected_theme', 'pitch_green');
         $res->assertJsonPath('preferred_sport', null);
         $res->assertJsonStructure(['available_themes']);
+    }
+
+    public function test_existing_theme_choice_is_not_overwritten_by_the_default(): void
+    {
+        [$user, $token] = $this->auth();
+        $user->update(['selected_theme' => 'tournament_blue']);
+
+        $res = $this->withToken($token)->getJson('/api/me/preferences');
+
+        $res->assertOk();
+        $res->assertJsonPath('selected_theme', 'tournament_blue');
     }
 
     public function test_user_can_update_preferred_sport(): void

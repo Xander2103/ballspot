@@ -20,6 +20,13 @@ class User extends Authenticatable implements MustVerifyEmail
         'preferred_sport_id', 'selected_theme', 'avatar_path',
     ];
 
+    // New accounts start on Pitch Green. Model-level (not a schema change) so
+    // existing rows — including users who deliberately chose another theme —
+    // are never rewritten.
+    protected $attributes = [
+        'selected_theme' => 'pitch_green',
+    ];
+
     /** Use our API-friendly reset notification instead of the default web-route one. */
     public function sendPasswordResetNotification($token): void
     {

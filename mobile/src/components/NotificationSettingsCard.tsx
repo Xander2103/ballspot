@@ -22,9 +22,10 @@ const TOGGLES: { key: ToggleKey; label: string; hint: string }[] = [
   { key: 'admin_notifications_enabled', label: 'Announcements', hint: 'Occasional news from the BallPicker team.' },
 ];
 
-export function NotificationSettingsCard() {
+export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = {}) {
   const { theme } = useTheme();
   const styles = createStyles(theme);
+  const cardStyle = [styles.card, flat && styles.flat];
 
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
@@ -96,7 +97,7 @@ export function NotificationSettingsCard() {
 
   if (loading) {
     return (
-      <View style={[styles.card, styles.center]}>
+      <View style={[...cardStyle, styles.center]}>
         <ActivityIndicator color={theme.primary} />
       </View>
     );
@@ -104,7 +105,7 @@ export function NotificationSettingsCard() {
 
   if (!settings) {
     return (
-      <View style={styles.card}>
+      <View style={cardStyle}>
         <Text style={styles.errorText}>{error || 'Notification settings unavailable.'}</Text>
         <TouchableOpacity onPress={load}><Text style={styles.retry}>Retry</Text></TouchableOpacity>
       </View>
@@ -112,7 +113,7 @@ export function NotificationSettingsCard() {
   }
 
   return (
-    <View style={styles.card}>
+    <View style={cardStyle}>
       <PermissionBanner styles={styles} perm={perm} onEnable={enablePermission} />
 
       {TOGGLES.map((t, i) => (
@@ -186,6 +187,8 @@ function createStyles(theme: ThemeTokens) {
       borderColor: theme.border,
       padding: spacing.md,
     },
+    // Rendered inside an already-carded container (e.g. a collapsible section).
+    flat: { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, padding: 0 },
     center: { alignItems: 'center', justifyContent: 'center', minHeight: 80 },
     row: {
       flexDirection: 'row',

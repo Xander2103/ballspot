@@ -3,12 +3,13 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
+import { RecentXpCard } from '../components/RecentXpCard';
 import { rankApi, RankThreshold } from '../api/rankApi';
 import { authApi } from '../api/authApi';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import type { PlayerRank } from '../types/auth';
+import type { PlayerRank, XpEvent } from '../types/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RankOverview'>;
 
@@ -28,16 +29,23 @@ export function RankOverviewScreen(_props: Props) {
 
   const [ranks, setRanks] = useState<RankThreshold[] | null>(null);
   const [myRank, setMyRank] = useState<PlayerRank | null>(null);
+  const [xpEvents, setXpEvents] = useState<XpEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([rankApi.all(), authApi.stats().then((s) => s.rank).catch(() => null)])
-      .then(([list, rank]) => {
+    Promise.all([
+      rankApi.all(),
+      authApi.stats().then((s) => s.rank).catch(() => null),
+      // Recent XP is a nice-to-have here — never fail the ladder over it.
+      authApi.xpEvents(5).then((r) => r.data.slice(0, 5)).catch(() => []),
+    ])
+      .then(([list, rank, xp]) => {
         if (cancelled) return;
         setRanks(list);
         setMyRank(rank);
+        setXpEvents(xp);
       })
       .catch(() => !cancelled && setError(true))
       .finally(() => !cancelled && setLoading(false));
@@ -117,6 +125,14 @@ export function RankOverviewScreen(_props: Props) {
           );
         })}
       </View>
+
+      {/* The XP that feeds the ladder — compact, right where progression lives. */}
+      {xpEvents.length > 0 ? (
+        <>
+          <Text style={styles.xpLabel}>Recent XP</Text>
+          <RecentXpCard events={xpEvents} />
+        </>
+      ) : null}
     </Screen>
   );
 }
@@ -157,5 +173,9 @@ function createStyles(theme: ThemeTokens) {
     statusCurrent: { color: theme.primary },
     statusDone: { color: theme.textMuted },
     statusFuture: { color: theme.textSecondary },
+    xpLabel: {
+      fontSize: 11, fontWeight: '700', color: theme.textMuted, letterSpacing: 1,
+      textTransform: 'uppercase', marginTop: spacing.lg, marginBottom: spacing.xs,
+    },
   });
 }

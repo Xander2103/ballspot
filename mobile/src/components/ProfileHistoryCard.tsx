@@ -7,6 +7,8 @@ import type { TournamentFinish } from '../types/badge';
 
 interface Props {
   finishes: TournamentFinish[];
+  /** Rendered inside an already-carded container (e.g. a collapsible section). */
+  flat?: boolean;
 }
 
 const MEDAL: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' };
@@ -23,12 +25,12 @@ function formatDate(iso: string | null): string {
  * Compact completed-tournament history. Sourced from tournament_finishes, so
  * entries survive the user hiding a tournament from their Home list.
  */
-export function ProfileHistoryCard({ finishes }: Props) {
+export function ProfileHistoryCard({ finishes, flat = false }: Props) {
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, flat && styles.flat]}>
       {finishes.map((f, i) => (
         <View key={f.id} style={[styles.row, i > 0 && styles.rowDivider]}>
           <Text style={styles.medal}>{MEDAL[f.placement] ?? `#${f.placement}`}</Text>
@@ -54,6 +56,7 @@ function createStyles(theme: ThemeTokens) {
       backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
       paddingHorizontal: spacing.md, marginBottom: spacing.xl,
     },
+    flat: { backgroundColor: 'transparent', borderWidth: 0, borderRadius: 0, paddingHorizontal: 0, marginBottom: 0 },
     row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
     rowDivider: { borderTopWidth: 1, borderTopColor: theme.border },
     medal: { fontSize: 18, minWidth: 28, textAlign: 'center', color: theme.textSecondary, fontWeight: '700' },

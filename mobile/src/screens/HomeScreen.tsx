@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
 } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../app/AppNavigator';
+import { MainTabScreenProps } from '../app/MainTabs';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { ConfirmModal } from '../components/ConfirmModal';
@@ -25,25 +24,22 @@ import { TodayResponse, DailyStats } from '../types/daily';
 // Horizontal BallPicker brand header (wordmark). Rendered as the Home hero.
 const brandHeader = require('../../assets/BallPickerHeader.png');
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
+type Props = MainTabScreenProps<'Play'>;
 
 // Persisted flag so we ask for notification permission at most once (non-spammy).
 const NOTIF_PROMPT_SEEN = 'notif_prompt_seen';
-
-const STATUS_LABEL: Record<string, string> = { lobby: 'LOBBY', active: 'ACTIVE', completed: 'DONE' };
 
 function todayDateFormatted(): string {
   return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function DailyCard({
-  today, stats, navigation, styles, theme,
+  today, stats, navigation, styles,
 }: {
   today: TodayResponse | null;
   stats: DailyStats | null;
   navigation: Props['navigation'];
   styles: Styles;
-  theme: ThemeTokens;
 }) {
   if (!today?.has_daily) {
     const sportName = today?.sport?.name;
@@ -101,74 +97,15 @@ function DailyCard({
   );
 }
 
-function TournamentCard({
-  item, onPress, onDelete, onHide, styles, theme,
-}: {
-  item: League;
-  onPress: () => void;
-  onDelete?: () => void;
-  /** Remove a finished tournament from this user's list — deletes nothing. */
-  onHide?: () => void;
-  styles: Styles;
-  theme: ThemeTokens;
-}) {
-  const STATUS_COLOR: Record<string, string> = {
-    lobby: theme.warning, active: theme.primary, completed: theme.textMuted,
-  };
-  const statusColor = STATUS_COLOR[item.status] ?? theme.textMuted;
-  const statusLabel = STATUS_LABEL[item.status] ?? item.status.toUpperCase();
-
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardName} numberOfLines={1}>
-          {item.sport?.emoji ? `${item.sport.emoji} ` : ''}{item.name}
-        </Text>
-        <View style={[styles.statusBadge, { borderColor: statusColor }]}>
-          <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
-        </View>
-        {item.status === 'completed' && onHide ? (
-          <TouchableOpacity
-            onPress={(e) => { e.stopPropagation(); onHide(); }}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={styles.hideBtn}
-            accessibilityRole="button"
-            accessibilityLabel={`Remove ${item.name} from your list`}
-          >
-            <Text style={styles.hideBtnText}>✕</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-      <Text style={styles.cardMeta}>
-        {item.sport?.name ? `${item.sport.name} · ` : ''}Code: {item.join_code} · {item.members_count} players
-        {item.rounds_count > 0 ? ` · ${item.completed_rounds_count}/${item.rounds_count} rounds` : ''}
-      </Text>
-      {item.is_owner && (item.status === 'lobby' || item.status === 'active') && onDelete ? (
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={(e) => { e.stopPropagation(); onDelete(); }}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.deleteBtnText}>Delete</Text>
-        </TouchableOpacity>
-      ) : null}
-    </TouchableOpacity>
-  );
-}
-
 export function HomeScreen({ navigation }: Props) {
   const { theme } = useTheme();
   const styles = createStyles(theme);
 
+  // Tournaments render in their own tab now; Home still fetches them silently
+  // because the local reminder scheduling below needs the pending-action state.
   const [leagues, setLeagues] = useState<League[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [cancelTarget, setCancelTarget] = useState<League | null>(null);
-  const [cancelling, setCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState('');
-  const [hideTarget, setHideTarget] = useState<League | null>(null);
-  const [hiding, setHiding] = useState(false);
-  const [hideError, setHideError] = useState('');
 
   const [todayDaily, setTodayDaily] = useState<TodayResponse | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
@@ -259,53 +196,14 @@ export function HomeScreen({ navigation }: Props) {
     setNotifPromptVisible(false);
   }
 
-  async function handleCancel() {
-    if (!cancelTarget || cancelling) return;
-    setCancelling(true);
-    setCancelError('');
-    const id = cancelTarget.id;
-    try {
-      await leagueApi.cancel(id);
-      // Optimistically drop it from the list — no full refresh needed.
-      setLeagues((prev) => prev.filter((l) => l.id !== id));
-      setCancelTarget(null);
-    } catch {
-      setCancelError('Could not delete the tournament. Please try again.');
-    } finally {
-      setCancelling(false);
-    }
-  }
-
-  async function handleHide() {
-    if (!hideTarget || hiding) return;
-    setHiding(true);
-    setHideError('');
-    const id = hideTarget.id;
-    try {
-      await leagueApi.hide(id);
-      // Optimistic — the server keeps every result, only this list changes.
-      setLeagues((prev) => prev.filter((l) => l.id !== id));
-      setHideTarget(null);
-    } catch {
-      setHideError('Could not remove the tournament. Please try again.');
-    } finally {
-      setHiding(false);
-    }
-  }
-
-  const active = leagues.filter(l => l.status === 'lobby' || l.status === 'active');
-  const completed = leagues.filter(l => l.status === 'completed');
-  const sections = [
-    ...(active.length > 0 ? [{ title: 'Your Tournaments', data: active }] : []),
-    ...(completed.length > 0 ? [{ title: 'Completed', data: completed }] : []),
-  ];
-  const isEmpty = leagues.length === 0;
   const sport = user?.preferred_sport ?? null;
 
   return (
     <Screen padding={false}>
-      {/* Branded hero header — the horizontal BallPicker wordmark. */}
-      <View style={styles.brandHeader}>
+      {/* App header: wordmark + greeting live in ONE surface block with a
+          single bottom border, so the logo reads as the screen's real header
+          rather than an image card floating above it. */}
+      <View style={styles.header}>
         <Image
           source={brandHeader}
           style={styles.brandImage}
@@ -313,139 +211,52 @@ export function HomeScreen({ navigation }: Props) {
           accessibilityRole="image"
           accessibilityLabel="BallPicker"
         />
+        <View style={styles.topBar}>
+          <View style={styles.topBarLeft}>
+            <Text style={styles.greeting}>Hey, {user?.name || '…'}</Text>
+            <Text style={styles.sub}>@{user?.username || '…'}</Text>
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
+            <Avatar uri={user?.avatar_url} name={user?.name} size={42} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
-          <Text style={styles.greeting}>Hey, {user?.name || '…'}</Text>
-          <Text style={styles.sub}>@{user?.username || '…'}</Text>
-        </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
-          <Avatar uri={user?.avatar_url} name={user?.name} size={42} />
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Selected sport chip */}
+        <TouchableOpacity
+          style={styles.sportChip}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('SportSelection', { mode: 'change', currentSportId: sport?.id ?? null })}
+        >
+          <Text style={styles.sportChipText}>
+            {sport ? `${sport.emoji} ${sport.name}` : '🎯 Pick a sport'}
+          </Text>
+          <Text style={styles.sportChipAction}>Change sport ›</Text>
         </TouchableOpacity>
-      </View>
 
-      {loading ? (
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={theme.primary} size="large" />
-        </View>
-      ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(l) => String(l.id)}
-          renderSectionHeader={({ section }) => (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-            </View>
-          )}
-          renderItem={({ item }) => (
-            <TournamentCard
-              item={item}
-              styles={styles}
-              theme={theme}
-              onPress={() => navigation.navigate('LeagueDetail', { leagueId: item.id, leagueName: item.name })}
-              onDelete={() => setCancelTarget(item)}
-              onHide={() => setHideTarget(item)}
-            />
-          )}
-          contentContainerStyle={styles.list}
-          ListHeaderComponent={
-            <View>
-              {/* Selected sport chip */}
-              <TouchableOpacity
-                style={styles.sportChip}
-                activeOpacity={0.8}
-                onPress={() => navigation.navigate('SportSelection', { mode: 'change', currentSportId: sport?.id ?? null })}
-              >
-                <Text style={styles.sportChipText}>
-                  {sport ? `${sport.emoji} ${sport.name}` : '🎯 Pick a sport'}
-                </Text>
-                <Text style={styles.sportChipAction}>Change sport ›</Text>
-              </TouchableOpacity>
+        {dailyLoading ? (
+          <View style={[styles.dailyCard, styles.dailyCardLoading]}>
+            <Text style={styles.dailyCardLoadingText}>Loading daily challenge…</Text>
+          </View>
+        ) : (
+          <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} styles={styles} />
+        )}
 
-              {dailyLoading ? (
-                <View style={[styles.dailyCard, styles.dailyCardLoading]}>
-                  <Text style={styles.dailyCardLoadingText}>Loading daily challenge…</Text>
-                </View>
-              ) : (
-                <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} styles={styles} theme={theme} />
-              )}
-
-              {/* Challenge Packs discovery entry point */}
-              <TouchableOpacity
-                style={styles.packsCard}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('Packs')}
-              >
-                <Text style={styles.packsEmoji}>📦</Text>
-                <View style={styles.packsText}>
-                  <Text style={styles.packsTitle}>Challenge Packs</Text>
-                  <Text style={styles.packsSubtitle}>Play themed sets of challenges.</Text>
-                </View>
-                <Text style={styles.packsChevron}>›</Text>
-              </TouchableOpacity>
-
-              {/* Friends entry point */}
-              <TouchableOpacity
-                style={styles.packsCard}
-                activeOpacity={0.85}
-                onPress={() => navigation.navigate('Friends')}
-              >
-                <Text style={styles.packsEmoji}>👥</Text>
-                <View style={styles.packsText}>
-                  <Text style={styles.packsTitle}>Friends</Text>
-                  <Text style={styles.packsSubtitle}>Share your code and see how your friends rank.</Text>
-                </View>
-                <Text style={styles.packsChevron}>›</Text>
-              </TouchableOpacity>
-            </View>
-          }
-          ListEmptyComponent={
-            isEmpty ? (
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyIcon}>⚽</Text>
-                <Text style={styles.emptyTitle}>No tournaments yet</Text>
-                <Text style={styles.emptyText}>Create a tournament and invite friends to play!</Text>
-              </View>
-            ) : null
-          }
-          ListFooterComponent={
-            <View style={styles.actions}>
-              <AppButton title="+ Create Tournament" onPress={() => navigation.navigate('CreateLeague')} style={styles.actionBtn} />
-              <AppButton title="Join Tournament" onPress={() => navigation.navigate('JoinLeague')} variant="secondary" />
-            </View>
-          }
-          stickySectionHeadersEnabled={false}
-        />
-      )}
-
-      <ConfirmModal
-        visible={!!cancelTarget}
-        title={cancelTarget?.status === 'lobby' ? 'Delete lobby?' : 'Delete tournament?'}
-        message={cancelTarget?.status === 'lobby'
-          ? 'This lobby has not started yet. Are you sure you want to delete it?'
-          : 'This will remove the tournament from your active list. Players will no longer be able to continue it.'}
-        confirmLabel={cancelTarget?.status === 'lobby' ? 'Delete lobby' : 'Delete tournament'}
-        cancelLabel={cancelTarget?.status === 'lobby' ? 'Keep lobby' : 'Cancel'}
-        onConfirm={handleCancel}
-        onCancel={() => { setCancelTarget(null); setCancelError(''); }}
-        loading={cancelling}
-        errorText={cancelError}
-        destructive
-      />
-
-      <ConfirmModal
-        visible={!!hideTarget}
-        title="Remove tournament?"
-        message="This will remove it from your list. Your result/history will stay saved."
-        confirmLabel="Remove"
-        cancelLabel="Cancel"
-        onConfirm={handleHide}
-        onCancel={() => { setHideTarget(null); setHideError(''); }}
-        loading={hiding}
-        errorText={hideError}
-        destructive
-      />
+        {/* Challenge Packs discovery entry point */}
+        <TouchableOpacity
+          style={styles.packsCard}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('Packs')}
+        >
+          <Text style={styles.packsEmoji}>📦</Text>
+          <View style={styles.packsText}>
+            <Text style={styles.packsTitle}>Challenge Packs</Text>
+            <Text style={styles.packsSubtitle}>Play themed sets of challenges.</Text>
+          </View>
+          <Text style={styles.packsChevron}>›</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       <ConfirmModal
         visible={notifPromptVisible}
@@ -465,27 +276,28 @@ type Styles = ReturnType<typeof createStyles>;
 
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
-    brandHeader: {
+    header: {
       backgroundColor: theme.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.md,
-      borderBottomLeftRadius: 20,
-      borderBottomRightRadius: 20,
       borderBottomWidth: 1,
-      borderColor: theme.border,
+      borderBottomColor: theme.border,
+      paddingTop: spacing.xs,
     },
-    brandImage: { width: '100%', height: 120 },
+    // Sized from the asset's real 2172x724 ratio, so the wordmark is never
+    // letterboxed or cropped and scales with the phone width.
+    brandImage: {
+      width: '70%',
+      maxWidth: 300,
+      aspectRatio: 2172 / 724,
+      alignSelf: 'center',
+    },
     topBar: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      padding: spacing.md, backgroundColor: theme.surface,
+      paddingHorizontal: spacing.md, paddingTop: spacing.xs, paddingBottom: spacing.md,
     },
     topBarLeft: { flex: 1 },
     greeting: { fontSize: 18, fontWeight: '700', color: theme.text },
     sub: { fontSize: 13, color: theme.textSecondary },
-    loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-    list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
+    content: { padding: spacing.md, paddingBottom: spacing.xl },
     sportChip: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       backgroundColor: theme.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
@@ -496,34 +308,13 @@ function createStyles(theme: ThemeTokens) {
     packsCard: {
       flexDirection: 'row', alignItems: 'center', gap: spacing.md,
       backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md, marginBottom: spacing.sm,
+      paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md,
     },
     packsEmoji: { fontSize: 26 },
     packsText: { flex: 1 },
     packsTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
     packsSubtitle: { fontSize: 12, color: theme.textMuted, marginTop: 1 },
     packsChevron: { fontSize: 22, color: theme.textMuted, fontWeight: '700' },
-    sectionHeader: { paddingBottom: spacing.xs, paddingTop: spacing.sm },
-    sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase' },
-    card: {
-      backgroundColor: theme.surface, borderRadius: 14, padding: spacing.md,
-      borderWidth: 1, borderColor: theme.border, marginBottom: spacing.sm,
-    },
-    cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-    hideBtn: { marginLeft: spacing.sm, width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
-    hideBtnText: { fontSize: 15, fontWeight: '700', color: theme.textMuted, lineHeight: 18 },
-    cardName: { fontSize: 16, fontWeight: '700', color: theme.text, flex: 1, marginRight: spacing.sm },
-    statusBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 6, paddingVertical: 2 },
-    statusText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
-    cardMeta: { fontSize: 13, color: theme.textSecondary },
-    deleteBtn: { marginTop: spacing.sm, alignSelf: 'flex-start' },
-    deleteBtnText: { fontSize: 12, color: theme.danger, fontWeight: '600' },
-    emptyWrap: { paddingVertical: spacing.xxl, alignItems: 'center' },
-    emptyIcon: { fontSize: 48, marginBottom: spacing.md },
-    emptyTitle: { fontSize: 18, fontWeight: '700', color: theme.text, marginBottom: spacing.sm },
-    emptyText: { fontSize: 14, color: theme.textSecondary, textAlign: 'center' },
-    actions: { gap: spacing.sm, marginTop: spacing.md },
-    actionBtn: { marginBottom: 0 },
     dailyCard: {
       backgroundColor: theme.surface, borderRadius: 16, padding: spacing.md,
       marginBottom: spacing.md, borderWidth: 1, borderColor: theme.border,

@@ -2,12 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import QRCode from 'react-native-qrcode-svg';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../app/AppNavigator';
+import { MainTabScreenProps } from '../app/MainTabs';
+import { useFriendRequests } from '../app/friendRequests';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { AppInput } from '../components/AppInput';
 import { Avatar } from '../components/Avatar';
+import { CollapsibleSection } from '../components/CollapsibleSection';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { friendsApi } from '../api/friendsApi';
 import { useTheme } from '../theme/useTheme';
@@ -15,11 +16,12 @@ import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { FriendRequestItem, FriendSummary } from '../types/friend';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Friends'>;
+type Props = MainTabScreenProps<'Friends'>;
 
 export function FriendsScreen({ navigation, route }: Props) {
   const { theme } = useTheme();
   const styles = createStyles(theme);
+  const { setIncomingCount } = useFriendRequests();
 
   const [code, setCode] = useState<string | null>(null);
   const [friends, setFriends] = useState<FriendSummary[]>([]);
@@ -28,6 +30,7 @@ export function FriendsScreen({ navigation, route }: Props) {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
 
+  const [query, setQuery] = useState('');
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
@@ -50,6 +53,8 @@ export function FriendsScreen({ navigation, route }: Props) {
     if (reqRes.status === 'fulfilled') {
       setIncoming(reqRes.value.incoming);
       setOutgoing(reqRes.value.outgoing);
+      // Keep the tab badge in sync with what this screen shows.
+      setIncomingCount(reqRes.value.incoming.length);
     }
     setLoadFailed(
       codeRes.status === 'rejected' &&
@@ -57,7 +62,7 @@ export function FriendsScreen({ navigation, route }: Props) {
       reqRes.status === 'rejected'
     );
     setLoading(false);
-  }, []);
+  }, [setIncomingCount]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => navigation.addListener('focus', () => { load(); }), [navigation, load]);
@@ -145,15 +150,24 @@ export function FriendsScreen({ navigation, route }: Props) {
     );
   }
 
+  const trimmedQuery = query.trim().toLowerCase();
+  const visibleFriends = trimmedQuery
+    ? friends.filter(
+        (f) =>
+          f.name.toLowerCase().includes(trimmedQuery) ||
+          f.username.toLowerCase().includes(trimmedQuery)
+      )
+    : friends;
+
   return (
     <Screen scroll padding>
-      {/* My friend code + QR */}
+      {/* My friend code + QR — compact block, always visible. */}
       <Text style={styles.sectionTitle}>Your friend code</Text>
       <View style={styles.codeCard}>
         <Text style={styles.code}>{code ?? '········'}</Text>
         {code ? (
           <View style={styles.qrWrap}>
-            <QRCode value={code} size={168} color="#000000" backgroundColor="#ffffff" />
+            <QRCode value={code} size={120} color="#000000" backgroundColor="#ffffff" />
           </View>
         ) : null}
         <Text style={styles.codeHint}>Share this code (or the QR) so other players can add you.</Text>
@@ -165,9 +179,103 @@ export function FriendsScreen({ navigation, route }: Props) {
         />
       </View>
 
-      {/* Add a friend */}
-      <Text style={styles.sectionTitle}>Add a friend</Text>
-      <View style={styles.addCard}>
+      {/* Friend list — expanded by default, searchable. */}
+      <CollapsibleSection
+        title="Your friends"
+        summary={`${friends.length}`}
+        initiallyExpanded
+      >
+        {friends.length === 0 ? (
+          <Text style={styles.emptyText}>No friends yet. Share your code to get started.</Text>
+        ) : (
+          <>
+            <AppInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search by name or username"
+              autoCapitalize="none"
+              autoCorrect={false}
+              accessibilityLabel="Search your friends"
+            />
+            {visibleFriends.length === 0 ? (
+              <Text style={styles.emptyText}>No friends match your search.</Text>
+            ) : (
+              visibleFriends.map((f, i) => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[styles.row, i > 0 && styles.rowDivider]}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate('FriendProfile', { userId: f.id, username: f.username })}
+                >
+                  <Avatar uri={f.avatar_url} name={f.name} size={40} />
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowName}>{f.name}</Text>
+                    <Text style={styles.rowSub}>@{f.username} · {f.rank_name} · {f.total_xp} XP</Text>
+                  </View>
+                  {/* stopPropagation: this sits inside the row's own TouchableOpacity,
+                      so without it a Remove tap can also open the friend's profile. */}
+                  <TouchableOpacity
+                    onPress={(e) => { e.stopPropagation(); setRemoveTarget(f); }}
+                    style={styles.actionBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${f.name} from your friends`}
+                  >
+                    <Text style={styles.rejectText}>Remove</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))
+            )}
+          </>
+        )}
+      </CollapsibleSection>
+
+      {/* Incoming — auto-expanded and badged whenever something is pending. */}
+      <CollapsibleSection
+        title="Incoming requests"
+        badgeCount={incoming.length}
+        initiallyExpanded={incoming.length > 0}
+      >
+        {incoming.length === 0 ? (
+          <Text style={styles.emptyText}>No incoming requests.</Text>
+        ) : (
+          incoming.map((item, i) => (
+            <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
+              <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
+              <View style={styles.rowText}>
+                <Text style={styles.rowName}>{item.user.name}</Text>
+                <Text style={styles.rowSub}>@{item.user.username} · {item.user.rank_name}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleAccept(item)} disabled={busyId === item.id} style={styles.actionBtn}>
+                <Text style={styles.acceptText}>Accept</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleReject(item)} disabled={busyId === item.id} style={styles.actionBtn}>
+                <Text style={styles.rejectText}>Reject</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </CollapsibleSection>
+
+      {/* Outgoing — collapsed by default. */}
+      <CollapsibleSection title="Sent requests" summary={outgoing.length > 0 ? `${outgoing.length}` : undefined}>
+        {outgoing.length === 0 ? (
+          <Text style={styles.emptyText}>No pending sent requests.</Text>
+        ) : (
+          outgoing.map((item, i) => (
+            <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
+              <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
+              <View style={styles.rowText}>
+                <Text style={styles.rowName}>{item.user.name}</Text>
+                <Text style={styles.rowSub}>@{item.user.username} · pending</Text>
+              </View>
+            </View>
+          ))
+        )}
+      </CollapsibleSection>
+
+      {/* Add a friend — collapsed by default. */}
+      <CollapsibleSection title="Add a friend">
         <AppInput
           label="Friend code"
           value={input}
@@ -186,77 +294,7 @@ export function FriendsScreen({ navigation, route }: Props) {
           variant="secondary"
           style={{ marginTop: spacing.sm }}
         />
-      </View>
-
-      {/* Incoming */}
-      <Text style={styles.sectionTitle}>Incoming requests</Text>
-      {incoming.length === 0 ? (
-        <View style={styles.emptyCard}><Text style={styles.emptyText}>No incoming requests.</Text></View>
-      ) : (
-        incoming.map((item) => (
-          <View key={item.id} style={styles.row}>
-            <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
-            <View style={styles.rowText}>
-              <Text style={styles.rowName}>{item.user.name}</Text>
-              <Text style={styles.rowSub}>@{item.user.username} · {item.user.rank_name}</Text>
-            </View>
-            <TouchableOpacity onPress={() => handleAccept(item)} disabled={busyId === item.id} style={styles.actionBtn}>
-              <Text style={styles.acceptText}>Accept</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleReject(item)} disabled={busyId === item.id} style={styles.actionBtn}>
-              <Text style={styles.rejectText}>Reject</Text>
-            </TouchableOpacity>
-          </View>
-        ))
-      )}
-
-      {/* Outgoing */}
-      <Text style={styles.sectionTitle}>Sent requests</Text>
-      {outgoing.length === 0 ? (
-        <View style={styles.emptyCard}><Text style={styles.emptyText}>No pending sent requests.</Text></View>
-      ) : (
-        outgoing.map((item) => (
-          <View key={item.id} style={styles.row}>
-            <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
-            <View style={styles.rowText}>
-              <Text style={styles.rowName}>{item.user.name}</Text>
-              <Text style={styles.rowSub}>@{item.user.username} · pending</Text>
-            </View>
-          </View>
-        ))
-      )}
-
-      {/* Friends */}
-      <Text style={styles.sectionTitle}>Your friends ({friends.length})</Text>
-      {friends.length === 0 ? (
-        <View style={styles.emptyCard}><Text style={styles.emptyText}>No friends yet. Share your code to get started.</Text></View>
-      ) : (
-        friends.map((f) => (
-          <TouchableOpacity
-            key={f.id}
-            style={styles.row}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('FriendProfile', { userId: f.id, username: f.username })}
-          >
-            <Avatar uri={f.avatar_url} name={f.name} size={40} />
-            <View style={styles.rowText}>
-              <Text style={styles.rowName}>{f.name}</Text>
-              <Text style={styles.rowSub}>@{f.username} · {f.rank_name} · {f.total_xp} XP</Text>
-            </View>
-            {/* stopPropagation: this sits inside the row's own TouchableOpacity,
-                so without it a Remove tap can also open the friend's profile. */}
-            <TouchableOpacity
-              onPress={(e) => { e.stopPropagation(); setRemoveTarget(f); }}
-              style={styles.actionBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel={`Remove ${f.name} from your friends`}
-            >
-              <Text style={styles.rejectText}>Remove</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        ))
-      )}
+      </CollapsibleSection>
 
       <ConfirmModal
         visible={!!removeTarget}
@@ -278,17 +316,17 @@ function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     center: { flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' },
     loadError: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
-    sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.sm, marginTop: spacing.md },
-    codeCard: { backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border, padding: spacing.md, alignItems: 'center', gap: spacing.sm },
-    code: { fontSize: 30, fontWeight: '800', letterSpacing: 4, color: theme.primary },
+    sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.sm },
+    codeCard: { backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border, padding: spacing.md, alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+    code: { fontSize: 24, fontWeight: '800', letterSpacing: 3, color: theme.primary },
     qrWrap: { backgroundColor: '#ffffff', padding: spacing.sm, borderRadius: 12 },
     codeHint: { fontSize: 12, color: theme.textMuted, textAlign: 'center' },
-    addCard: { backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border, padding: spacing.md },
     error: { color: theme.danger, fontSize: 13, marginBottom: spacing.sm },
     notice: { color: theme.success, fontSize: 13, marginBottom: spacing.sm },
-    emptyCard: { backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border, padding: spacing.md, alignItems: 'center' },
     emptyText: { fontSize: 13, color: theme.textMuted, fontStyle: 'italic' },
-    row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border, padding: spacing.md, marginBottom: spacing.sm },
+    // Flat rows: the CollapsibleSection provides the card, rows just divide.
+    row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
+    rowDivider: { borderTopWidth: 1, borderTopColor: theme.border },
     rowText: { flex: 1 },
     rowName: { fontSize: 15, fontWeight: '700', color: theme.text },
     rowSub: { fontSize: 12, color: theme.textSecondary, marginTop: 1 },

@@ -48,7 +48,7 @@ export function ScanFriendCodeScreen({ navigation }: Props) {
         ) : null}
         <AppButton
           title="Enter code manually"
-          onPress={() => navigation.navigate('Friends')}
+          onPress={() => navigation.navigate('Home', { screen: 'Friends' })}
           variant="secondary"
           style={{ marginTop: spacing.sm }}
         />
@@ -70,7 +70,7 @@ export function ScanFriendCodeScreen({ navigation }: Props) {
             return;
           }
           handled.current = true;
-          navigation.navigate('Friends', { scannedCode: code });
+          navigation.navigate('Home', { screen: 'Friends', params: { scannedCode: code } });
         }}
       />
       <View style={styles.overlay}>
