@@ -62,7 +62,7 @@ not exist. v1.8.6 implements it (flag-gated) — see
 write `active`; left as-is deliberately pending a product decision.
 
 **Test results (2026-08-10):** backend `php artisan test` — **469 passed,
-1 skipped**. New suites: `DailyReminderTest` (13), `FriendSuggestionsTest` (7),
+1 skipped (1682 assertions)**. New suites: `DailyReminderTest` (13), `FriendSuggestionsTest` (7),
 `BadgeSprintV186Test` (11), `AdminStatsTest` (1), plus additions to
 `AccountDeletionTest`, `PublicProfileTest`, `FriendsTest`,
 `NotificationSettingsTest`, `AdminNotificationTest`. Mobile: `npx tsc --noEmit`
