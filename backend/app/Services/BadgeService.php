@@ -114,6 +114,11 @@ class BadgeService
         $awarded = array_merge($awarded, $this->evaluateStreak($user));
         $awarded = array_merge($awarded, $this->evaluateWeeklyTop10($user));
 
+        // v1.8.6: play 14 daily challenges (count includes this guess).
+        if (DailyChallengeGuess::where('user_id', $user->id)->count() >= 14) {
+            $awarded[] = $this->award($user, 'daily_loyalist', $context);
+        }
+
         return $this->clean($awarded);
     }
 
@@ -156,7 +161,56 @@ class BadgeService
             $awarded[] = $this->award($user, 'perfect_guess', $context);  // legacy near-perfect
         }
 
+        // v1.8.6 Sharp Scorer: ten guesses scoring 90+. The earned pre-check
+        // keeps the two COUNT queries off the hot path once unlocked. Pack
+        // guesses are not counted (they evaluate at pack completion, not here).
+        if ($score >= 90 && !$user->badges()->where('code', 'sharp_scorer')->exists()) {
+            $highScoring = $this->highScoringGuessCount($user);
+            if ($highScoring >= 10) {
+                $awarded[] = $this->award($user, 'sharp_scorer', array_merge($context, ['high_scoring_guesses' => $highScoring]));
+            }
+        }
+
         return $awarded;
+    }
+
+    /** Daily + tournament guesses with a score of 90+ (pack guesses excluded). */
+    private function highScoringGuessCount(User $user): int
+    {
+        return DailyChallengeGuess::where('user_id', $user->id)->where('score', '>=', 90)->count()
+            + Guess::where('user_id', $user->id)->where('score', '>=', 90)->count();
+    }
+
+    /**
+     * Friend-count badges, called for BOTH parties when a request is accepted.
+     * Counts owned friendship rows (one per direction, so this is "current
+     * friends"). Idempotent via award().
+     *
+     * @return Badge[]
+     */
+    public function evaluateFriendAccepted(User $user): array
+    {
+        $count = \App\Models\Friendship::where('user_id', $user->id)->count();
+        $awarded = [];
+
+        if ($count >= 1) {
+            $awarded[] = $this->award($user, 'social_starter');
+        }
+        if ($count >= 5) {
+            $awarded[] = $this->award($user, 'friendly_five', ['friends' => $count]);
+        }
+
+        return $this->clean($awarded);
+    }
+
+    /**
+     * Called when a user creates a tournament. Idempotent via award().
+     *
+     * @return Badge[]
+     */
+    public function evaluateTournamentCreated(User $user): array
+    {
+        return $this->clean([$this->award($user, 'host_starter')]);
     }
 
     /**
@@ -187,6 +241,13 @@ class BadgeService
         }
         if ($placement <= 3) {
             $awarded[] = $this->award($user, 'podium_finish', ['league_id' => $league->id, 'placement' => $placement]);
+        }
+
+        // v1.8.6: complete five tournaments (any placement). Cheap — the
+        // tournament_finishes (user_id, placement) index covers this count.
+        $finishes = \App\Models\TournamentFinish::where('user_id', $user->id)->count();
+        if ($finishes >= 5) {
+            $awarded[] = $this->award($user, 'tournament_regular', ['finishes' => $finishes]);
         }
 
         return $this->clean($awarded);
@@ -249,6 +310,15 @@ class BadgeService
             ->count();
         if ($completedPacks >= 10) {
             $awarded[] = $this->award($user, 'pack_master', array_merge($context, ['completed_packs' => $completedPacks]));
+        }
+
+        // v1.8.6: complete three DIFFERENT packs (pack_master counts attempts).
+        $distinctPacks = \App\Models\PackAttempt::where('user_id', $user->id)
+            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
+            ->distinct('challenge_pack_id')
+            ->count('challenge_pack_id');
+        if ($distinctPacks >= 3) {
+            $awarded[] = $this->award($user, 'pack_explorer', array_merge($context, ['distinct_packs' => $distinctPacks]));
         }
 
         return $this->clean($awarded);

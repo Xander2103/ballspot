@@ -48,6 +48,17 @@ class BadgeSeeder extends Seeder
             ['code' => 'monthly_winner',     'name' => 'Monthly Winner',     'icon' => '🏆', 'category' => 'competition', 'rarity' => 'legendary', 'description' => 'Finish 1st in a monthly competition.'],
             ['code' => 'monthly_podium',     'name' => 'Monthly Podium',     'icon' => '🥉', 'category' => 'competition', 'rarity' => 'epic',      'description' => 'Finish in the top 3 of a monthly competition.'],
             ['code' => 'monthly_top_10',     'name' => 'Monthly Top 10',     'icon' => '🥇', 'category' => 'competition', 'rarity' => 'rare',      'description' => 'Finish in the top 10% of a monthly competition.'],
+
+            // --- v1.8.6 public-beta sprint: social / host / consistency -------
+            // "Sharp Scorer" (not the spec's "Sharp Shooter"): the display name
+            // Sharp Shooter is already taken by top_10_percent_daily.
+            ['code' => 'social_starter',     'name' => 'Social Starter',     'icon' => '🤝', 'category' => 'social',      'rarity' => 'common',    'description' => 'Add your first friend.'],
+            ['code' => 'friendly_five',      'name' => 'Friendly Five',      'icon' => '👥', 'category' => 'social',      'rarity' => 'rare',      'description' => 'Have five friends at the same time.'],
+            ['code' => 'host_starter',       'name' => 'Host Starter',       'icon' => '🏟️', 'category' => 'tournament',  'rarity' => 'common',    'description' => 'Create your first tournament.'],
+            ['code' => 'tournament_regular', 'name' => 'Tournament Regular', 'icon' => '🎽', 'category' => 'tournament',  'rarity' => 'rare',      'description' => 'Complete five tournaments.'],
+            ['code' => 'sharp_scorer',       'name' => 'Sharp Scorer',       'icon' => '🎯', 'category' => 'skill',       'rarity' => 'rare',      'description' => 'Score 90 or more on ten guesses.'],
+            ['code' => 'pack_explorer',      'name' => 'Pack Explorer',      'icon' => '🧭', 'category' => 'pack',        'rarity' => 'rare',      'description' => 'Complete three different challenge packs.'],
+            ['code' => 'daily_loyalist',     'name' => 'Daily Loyalist',     'icon' => '📅', 'category' => 'daily',       'rarity' => 'rare',      'description' => 'Play fourteen daily challenges.'],
         ];
 
         foreach ($badges as $i => $badge) {

@@ -18,7 +18,10 @@ class FriendController extends Controller
     /** How long a declined request blocks the same requester from retrying. */
     public const REJECTED_COOLDOWN_DAYS = 30;
 
-    public function __construct(private PlayerRankService $rankService) {}
+    public function __construct(
+        private PlayerRankService $rankService,
+        private \App\Services\BadgeService $badgeService,
+    ) {}
 
     // GET /api/me/friend-code
     public function friendCode(Request $request): JsonResponse
@@ -170,6 +173,11 @@ class FriendController extends Controller
             Friendship::firstOrCreate(['user_id' => $me->id,        'friend_id' => $requester->id]);
             Friendship::firstOrCreate(['user_id' => $requester->id, 'friend_id' => $me->id]);
         });
+
+        // Friend-count badges for both sides. Awarded silently (no toast flow
+        // in the friends UI) — they surface in the Trophy Room.
+        $this->badgeService->evaluateFriendAccepted($me);
+        $this->badgeService->evaluateFriendAccepted($requester);
 
         return response()->json(['data' => $this->summary($requester)]);
     }

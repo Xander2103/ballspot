@@ -47,7 +47,7 @@ class BadgeTest extends TestCase
         $this->assertDatabaseHas('badges', ['code' => 'first_daily']);
         $this->assertDatabaseHas('badges', ['code' => 'tournament_winner']);
         $this->assertDatabaseHas('badges', ['code' => 'perfect_picker']);
-        $this->assertSame(26, Badge::count());
+        $this->assertSame(33, Badge::count());
     }
 
     public function test_badge_is_awarded_only_once(): void
@@ -137,7 +137,7 @@ class BadgeTest extends TestCase
             'badges' => [['id', 'code', 'name', 'icon', 'rarity', 'category', 'earned', 'earned_at']],
         ]);
 
-        $this->assertSame(26, $response->json('total_count'));
+        $this->assertSame(33, $response->json('total_count'));
         $this->assertGreaterThanOrEqual(1, $response->json('earned_count'));
 
         // At least one badge earned and at least one still locked.
@@ -153,6 +153,6 @@ class BadgeTest extends TestCase
 
         $response = $this->withToken($token)->getJson('/api/badges');
         $response->assertOk();
-        $this->assertCount(26, $response->json('data'));
+        $this->assertCount(33, $response->json('data'));
     }
 }

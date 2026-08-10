@@ -55,6 +55,10 @@ class LeagueController extends Controller
     public function store(CreateLeagueRequest $request)
     {
         $league = $this->leagueService->create($request->validated(), $request->user()->id);
+
+        // v1.8.6 Host Starter — first tournament created. Silent award.
+        app(\App\Services\BadgeService::class)->evaluateTournamentCreated($request->user());
+
         return new LeagueResource($league->load('members', 'sport'));
     }
 
