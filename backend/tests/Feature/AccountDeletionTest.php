@@ -75,6 +75,18 @@ class AccountDeletionTest extends TestCase
         $this->assertFalse(Hash::check('password', $fresh->password));
     }
 
+    public function test_deletion_sets_anonymized_at(): void
+    {
+        $user  = $this->makeUser();
+        $token = $user->createToken('mobile')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+            ->deleteJson('/api/account')
+            ->assertOk();
+
+        $this->assertNotNull($user->fresh()->anonymized_at);
+    }
+
     public function test_user_row_is_not_hard_deleted_after_anonymization(): void
     {
         $user  = $this->makeUser();

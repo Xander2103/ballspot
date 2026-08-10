@@ -40,6 +40,17 @@ class PublicProfileTest extends TestCase
         ]);
     }
 
+    public function test_anonymized_user_public_profile_returns_404(): void
+    {
+        $viewer = User::factory()->create();
+        $target = User::factory()->create();
+        $target->forceFill(['anonymized_at' => now()])->save();
+
+        $this->withToken($viewer->createToken('t')->plainTextToken)
+            ->getJson("/api/users/{$target->id}/public-profile")
+            ->assertNotFound();
+    }
+
     public function test_public_profile_never_exposes_private_data(): void
     {
         $viewer = User::factory()->create();

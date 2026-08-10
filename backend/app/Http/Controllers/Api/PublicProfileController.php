@@ -21,6 +21,12 @@ class PublicProfileController extends Controller
 
     public function show(Request $request, User $user): JsonResponse
     {
+        // Deleted accounts keep their row (anonymized) but must not stay
+        // browsable as a profile.
+        if ($user->anonymized_at !== null) {
+            return response()->json(['message' => 'Not found.'], 404);
+        }
+
         $viewer = $request->user();
         $rank   = $this->rankService->forUser($user);
 

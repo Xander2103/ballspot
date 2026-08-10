@@ -66,9 +66,13 @@ class AccountController extends Controller
         //     access; EnsureIsAdmin only checks auth + this flag.
         //   email_verified_at — the anonymized address was never verified, and
         //     leaving it set would carry verification onto a bogus email.
+        //   anonymized_at — canonical "this account was deleted" marker; feeds
+        //     the aggregate admin metric and excludes the row from suggestions
+        //     and public profiles.
         $user->friend_code       = null;
         $user->is_admin          = false;
         $user->email_verified_at = null;
+        $user->anonymized_at     = now();
         $user->save();
 
         // API tokens are revoked above, but the admin panel runs on database
