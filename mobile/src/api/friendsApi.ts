@@ -1,6 +1,6 @@
 import { apiClient } from './client';
 import type {
-  FriendRequestItem, FriendRequestsResponse, FriendSummary, PublicProfile,
+  FriendRequestItem, FriendRequestsResponse, FriendSuggestion, FriendSummary, PublicProfile,
 } from '../types/friend';
 
 export const friendsApi = {
@@ -12,6 +12,15 @@ export const friendsApi = {
 
   requests: () =>
     apiClient.request<FriendRequestsResponse>('/friends/requests'),
+
+  suggestions: () =>
+    apiClient.request<{ data: FriendSuggestion[] }>('/friends/suggestions').then((r) => r.data),
+
+  sendRequestById: (userId: number) =>
+    apiClient.request<{ data: FriendRequestItem }>('/friends/requests', {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    }).then((r) => r.data),
 
   sendRequest: (friendCode: string) =>
     apiClient.request<{ data: FriendRequestItem }>('/friends/requests', {

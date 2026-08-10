@@ -15,7 +15,7 @@ import { friendsApi } from '../api/friendsApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import type { FriendRequestItem, FriendSummary } from '../types/friend';
+import type { FriendRequestItem, FriendSuggestion, FriendSummary } from '../types/friend';
 
 type Props = MainTabScreenProps<'Friends'>;
 
@@ -30,6 +30,9 @@ export function FriendsScreen({ navigation, route }: Props) {
   const [outgoing, setOutgoing] = useState<FriendRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
+  const [sentIds, setSentIds] = useState<Set<number>>(new Set());
+  const [suggestBusyId, setSuggestBusyId] = useState<number | null>(null);
 
   const [query, setQuery] = useState('');
   const [input, setInput] = useState('');
@@ -44,13 +47,16 @@ export function FriendsScreen({ navigation, route }: Props) {
 
   const load = useCallback(async () => {
     // allSettled: one failing section must not blank the whole screen.
-    const [codeRes, listRes, reqRes] = await Promise.allSettled([
+    const [codeRes, listRes, reqRes, suggestRes] = await Promise.allSettled([
       friendsApi.myCode(),
       friendsApi.list(),
       friendsApi.requests(),
+      friendsApi.suggestions(),
     ]);
     if (codeRes.status === 'fulfilled') setCode(codeRes.value);
     if (listRes.status === 'fulfilled') setFriends(listRes.value);
+    // Suggestions are non-essential: on failure just show an empty section.
+    if (suggestRes.status === 'fulfilled') setSuggestions(suggestRes.value);
     if (reqRes.status === 'fulfilled') {
       setIncoming(reqRes.value.incoming);
       setOutgoing(reqRes.value.outgoing);
@@ -117,6 +123,20 @@ export function FriendsScreen({ navigation, route }: Props) {
     try { await friendsApi.reject(item.id); await load(); }
     catch { setAddError('Could not reject that request.'); }
     finally { setBusyId(null); }
+  }
+
+  async function handleSuggestAdd(userId: number) {
+    setSuggestBusyId(userId);
+    try {
+      await friendsApi.sendRequestById(userId);
+      setSentIds((prev) => new Set(prev).add(userId));
+      // Keep the "Sent requests" section truthful without a full reload.
+      friendsApi.requests().then((r) => setOutgoing(r.outgoing)).catch(() => {});
+    } catch {
+      // Keep the Add button; the user can retry.
+    } finally {
+      setSuggestBusyId(null);
+    }
   }
 
   async function handleRemove() {
@@ -269,6 +289,41 @@ export function FriendsScreen({ navigation, route }: Props) {
                 <Text style={styles.rowName}>{item.user.name}</Text>
                 <Text style={styles.rowSub}>@{item.user.username} · pending</Text>
               </View>
+            </View>
+          ))
+        )}
+      </CollapsibleSection>
+
+      {/* Suggested friends — safe public data only, small and dismissable. */}
+      <CollapsibleSection
+        title="Suggested friends"
+        summary={suggestions.length > 0 ? `${suggestions.length}` : undefined}
+      >
+        {suggestions.length === 0 ? (
+          <EmptyState compact message="No suggestions right now — check back later." />
+        ) : (
+          suggestions.map((s, i) => (
+            <View key={s.id} style={[styles.row, i > 0 && styles.rowDivider]}>
+              <Avatar uri={s.avatar_url} name={s.name} size={40} />
+              <View style={styles.rowText}>
+                <Text style={styles.rowName} numberOfLines={1}>{s.name}</Text>
+                <Text style={styles.rowSub} numberOfLines={1}>
+                  {s.reason === 'same_tournament' ? 'Played in the same tournament' : 'Active player'}
+                </Text>
+              </View>
+              {sentIds.has(s.id) ? (
+                <Text style={styles.notice}>Request sent</Text>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => handleSuggestAdd(s.id)}
+                  disabled={suggestBusyId === s.id}
+                  style={styles.actionBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Send ${s.name} a friend request`}
+                >
+                  <Text style={styles.acceptText}>Add</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))
         )}

@@ -11,6 +11,11 @@ export interface FriendSummary {
   total_xp: number;
 }
 
+/** A player the user may want to add, plus why they're being suggested. */
+export interface FriendSuggestion extends FriendSummary {
+  reason: 'same_tournament' | 'active_player';
+}
+
 export interface FriendRequestItem {
   id: number;
   status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
