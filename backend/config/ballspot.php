@@ -200,6 +200,10 @@ return [
         // When false, admin announcements are saved but not delivered (marked
         // "not sent") — we never fake a send when push is intentionally off.
         'push_enabled'          => (bool) env('BALLPICKER_PUSH_ENABLED', true),
+        // Server-sent Daily Challenge reminder pushes. Deliberately OFF by
+        // default: enable only once the app build that suppresses the local
+        // daily reminder is live, or users on old builds get notified twice.
+        'daily_reminder_push_enabled' => (bool) env('BALLPICKER_DAILY_REMINDER_PUSH_ENABLED', false),
     ],
 
     'auth' => [

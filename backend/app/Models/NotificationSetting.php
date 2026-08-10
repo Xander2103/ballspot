@@ -14,6 +14,7 @@ class NotificationSetting extends Model
         'admin_notifications_enabled',
         'reminder_time',
         'timezone',
+        'last_daily_reminder_date',
     ];
 
     protected function casts(): array
@@ -22,6 +23,7 @@ class NotificationSetting extends Model
             'daily_reminder_enabled'      => 'boolean',
             'tournament_reminder_enabled' => 'boolean',
             'admin_notifications_enabled' => 'boolean',
+            'last_daily_reminder_date'    => 'date:Y-m-d',
         ];
     }
 
