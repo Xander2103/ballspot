@@ -138,7 +138,10 @@ async function syncSchedules(state: ScheduleState): Promise<void> {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
 
-    if (state.settings.daily_reminder_enabled && !state.dailyCompleted) {
+    // When the server owns daily reminders (backend push active), never
+    // schedule the local daily reminder too — the user would be notified twice.
+    const serverOwnsDaily = state.settings.daily_reminder_push_active === true;
+    if (state.settings.daily_reminder_enabled && !state.dailyCompleted && !serverOwnsDaily) {
       await Notifications.scheduleNotificationAsync({ content: COPY.daily, trigger: daily });
     }
 

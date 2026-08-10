@@ -7,9 +7,16 @@ export interface NotificationSettings {
   /** 24-hour HH:mm. */
   reminder_time: string;
   timezone: string | null;
+  /**
+   * Read-only server flag: when true the backend delivers the daily reminder
+   * as a push, and the app must not schedule its local daily reminder.
+   */
+  daily_reminder_push_active?: boolean;
 }
 
-export type NotificationSettingsUpdate = Partial<NotificationSettings>;
+export type NotificationSettingsUpdate = Partial<
+  Omit<NotificationSettings, 'daily_reminder_push_active'>
+>;
 
 export interface PushTokenRegistration {
   token: string;

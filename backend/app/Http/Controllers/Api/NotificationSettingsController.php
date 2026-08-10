@@ -37,6 +37,11 @@ class NotificationSettingsController extends Controller
             'admin_notifications_enabled' => (bool) $settings->admin_notifications_enabled,
             'reminder_time'               => $settings->reminder_time,
             'timezone'                    => $settings->timezone,
+            // Read-only server capability flag: when true the backend sends the
+            // daily reminder push, so the app must NOT schedule its local daily
+            // reminder (prevents double notifications during the cutover).
+            'daily_reminder_push_active'  => (bool) (config('ballspot.notifications.push_enabled')
+                && config('ballspot.notifications.daily_reminder_push_enabled')),
         ];
     }
 }

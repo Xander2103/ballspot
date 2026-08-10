@@ -45,6 +45,26 @@ class NotificationSettingsTest extends TestCase
         $this->assertSame(1, NotificationSetting::count());
     }
 
+    public function test_payload_exposes_daily_reminder_push_active_flag(): void
+    {
+        config()->set('ballspot.notifications.push_enabled', true);
+        config()->set('ballspot.notifications.daily_reminder_push_enabled', true);
+
+        $user = User::factory()->create();
+
+        $this->withToken($user->createToken('t')->plainTextToken)
+            ->getJson('/api/me/notification-settings')
+            ->assertOk()
+            ->assertJson(['daily_reminder_push_active' => true]);
+
+        config()->set('ballspot.notifications.daily_reminder_push_enabled', false);
+
+        $this->withToken($user->createToken('t2')->plainTextToken)
+            ->getJson('/api/me/notification-settings')
+            ->assertOk()
+            ->assertJson(['daily_reminder_push_active' => false]);
+    }
+
     public function test_user_can_update_own_settings(): void
     {
         [$user, $token] = $this->auth();
