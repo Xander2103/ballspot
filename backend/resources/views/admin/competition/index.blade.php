@@ -56,6 +56,16 @@
     </div>
 </div>
 
+<div class="card shadow-sm mt-3" style="max-width: 560px;">
+    <div class="card-body py-2">
+        <strong>Accounts</strong>
+        <div class="text-muted small">
+            Active accounts: {{ $accountStats['total'] }} ·
+            Deleted/anonymized accounts: {{ $accountStats['deleted'] }}
+        </div>
+    </div>
+</div>
+
 <div class="alert alert-secondary small mt-3" style="max-width: 560px;">
     Closing is a deliberate CLI action (virtual trophies/XP only — no prizes or money).
     Preview first, then close:

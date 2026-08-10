@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CompetitionFinish;
+use App\Models\User;
 use App\Services\CompetitionPeriodService;
 
 class CompetitionController extends Controller
@@ -29,6 +30,11 @@ class CompetitionController extends Controller
             'previous'       => $previous,
             'previousClosed' => $previousClosed,
             'lastClosed'     => $lastClosed,
+            // Aggregate counts only — deleted accounts stay anonymous.
+            'accountStats'   => [
+                'total'   => User::whereNull('anonymized_at')->count(),
+                'deleted' => User::whereNotNull('anonymized_at')->count(),
+            ],
         ]);
     }
 }
