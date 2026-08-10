@@ -1574,3 +1574,62 @@ tournament still appears in the caller's Profile history and Trophy Room.
 
 `GET /api/leagues` filters hidden rows out via `wherePivotNull('hidden_at')`.
 There is deliberately no unhide endpoint in this version.
+
+---
+
+# v1.8.6 additions
+
+## GET /api/friends/suggestions
+
+Auth: Sanctum + verified. Up to **10** suggested players the caller may want to
+add. Signals in preference order: shared tournament membership
+(`same_tournament`), then recently active players (`active_player`, daily guess
+in the last 14 days). Excludes: self, existing friends, pending requests in
+either direction, pairs rejected within the last 30 days, anonymized accounts.
+
+```json
+{
+  "data": [
+    {
+      "id": 12,
+      "name": "Sam",
+      "username": "sam99",
+      "avatar_url": null,
+      "rank_name": "Rookie",
+      "level": 1,
+      "total_xp": 120,
+      "reason": "same_tournament"
+    }
+  ]
+}
+```
+
+Public-safe fields only — never email or friend_code.
+
+## POST /api/friends/requests — user_id variant
+
+The body now accepts **exactly one** of:
+
+- `{ "friend_code": "ABCD2345" }` (unchanged)
+- `{ "user_id": 12 }` (new — used by friend suggestions)
+
+Sending both, or neither, is a `422`. The `user_id` path 404s for unknown or
+anonymized users. All existing guards (self, already-friends, pending,
+30-day rejected cooldown) apply to both paths.
+
+## GET/PUT /api/me/notification-settings — new read-only field
+
+`daily_reminder_push_active: boolean` — true when the backend sends the Daily
+Challenge reminder push (both `BALLPICKER_PUSH_ENABLED` and
+`BALLPICKER_DAILY_REMINDER_PUSH_ENABLED` on). When true, the app must NOT
+schedule its local daily reminder. Ignored on PUT.
+
+## GET /api/users/{id}/public-profile
+
+Returns **404** for anonymized (deleted) accounts as of v1.8.6.
+
+## Badges
+
+Catalogue grows to **33** with: `social_starter`, `friendly_five`,
+`host_starter`, `tournament_regular`, `sharp_scorer`, `pack_explorer`,
+`daily_loyalist`.

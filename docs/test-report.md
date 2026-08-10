@@ -5,10 +5,75 @@ Build date: 2026-07-30
 **Backend:** 334 feature tests passing (was 302; +32 across rate limiting, endpoint caps, security headers, deletion cleanup, push-token privacy, data export, beta code).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
 
-> **Current suite (2026-08-05): 430 passed, 1 skipped, 1583 assertions.** The
-> per-version figures in this document are historical snapshots taken at the end
-> of each sprint; the latest run is in "Pre-launch security & privacy audit" at
-> the end of the file.
+> **Current suite (2026-08-10): 469 passed, 1 skipped — see "v1.8.6 public-beta
+> sprint" below.** The per-version figures in this document are historical
+> snapshots taken at the end of each sprint.
+
+---
+
+## v1.8.6 public-beta sprint (2026-08-10)
+
+**Audit verdict (stated plainly): Daily Challenge reminders were NEVER sent by
+the backend before this sprint.** They were local on-device Expo notifications
+scheduled at `reminder_time` and re-evaluated on Home focus; the server stored
+`daily_reminder_enabled`/`reminder_time`/`timezone` but no command, job or
+service consumed them. Admin announcement push worked; daily reminder push did
+not exist. v1.8.6 implements it (flag-gated) — see
+`docs/notifications-plan.md` → "Daily reminders → backend push (v1.8.6)".
+
+**Shipped:**
+
+- **Daily reminder push (Phase 1):** `ballspot:send-daily-reminders` +
+  `DailyReminderService`, scheduled every 15 min; 60-min per-user window;
+  per-user timezone (UTC fallback); at-most-once via
+  `notification_settings.last_daily_reminder_date` (mark-before-send);
+  `DeviceNotRegistered` tokens pruned (announcements too); gated by
+  `BALLPICKER_DAILY_REMINDER_PUSH_ENABLED` (default **off**);
+  `daily_reminder_push_active` in the settings payload suppresses the app's
+  local daily reminder to prevent double notifications.
+- **Friend suggestions (Phase 2):** `GET /api/friends/suggestions`
+  (same-tournament signal, then recently-active fallback; max 10; excludes
+  self/friends/pending/recently-rejected/anonymized; public-safe fields +
+  reason only). `POST /api/friends/requests` now also accepts `user_id`.
+  Mobile: "Suggested friends" section in the Friends tab.
+- **Fullscreen guessing (Phase 3):** `FullscreenImageViewer` gained
+  `selectable`/`selectedPoint`/`onSelectPoint`; letterbox-correct mapping via
+  new `mobile/src/utils/imageLayout.ts` (jest-tested); `ImageGuessPicker` gained
+  a controlled `selectedPoint`; wired into daily/tournament/pack guess screens.
+  Result fullscreens unchanged (view-only).
+- **Deleted-account metric (Phase 4):** `users.anonymized_at` (additive
+  migration + backfill of pre-existing deleted rows), set on deletion; public
+  profile of anonymized users 404s; aggregate count card on
+  `/admin/competition`.
+- **Trophies (Phase 5):** 7 new badges (33 total): `social_starter`,
+  `friendly_five`, `host_starter`, `tournament_regular`, `sharp_scorer`,
+  `pack_explorer`, `daily_loyalist`; triggers in friend-accept, league create,
+  tournament finish, score eval, pack completion, daily guess;
+  `ballspot:backfill-sprint-badges` (idempotent, `--dry-run`).
+- **Trophy Room polish (Phase 6):** migrated to the theme system; locked cards
+  0.45 → 0.7 opacity with readable text; 2-line names; even grid; badge detail
+  modal on tap.
+
+**Known gap found during the audit (NOT changed this sprint):** the nightly
+`ballspot:schedule-daily-challenges` cron writes dailies with
+`status='scheduled'`, but the API (and the reminder command) only serve
+`status='active'` — an admin must activate scheduled dailies from
+`/admin/daily`. If the intent is fully automatic publishing, that command should
+write `active`; left as-is deliberately pending a product decision.
+
+**Test results (2026-08-10):** backend `php artisan test` — **469 passed,
+1 skipped**. New suites: `DailyReminderTest` (13), `FriendSuggestionsTest` (7),
+`BadgeSprintV186Test` (11), `AdminStatsTest` (1), plus additions to
+`AccountDeletionTest`, `PublicProfileTest`, `FriendsTest`,
+`NotificationSettingsTest`, `AdminNotificationTest`. Mobile: `npx tsc --noEmit`
+clean; `npm test` (jest, coordinate helpers) 9 passed; `npx expo export
+--platform web` builds.
+
+**Manual device checklist still required** (push cannot be verified in CI):
+reminder arrives on a real phone at `reminder_time`; not after playing; opt-out
+respected; suggestions render + Add works; fullscreen tap maps correctly
+(portrait, letterboxed images); Trophy Room readable on all five themes.
+**A new EAS build is required** for all mobile changes.
 
 ---
 
@@ -1130,7 +1195,7 @@ The `GET /leagues/{id}/current-round` and `GET /api/daily/today` endpoints delib
 
 1. **Timezone:** All date logic (daily challenge date, daily round limit reset, weekly leaderboard week) uses UTC (server time). Users in other timezones will see the daily challenge reset at a local time that differs from midnight local time.
 
-2. **Daily challenge bulk scheduling via Artisan** — Use `php artisan ballspot:schedule-daily-challenges --days=14` to fill the schedule automatically (LRU selection). Individual challenges can also be created via `/admin/daily/create` or `php artisan db:seed --class=DailyChallengeSeeder`. No cron wiring yet — the command must be run manually or scheduled via server cron.
+2. **Daily challenge bulk scheduling via Artisan** — Use `php artisan ballspot:schedule-daily-challenges --days=14` to fill the schedule automatically (LRU selection). Individual challenges can also be created via `/admin/daily/create` or `php artisan db:seed --class=DailyChallengeSeeder`. ~~No cron wiring yet~~ **Since the 2026-08-05 audit this runs from the Laravel scheduler (daily 00:05, see `routes/console.php`); note it writes `status='scheduled'`, which an admin must still activate before the API serves it.**
 
 3. **`next_available_at` is always null** — The API includes this field in all `current-round` responses but always returns `null`. Future implementation would return "tomorrow at midnight UTC" or a specific time.
 

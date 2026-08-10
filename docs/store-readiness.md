@@ -446,3 +446,27 @@ This satisfies Google Play and Apple App Store account deletion requirements. Th
 - **Privacy questionnaire deltas** (App Store Connect / Play Data safety): add **Camera** as a
   permission used but *not* collected; friend code / friend relationships are collected and
   linked to the account, used for app functionality only, never for tracking or advertising.
+
+---
+
+## v1.8.6 store-relevant notes
+
+- **A new EAS build (or at minimum an EAS update) is required.** All mobile
+  changes are JS-only (friend suggestions UI, fullscreen tap-to-guess, Trophy
+  Room polish, local-daily-reminder suppression) — no new native modules, no new
+  permissions, no `app.json` changes. If the v1.8.2 binary is already live, an
+  `eas update` can carry these changes; otherwise fold them into the v1.8.2
+  binary build.
+- **Deploy order:** backend first is safe. The daily-reminder push flag
+  (`BALLPICKER_DAILY_REMINDER_PUSH_ENABLED`) ships **off**; enable it only after
+  the v1.8.6 app is live, or users on older builds get both the local and the
+  push reminder (double notification, no crash).
+- **No new permissions, no new data collection.** Friend suggestions reuse
+  existing tournament/activity data with the same public-safe fields;
+  fullscreen guessing stores the same single coordinate as normal guessing.
+- **Badge catalogue grows to 33** (7 new). Run
+  `php artisan db:seed --class=BadgeSeeder` and (optionally)
+  `php artisan ballspot:backfill-sprint-badges` on deploy.
+- **Server-sent daily reminders** use existing push tokens + notification
+  settings; opt-out and account deletion fully remove them. No questionnaire
+  delta — push was already declared for admin announcements.

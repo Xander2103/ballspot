@@ -44,6 +44,30 @@ to that player (`is_friend`, `has_pending_request`).
 
 It never exposes email, password hash, `is_admin`, `email_verified_at`, the
 target's `friend_code`, or any per-guess detail. `PublicProfileTest` asserts this.
+Since v1.8.6, anonymized (deleted) accounts return **404** here.
+
+## Friend suggestions (v1.8.6)
+
+`GET /api/friends/suggestions` derives up to 10 suggestions from data BallPicker
+already holds: shared `league_members` rows ("played in the same tournament") and
+recent `daily_challenge_guesses` ("active player"). The response contains the
+**same public-safe fields as the friends list** (id, name, username, avatar URL,
+rank/level/XP) plus a coarse reason label — never email, `friend_code`, or any
+private data (`FriendSuggestionsTest` asserts this). Excluded: self, existing
+friends, users with a pending request either way, recently-rejected pairs (30
+days) and anonymized accounts. No new data is collected or stored for this
+feature.
+
+## Fullscreen guessing (v1.8.6)
+
+Placing a guess in the fullscreen image view stores exactly the same single
+coordinate pair (0–1 ratios) as normal guessing — no additional data.
+
+## New trophies (v1.8.6)
+
+Seven new badges (33 total). Badges remain gameplay/profile data: earned rows in
+`user_badges` linked to the account, retained on deletion like all gameplay
+history (see below).
 
 ## Device permissions (v1.8.2)
 
@@ -63,10 +87,18 @@ it (gameplay history stays referentially intact as "Deleted User"). Because the
 row survives, **`ON DELETE CASCADE` never fires** — anything that must not
 outlive the account has to be deleted explicitly. Currently deleted explicitly:
 
-- API tokens, avatar file, push tokens, notification settings
+- API tokens, avatar file, push tokens, notification settings (including the
+  v1.8.6 `last_daily_reminder_date` reminder-dedupe column, which lives in the
+  deleted `notification_settings` row)
 - Email- and login-verification codes
 - **Friendships and friend requests** (both directions) — added v1.8.2
 - **`friend_code` is nulled** — added v1.8.2
+- **`anonymized_at` is set** — added v1.8.6. This timestamp marks the row as a
+  deleted account. It contains no personal data and powers three things: an
+  **aggregate-only** count on the admin competition page ("Deleted/anonymized
+  accounts: X" — no per-user detail, no list), exclusion from friend
+  suggestions, and a 404 on the public-profile endpoint. Rows deleted before
+  v1.8.6 were backfilled using `updated_at` as the best-available timestamp.
 
 Retained, deliberately, linked to the anonymized row: guesses, XP events,
 badges, tournament/competition finishes, pack attempts. Rationale: leaderboard

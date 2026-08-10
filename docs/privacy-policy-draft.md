@@ -142,6 +142,10 @@ Profile → Delete account. This immediately:
 Your scores remain in past leaderboards and tournaments as "Deleted User" so
 other players' results stay intact — they can no longer be linked to you.
 
+We keep an **anonymous, aggregate count** of how many accounts have been
+deleted (a single number, visible only to administrators). It contains no
+personal data and cannot be traced back to you.
+
 ## Your rights
 
 Depending on where you live (e.g. under the GDPR), you have the right to

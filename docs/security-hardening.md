@@ -230,6 +230,7 @@ login codes, dead push tokens and expired API tokens simply accumulated).
 | `ballspot:schedule-daily-challenges` | daily 00:05 | Keeps a daily available (availability, not privacy) |
 | `ballspot:close-competition` | monthly, 1st at 00:15 | Closes the previous period and awards finishes |
 | `sanctum:prune-expired --hours=24` | daily | Removes expired API tokens from `personal_access_tokens` |
+| `ballspot:send-daily-reminders` | every 15 min | Daily Challenge reminder push (v1.8.6). No-op unless `BALLPICKER_DAILY_REMINDER_PUSH_ENABLED=true`; respects opt-out, skips played/anonymized/token-less users, at-most-once per user per daily, prunes `DeviceNotRegistered` tokens |
 
 `withoutOverlapping()` is applied where relevant.
 
@@ -239,7 +240,9 @@ login codes, dead push tokens and expired API tokens simply accumulated).
 * * * * * cd /path/to/backend && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-Verify after deploy with `php artisan schedule:list`.
+Verify after deploy with `php artisan schedule:list` (5 entries as of v1.8.6) and
+`php artisan ballspot:send-daily-reminders --dry-run` (reports candidates without
+sending).
 
 ## Production environment checklist
 

@@ -1,9 +1,51 @@
-# Notifications Plan → Implemented (v1.7.7)
+# Notifications Plan → Implemented (v1.7.7, extended v1.8.6)
 
 Status: **implemented (v1.7.7)** — opt-in local reminders, per-user notification
 settings, Expo push-token registration, and an admin announcement composer now ship.
-The rest of this doc is the original design; the section below records what actually
+**v1.8.6 adds backend daily-reminder push** (see the section directly below).
+The rest of this doc is the original design; the sections below record what actually
 shipped and the known limits.
+
+## Daily reminders → backend push (v1.8.6)
+
+**Audit finding (2026-08-10): before v1.8.6 there was NO backend daily reminder.**
+Daily reminders were purely local on-device notifications scheduled by the app at
+`reminder_time`; `daily_reminder_enabled` / `reminder_time` / `timezone` were stored
+server-side but never consumed by any backend send path. v1.8.6 adds a real
+server-sent reminder:
+
+- **Command:** `php artisan ballspot:send-daily-reminders {--dry-run}` — scheduled
+  **every 15 minutes** in `backend/routes/console.php` (`withoutOverlapping`), driven
+  by `App\Services\DailyReminderService`.
+- **Who gets it:** users where ALL hold — `daily_reminder_enabled` true, at least one
+  push token, today's **active** daily (UTC date) not yet played, account not
+  anonymized, not already reminded for today's daily, and their local clock (their
+  IANA `timezone`; invalid/missing → UTC) is inside `[reminder_time, +60min)`.
+- **At-most-once:** `notification_settings.last_daily_reminder_date` is written
+  BEFORE the Expo call — a crashed send can only skip, never duplicate. This column
+  is server bookkeeping, never exposed via the API, and is deleted with the settings
+  row on account deletion.
+- **Kill switches:** `BALLPICKER_PUSH_ENABLED` (master) and
+  `BALLPICKER_DAILY_REMINDER_PUSH_ENABLED` (**default FALSE**). The reminder sends
+  nothing until the second flag is explicitly enabled in production.
+- **Local/push dedupe (cutover rule):** `GET /api/me/notification-settings` now
+  returns read-only `daily_reminder_push_active`. When true, the app (v1.8.6+)
+  stops scheduling its LOCAL daily reminder — the server owns it. **Enable the flag
+  only after the v1.8.6 app build is live**; users on older builds would get both a
+  local and a push reminder while the flag is on (accepted, short-lived risk).
+- **Dead tokens:** Expo tickets are parsed; tokens reported `DeviceNotRegistered`
+  are deleted immediately (applies to admin announcements too as of v1.8.6).
+- **Synchronous by design:** sends happen inline in the scheduled command, like the
+  admin announcement path. This codebase has zero queued jobs; depending on an
+  unverified `queue:work` process would risk silently never sending. Logged via
+  `Log::info('Daily reminder run', …)` with candidates/sent/failed counts.
+- **Production verification:**
+  `php artisan schedule:list` (5 entries) and
+  `php artisan ballspot:send-daily-reminders --dry-run`.
+- **Tests:** `backend/tests/Feature/DailyReminderTest.php` (13 tests: opt-out,
+  played-today suppression, no-token skip, anonymized skip, dedupe, window,
+  timezone, invalid timezone fallback, flag off, scheduled-but-inactive daily,
+  dead-token pruning).
 
 ## Implemented in v1.7.7
 
@@ -27,8 +69,10 @@ shipped and the known limits.
 - **Tournament "pending" is tournament-level** (an active tournament with rounds left), not a
   precise per-user "you haven't guessed this round" signal.
 - **Daily completion is evaluated on app open**, not at delivery time — a reminder scheduled
-  earlier can still fire after completion if the app isn't reopened. Delivery-time suppression
-  needs backend remote push (future).
+  earlier can still fire after completion if the app isn't reopened. ~~Delivery-time suppression
+  needs backend remote push (future).~~ **Fixed in v1.8.6 once
+  `BALLPICKER_DAILY_REMINDER_PUSH_ENABLED` is on: the backend checks played-state at send
+  time and the app stops scheduling the local daily reminder.**
 - **Remote push needs an EAS `projectId`** in a real build; token registration is best-effort
   and silently skips if absent/offline. `send_at` scheduling is stored but not auto-dispatched
   (send is manual/immediate in MVP).

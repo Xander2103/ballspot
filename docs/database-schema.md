@@ -545,3 +545,23 @@ SQLite does not auto-index foreign key columns, so migration
 Other hot paths were already covered by existing unique/composite indexes
 (xp_events, pack_attempts, push_tokens, notification_settings,
 competition_finishes, tournament_finishes — see the per-table sections).
+
+---
+
+# v1.8.6 additions
+
+`2026_08_10_000001_add_anonymized_at_to_users`:
+
+| Table | Column | Notes |
+|---|---|---|
+| users | anonymized_at (timestamp, nullable) | Set by account deletion; backfilled for pre-existing deleted rows from `updated_at`. Powers the aggregate admin metric, friend-suggestion exclusion and the public-profile 404. |
+
+`2026_08_10_000002_add_last_daily_reminder_date_to_notification_settings`:
+
+| Table | Column | Notes |
+|---|---|---|
+| notification_settings | last_daily_reminder_date (date, nullable) | The challenge_date the user was last push-reminded about (at-most-once guard, written before sending). Server bookkeeping — never exposed via the API; removed with the settings row on account deletion. |
+
+Badges: `BadgeSeeder` now seeds **33** badges (v1.8.6 adds social_starter,
+friendly_five, host_starter, tournament_regular, sharp_scorer, pack_explorer,
+daily_loyalist).
