@@ -48,24 +48,84 @@ class ExpoPushService
             return $notification->fresh();
         }
 
-        $sent = 0;
-        $failed = 0;
+        $messages = $tokens->map(fn (string $token) => [
+            'to'    => $token,
+            'title' => $notification->title,
+            'body'  => $notification->body,
+            'sound' => 'default',
+        ])->values()->all();
 
-        foreach ($tokens->chunk(self::BATCH_SIZE) as $batch) {
-            [$ok, $bad] = $this->sendBatch($notification, $batch->all());
-            $sent += $ok;
-            $failed += $bad;
-        }
+        $outcome = $this->sendMessages($messages);
 
         $notification->update([
-            'status'   => $failed > 0 && $sent === 0
+            'status'   => $outcome['failed'] > 0 && $outcome['sent'] === 0
                 ? AdminNotification::STATUS_FAILED
                 : AdminNotification::STATUS_SENT,
             'sent_at'  => now(),
-            'metadata' => ['recipients' => $tokens->count(), 'sent' => $sent, 'failed' => $failed],
+            'metadata' => [
+                'recipients' => $tokens->count(),
+                'sent'       => $outcome['sent'],
+                'failed'     => $outcome['failed'],
+            ],
         ]);
 
         return $notification->fresh();
+    }
+
+    /**
+     * Send raw Expo push messages in batches of ≤100. Parses per-message
+     * tickets; tokens Expo reports as DeviceNotRegistered are deleted so we
+     * stop sending to dead devices. Synchronous by design — this codebase has
+     * no queue worker dependency.
+     *
+     * @param  array<int, array{to: string, title: string, body: string, sound: string}>  $messages
+     * @return array{sent: int, failed: int, invalid_tokens_removed: int}
+     */
+    public function sendMessages(array $messages): array
+    {
+        $sent = 0;
+        $failed = 0;
+        $invalid = [];
+
+        foreach (array_chunk($messages, self::BATCH_SIZE) as $chunk) {
+            try {
+                $response = Http::asJson()
+                    ->acceptJson()
+                    ->post(config('ballspot.notifications.expo_push_url'), $chunk);
+            } catch (\Throwable $e) {
+                Log::warning('Expo push send failed', ['error' => $e->getMessage(), 'count' => count($chunk)]);
+                $failed += count($chunk);
+                continue;
+            }
+
+            if (! $response->successful()) {
+                $failed += count($chunk);
+                continue;
+            }
+
+            // Expo returns { data: [ { status: "ok" | "error", details? }, ... ] }
+            // with one ticket per message, in order.
+            $tickets = $response->json('data', []);
+            foreach (array_values($chunk) as $i => $message) {
+                $ticket = $tickets[$i] ?? null;
+                if (($ticket['status'] ?? null) === 'ok') {
+                    $sent++;
+                    continue;
+                }
+                $failed++;
+                if (($ticket['details']['error'] ?? null) === 'DeviceNotRegistered') {
+                    $invalid[] = $message['to'];
+                }
+            }
+        }
+
+        $removed = 0;
+        if ($invalid !== []) {
+            $removed = PushToken::whereIn('token', $invalid)->delete();
+            Log::info('Pruned DeviceNotRegistered push tokens', ['count' => $removed]);
+        }
+
+        return ['sent' => $sent, 'failed' => $failed, 'invalid_tokens_removed' => $removed];
     }
 
     /**
@@ -89,45 +149,4 @@ class ExpoPushService
         return $query->pluck('token');
     }
 
-    /**
-     * POST one batch of ≤100 messages. Returns [okCount, failedCount]. Invalid
-     * tokens are counted as failures and never crash the send.
-     *
-     * @param  array<int, string>  $tokens
-     * @return array{0:int,1:int}
-     */
-    private function sendBatch(AdminNotification $notification, array $tokens): array
-    {
-        $messages = array_map(fn (string $token) => [
-            'to'    => $token,
-            'title' => $notification->title,
-            'body'  => $notification->body,
-            'sound' => 'default',
-        ], $tokens);
-
-        try {
-            $response = Http::asJson()
-                ->acceptJson()
-                ->post(config('ballspot.notifications.expo_push_url'), $messages);
-        } catch (\Throwable $e) {
-            Log::warning('Expo push send failed', ['error' => $e->getMessage()]);
-
-            return [0, count($tokens)];
-        }
-
-        if (! $response->successful()) {
-            return [0, count($tokens)];
-        }
-
-        // Expo returns { data: [ { status: "ok" | "error", ... }, ... ] }.
-        $tickets = $response->json('data', []);
-        $ok = 0;
-        foreach ($tickets as $ticket) {
-            if (($ticket['status'] ?? null) === 'ok') {
-                $ok++;
-            }
-        }
-
-        return [$ok, count($tokens) - $ok];
-    }
 }

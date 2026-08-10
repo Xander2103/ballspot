@@ -142,6 +142,31 @@ class AdminNotificationTest extends TestCase
         $this->assertSame(AdminNotification::STATUS_SENT, $notification->status);
     }
 
+    public function test_device_not_registered_tokens_are_deleted_on_send(): void
+    {
+        Http::fake([
+            '*' => Http::response(['data' => [
+                ['status' => 'ok'],
+                ['status' => 'error', 'details' => ['error' => 'DeviceNotRegistered']],
+            ]], 200),
+        ]);
+
+        $u1 = User::factory()->create();
+        $u2 = User::factory()->create();
+        PushToken::create(['user_id' => $u1->id, 'token' => 'ExponentPushToken[good-1]']);
+        PushToken::create(['user_id' => $u2->id, 'token' => 'ExponentPushToken[dead-2]']);
+
+        $this->actingAs($this->admin())->post('/admin/notifications', [
+            'title'       => 'Ping',
+            'body'        => 'Body',
+            'target_type' => 'all',
+            'send_now'    => '1',
+        ])->assertRedirect('/admin/notifications');
+
+        $this->assertDatabaseHas('push_tokens', ['token' => 'ExponentPushToken[good-1]']);
+        $this->assertDatabaseMissing('push_tokens', ['token' => 'ExponentPushToken[dead-2]']);
+    }
+
     public function test_send_with_push_disabled_stays_draft(): void
     {
         config(['ballspot.notifications.push_enabled' => false]);
