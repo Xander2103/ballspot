@@ -20,9 +20,16 @@ interface Props {
   onGuess?: (xRatio: number, yRatio: number) => void;
   markers?: Marker[];
   interactive?: boolean;
+  /**
+   * Controlled guess marker (0..1 ratios). When the prop is provided the
+   * marker always renders from it — so a guess placed elsewhere (e.g. the
+   * fullscreen viewer) shows up here too. Omit for the classic uncontrolled
+   * behavior.
+   */
+  selectedPoint?: { x: number; y: number } | null;
 }
 
-export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true }: Props) {
+export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true, selectedPoint }: Props) {
   const containerRef = useRef<View>(null);
   const [dims, setDims]               = useState({ width: 0, height: 0 });
   const [aspect, setAspect]           = useState<number>(FALLBACK_ASPECT);
@@ -129,10 +136,15 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
         <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} disabled={!dimensionsLoaded} />
       )}
 
-      {guess && interactive && dims.width > 0 && renderMarker(
-        { x_ratio: guess.xRatio, y_ratio: guess.yRatio, type: 'ghost-ball' },
-        'guess'
-      )}
+      {(() => {
+        const shownGuess = selectedPoint !== undefined
+          ? (selectedPoint ? { xRatio: selectedPoint.x, yRatio: selectedPoint.y } : null)
+          : guess;
+        return shownGuess && interactive && dims.width > 0 && renderMarker(
+          { x_ratio: shownGuess.xRatio, y_ratio: shownGuess.yRatio, type: 'ghost-ball' },
+          'guess'
+        );
+      })()}
 
       {dims.width > 0 && markers.map((m, i) => renderMarker(m, i))}
     </View>
