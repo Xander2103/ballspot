@@ -214,6 +214,46 @@ class BadgeService
     }
 
     /**
+     * One-off backfill for the v1.8.6 count-based badges: awards any of them a
+     * user's historical stats already qualify for. Pure counts only — never
+     * touches streak/rank/score-event badges. Idempotent via award().
+     *
+     * @return Badge[]
+     */
+    public function backfillCountBadges(User $user): array
+    {
+        $awarded = $this->evaluateFriendAccepted($user);
+
+        if (League::where('owner_user_id', $user->id)->exists()) {
+            $awarded = array_merge($awarded, $this->evaluateTournamentCreated($user));
+        }
+
+        $finishes = \App\Models\TournamentFinish::where('user_id', $user->id)->count();
+        if ($finishes >= 5) {
+            $awarded[] = $this->award($user, 'tournament_regular', ['finishes' => $finishes]);
+        }
+
+        $highScoring = $this->highScoringGuessCount($user);
+        if ($highScoring >= 10) {
+            $awarded[] = $this->award($user, 'sharp_scorer', ['high_scoring_guesses' => $highScoring]);
+        }
+
+        $distinctPacks = \App\Models\PackAttempt::where('user_id', $user->id)
+            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
+            ->distinct('challenge_pack_id')
+            ->count('challenge_pack_id');
+        if ($distinctPacks >= 3) {
+            $awarded[] = $this->award($user, 'pack_explorer', ['distinct_packs' => $distinctPacks]);
+        }
+
+        if (DailyChallengeGuess::where('user_id', $user->id)->count() >= 14) {
+            $awarded[] = $this->award($user, 'daily_loyalist');
+        }
+
+        return $this->clean($awarded);
+    }
+
+    /**
      * Award the tournament winner badge. `evaluateTournamentWin` is safe to call
      * whenever a winner is determined; it no-ops if already awarded.
      *

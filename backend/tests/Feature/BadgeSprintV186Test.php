@@ -196,6 +196,37 @@ class BadgeSprintV186Test extends TestCase
         $this->assertTrue($user->badges()->where('code', 'daily_loyalist')->exists());
     }
 
+    public function test_backfill_awards_qualifying_historical_users(): void
+    {
+        $user = User::factory()->create();
+        $friend = User::factory()->create();
+        Friendship::create(['user_id' => $user->id, 'friend_id' => $friend->id]);
+        Friendship::create(['user_id' => $friend->id, 'friend_id' => $user->id]);
+        $this->makeLeague($user); // owns a tournament -> host_starter
+
+        $this->artisan('ballspot:backfill-sprint-badges')->assertSuccessful();
+
+        $this->assertTrue($user->fresh()->badges()->where('code', 'social_starter')->exists());
+        $this->assertTrue($user->fresh()->badges()->where('code', 'host_starter')->exists());
+        // The friend gets social_starter too; nobody gets unearned badges.
+        $this->assertTrue($friend->fresh()->badges()->where('code', 'social_starter')->exists());
+        $this->assertFalse($user->fresh()->badges()->where('code', 'friendly_five')->exists());
+    }
+
+    public function test_backfill_skips_anonymized_users_and_is_idempotent(): void
+    {
+        $user = User::factory()->create();
+        $ghost = User::factory()->create();
+        Friendship::create(['user_id' => $user->id, 'friend_id' => $ghost->id]);
+        $ghost->forceFill(['anonymized_at' => now()])->save();
+
+        $this->artisan('ballspot:backfill-sprint-badges')->assertSuccessful();
+        $this->artisan('ballspot:backfill-sprint-badges')->assertSuccessful();
+
+        $this->assertSame(1, $user->badges()->where('code', 'social_starter')->count());
+        $this->assertFalse($ghost->fresh()->badges()->where('code', 'social_starter')->exists());
+    }
+
     public function test_no_duplicate_awards(): void
     {
         $user = User::factory()->create();
