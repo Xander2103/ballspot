@@ -68,6 +68,51 @@ class FriendsTest extends TestCase
         ]);
     }
 
+    public function test_can_send_friend_request_by_user_id(): void
+    {
+        [$me, $token] = $this->auth();
+        $target = User::factory()->create();
+
+        $this->actingWithToken($token)
+            ->postJson('/api/friends/requests', ['user_id' => $target->id])
+            ->assertCreated()
+            ->assertJsonPath('data.user.id', $target->id);
+
+        $this->assertDatabaseHas('friend_requests', [
+            'requester_id' => $me->id,
+            'recipient_id' => $target->id,
+            'status'       => 'pending',
+        ]);
+    }
+
+    public function test_cannot_send_friend_request_to_anonymized_user_by_id(): void
+    {
+        [, $token] = $this->auth();
+        $target = User::factory()->create();
+        $target->forceFill(['anonymized_at' => now(), 'friend_code' => null])->save();
+
+        $this->actingWithToken($token)
+            ->postJson('/api/friends/requests', ['user_id' => $target->id])
+            ->assertNotFound();
+    }
+
+    public function test_request_needs_exactly_one_of_code_or_user_id(): void
+    {
+        [, $token] = $this->auth();
+        $target = User::factory()->create();
+
+        $this->actingWithToken($token)
+            ->postJson('/api/friends/requests', [])
+            ->assertStatus(422);
+
+        $this->actingWithToken($token)
+            ->postJson('/api/friends/requests', [
+                'friend_code' => $target->friend_code,
+                'user_id'     => $target->id,
+            ])
+            ->assertStatus(422);
+    }
+
     public function test_friend_code_lookup_is_case_insensitive(): void
     {
         [, $token] = $this->auth();

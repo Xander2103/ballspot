@@ -77,13 +77,22 @@ class FriendController extends Controller
     // POST /api/friends/requests
     public function store(Request $request): JsonResponse
     {
+        // Two lookup paths: a shared friend code (manual/QR add) or a user id
+        // (friend suggestions). Exactly one of the two must be sent. Both paths
+        // refuse anonymized (deleted) accounts.
         $data = $request->validate([
-            'friend_code' => ['required', 'string', 'min:4', 'max:12'],
+            'friend_code' => ['required_without:user_id', 'prohibits:user_id', 'string', 'min:4', 'max:12'],
+            'user_id'     => ['required_without:friend_code', 'integer'],
         ]);
 
-        $me     = $request->user();
-        $code   = strtoupper(trim($data['friend_code']));
-        $target = User::where('friend_code', $code)->first();
+        $me = $request->user();
+
+        if (isset($data['user_id'])) {
+            $target = User::whereKey($data['user_id'])->whereNull('anonymized_at')->first();
+        } else {
+            $code   = strtoupper(trim($data['friend_code']));
+            $target = User::where('friend_code', $code)->whereNull('anonymized_at')->first();
+        }
 
         if (!$target) {
             return response()->json(['message' => 'No player found with that friend code.'], 404);
