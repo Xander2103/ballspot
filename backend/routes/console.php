@@ -30,3 +30,8 @@ Schedule::command('ballspot:close-competition')->monthlyOn(1, '00:15')->withoutO
 
 // Drops expired API tokens once SANCTUM_TOKEN_EXPIRATION_MINUTES is set.
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
+
+// Daily Challenge reminder pushes. No-op unless
+// BALLPICKER_DAILY_REMINDER_PUSH_ENABLED=true (see config/ballspot.php for the
+// cutover rule). 15-minute cadence + a 60-minute send window per user.
+Schedule::command('ballspot:send-daily-reminders')->everyFifteenMinutes()->withoutOverlapping();
