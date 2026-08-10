@@ -180,6 +180,7 @@ export function GuessScreen({ route, navigation }: Props) {
             imageUri={round.challenge.hidden_image_url}
             onGuess={handleGuess}
             interactive
+            selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
           />
           <FullscreenButton onPress={() => setFullscreen(true)} variant="static" compact />
         </View>
@@ -209,6 +210,9 @@ export function GuessScreen({ route, navigation }: Props) {
         visible={fullscreen}
         imageUri={round.challenge.hidden_image_url}
         onClose={() => setFullscreen(false)}
+        selectable
+        selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+        onSelectPoint={handleGuess}
       />
     </Screen>
   );

@@ -163,7 +163,12 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
 
       {imageUrl ? (
         <View style={styles.imageCard}>
-          <ImageGuessPicker imageUri={imageUrl} onGuess={handleGuess} interactive />
+          <ImageGuessPicker
+            imageUri={imageUrl}
+            onGuess={handleGuess}
+            interactive
+            selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+          />
           <FullscreenButton onPress={() => setFullscreen(true)} compact />
         </View>
       ) : (
@@ -182,7 +187,14 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         <AppButton title="Submit Guess" onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
       </View>
 
-      <FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} onClose={() => setFullscreen(false)} />
+      <FullscreenImageViewer
+        visible={fullscreen}
+        imageUri={imageUrl}
+        onClose={() => setFullscreen(false)}
+        selectable
+        selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+        onSelectPoint={handleGuess}
+      />
     </Screen>
   );
 }

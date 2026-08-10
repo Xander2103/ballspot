@@ -113,7 +113,12 @@ export function PackGuessScreen({ route, navigation }: Props) {
 
       {challenge.hidden_image_url ? (
         <View style={styles.imageCard}>
-          <ImageGuessPicker imageUri={challenge.hidden_image_url} onGuess={handleGuess} interactive />
+          <ImageGuessPicker
+            imageUri={challenge.hidden_image_url}
+            onGuess={handleGuess}
+            interactive
+            selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+          />
           <FullscreenButton onPress={() => setFullscreen(true)} compact />
         </View>
       ) : (
@@ -130,7 +135,14 @@ export function PackGuessScreen({ route, navigation }: Props) {
         <AppButton title="Submit Guess" onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
       </View>
 
-      <FullscreenImageViewer visible={fullscreen} imageUri={challenge.hidden_image_url} onClose={() => setFullscreen(false)} />
+      <FullscreenImageViewer
+        visible={fullscreen}
+        imageUri={challenge.hidden_image_url}
+        onClose={() => setFullscreen(false)}
+        selectable
+        selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+        onSelectPoint={handleGuess}
+      />
     </Screen>
   );
 }
