@@ -74,6 +74,16 @@ class FriendController extends Controller
         ]);
     }
 
+    // GET /api/friends/suggestions
+    public function suggestions(Request $request, \App\Services\FriendSuggestionService $suggestions): JsonResponse
+    {
+        // Same public-safe field set as the friends list, plus a reason label.
+        $rows = collect($suggestions->forUser($request->user()))
+            ->map(fn (array $row) => $this->summary($row['user']) + ['reason' => $row['reason']]);
+
+        return response()->json(['data' => $rows->values()]);
+    }
+
     // POST /api/friends/requests
     public function store(Request $request): JsonResponse
     {

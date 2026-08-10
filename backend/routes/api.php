@@ -79,6 +79,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // /friends/requests stays above any wildcard /friends/{...} route.
         Route::get('/me/friend-code',    [FriendController::class, 'friendCode']);
         Route::get('/friends',           [FriendController::class, 'index']);
+        Route::get('/friends/suggestions', [FriendController::class, 'suggestions']);
         Route::get('/friends/requests',  [FriendController::class, 'requests']);
         Route::post('/friends/requests', [FriendController::class, 'store'])->middleware('throttle:friends');
         Route::post('/friends/requests/{friendRequest}/accept', [FriendController::class, 'accept'])->middleware('throttle:friends');
