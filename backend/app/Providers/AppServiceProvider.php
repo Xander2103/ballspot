@@ -53,9 +53,15 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        // Password reset submit: bounds reset-token brute force.
+        // Password reset submit: bounds reset-token brute force. Per-IP AND
+        // an IP-independent per-email ceiling, so an attacker with many IPs
+        // cannot multiply attempts against one victim's reset flow.
         RateLimiter::for('reset-password', function (Request $request) {
-            return Limit::perMinute(5)->by('rp|' . $request->ip());
+            $email = strtolower((string) $request->input('email'));
+            return [
+                Limit::perMinute(5)->by('rp|' . $request->ip()),
+                Limit::perMinute(5)->by('rp-e|' . $email),
+            ];
         });
 
         // Email verification submit/resend: the per-code 5-attempt lock and
@@ -107,9 +113,22 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Admin session login: strict brute-force gate (admins also have
-        // forced 2FA on the API path; this protects the web form).
+        // forced 2FA on the API path; this protects the web form). Per-IP plus
+        // an IP-independent per-email hourly ceiling so a distributed attacker
+        // cannot get 5/min * N IPs against the single admin password.
         RateLimiter::for('admin-login', function (Request $request) {
-            return Limit::perMinute(5)->by('admin-login|' . $request->ip());
+            $email = strtolower((string) $request->input('email'));
+            return [
+                Limit::perMinute(5)->by('admin-login|' . $request->ip()),
+                Limit::perHour(50)->by('admin-login-email|' . $email),
+            ];
+        });
+
+        // Friend read endpoints (/friends, /friends/requests, /friends/suggestions)
+        // fan out per-row rank/XP lookups over up to 200 rows. The global 120/min
+        // would allow a single account to force ~140k queries/min; cap it tighter.
+        RateLimiter::for('friends-read', function (Request $request) {
+            return Limit::perMinute(40)->by('friends-read|' . ($request->user()?->id ?: $request->ip()));
         });
 
         // Admin announcement send: pushes to every opted-in device.

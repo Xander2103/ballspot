@@ -114,8 +114,9 @@ providers touch small parts of it to make features work:
 
 - Account data: until you delete your account.
 - Verification codes and reset tokens: minutes to hours (then purged).
-- Push tokens: removed when you log out or delete your account, and
-  automatically after ~90 days if a device stops checking in.
+- Push tokens: removed when you log out (where your device can reach our servers
+  at that moment), on account deletion, and automatically after ~90 days if a
+  device stops checking in.
 - Friend code, friend requests and friendships: until you remove the friend or
   delete your account (deleting your account removes all of them).
 - Gameplay history (scores, XP, placements): kept after account deletion, but
@@ -166,8 +167,10 @@ processing of your personal data, and to **data portability**.
 
 ## Children
 
-BallPicker is not directed at children under **[13/16 — set per target
-markets]**. We do not knowingly collect data from children below that age; if
+BallPicker is not directed at children under **16** (the GDPR Art. 8 default;
+configurable per market via `BALLSPOT_MINIMUM_AGE` — if lowered for a specific
+market, update this policy too). Registration requires the user to confirm they
+meet this age. We do not knowingly collect data from children below that age; if
 you believe a child has created an account, contact us and we will delete it.
 
 ## Changes to this policy

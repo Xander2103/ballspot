@@ -78,9 +78,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // Friends — first version: codes, requests, list. No chat, no realtime.
         // /friends/requests stays above any wildcard /friends/{...} route.
         Route::get('/me/friend-code',    [FriendController::class, 'friendCode']);
-        Route::get('/friends',           [FriendController::class, 'index']);
-        Route::get('/friends/suggestions', [FriendController::class, 'suggestions']);
-        Route::get('/friends/requests',  [FriendController::class, 'requests']);
+        // Read endpoints fan out per-row rank/XP lookups over up to 200 rows;
+        // cap them tighter than the global 120/min to bound query amplification.
+        Route::get('/friends',           [FriendController::class, 'index'])->middleware('throttle:friends-read');
+        Route::get('/friends/suggestions', [FriendController::class, 'suggestions'])->middleware('throttle:friends-read');
+        Route::get('/friends/requests',  [FriendController::class, 'requests'])->middleware('throttle:friends-read');
         Route::post('/friends/requests', [FriendController::class, 'store'])->middleware('throttle:friends');
         Route::post('/friends/requests/{friendRequest}/accept', [FriendController::class, 'accept'])->middleware('throttle:friends');
         Route::post('/friends/requests/{friendRequest}/reject', [FriendController::class, 'reject'])->middleware('throttle:friends');

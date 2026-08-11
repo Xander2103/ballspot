@@ -166,9 +166,12 @@ class TournamentCompletionTest extends TestCase
         $this->assertSame(0, XpEvent::where('source_type', 'tournament_win')->where('source_id', $league->id)->count());
     }
 
-    public function test_round_guess_completes_tournament_and_returns_payload(): void
+    public function test_round_guess_completes_solo_tournament_without_rewards(): void
     {
-        // 1-member, 1-round league: the owner's only guess finishes it.
+        // 1-member, 1-round league: the owner's only guess finishes it. The
+        // tournament still completes, but placement XP and podium badges are
+        // WITHHELD — a solo tournament is otherwise an unbounded XP/badge farm
+        // (create → start → one guess → "win" 1000 XP, on a loop).
         [$league, $owner] = $this->activeLeague(1);
         $token = $owner->createToken('t')->plainTextToken;
         $round = $league->rounds->first();
@@ -181,12 +184,27 @@ class TournamentCompletionTest extends TestCase
         $res->assertJsonPath('tournament_completion.is_completed', true);
         $res->assertJsonPath('tournament_completion.placement', 1);
         $res->assertJsonPath('tournament_completion.total_players', 1);
-        $res->assertJsonPath('tournament_completion.xp_awarded', 1000);
+        $res->assertJsonPath('tournament_completion.xp_awarded', 0);
 
         $codes = collect($res->json('new_badges'))->pluck('code');
-        $this->assertTrue($codes->contains('tournament_winner'));
-        $this->assertTrue($codes->contains('podium_finish'));
+        $this->assertFalse($codes->contains('tournament_winner'));
+        $this->assertFalse($codes->contains('podium_finish'));
         $this->assertDatabaseHas('leagues', ['id' => $league->id, 'status' => 'completed']);
+        $this->assertSame(0, XpEvent::where('source_type', 'tournament_win')->where('source_id', $league->id)->count());
+    }
+
+    public function test_two_player_tournament_still_awards_winner(): void
+    {
+        // The reward gate must not touch legitimate multiplayer tournaments.
+        [$league, $owner] = $this->activeLeague(1);
+        $this->memberPlaysAll($league, 90, $owner);
+        $this->memberPlaysAll($league, 40);
+
+        $result = $this->service()->completeIfFinished($league->fresh());
+
+        $this->assertSame(2, $result['total_players']);
+        $this->assertSame(1000, $result['per_user'][$owner->id]['xp_awarded']);
+        $this->assertDatabaseHas('xp_events', ['source_type' => 'tournament_win', 'source_id' => $league->id, 'amount' => 1000]);
     }
 
     public function test_reopening_result_does_not_return_completion_again(): void
@@ -201,8 +219,8 @@ class TournamentCompletionTest extends TestCase
         $result = $this->withToken($token)->getJson("/api/rounds/{$round->id}/result");
         $result->assertOk();
         $this->assertNull($result->json('tournament_completion'));
-        // XP awarded exactly once.
-        $this->assertSame(1, XpEvent::where('source_type', 'tournament_win')->where('source_id', $league->id)->count());
+        // Solo tournaments are reward-gated, so there is no placement XP at all.
+        $this->assertSame(0, XpEvent::where('source_type', 'tournament_win')->where('source_id', $league->id)->count());
     }
 
     public function test_trophy_finishes_endpoint_returns_user_finishes(): void

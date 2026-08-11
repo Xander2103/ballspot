@@ -84,14 +84,26 @@ class TournamentCompletionService
             $totalPlayers = count($standings);
             $perUser      = [];
 
+            // Placement rewards (XP + podium badges) require a real field. A solo
+            // (or below-threshold) tournament can be created, started and
+            // "won" by one account in a tight loop — without this guard that
+            // farms ~1000 XP per cycle and free winner/podium badges. The finish
+            // row is still recorded so history/standings stay intact.
+            $minPlayers     = (int) config('ballspot.tournaments.min_players_for_rewards', 2);
+            $rewardsEnabled = $totalPlayers >= $minPlayers;
+
             foreach ($standings as $row) {
                 $user = User::find($row['user_id']);
                 if (!$user) {
                     continue;
                 }
 
-                $badges = $this->badgeService->evaluateTournamentFinish($user, $league, $row['placement']);
-                $xp     = $this->awardXp($user, $league, $row['placement']);
+                $badges = $rewardsEnabled
+                    ? $this->badgeService->evaluateTournamentFinish($user, $league, $row['placement'])
+                    : [];
+                $xp     = $rewardsEnabled
+                    ? $this->awardXp($user, $league, $row['placement'])
+                    : 0;
 
                 TournamentFinish::updateOrCreate(
                     ['league_id' => $league->id, 'user_id' => $row['user_id']],

@@ -27,6 +27,13 @@ class ExpoPushService
      */
     public function sendAnnouncement(AdminNotification $notification): AdminNotification
     {
+        // Idempotency guard: an announcement already delivered must never be
+        // re-sent. A double-clicked Send, a replayed POST, or a second admin
+        // hitting Send would otherwise blast every device a second time.
+        if ($notification->status === AdminNotification::STATUS_SENT) {
+            return $notification;
+        }
+
         if (! config('ballspot.notifications.push_enabled')) {
             $notification->update([
                 'status'   => AdminNotification::STATUS_DRAFT,
@@ -137,7 +144,12 @@ class ExpoPushService
      */
     private function recipientTokens(string $targetType): Collection
     {
-        $query = PushToken::query();
+        // Never deliver to anonymized (deleted) accounts. Today deletion hard-
+        // deletes their push tokens first, so this is defense-in-depth — but the
+        // invariant lives in AccountController, and cascades never fire on an
+        // anonymized (not deleted) user row, so guard it here explicitly too.
+        $query = PushToken::query()
+            ->whereHas('user', fn ($q) => $q->whereNull('anonymized_at'));
 
         if ($targetType === AdminNotification::TARGET_OPTED_IN) {
             $query->whereHas('user.notificationSetting', fn ($q) => $q->where('admin_notifications_enabled', true));

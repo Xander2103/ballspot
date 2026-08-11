@@ -55,11 +55,12 @@ class AccountController extends Controller
             'email'       => "deleted-{$id}@ballspot.deleted",
             'username'    => "deleted-{$id}",
             'password'    => Hash::make(Str::random(32)),
-            'avatar_path' => null,
         ]);
 
         // Set outside update(): these are deliberately not fillable, so a mass
         // assignment would silently drop them.
+        //   avatar_path — nulled so the anonymized row no longer references the
+        //     (already-deleted) avatar file.
         //   friend_code — nulled so the code stops resolving; a deleted account
         //     must not stay addable by anyone still holding it.
         //   is_admin — an admin who deletes their account must not keep panel
@@ -69,6 +70,7 @@ class AccountController extends Controller
         //   anonymized_at — canonical "this account was deleted" marker; feeds
         //     the aggregate admin metric and excludes the row from suggestions
         //     and public profiles.
+        $user->avatar_path       = null;
         $user->friend_code       = null;
         $user->is_admin          = false;
         $user->email_verified_at = null;

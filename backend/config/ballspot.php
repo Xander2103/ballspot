@@ -160,6 +160,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tournament integrity
+    |--------------------------------------------------------------------------
+    */
+    'tournaments' => [
+        // Minimum distinct players a completed tournament must have before any
+        // placement XP or podium badges are awarded. Blocks the solo-tournament
+        // farm (create → start → one guess → "win" 1000 XP, on a loop). A finish
+        // row is still recorded below this threshold; only the rewards are gated.
+        'min_players_for_rewards' => (int) env('BALLSPOT_TOURNAMENT_MIN_PLAYERS_FOR_REWARDS', 2),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Per-sport onboarding taglines ("guess the …")
     |--------------------------------------------------------------------------
     */

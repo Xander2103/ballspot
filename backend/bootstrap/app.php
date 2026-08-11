@@ -18,6 +18,19 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
         ]);
 
+        // Trust the reverse proxy / load balancer so $request->ip() reflects the
+        // real client (not the proxy). Without this, every IP-keyed rate limiter
+        // collapses into a single global bucket and $request->secure() misreads
+        // the scheme behind TLS termination. Set TRUSTED_PROXIES to the proxy
+        // IP(s)/CIDR(s); empty = trust none (safe local default).
+        $middleware->trustProxies(
+            at: array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))))),
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO,
+        );
+
         // Global fallback throttle for every API route (named limiter 'api'
         // in AppServiceProvider). Stricter route-level limiters stack on top.
         $middleware->throttleApi();

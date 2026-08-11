@@ -49,10 +49,11 @@ Previously it rode only the global `api` limiter (120/min ≈ 170k profiles/day)
 It now carries the dedicated `profile-lookup` limiter (**30/min per user +
 300/hour per IP**), which is invisible at realistic browsing speeds but caps
 bulk harvesting at ~7.2k profiles/day per IP. The endpoint is still enumerable
-by id, and a **deleted (anonymized) account still returns a public profile**
-with its retained gameplay stats under the "Deleted User" identity. The stronger
-mitigation — restricting the endpoint to friends plus people you share a
-tournament with — is a product decision and is **not** applied.
+by id. Since v1.8.6, deleted (anonymized) accounts return **404** here
+(`PublicProfileController` checks `anonymized_at`), so deleted users are no
+longer profile-viewable. The stronger mitigation — restricting the endpoint to
+friends plus people you share a tournament with — is a product decision and is
+**not** applied.
 
 **429 response shape (API):**
 
@@ -291,8 +292,8 @@ Recorded honestly so they are decisions rather than surprises.
 **Privacy surface**
 
 - **Public profiles remain enumerable** by sequential integer user id (now rate
-  limited, see above), and **anonymized accounts still return a public profile**
-  with retained gameplay stats.
+  limited, see above). Anonymized (deleted) accounts return 404 here since
+  v1.8.6, so deleted users are not exposed.
 - **A rejected friend request can be re-sent indefinitely** — there is no block
   or ignore feature.
 - **No in-app report/block UI.** Reporting objectionable content (avatars,

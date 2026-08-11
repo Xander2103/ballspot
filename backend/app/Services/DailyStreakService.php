@@ -53,7 +53,10 @@ class DailyStreakService
         for ($i = 1; $i < count($sorted); $i++) {
             $prev = Carbon::parse($sorted[$i - 1]);
             $curr = Carbon::parse($sorted[$i]);
-            if ($curr->diffInDays($prev) === 1) {
+            // Consecutive-day check by calendar date, not diffInDays: under
+            // Carbon 3 diffInDays() returns a signed float, so the old
+            // `=== 1` never matched and best streak was stuck at 1.
+            if ($prev->copy()->addDay()->toDateString() === $curr->toDateString()) {
                 $current++;
                 if ($current > $best) $best = $current;
             } else {

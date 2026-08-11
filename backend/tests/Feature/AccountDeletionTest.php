@@ -108,7 +108,10 @@ class AccountDeletionTest extends TestCase
         Storage::disk('public')->put('avatars/me.jpg', 'fake-image-bytes');
 
         $user = $this->makeUser();
-        $user->update(['avatar_path' => 'avatars/me.jpg']);
+        // avatar_path is not mass-assignable (set directly by AvatarController),
+        // so assign the property rather than update() it.
+        $user->avatar_path = 'avatars/me.jpg';
+        $user->save();
         $token = $user->createToken('mobile')->plainTextToken;
 
         $this->withHeader('Authorization', "Bearer {$token}")

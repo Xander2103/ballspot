@@ -48,6 +48,11 @@ class PackPlayController extends Controller
     // POST /api/pack-attempts/{attempt}/guess — score the current challenge.
     public function guess(Request $request, PackAttempt $attempt): JsonResponse
     {
+        // Enforce ownership at the route boundary. The service also checks this,
+        // but the binding is global (PackAttempt, not user-scoped), so without a
+        // guard here authorization would depend solely on service internals.
+        abort_unless($attempt->user_id === $request->user()->id, 403, 'This attempt does not belong to you.');
+
         $data = $request->validate([
             'challenge_id' => ['required', 'integer'],
             'guessed_x'    => ['required', 'numeric', 'min:0', 'max:1'],

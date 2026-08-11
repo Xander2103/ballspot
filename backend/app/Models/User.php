@@ -15,9 +15,13 @@ class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    // avatar_path is deliberately NOT fillable: it is set explicitly by
+    // AvatarController (never from a mass-assigned payload), so a future
+    // endpoint that fills validated input can never let user A point their
+    // avatar_path at user B's file and delete it via DELETE /me/avatar.
     protected $fillable = [
         'name', 'username', 'email', 'password',
-        'preferred_sport_id', 'selected_theme', 'avatar_path',
+        'preferred_sport_id', 'selected_theme',
     ];
 
     // New accounts start on Pitch Green. Model-level (not a schema change) so
