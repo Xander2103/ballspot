@@ -8,7 +8,7 @@
 <p>BallPicker is a skill-based sports guessing game. This policy explains what personal information we process, why, how long we keep it, and what rights you have. We do not sell your data, we do not run advertisements, and we do not use advertising or analytics trackers.</p>
 
 <div class="callout">
-    <p><strong>Who is responsible for your data:</strong> BallPicker is operated by [OPERATOR LEGAL NAME], [ADDRESS], [COUNTRY]. For any privacy question or to exercise your rights, contact <a class="inline-link" href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>.</p>
+    <p><strong>Who is responsible for your data:</strong> BallPicker is operated by Xander Van Malder, Belgium. For any privacy question or to exercise your rights, contact <a class="inline-link" href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>.</p>
 </div>
 
 <h2>What we collect</h2>
@@ -56,9 +56,9 @@
 <h2>Who we share data with</h2>
 <p>We do not sell your personal data and we do not share it for advertising. We use a small number of service providers who process data on our behalf:</p>
 <ul>
-    <li><strong>[HOSTING PROVIDER], [COUNTRY]</strong> — hosting of the application and database.</li>
+    <li><strong>Hetzner Online GmbH, Germany</strong> — hosting of the application and database.</li>
     <li><strong>Expo</strong> — push notification delivery, together with <strong>Apple Push Notification service</strong> and <strong>Google Firebase Cloud Messaging</strong>.</li>
-    <li><strong>[EMAIL PROVIDER]</strong> — delivery of verification, login and password-reset emails.</li>
+    <li><strong>Zxcs B.V., Netherlands</strong> — delivery of verification, login and password-reset emails.</li>
     <li><strong>Apple App Store / Google Play</strong> — app distribution and, where applicable, TestFlight beta testing.</li>
 </ul>
 <p>Where a provider processes data outside the European Economic Area, that transfer is covered by the European Commission's Standard Contractual Clauses or an adequacy decision.</p>

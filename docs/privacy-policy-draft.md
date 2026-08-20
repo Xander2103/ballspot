@@ -3,15 +3,15 @@
 > **⚠️ DEVELOPER DRAFT — NOT LEGAL ADVICE.**
 > This draft was written by the development team to describe what the app
 > actually does. It MUST be reviewed by a qualified lawyer (GDPR/consumer law)
-> before public launch. Placeholders in [brackets] must be filled in.
+> before public launch. Placeholders were filled in on 2026-08-20.
 
-_Last updated: [DATE]_
+_Last updated: 2026-08-20_
 
 ## Who we are
 
-BallPicker is operated by **[OPERATOR NAME / COMPANY]**, based in
-**[COUNTRY]**. For anything in this policy, contact us at
-**[privacy@your-domain.com]**.
+BallPicker is operated by **Xander Van Malder**, based in
+**Belgium**. For anything in this policy, contact us at
+**duisburg2103@gmail.com**.
 
 ## The short version
 
@@ -98,10 +98,10 @@ address and browser/device string it was requested from, to detect abuse.
 
 ## Who processes your data
 
-Our servers at **[HOSTING PROVIDER, REGION]** store your data. Two service
+Our servers at **Hetzner Online GmbH, Germany** store your data. Two service
 providers touch small parts of it to make features work:
 
-- **[EMAIL PROVIDER]** delivers account emails (verification, password reset).
+- **Zxcs B.V. (Netherlands)** delivers account emails (verification, password reset).
 - **Expo push service** delivers notifications to your device, if you opted in
   (it receives your push token and the message text, not your name or email).
   Expo in turn hands the message to your platform's own push network:
@@ -161,7 +161,7 @@ processing of your personal data, and to **data portability**.
   timestamps for each device). It also never includes another player's email
   address or friend code.
 - **Deletion:** Profile → Delete account, or email us.
-- **Everything else:** email **[privacy@your-domain.com]** and we will respond
+- **Everything else:** email **duisburg2103@gmail.com** and we will respond
   within the legally required time. You also have the right to complain to
   your local data-protection authority.
 
@@ -181,5 +181,5 @@ reflects the current version.
 
 ## Contact
 
-Privacy questions: **[privacy@your-domain.com]**
-General support: **[support@your-domain.com]**
+Privacy questions: **duisburg2103@gmail.com**
+General support: **duisburg2103@gmail.com**

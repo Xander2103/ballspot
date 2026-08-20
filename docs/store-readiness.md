@@ -4,18 +4,23 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
-## 🚫 LAUNCH BLOCKER — legal pages contain unfilled placeholders
+## ✅ RESOLVED 2026-08-20 — legal placeholders filled
 
 The served legal pages were rewritten in the 2026-08-05 pre-launch audit
-(`backend/resources/views/public/privacy.blade.php` and `terms.blade.php`). Both
-deliberately ship with placeholders that **must be replaced with the real
-operator details before the pages are linked from any public store listing**:
+(`backend/resources/views/public/privacy.blade.php` and `terms.blade.php`) and
+the operator placeholders were filled on 2026-08-20:
 
-- `[OPERATOR LEGAL NAME]`
-- `[ADDRESS]`
-- `[COUNTRY]`
-- `[HOSTING PROVIDER]`
-- `[EMAIL PROVIDER]`
+- Operator: **Xander Van Malder, Belgium** (individual operator; no postal
+  address published — revisit if a lawyer or a store review requires one)
+- Hosting: **Hetzner Online GmbH, Germany** (verified: server rDNS
+  `clients.your-server.de`)
+- Email delivery: **Zxcs B.V., Netherlands** (verified locally:
+  `MAIL_HOST=mail.zxcs.nl`; confirm the production `.env` uses the same host)
+- Contact: `{{ $supportEmail }}` from `BALLSPOT_SUPPORT_EMAIL`. **The old
+  default `support@ballspot.app` was a dead address — the `ballspot.app`
+  domain does not exist.** The config fallback is now `duisburg2103@gmail.com`;
+  set `BALLSPOT_SUPPORT_EMAIL=duisburg2103@gmail.com` in the production `.env`
+  (or a dedicated monitored mailbox) before deploy.
 
 A privacy policy that does not name the data controller is not a valid privacy
 policy under GDPR, and both stores require a working, accurate policy URL. Grep
