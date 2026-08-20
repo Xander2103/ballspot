@@ -1,5 +1,8 @@
 <?php
 
+$origins  = array_filter(array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS', '*'))));
+$wildcard = in_array('*', $origins, true);
+
 return [
 
     /*
@@ -18,9 +21,18 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_filter(array_map('trim', explode(',', env('CORS_ALLOWED_ORIGINS', '*')))),
+    // fruitcake/php-cors stamps a single literal allowed origin on EVERY
+    // response, even when the request's Origin is disallowed or absent
+    // (CorsService::isSingleOriginAllowed short-circuit). Mapping non-wildcard
+    // origins to exact-match patterns keeps the library on its dynamic branch,
+    // which only emits Access-Control-Allow-Origin on a real match and adds
+    // Vary: Origin.
+    'allowed_origins' => $wildcard ? ['*'] : [],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => $wildcard ? [] : array_map(
+        static fn (string $origin) => '#^' . preg_quote($origin, '#') . '$#i',
+        $origins
+    ),
 
     'allowed_headers' => ['*'],
 
