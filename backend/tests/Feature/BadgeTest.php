@@ -47,7 +47,14 @@ class BadgeTest extends TestCase
         $this->assertDatabaseHas('badges', ['code' => 'first_daily']);
         $this->assertDatabaseHas('badges', ['code' => 'tournament_winner']);
         $this->assertDatabaseHas('badges', ['code' => 'perfect_picker']);
-        $this->assertSame(33, Badge::count());
+        $this->assertSame(37, Badge::count());
+    }
+
+    public function test_v188_badges_are_seeded(): void
+    {
+        foreach (['rising_star', 'golden_touch', 'legend_status', 'tournament_beast'] as $code) {
+            $this->assertDatabaseHas('badges', ['code' => $code]);
+        }
     }
 
     public function test_badge_is_awarded_only_once(): void
@@ -137,7 +144,7 @@ class BadgeTest extends TestCase
             'badges' => [['id', 'code', 'name', 'icon', 'rarity', 'category', 'earned', 'earned_at']],
         ]);
 
-        $this->assertSame(33, $response->json('total_count'));
+        $this->assertSame(37, $response->json('total_count'));
         $this->assertGreaterThanOrEqual(1, $response->json('earned_count'));
 
         // At least one badge earned and at least one still locked.
@@ -153,6 +160,6 @@ class BadgeTest extends TestCase
 
         $response = $this->withToken($token)->getJson('/api/badges');
         $response->assertOk();
-        $this->assertCount(33, $response->json('data'));
+        $this->assertCount(37, $response->json('data'));
     }
 }

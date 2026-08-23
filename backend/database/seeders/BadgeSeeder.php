@@ -59,6 +59,14 @@ class BadgeSeeder extends Seeder
             ['code' => 'sharp_scorer',       'name' => 'Sharp Scorer',       'icon' => '🎯', 'category' => 'skill',       'rarity' => 'rare',      'description' => 'Score 90 or more on ten guesses.'],
             ['code' => 'pack_explorer',      'name' => 'Pack Explorer',      'icon' => '🧭', 'category' => 'pack',        'rarity' => 'rare',      'description' => 'Complete three different challenge packs.'],
             ['code' => 'daily_loyalist',     'name' => 'Daily Loyalist',     'icon' => '📅', 'category' => 'daily',       'rarity' => 'rare',      'description' => 'Play fourteen daily challenges.'],
+
+            // --- v1.8.8 rank milestones + podium collector ---------------------
+            // Rank badges key off PlayerRankService levels: 3 Pro, 5 Legend,
+            // 6 Ball Master (see BadgeService::RANK_BADGES).
+            ['code' => 'rising_star',        'name' => 'Rising Star',        'icon' => '📈', 'category' => 'rank',        'rarity' => 'rare',      'description' => 'Reach the Pro rank.'],
+            ['code' => 'golden_touch',       'name' => 'Golden Touch',       'icon' => '✨', 'category' => 'rank',        'rarity' => 'epic',      'description' => 'Reach the Legend rank.'],
+            ['code' => 'legend_status',      'name' => 'Legend Status',      'icon' => '🐐', 'category' => 'rank',        'rarity' => 'legendary', 'description' => 'Reach the Ball Master rank.'],
+            ['code' => 'tournament_beast',   'name' => 'Tournament Beast',   'icon' => '🦁', 'category' => 'tournament',  'rarity' => 'epic',      'description' => 'Finish on the podium in three tournaments.'],
         ];
 
         foreach ($badges as $i => $badge) {
