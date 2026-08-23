@@ -39,7 +39,6 @@ export function CreateLeagueScreen({ navigation }: Props) {
 
   const [name, setName] = useState('');
   const [durationDays, setDurationDays] = useState(3);
-  const [roundsPerDay, setRoundsPerDay] = useState(1);
   const [loading, setLoading] = useState(false);
   const [sport, setSport] = useState<Sport | null>(null);
 
@@ -54,7 +53,7 @@ export function CreateLeagueScreen({ navigation }: Props) {
       const league = await leagueApi.create({
         name: name.trim(),
         duration_days: durationDays,
-        rounds_per_day: roundsPerDay,
+        rounds_per_day: 1, // v1.8.8: one photo per day (server enforces this too)
         sport_id: sport?.id ?? null,
       });
       navigation.replace('LeagueDetail', { leagueId: league.id, leagueName: league.name });
@@ -77,11 +76,14 @@ export function CreateLeagueScreen({ navigation }: Props) {
       </View>
 
       <AppInput label="Tournament Name" value={name} onChangeText={setName} placeholder="e.g. Friday Squad" />
-      <OptionRow label="Duration" options={[1, 3, 7]} value={durationDays} onChange={setDurationDays} styles={styles} />
-      <OptionRow label="Rounds per day" options={[1, 3]} value={roundsPerDay} onChange={setRoundsPerDay} styles={styles} />
-      <Text style={styles.summary}>Total rounds: {durationDays * roundsPerDay}</Text>
+      <OptionRow label="Duration in days" options={[1, 3, 7]} value={durationDays} onChange={setDurationDays} styles={styles} />
+      <Text style={styles.helperText}>How many days should players have to complete it?</Text>
+      <Text style={styles.helperText}>Players get 1 photo per day.</Text>
+      <Text style={styles.summary}>
+        {durationDays === 1 ? '1 photo total — one per day.' : `${durationDays} photos total — one per day.`}
+      </Text>
       <AppButton title="Create Tournament" onPress={handleCreate} loading={loading} />
-      <Text style={styles.freeNote}>Free plan: up to 3 active tournaments, 8 players each.</Text>
+      <Text style={styles.freeNote}>You can host 1 tournament and be in up to 2 at the same time. Up to 8 players each.</Text>
       <Text style={styles.comingSoon}>You can change your sport in your profile.</Text>
     </Screen>
   );
@@ -103,7 +105,8 @@ function createStyles(theme: ThemeTokens) {
     optionLabel: { fontSize: 13, color: theme.textSecondary, marginBottom: spacing.xs, fontWeight: '600' },
     optionRow: { flexDirection: 'row', gap: spacing.sm },
     optBtn: { flex: 1 },
-    summary: { textAlign: 'center', color: theme.primary, fontWeight: '700', marginBottom: spacing.lg, fontSize: 15 },
+    helperText: { color: theme.textSecondary, fontSize: 12, marginBottom: 4 },
+    summary: { textAlign: 'center', color: theme.primary, fontWeight: '700', marginVertical: spacing.lg, fontSize: 15 },
     freeNote: { textAlign: 'center', color: theme.textSecondary, fontSize: 12, marginTop: spacing.lg },
     comingSoon: { textAlign: 'center', color: theme.textMuted, fontSize: 12, marginTop: 4, fontStyle: 'italic' },
   });
