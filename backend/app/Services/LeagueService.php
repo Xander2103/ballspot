@@ -35,7 +35,7 @@ class LeagueService
             'owner_user_id'  => $userId,
             'sport_id'       => $sport->id,
             'duration_days'  => $data['duration_days'],
-            'rounds_per_day' => $data['rounds_per_day'],
+            'rounds_per_day' => 1, // v1.8.8: one photo per day, regardless of input
             'status'         => 'lobby',
         ]);
 

@@ -11,7 +11,10 @@ class CreateLeagueRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'duration_days' => ['required', 'integer', 'in:1,3,7'],
-            'rounds_per_day' => ['required', 'integer', 'in:1,3'],
+            // v1.8.8: players get exactly one photo per day. The field is
+            // accepted for old app builds but ignored server-side
+            // (see LeagueService::create).
+            'rounds_per_day' => ['sometimes', 'integer'],
             // Optional: which sport this tournament is for. Must be playable
             // (status = active). Omitted -> user's preferred sport, then football.
             'sport_id' => [
