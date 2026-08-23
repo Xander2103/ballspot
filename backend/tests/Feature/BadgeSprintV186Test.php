@@ -213,6 +213,35 @@ class BadgeSprintV186Test extends TestCase
         $this->assertFalse($user->fresh()->badges()->where('code', 'friendly_five')->exists());
     }
 
+    public function test_backfill_awards_v188_badges_from_history(): void
+    {
+        $user = User::factory()->create();
+
+        \App\Models\XpEvent::create([
+            'user_id'     => $user->id,
+            'source_type' => 'test_grant',
+            'source_id'   => $user->id,
+            'amount'      => 100000, // Ball Master (level 6)
+            'reason'      => 'test',
+        ]);
+        for ($i = 0; $i < 3; $i++) {
+            $league = $this->makeLeague($user);
+            $league->update(['status' => 'completed']);
+            \App\Models\TournamentFinish::create([
+                'league_id'   => $league->id,
+                'user_id'     => $user->id,
+                'placement'   => 1,
+                'total_score' => 100,
+            ]);
+        }
+
+        $this->artisan('ballspot:backfill-sprint-badges')->assertSuccessful();
+
+        foreach (['rising_star', 'golden_touch', 'legend_status', 'tournament_beast'] as $code) {
+            $this->assertTrue($user->fresh()->badges()->where('code', $code)->exists(), $code);
+        }
+    }
+
     public function test_backfill_skips_anonymized_users_and_is_idempotent(): void
     {
         $user = User::factory()->create();

@@ -287,6 +287,17 @@ class BadgeService
             $awarded[] = $this->award($user, 'daily_loyalist');
         }
 
+        // v1.8.8 backfill: rank milestones + podium collector. Historical
+        // finish rows are all persisted here, so a plain count is correct.
+        $awarded = array_merge($awarded, $this->evaluateRankBadges($user));
+
+        $podiums = \App\Models\TournamentFinish::where('user_id', $user->id)
+            ->where('placement', '<=', 3)
+            ->count();
+        if ($podiums >= 3) {
+            $awarded[] = $this->award($user, 'tournament_beast', ['podiums' => $podiums]);
+        }
+
         return $this->clean($awarded);
     }
 
