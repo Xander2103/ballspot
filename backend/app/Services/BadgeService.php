@@ -25,11 +25,45 @@ class BadgeService
     /** Football challenges played before earning the expert badge. */
     private const FOOTBALL_EXPERT_PLAYS = 25;
 
+    /**
+     * v1.8.8 rank-milestone badges: minimum rank level => badge code.
+     * Levels: 3 Pro, 5 Legend, 6 Ball Master (config ballspot.ranks).
+     */
+    private const RANK_BADGES = [
+        3 => 'rising_star',
+        5 => 'golden_touch',
+        6 => 'legend_status',
+    ];
+
     public function __construct(
         private DailyStreakService $streakService,
         private XpService $xpService,
         private ScoreService $scoreService,
+        private PlayerRankService $rankService,
     ) {}
+
+    /**
+     * Award any rank-milestone badges the user's current level qualifies for.
+     * Idempotent; one XP-ledger read per call. Called from the XP-earning
+     * evaluation paths AFTER the triggering XP is in the ledger. Badge-unlock
+     * bonus XP can itself cross a threshold — we deliberately don't loop; the
+     * next XP-earning action catches up.
+     *
+     * @return Badge[]
+     */
+    public function evaluateRankBadges(User $user): array
+    {
+        $level = (int) ($this->rankService->forUser($user)['level'] ?? 1);
+
+        $awarded = [];
+        foreach (self::RANK_BADGES as $minLevel => $code) {
+            if ($level >= $minLevel && ($badge = $this->award($user, $code, ['level' => $level]))) {
+                $awarded[] = $badge;
+            }
+        }
+
+        return $awarded;
+    }
 
     /**
      * Award a badge by code if the user does not already have it.
@@ -119,6 +153,8 @@ class BadgeService
             $awarded[] = $this->award($user, 'daily_loyalist', $context);
         }
 
+        $awarded = array_merge($awarded, $this->evaluateRankBadges($user));
+
         return $this->clean($awarded);
     }
 
@@ -139,6 +175,7 @@ class BadgeService
         $sportSlug = $guess->round?->challenge?->sport?->slug;
         $awarded = array_merge($awarded, $this->evaluateSport($user, $sportSlug));
         $awarded = array_merge($awarded, $this->evaluateScore($user, (int) $guess->score, $context));
+        $awarded = array_merge($awarded, $this->evaluateRankBadges($user));
 
         return $this->clean($awarded);
     }
@@ -360,6 +397,8 @@ class BadgeService
         if ($distinctPacks >= 3) {
             $awarded[] = $this->award($user, 'pack_explorer', array_merge($context, ['distinct_packs' => $distinctPacks]));
         }
+
+        $awarded = array_merge($awarded, $this->evaluateRankBadges($user));
 
         return $this->clean($awarded);
     }
