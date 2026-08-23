@@ -165,14 +165,6 @@ return [
     | Tournament integrity
     |--------------------------------------------------------------------------
     */
-    'tournaments' => [
-        // Minimum distinct players a completed tournament must have before any
-        // placement XP or podium badges are awarded. Blocks the solo-tournament
-        // farm (create → start → one guess → "win" 1000 XP, on a loop). A finish
-        // row is still recorded below this threshold; only the rewards are gated.
-        'min_players_for_rewards' => (int) env('BALLSPOT_TOURNAMENT_MIN_PLAYERS_FOR_REWARDS', 2),
-    ],
-
     /*
     |--------------------------------------------------------------------------
     | Per-sport onboarding taglines ("guess the …")
@@ -278,7 +270,20 @@ return [
     | archived/completed/cancelled tournaments do not.
     */
     'tournaments' => [
-        'max_created_per_user'         => (int) env('BALLSPOT_MAX_CREATED_TOURNAMENTS', 3),
+        // Minimum distinct players a completed tournament must have before any
+        // placement XP or podium badges are awarded. Blocks the solo-tournament
+        // farm (create → start → one guess → "win" 1000 XP, on a loop). A finish
+        // row is still recorded below this threshold; only the rewards are gated.
+        // (v1.8.8: moved here from a duplicate 'tournaments' key that PHP
+        // silently discarded — do not split this array again.)
+        'min_players_for_rewards' => (int) env('BALLSPOT_TOURNAMENT_MIN_PLAYERS_FOR_REWARDS', 2),
+
+        // v1.8.8: one hosted lobby/active tournament at a time.
+        'max_created_per_user'         => (int) env('BALLSPOT_MAX_CREATED_TOURNAMENTS', 1),
+
+        // v1.8.8: a user can be in at most 2 lobby/active tournaments (hosting counts).
+        'max_active_memberships_per_user' => (int) env('BALLSPOT_MAX_ACTIVE_TOURNAMENT_MEMBERSHIPS', 2),
+
         'max_players_per_tournament'   => (int) env('BALLSPOT_MAX_PLAYERS_PER_TOURNAMENT', 8),
 
         // Premium placeholders (not enforced yet — no billing exists).
