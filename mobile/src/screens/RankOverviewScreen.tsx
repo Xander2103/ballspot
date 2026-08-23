@@ -9,6 +9,7 @@ import { authApi } from '../api/authApi';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { getRankVisualStyle } from '../theme/rankVisuals';
 import type { PlayerRank, XpEvent } from '../types/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RankOverview'>;
@@ -93,7 +94,11 @@ export function RankOverviewScreen(_props: Props) {
           return (
             <View
               key={rank.level}
-              style={[styles.row, status === 'current' && styles.rowCurrent]}
+              style={[
+                styles.row,
+                status === 'current' && styles.rowCurrent,
+                status === 'current' && getRankVisualStyle(rank.level, theme),
+              ]}
             >
               <View style={[styles.levelBadge, status === 'current' && styles.levelBadgeCurrent]}>
                 {status === 'completed'

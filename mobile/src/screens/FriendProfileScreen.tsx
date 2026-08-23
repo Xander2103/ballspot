@@ -11,6 +11,7 @@ import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { rarityColor } from '../theme/rarity';
+import { getRankVisualStyle } from '../theme/rankVisuals';
 import type { PublicProfile } from '../types/friend';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FriendProfile'>;
@@ -80,7 +81,7 @@ export function FriendProfileScreen({ route, navigation }: Props) {
         <Text style={styles.username}>@{profile.username}</Text>
       </View>
 
-      <View style={styles.rankCard}>
+      <View style={[styles.rankCard, getRankVisualStyle(profile.rank?.level, theme)]}>
         <Text style={styles.rankName}>{profile.rank.name}</Text>
         <Text style={styles.rankMeta}>Level {profile.rank.level} · {profile.total_xp} XP</Text>
       </View>

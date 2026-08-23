@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { getRankVisualStyle } from '../theme/rankVisuals';
 import type { PlayerRank } from '../types/auth';
 
 function fmt(n: number): string {
@@ -20,7 +21,7 @@ export function RankCard({ rank }: { rank: PlayerRank }) {
   const pct = rank.is_max_rank ? 100 : Math.max(0, Math.min(100, rank.progress_to_next_rank_pct));
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, getRankVisualStyle(rank?.level, theme)]}>
       <View style={styles.headerRow}>
         <View style={styles.levelBadge}>
           <Text style={styles.levelText}>{rank.level}</Text>
