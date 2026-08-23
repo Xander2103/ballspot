@@ -10,6 +10,7 @@ import { friendsApi } from '../api/friendsApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { rarityColor } from '../theme/rarity';
 import type { PublicProfile } from '../types/friend';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FriendProfile'>;
@@ -68,6 +69,8 @@ export function FriendProfileScreen({ route, navigation }: Props) {
   }
 
   const s = profile.stats;
+  // Defensive: an older backend without the v1.8.8 field must not crash the screen.
+  const trophies = profile.badges?.earned ?? [];
 
   return (
     <Screen scroll padding>
@@ -81,6 +84,26 @@ export function FriendProfileScreen({ route, navigation }: Props) {
         <Text style={styles.rankName}>{profile.rank.name}</Text>
         <Text style={styles.rankMeta}>Level {profile.rank.level} · {profile.total_xp} XP</Text>
       </View>
+
+      <Text style={styles.sectionTitle}>Trophies</Text>
+      {trophies.length === 0 ? (
+        <Text style={styles.trophyEmpty}>No trophies yet.</Text>
+      ) : (
+        <View style={styles.trophyGrid}>
+          {trophies.map((b) => (
+            <View
+              key={b.code}
+              style={[styles.trophyCell, { borderColor: rarityColor(theme, b.rarity) + '80' }]}
+            >
+              <Text style={styles.trophyIcon}>{b.icon}</Text>
+              <Text style={styles.trophyName} numberOfLines={1}>{b.name}</Text>
+              <Text style={[styles.trophyRarity, { color: rarityColor(theme, b.rarity) }]}>
+                {b.rarity.toUpperCase()}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
 
       <Text style={styles.sectionTitle}>Stats</Text>
       <View style={styles.grid}>
@@ -137,6 +160,16 @@ function createStyles(theme: ThemeTokens) {
     rankMeta: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
     sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.sm },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl },
+    trophyGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.xl },
+    trophyCell: {
+      minWidth: '30%', flexGrow: 1, flexBasis: '30%', maxWidth: '31.5%',
+      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1,
+      alignItems: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.xs,
+    },
+    trophyIcon: { fontSize: 26 },
+    trophyName: { fontSize: 11, fontWeight: '700', color: theme.text, marginTop: 4 },
+    trophyRarity: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5, marginTop: 2 },
+    trophyEmpty: { color: theme.textSecondary, fontSize: 13, marginBottom: spacing.xl },
     statBox: { backgroundColor: theme.surface, borderRadius: 12, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: theme.border, minWidth: '45%', flex: 1 },
     statValue: { fontSize: 22, fontWeight: '800', color: theme.primary, marginBottom: 4 },
     statLabel: { fontSize: 12, color: theme.textSecondary, textAlign: 'center' },

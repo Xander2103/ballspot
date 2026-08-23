@@ -39,6 +39,17 @@ export interface PublicProfileStats {
   best_daily_score: number;
 }
 
+/** Safe public trophy data — allow-listed server-side (v1.8.8). */
+export interface PublicProfileBadge {
+  code: string;
+  name: string;
+  description: string;
+  icon: string;
+  category: string;
+  rarity: string;
+  earned_at: string | null;
+}
+
 export interface PublicProfile {
   id: number;
   name: string;
@@ -47,7 +58,7 @@ export interface PublicProfile {
   rank: PlayerRank;
   total_xp: number;
   stats: PublicProfileStats;
-  badges: { earned_count: number; total_count: number };
+  badges: { earned_count: number; total_count: number; earned: PublicProfileBadge[] };
   is_friend: boolean;
   has_pending_request: boolean;
 }

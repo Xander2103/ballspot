@@ -7,6 +7,7 @@ import type { PackCompletion } from '../types/pack';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { rarityColor } from '../theme/rarity';
 
 type Styles = ReturnType<typeof createStyles>;
 
@@ -21,16 +22,6 @@ function placementLabel(placement: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = placement % 100;
   return `${placement}${s[(v - 20) % 10] ?? s[v] ?? s[0]} place`;
-}
-
-function rarityColor(theme: ThemeTokens, rarity: string): string {
-  const map: Record<string, string> = {
-    common: theme.textSecondary,
-    rare: theme.accent,
-    epic: '#b76bff', // no purple token exists; reads fine on every theme surface
-    legendary: theme.gold,
-  };
-  return map[rarity] ?? theme.textSecondary;
 }
 
 function FinishRow({ finish, styles }: { finish: TournamentFinish; styles: Styles }) {
