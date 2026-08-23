@@ -318,6 +318,17 @@ class BadgeService
         }
         if ($placement <= 3) {
             $awarded[] = $this->award($user, 'podium_finish', ['league_id' => $league->id, 'placement' => $placement]);
+
+            // v1.8.8 Tournament Beast: three podium finishes. The CURRENT
+            // finish row is persisted after this method runs, so count prior
+            // podiums (excluding this league — replay-safe) plus this one.
+            $podiums = \App\Models\TournamentFinish::where('user_id', $user->id)
+                ->where('placement', '<=', 3)
+                ->where('league_id', '!=', $league->id)
+                ->count() + 1;
+            if ($podiums >= 3) {
+                $awarded[] = $this->award($user, 'tournament_beast', ['podiums' => $podiums]);
+            }
         }
 
         // v1.8.6: complete five tournaments (any placement). Cheap — the
