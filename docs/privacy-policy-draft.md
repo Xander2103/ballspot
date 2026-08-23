@@ -39,7 +39,8 @@ shown to other players.
 **Gameplay data** — your guesses, scores, XP, streaks, badges, trophies and
 tournament/competition placements. This is the game itself: leaderboards,
 rankings and your Trophy Room are built from it. Your username/display name
-appears on leaderboards next to your scores.
+appears on leaderboards next to your scores, and the trophies you have earned
+are shown on your public profile alongside your rank.
 
 **Optional profile data** — an avatar photo, a preferred sport and a theme,
 if you choose to set them.
@@ -71,7 +72,7 @@ public profile.
 
 Other players **never** see your email address or your friend code. A player's
 public profile shows only their display name, username, avatar, rank/level/XP,
-aggregate gameplay stats and badge counts. The QR code encodes the friend code
+aggregate gameplay stats and the trophies/badges they have earned. The QR code encodes the friend code
 and nothing else — no email, no account identifier, no personal data.
 
 *Legal basis: performance of the service — this is a feature you choose to use.*

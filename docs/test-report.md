@@ -11,6 +11,60 @@ Build date: 2026-07-30
 
 ---
 
+## v1.8.8 — Gameplay/Social Polish (2026-08-23)
+
+**Backend:** 507 passed, 1 skipped (was 469/1 — +38 tests across public-profile
+trophies, rank badges, tournament limits, one-photo-per-day, config integrity).
+**Mobile:** `tsc --noEmit` clean; `expo export --platform web` builds cleanly
+(778 modules).
+
+What shipped, with tests:
+
+- **Public profile trophies** — `GET /api/users/{id}/public-profile` now returns
+  `data.badges.earned[]` (code, name, description, emoji icon, category, rarity,
+  earned_at; earned only, ordered by `sort_order`). Allow-list style preserved.
+  `PublicProfileTest` (7): safe-field keys asserted exactly, unearned badges
+  excluded, leak guard extended to `push_token`/`expo`, anonymized 404 and
+  friendship state unchanged.
+- **4 new badges (37 total)** — `rising_star` (reach Pro), `golden_touch`
+  (reach Legend), `legend_status` (reach Ball Master), `tournament_beast`
+  (three podium finishes). `RankBadgeTest` (4): threshold levels, no
+  duplicates, rookie gets nothing. `TournamentBeastBadgeTest` (4): third
+  podium awards, second doesn't, non-podium placements don't count,
+  completion replay doesn't double-count the same league. Awarded from the
+  XP-earning paths (daily/tournament/pack evaluations) + backfill command
+  (`BadgeSprintV186Test::test_backfill_awards_v188_badges_from_history`).
+- **Rank glow (mobile only)** — `getRankVisualStyle(level, theme)` in
+  `src/theme/rankVisuals.ts`: bronze/silver borders for Rookie/Amateur, primary
+  glow for Pro, escalating gold glow for Elite/Legend/Ball Master (RN 0.76+
+  `boxShadow`, static, no animation deps). Applied to own RankCard, friend
+  profile rank card, and the current row of the rank ladder. Null rank falls
+  back to the plain themed border.
+- **One photo per day** — `rounds_per_day` forced to 1 in `LeagueService::create`;
+  request field accepted-but-ignored for old app builds. `OnePhotoPerDayTest`
+  (5): malicious 3 stored as 1, missing field OK, duration 3 → 3 rounds,
+  duration 1 → 1 round, legacy 3/day league still generates 9 rounds and serves
+  `rounds_per_day: 3` (production data untouched).
+- **Host limit 1** (was 3) — config default change + new copy "You can only
+  host one active tournament at a time." `TournamentLimitsTest` (5) updated:
+  second create 422, cancelled/completed/finished don't count, can host again
+  after cancelling.
+- **Membership limit 2** — new rule: max 2 lobby/active tournaments as a member
+  (hosting counts; checked on create and join-by-code; no invite system
+  exists). Copy: "You can only be in two active tournaments at the same time."
+  `ActiveMembershipLimitTest` (6): join/create blocked at 2,
+  completed/cancelled/hidden don't count, hosted counts, idempotent re-join
+  never blocked.
+- **Config bug fix** — `config/ballspot.php` declared `tournaments` twice; PHP
+  kept the last block so `min_players_for_rewards` was silently dead (fallback
+  2 applied by luck). Blocks merged; `BALLSPOT_TOURNAMENT_MIN_PLAYERS_FOR_REWARDS`
+  is live again (default unchanged). `TournamentConfigTest` asserts all keys.
+
+Deploy notes: `php artisan db:seed --class=BadgeSeeder` then
+`php artisan ballspot:backfill-sprint-badges`. No migrations, no route changes.
+A new EAS build is required for the mobile changes; the backend is
+backward-compatible with the current app build.
+
 ## v1.8.6 public-beta sprint (2026-08-10)
 
 **Audit verdict (stated plainly): Daily Challenge reminders were NEVER sent by

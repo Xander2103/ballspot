@@ -24,7 +24,7 @@ reviewed by a lawyer before public launch.**
 | API tokens | `personal_access_tokens` (SHA-256) | Mobile session auth | Contract | Revoked on logout/deletion; optional TTL via `SANCTUM_TOKEN_EXPIRATION_MINUTES` | Nobody (hash only) |
 | Guesses & scores (daily/tournament/pack) | `daily_challenge_guesses`, `guesses`, `pack_attempt_guesses` | Core gameplay, leaderboards, stats | Contract | Retained after deletion, linked to the anonymized user row (leaderboard/history integrity) | Aggregates visible to other players via leaderboards |
 | XP events | `xp_events` | Progression ledger (append-only) | Contract | Retained after deletion (anonymized linkage) | User (own) |
-| Badges / trophies / finishes | `user_badges`, `tournament_finishes`, `competition_finishes`, `pack_attempts` | Achievements, Trophy Room | Contract | Retained after deletion (anonymized linkage) | User (own); placements visible in tournaments |
+| Badges / trophies / finishes | `user_badges`, `tournament_finishes`, `competition_finishes`, `pack_attempts` | Achievements, Trophy Room | Contract | Retained after deletion (anonymized linkage) | All verified players — earned badges are listed on the public profile since v1.8.8; placements visible in tournaments |
 | Notification settings + timezone | `notification_settings` (daily_reminder_enabled, tournament_reminder_enabled, admin_notifications_enabled, reminder_time, timezone, timestamps) | Reminder scheduling, announcement opt-out. Timezone is a weak location signal | Consent / user preference | Deleted on account deletion | User (own), admins (DB) |
 | Expo push tokens | `push_tokens` (user_id, token, platform, device_name, last_seen_at, timestamps). Token is plaintext at rest by necessity — Expo needs the raw value, and a deterministic `unique` index + `updateOrCreate` rule out Laravel's non-deterministic `encrypted` cast without a separate lookup-hash column. **Accepted risk**, mitigated by: `$hidden` on the model so **no API ever returns it** (export returns only platform + timestamps), and the recommendation to enable Expo's enhanced push-security access token so a leaked token is useless without the server secret | Deliver daily/tournament reminders and admin announcements | Consent (OS-level permission + in-app opt-in) | Deleted on logout (that device), account deletion (all), or after 90 days unseen (`ballspot:cleanup-login-codes`) | Nobody via API; Expo push service in transit, then APNs (iOS) / FCM (Android, where applicable) |
 | Friend code | `users.friend_code` | Share code so another player can send a friend request; also the QR payload (the QR encodes the code and nothing else). In `$hidden` and never fillable — only ever returned to its own owner via `GET /api/me/friend-code` and in that user's own export | Contract | **Nulled on account deletion** so the code stops resolving | User (own) only; other players never see it |
@@ -41,8 +41,10 @@ reviewed by a lawyer before public launch.**
 player who has the user's id**. It exposes, by explicit allow-list: username,
 display name, avatar URL, rank/level/XP, aggregate gameplay stats (tournaments
 played and completed, guess count, total and average score, daily challenges
-played, best daily score) and badge counts — plus the viewer's own relationship
-to that player (`is_friend`, `has_pending_request`).
+played, best daily score) and badge counts — plus, since v1.8.8, the list of
+**earned** trophies (badge code, name, description, emoji icon, category,
+rarity, earned-at date; never locked/unearned ones) — plus the viewer's own
+relationship to that player (`is_friend`, `has_pending_request`).
 
 It never exposes email, password hash, `is_admin`, `email_verified_at`, the
 target's `friend_code`, or any per-guess detail. `PublicProfileTest` asserts this.
@@ -70,6 +72,23 @@ coordinate pair (0–1 ratios) as normal guessing — no additional data.
 Seven new badges (33 total). Badges remain gameplay/profile data: earned rows in
 `user_badges` linked to the account, retained on deletion like all gameplay
 history (see below).
+
+## Public profile trophies + tournament limits (v1.8.8)
+
+- The public profile (`GET /api/users/{id}/public-profile`) now includes the
+  user's **earned trophies** as a safe allow-list (code, name, description,
+  emoji icon, category, rarity, `earned_at`). Rank, badges and trophies are
+  public gameplay profile data. No new personal data is collected; locked
+  badges are not listed; anonymized accounts still return 404;
+  `PublicProfileTest` asserts the allow-list and the absence of email/tokens.
+- Four new badges (37 total): `rising_star`, `golden_touch`, `legend_status`
+  (rank milestones) and `tournament_beast` (three podium finishes). Same
+  storage and retention as all badges.
+- Tournament rules tightened (gameplay config, not personal data): a user can
+  host at most 1 lobby/active tournament, be a member of at most 2 lobby/active
+  tournaments, and every new tournament serves exactly 1 photo per day
+  (`rounds_per_day` forced to 1 server-side; legacy tournaments keep their
+  stored value and stay playable).
 
 ## Device permissions (v1.8.2)
 

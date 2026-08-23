@@ -475,3 +475,24 @@ This satisfies Google Play and Apple App Store account deletion requirements. Th
 - **Server-sent daily reminders** use existing push tokens + notification
   settings; opt-out and account deletion fully remove them. No questionnaire
   delta — push was already declared for admin announcements.
+
+## v1.8.8 store-relevant notes
+
+- **Badge catalogue grows to 37** (4 new: rank milestones + podium collector).
+  Still text + emoji only — no copyrighted assets. Run
+  `php artisan db:seed --class=BadgeSeeder` and
+  `php artisan ballspot:backfill-sprint-badges` on deploy (both idempotent;
+  backfill skips anonymized accounts).
+- **Public profile now lists earned trophies.** Developer-authored badge
+  content only (emoji + fixed copy) — no new UGC moderation surface. Field
+  list stays allow-listed; the privacy policy and data inventory were updated
+  to say trophies are visible instead of just badge counts.
+- **Tournament limits tightened** — host max 1 lobby/active tournament, be in
+  max 2, and every new tournament is exactly 1 photo per day. Gameplay-only
+  config; no store-listing, rating, or monetization impact (everything stays
+  virtual, no IAP). Existing production tournaments are untouched and remain
+  playable at their stored rounds-per-day.
+- **Rank glow is cosmetic client styling** (static, theme-aware) — no
+  screenshots-affecting claims, no new permissions, no new dependencies.
+- **A new EAS build is required** for the mobile changes (trophies section,
+  glow, create-tournament copy). Backend deploys independently.
