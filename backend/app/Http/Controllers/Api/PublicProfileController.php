@@ -46,6 +46,20 @@ class PublicProfileController extends Controller
             })
             ->exists();
 
+        $earnedBadges = $user->badges()
+            ->orderBy('sort_order')
+            ->get()
+            ->map(fn ($badge) => [
+                'code'        => $badge->code,
+                'name'        => $badge->name,
+                'description' => $badge->description,
+                'icon'        => $badge->icon,
+                'category'    => $badge->category,
+                'rarity'      => $badge->rarity,
+                'earned_at'   => $badge->pivot->earned_at,
+            ])
+            ->values();
+
         return response()->json([
             'data' => [
                 'id'         => $user->id,
@@ -64,8 +78,12 @@ class PublicProfileController extends Controller
                     'best_daily_score'        => (int) ($dailyAgg->best_score ?? 0),
                 ],
                 'badges' => [
-                    'earned_count' => $user->badges()->count(),
+                    'earned_count' => $earnedBadges->count(),
                     'total_count'  => Badge::count(),
+                    // v1.8.8: earned trophies are public gameplay data. Safe
+                    // allow-list only — no ids, no pivot spillover, no locked
+                    // badges (own Trophy Room shows those).
+                    'earned'       => $earnedBadges,
                 ],
                 'is_friend'           => $viewer->isFriendsWith($user),
                 'has_pending_request' => $pending,

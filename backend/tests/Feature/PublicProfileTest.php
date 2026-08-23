@@ -67,6 +67,45 @@ class PublicProfileTest extends TestCase
 
         $this->assertStringNotContainsString($target->email, json_encode($payload));
         $this->assertStringNotContainsString($target->friend_code, json_encode($payload));
+        $this->assertStringNotContainsString('push_token', json_encode($payload));
+        $this->assertStringNotContainsString('expo', strtolower(json_encode($payload)));
+    }
+
+    public function test_public_profile_lists_earned_trophies_with_safe_fields_only(): void
+    {
+        $this->seed(\Database\Seeders\BadgeSeeder::class);
+
+        $viewer = User::factory()->create();
+        $target = User::factory()->create();
+
+        $badge = \App\Models\Badge::where('code', 'first_guess')->firstOrFail();
+        $target->badges()->attach($badge->id, ['earned_at' => now()]);
+
+        $res = $this->withToken($viewer->createToken('t')->plainTextToken)
+            ->getJson("/api/users/{$target->id}/public-profile")
+            ->assertOk()
+            ->assertJsonPath('data.badges.earned_count', 1)
+            ->assertJsonPath('data.badges.earned.0.code', 'first_guess');
+
+        $entry = $res->json('data.badges.earned.0');
+        $this->assertSame(
+            ['code', 'name', 'description', 'icon', 'category', 'rarity', 'earned_at'],
+            array_keys($entry)
+        );
+    }
+
+    public function test_public_profile_does_not_list_unearned_trophies(): void
+    {
+        $this->seed(\Database\Seeders\BadgeSeeder::class);
+
+        $viewer = User::factory()->create();
+        $target = User::factory()->create();
+
+        $this->withToken($viewer->createToken('t')->plainTextToken)
+            ->getJson("/api/users/{$target->id}/public-profile")
+            ->assertOk()
+            ->assertJsonPath('data.badges.earned_count', 0)
+            ->assertJsonCount(0, 'data.badges.earned');
     }
 
     public function test_public_profile_reports_friendship_state(): void
