@@ -24,7 +24,7 @@ class LeagueService
         abort_if(
             $activeOwned >= $this->maxCreatedPerUser($userId),
             422,
-            'You have reached the free tournament limit. Finish or cancel an existing tournament to create a new one.'
+            'You can only host one active tournament at a time.'
         );
 
         $sport = $this->resolveSport($data, $userId);

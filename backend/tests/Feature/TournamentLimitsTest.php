@@ -38,33 +38,29 @@ class TournamentLimitsTest extends TestCase
         ]);
     }
 
-    public function test_user_cannot_exceed_free_created_tournament_limit(): void
+    public function test_user_cannot_host_second_active_tournament(): void
     {
-        config(['ballspot.tournaments.max_created_per_user' => 3]);
+        // v1.8.8 default: one hosted lobby/active tournament at a time.
         $sport = $this->sport();
         [$user, $headers] = $this->actingAsUser();
 
-        // 3 active/lobby tournaments already owned.
-        $this->createLeague($user->id, $sport->id, 'lobby');
-        $this->createLeague($user->id, $sport->id, 'active');
         $this->createLeague($user->id, $sport->id, 'lobby');
 
         $response = $this->postJson('/api/leagues', [
-            'name' => 'Fourth', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Second', 'duration_days' => 1, 'rounds_per_day' => 1,
         ], $headers);
 
         $response->assertStatus(422)->assertJsonFragment([
-            'message' => 'You have reached the free tournament limit. Finish or cancel an existing tournament to create a new one.',
+            'message' => 'You can only host one active tournament at a time.',
         ]);
     }
 
     public function test_archived_and_cancelled_tournaments_do_not_count(): void
     {
-        config(['ballspot.tournaments.max_created_per_user' => 3]);
         $sport = $this->sport();
         [$user, $headers] = $this->actingAsUser();
 
-        // These should NOT count against the limit.
+        // These should NOT count against the host limit.
         $this->createLeague($user->id, $sport->id, 'cancelled');
         $this->createLeague($user->id, $sport->id, 'completed');
         $this->createLeague($user->id, $sport->id, 'finished');
@@ -74,6 +70,22 @@ class TournamentLimitsTest extends TestCase
         ], $headers);
 
         $response->assertStatus(201);
+    }
+
+    public function test_can_host_again_after_cancelling(): void
+    {
+        $sport = $this->sport();
+        [$user, $headers] = $this->actingAsUser();
+
+        $firstId = $this->postJson('/api/leagues', [
+            'name' => 'First', 'duration_days' => 1, 'rounds_per_day' => 1,
+        ], $headers)->assertStatus(201)->json('data.id');
+
+        $this->deleteJson("/api/leagues/{$firstId}", [], $headers)->assertNoContent();
+
+        $this->postJson('/api/leagues', [
+            'name' => 'Second', 'duration_days' => 1, 'rounds_per_day' => 1,
+        ], $headers)->assertStatus(201);
     }
 
     public function test_full_tournament_blocks_new_joins(): void
