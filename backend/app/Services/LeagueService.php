@@ -27,6 +27,10 @@ class LeagueService
             'You can only host one active tournament at a time.'
         );
 
+        // v1.8.8: creating auto-joins the owner, so it must respect the
+        // active-membership cap too.
+        $this->assertMembershipCapacity($userId);
+
         $sport = $this->resolveSport($data, $userId);
 
         $league = League::create([
@@ -120,6 +124,9 @@ class LeagueService
         $alreadyMember = $league->members()->where('user_id', $userId)->exists();
 
         if (!$alreadyMember) {
+            // v1.8.8: max 2 lobby/active tournaments per user (hosting counts).
+            $this->assertMembershipCapacity($userId);
+
             abort_if(
                 $league->members()->count() >= $this->maxPlayersPerTournament($league->owner_user_id),
                 422,
@@ -154,6 +161,25 @@ class LeagueService
     private function maxPlayersPerTournament(int $ownerUserId): int
     {
         return config('ballspot.tournaments.max_players_per_tournament');
+    }
+
+    /** Lobby/active tournaments the user is currently a member of. */
+    private function activeMembershipCount(int $userId): int
+    {
+        return League::whereIn('status', self::ACTIVE_STATUSES)
+            ->whereHas('members', fn ($q) => $q->where('users.id', $userId))
+            ->count();
+    }
+
+    private function assertMembershipCapacity(int $userId): void
+    {
+        $max = (int) config('ballspot.tournaments.max_active_memberships_per_user', 2);
+
+        abort_if(
+            $this->activeMembershipCount($userId) >= $max,
+            422,
+            'You can only be in two active tournaments at the same time.'
+        );
     }
 
     private function generateJoinCode(): string
