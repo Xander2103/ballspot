@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "be.vanmalderstudio.ballpicker",
-      "buildNumber": "13.0.0",
+      "buildNumber": "14.0.0",
       "supportsTablet": false,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "BallPicker needs access to your photos so you can choose a profile picture.",
