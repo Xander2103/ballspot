@@ -14,6 +14,24 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Never create the well-known dev admin outside local/testing. A bare
+        // `db:seed` or `migrate --seed` on a production box must not leave a
+        // `password`-protected admin behind; the content seeders are safe.
+        if (app()->environment('local', 'testing')) {
+            $this->seedDevAdmin();
+        }
+
+        $this->call([
+            SportSeeder::class,
+            ChallengeCategorySeeder::class,
+            ChallengeSeeder::class,
+            DailyChallengeSeeder::class,
+            BadgeSeeder::class,
+        ]);
+    }
+
+    private function seedDevAdmin(): void
+    {
         $admin = \App\Models\User::firstOrCreate(
             ['email' => 'admin@ballspot.local'],
             [
@@ -26,13 +44,5 @@ class DatabaseSeeder extends Seeder
             $admin->is_admin = true;
             $admin->save();
         }
-
-        $this->call([
-            SportSeeder::class,
-            ChallengeCategorySeeder::class,
-            ChallengeSeeder::class,
-            DailyChallengeSeeder::class,
-            BadgeSeeder::class,
-        ]);
     }
 }
