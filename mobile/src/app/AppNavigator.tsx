@@ -71,7 +71,12 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function AppNavigator() {
+type AppNavigatorProps = {
+  /** Fired once the initial route has been resolved and rendered. */
+  onReady?: () => void;
+};
+
+export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
   const { theme, setTheme } = useTheme();
   const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
 
@@ -102,6 +107,12 @@ export function AppNavigator() {
       }
     })();
   }, []);
+
+  // Runs after the resolved route has committed, so the native splash hides
+  // over real UI rather than the spinner.
+  useEffect(() => {
+    if (initialRoute !== null) onReady?.();
+  }, [initialRoute, onReady]);
 
   const screenOptions = {
     headerStyle: { backgroundColor: theme.surface },

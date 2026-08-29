@@ -476,6 +476,27 @@ This satisfies Google Play and Apple App Store account deletion requirements. Th
   settings; opt-out and account deletion fully remove them. No questionnaire
   delta — push was already declared for admin announcements.
 
+## v1.8.9 store-relevant notes (Challenge Fairness)
+
+- **Daily-used photos never appear in tournaments.** Any challenge that has
+  ever been (or is scheduled to be) a Daily Challenge is permanently excluded
+  from new tournament rounds. Daily challenges are never repeated.
+- **Tournament rounds never duplicate a photo** within one tournament. Rounds
+  stay shared across all players, so everyone guesses the same photos.
+- **Tournament creation fails cleanly** (`422 Not enough unused tournament
+  challenges available. Add more tournament photos first.`) when a sport has
+  fewer eligible unique photos than the tournament length. The mobile app
+  already surfaces this message in an alert; **admins must add more active
+  Tournament/General photos** to lift it. The admin challenge list shows a
+  per-sport low-pool warning (< 7).
+- **Gameplay history is retained for fairness** — daily usage, rounds and
+  guesses are kept so the "used once" rule can be enforced; nothing is
+  rewritten or deleted. Existing tournaments keep playing as they were.
+- **Deploy:** `php artisan migrate` (additive `challenges.usage_pool` +
+  idempotent backfill). Then review `/admin/challenges` for the low-pool
+  warning and set pools as needed. **No new EAS build required** — backend
+  and admin only.
+
 ## v1.8.8 store-relevant notes
 
 - **Badge catalogue grows to 37** (4 new: rank milestones + podium collector).

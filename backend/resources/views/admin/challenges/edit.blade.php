@@ -19,6 +19,10 @@
 
 {{-- Readiness indicator --}}
 <div class="mb-3">
+    @if($challenge->isDailyUsed())
+        <span class="badge bg-info text-dark" title="Excluded from all new tournaments">Used as daily</span>
+    @endif
+    <span class="badge bg-secondary">Pool: {{ ucfirst($challenge->usage_pool) }}</span>
     @if($challenge->isReadyForDaily())
         <span class="badge bg-success">Ready for daily challenge</span>
     @elseif($challenge->isReady())
@@ -71,6 +75,8 @@
                     @error('status')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
             </div>
+
+            @include('admin.challenges._usage_pool', ['current' => old('usage_pool', $challenge->usage_pool), 'challenge' => $challenge])
 
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -207,8 +213,8 @@
     </div>
 </div>
 
-{{-- Set as daily shortcut (only if ready for daily) --}}
-@if($challenge->isReadyForDaily())
+{{-- Set as daily shortcut (only if ready, in a daily pool, and never used) --}}
+@if($challenge->isDailyEligible() && !$challenge->isDailyUsed())
 <div class="card shadow-sm mt-3" style="max-width:740px;">
     <div class="card-header fw-semibold">Set as daily challenge</div>
     <div class="card-body">

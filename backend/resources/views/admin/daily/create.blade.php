@@ -38,7 +38,7 @@
             @if($selectable->isEmpty())
                 <div class="alert alert-warning mb-0">
                     No challenges are available for scheduling. A challenge must be active, have a hidden image and a
-                    ball position, and must not have been used as a daily challenge before.
+                    ball position, be in the Daily or General pool, and must not have been used as a daily challenge before.
                 </div>
             @else
                 <div id="challenge-checklist" class="border rounded p-2" style="max-height: 320px; overflow-y: auto;">
@@ -52,6 +52,7 @@
                             <span>
                                 <span class="order-badge badge bg-primary me-1 d-none"></span>
                                 {{ $challenge->title }}
+                                <span class="badge bg-pool-{{ $challenge->usage_pool }}">{{ ucfirst($challenge->usage_pool) }}</span>
                                 @if($challenge->isDemoContent())
                                     <span class="badge bg-warning text-dark">Demo</span>
                                 @endif
@@ -124,7 +125,7 @@
                 @foreach($challenges as $ch)
                     @php
                         $isUsed       = in_array($ch->id, $usedIds, true);
-                        $isSelectable = $ch->isReadyForDaily() && !$isUsed;
+                        $isSelectable = $ch->isDailyEligible() && !$isUsed;
                     @endphp
                     <tr class="{{ $isSelectable ? '' : 'table-warning' }}">
                         <td>
@@ -136,16 +137,27 @@
                         <td>{!! $ch->hidden_image_path ? '<span class="text-success">&check;</span>' : '<span class="text-danger">&cross;</span>' !!}</td>
                         <td>{!! $ch->original_image_path ? '<span class="text-success">&check;</span>' : '<span class="text-muted">&mdash;</span>' !!}</td>
                         <td>{!! $ch->ball_x_ratio !== null && $ch->ball_y_ratio !== null ? '<span class="text-success">&check;</span>' : '<span class="text-danger">&cross;</span>' !!}</td>
-                        <td>{!! $isUsed ? '<span class="text-danger">Yes</span>' : '<span class="text-muted">No</span>' !!}</td>
-                        <td>{!! $isSelectable ? '<span class="text-success">Yes</span>' : '<span class="text-muted">No</span>' !!}</td>
+                        <td>{!! $isUsed ? '<span class="badge bg-danger">Already used as Daily</span>' : '<span class="text-muted">No</span>' !!}</td>
+                        <td>
+                            @if($isSelectable)
+                                <span class="text-success">Yes</span>
+                            @elseif($isUsed)
+                                <span class="text-danger">No — already used as Daily</span>
+                            @elseif(!$ch->isInDailyPool())
+                                <span class="text-muted">No — <span class="badge bg-pool-{{ $ch->usage_pool }}">{{ ucfirst($ch->usage_pool) }}</span> pool</span>
+                            @else
+                                <span class="text-muted">No — incomplete</span>
+                            @endif
+                        </td>
                     </tr>
                 @endforeach
                 </tbody>
             </table>
         </div>
         <div class="form-text mt-2">
-            A challenge is selectable when it is active, has a hidden image and a ball position, and has never been
-            used as a daily challenge.
+            A challenge is selectable when it is active, has a hidden image and a ball position, is in the
+            <strong>Daily</strong> or <strong>General</strong> pool, and has never been used as a daily challenge.
+            Once scheduled it is permanently Daily-used and will never appear in tournaments.
         </div>
     </div>
 </div>

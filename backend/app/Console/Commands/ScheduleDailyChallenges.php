@@ -72,14 +72,15 @@ class ScheduleDailyChallenges extends Command
         }
 
         // --- Pool selection ---
-        $poolQuery = Challenge::where('status', 'active');
+        // v1.8.9 fairness: only daily|general pool challenges may become a daily.
+        $poolQuery = Challenge::dailyPool();
         if ($sportId !== null) {
             $poolQuery->where('sport_id', $sportId);
         }
-        $allEligible = $poolQuery->get()->filter->isReadyForDaily();
+        $allEligible = $poolQuery->get()->filter->isDailyEligible();
 
         if ($allEligible->isEmpty()) {
-            $this->error('No eligible challenges found. Active challenges need a hidden image and ball position.');
+            $this->error('No eligible challenges found. Active challenges in the daily or general pool need a hidden image and ball position.');
             return self::FAILURE;
         }
 

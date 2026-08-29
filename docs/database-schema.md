@@ -81,6 +81,7 @@ Default seeded categories (football): General, Corner Kicks, Dribbles, Goalkeepe
 | ball_y_ratio | decimal(8,6) |
 | difficulty | varchar | 'easy' \| 'medium' \| 'hard' |
 | status | varchar | 'draft' \| 'active' \| 'archived' |
+| usage_pool | varchar(20) default 'general', indexed | 'daily' \| 'tournament' \| 'pack' \| 'general' (v1.8.9). Any challenge present in `daily_challenges` is Daily-used and excluded from new tournaments regardless of pool |
 | created_at / updated_at | timestamp |
 
 ## leagues

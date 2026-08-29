@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 
 class DailyChallengeAdminController extends Controller
 {
-    public function index()
+    public function index(DailyChallengeScheduler $scheduler)
     {
         $dailyChallenges = DailyChallenge::with('challenge')
             ->withCount('guesses')
@@ -23,10 +23,8 @@ class DailyChallengeAdminController extends Controller
             ->take(14)
             ->get();
 
-        $readyCount = Challenge::where('status', 'active')
-            ->get()
-            ->filter->isReadyForDaily()
-            ->count();
+        // Unused + daily-pool only: what can actually still be scheduled.
+        $readyCount = $scheduler->eligibleChallenges()->count();
 
         $showReadyWarning = $readyCount < 7;
 
@@ -40,8 +38,12 @@ class DailyChallengeAdminController extends Controller
         $challenges = Challenge::where('status', 'active')->orderBy('title')->get();
 
         $usedIds      = $scheduler->usedChallengeIds();
+        // Selectable = active, ready, daily|general pool, never used as a daily.
+        // Daily-pool photos are listed first: prefer them over General ones so
+        // General photos stay available for tournaments.
         $selectable   = $challenges
-            ->filter(fn (Challenge $c) => $c->isReadyForDaily() && !in_array($c->id, $usedIds, true))
+            ->filter(fn (Challenge $c) => $c->isDailyEligible() && !in_array($c->id, $usedIds, true))
+            ->sortBy(fn (Challenge $c) => ($c->usage_pool === Challenge::POOL_DAILY ? '0' : '1') . $c->title)
             ->values();
         $nextFreeDate = $scheduler->nextFreeDate()->toDateString();
 
@@ -134,6 +136,7 @@ class DailyChallengeAdminController extends Controller
                 return match ($entry['reason']) {
                     DailyChallengeScheduler::SKIP_ALREADY_USED => "\"{$title}\" was already used as a daily",
                     DailyChallengeScheduler::SKIP_NOT_READY    => "\"{$title}\" is not active or not ready for daily use",
+                    DailyChallengeScheduler::SKIP_WRONG_POOL   => "\"{$title}\" is in the {$entry['challenge']?->usage_pool} pool, not daily/general",
                     default                                    => "\"{$title}\" could not be found",
                 };
             }, $skipped);

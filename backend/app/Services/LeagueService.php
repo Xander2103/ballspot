@@ -78,16 +78,44 @@ class LeagueService
         return Sport::where('slug', 'football')->firstOrFail();
     }
 
+    /** Shown (422) when a tournament cannot be filled with unique eligible photos. */
+    public const NOT_ENOUGH_CHALLENGES_MESSAGE =
+        'Not enough unused tournament challenges available. Add more tournament photos first.';
+
+    /**
+     * Challenges a NEW tournament for this sport may draw from.
+     *
+     * Fairness rules (v1.8.9):
+     *  - active + ready (hidden image, ball position)
+     *  - usage_pool is tournament or general
+     *  - never used as a Daily Challenge (any daily_challenges row, any status)
+     *
+     * Rounds are shared by every player in the tournament, so this pool is
+     * the same for all of them.
+     */
+    public function eligibleTournamentChallenges(int $sportId): \Illuminate\Support\Collection
+    {
+        return Challenge::tournamentEligible()
+            ->where('sport_id', $sportId)
+            ->get()
+            ->filter->isReady()
+            ->values();
+    }
+
     public function start(League $league, int $userId): League
     {
-        $challenges = Challenge::where('status', 'active')
-            ->where('sport_id', $league->sport_id)
-            ->inRandomOrder()
-            ->get();
-
         $total = $league->duration_days * $league->rounds_per_day;
-        for ($i = 0; $i < $total; $i++) {
-            $challenge = $challenges[$i % $challenges->count()];
+
+        // Unique photos only: never the same challenge twice in one tournament,
+        // never a Daily-used photo. Fail cleanly rather than recycle.
+        $challenges = $this->eligibleTournamentChallenges((int) $league->sport_id)
+            ->shuffle()
+            ->take($total)
+            ->values();
+
+        abort_if($challenges->count() < $total, 422, self::NOT_ENOUGH_CHALLENGES_MESSAGE);
+
+        foreach ($challenges as $i => $challenge) {
             LeagueRound::create([
                 'league_id'    => $league->id,
                 'challenge_id' => $challenge->id,

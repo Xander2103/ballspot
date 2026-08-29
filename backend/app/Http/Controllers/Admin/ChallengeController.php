@@ -19,6 +19,9 @@ class ChallengeController extends Controller
      */
     private const BALL_RATIO_DECIMALS = 3;
 
+    /** Warn when a sport has fewer unique tournament photos than the longest tournament (7 days). */
+    private const LOW_TOURNAMENT_POOL = 7;
+
     public function index(Request $request)
     {
         $query = Challenge::with(['sport', 'category', 'tags', 'subcategories'])
@@ -32,6 +35,9 @@ class ChallengeController extends Controller
             ->when($request->has_reveal === 'no',  fn ($q) => $q->whereNull('original_image_path'))
             ->when($request->used_as_daily === 'yes', fn ($q) => $q->whereHas('dailyChallenges'))
             ->when($request->used_as_daily === 'no',  fn ($q) => $q->whereDoesntHave('dailyChallenges'))
+            ->when($request->usage_pool && in_array($request->usage_pool, Challenge::POOLS, true), fn ($q) => $q->where('usage_pool', $request->usage_pool))
+            ->when($request->tournament === 'eligible', fn ($q) => $q->tournamentEligibleStrict())
+            ->when($request->tournament === 'blocked',  fn ($q) => $q->tournamentBlocked())
             ->when($request->search, fn ($q, $v) => $q->where('title', 'like', '%' . $v . '%'))
             ->latest()
             ->paginate(25)
@@ -40,7 +46,31 @@ class ChallengeController extends Controller
         $categories = ChallengeCategory::orderBy('sort_order')->orderBy('name')->get();
         $sports     = Sport::orderBy('sort_order')->get();
         $tags       = Tag::orderBy('name')->get();
-        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags'))->with('challenges', $query);
+
+        // Simple low-pool warning: how many unique photos a NEW tournament can
+        // draw from, per active sport. A 7-day tournament needs 7.
+        $tournamentPool = Challenge::tournamentEligible()
+            ->get()
+            ->filter->isReady()
+            ->groupBy('sport_id')
+            ->map->count();
+        $lowTournamentPools = $sports
+            ->filter(fn ($s) => $s->status === Sport::STATUS_ACTIVE)
+            ->map(fn ($s) => ['sport' => $s, 'count' => (int) ($tournamentPool[$s->id] ?? 0)])
+            ->filter(fn ($row) => $row['count'] < self::LOW_TOURNAMENT_POOL)
+            ->values();
+
+        // Summary cards (whole catalogue, independent of the current filter).
+        $tournamentEligibleTotal = $tournamentPool->sum();
+        $summary = [
+            'daily_pool'          => Challenge::where('usage_pool', Challenge::POOL_DAILY)->count(),
+            'tournament_eligible' => $tournamentEligibleTotal,
+            'used_as_daily'       => Challenge::dailyUsed()->count(),
+            'pack_general'        => Challenge::whereIn('usage_pool', [Challenge::POOL_PACK, Challenge::POOL_GENERAL])->count(),
+            'low_tournament'      => $tournamentEligibleTotal < self::LOW_TOURNAMENT_POOL,
+        ];
+
+        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags', 'lowTournamentPools', 'summary'))->with('challenges', $query);
     }
 
     public function create()
@@ -59,6 +89,7 @@ class ChallengeController extends Controller
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
             'status'                 => ['required', 'in:draft,active,archived'],
+            'usage_pool'             => ['sometimes', 'nullable', 'in:' . implode(',', Challenge::POOLS)],
             'sport_id'               => ['nullable', 'exists:sports,id'],
             'challenge_category_id'  => ['nullable', 'exists:challenge_categories,id'],
             'ball_x_ratio'           => ['required', 'numeric', 'between:0,1'],
@@ -83,6 +114,7 @@ class ChallengeController extends Controller
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
             'status'                 => $data['status'],
+            'usage_pool'             => $data['usage_pool'] ?? Challenge::POOL_GENERAL,
             'ball_x_ratio'           => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS),
             'ball_y_ratio'           => round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS),
             'hidden_image_path'      => $hiddenPath,
@@ -112,6 +144,7 @@ class ChallengeController extends Controller
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
             'status'                 => ['required', 'in:draft,active,archived'],
+            'usage_pool'             => ['sometimes', 'nullable', 'in:' . implode(',', Challenge::POOLS)],
             'sport_id'               => ['nullable', 'exists:sports,id'],
             'challenge_category_id'  => ['nullable', 'exists:challenge_categories,id'],
             'ball_x_ratio'           => ['required', 'numeric', 'between:0,1'],
@@ -143,6 +176,8 @@ class ChallengeController extends Controller
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
             'status'                 => $data['status'],
+            // Omitted (old forms) keeps the stored pool; never silently resets.
+            'usage_pool'             => $data['usage_pool'] ?? $challenge->usage_pool,
             'ball_x_ratio'           => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS),
             'ball_y_ratio'           => round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS),
             'hidden_image_path'      => $data['hidden_image_path'] ?? $challenge->hidden_image_path,
@@ -233,6 +268,10 @@ class ChallengeController extends Controller
 
         if (!$challenge->isReadyForDaily()) {
             return back()->with('error', "Challenge \"{$challenge->title}\" is not ready for daily use. It must be active and have a hidden image and ball position.");
+        }
+
+        if (!$challenge->isInDailyPool()) {
+            return back()->with('error', "Challenge \"{$challenge->title}\" is in the {$challenge->usage_pool} pool. Only daily/general challenges can be scheduled as a daily.");
         }
 
         // A challenge is a daily at most once, so this shortcut cannot recycle one.

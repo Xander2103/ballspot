@@ -16,6 +16,12 @@
         .badge-scheduled { background: #6f42c1; }
         .badge-active { background: #0d6efd; }
         .badge-archived { background: #adb5bd; color: #343a40; }
+        /* Usage pools (v1.8.9 fairness) */
+        .bg-pool-daily { background: #6f42c1 !important; color: #fff; }
+        .bg-pool-tournament { background: #198754 !important; color: #fff; }
+        .bg-pool-pack { background: #fd7e14 !important; color: #fff; }
+        .bg-pool-general { background: #6c757d !important; color: #fff; }
+        tr.row-daily-locked td { background: #f8f9fa; }
     </style>
 </head>
 <body>

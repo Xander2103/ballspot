@@ -24,6 +24,7 @@ class DailyChallengeScheduler
     public const SKIP_ALREADY_USED = 'already_used';
     public const SKIP_NOT_READY    = 'not_ready';
     public const SKIP_MISSING      = 'missing';
+    public const SKIP_WRONG_POOL   = 'wrong_pool';
 
     /**
      * IDs of every challenge that has ever been scheduled as a daily.
@@ -36,16 +37,17 @@ class DailyChallengeScheduler
     }
 
     /**
-     * Active, ready challenges that have never been used as a daily.
+     * Active, ready, daily-pool (daily|general) challenges that have never
+     * been used as a daily.
      */
     public function eligibleChallenges(): Collection
     {
         $used = $this->usedChallengeIds();
 
-        return Challenge::where('status', 'active')
+        return Challenge::dailyPool()
             ->orderBy('title')
             ->get()
-            ->filter(fn (Challenge $c) => $c->isReadyForDaily() && !in_array($c->id, $used, true))
+            ->filter(fn (Challenge $c) => $c->isDailyEligible() && !in_array($c->id, $used, true))
             ->values();
     }
 
@@ -104,6 +106,11 @@ class DailyChallengeScheduler
 
                 if (!$challenge->isReadyForDaily()) {
                     $skipped[] = ['challenge' => $challenge, 'id' => $id, 'reason' => self::SKIP_NOT_READY];
+                    continue;
+                }
+
+                if (!$challenge->isInDailyPool()) {
+                    $skipped[] = ['challenge' => $challenge, 'id' => $id, 'reason' => self::SKIP_WRONG_POOL];
                     continue;
                 }
 

@@ -45,6 +45,8 @@
                 </div>
             </div>
 
+            @include('admin.challenges._usage_pool', ['current' => old('usage_pool', \App\Models\Challenge::POOL_GENERAL)])
+
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="sport_id" class="form-label fw-semibold">Sport</label>

@@ -5,9 +5,98 @@ Build date: 2026-07-30
 **Backend:** 334 feature tests passing (was 302; +32 across rate limiting, endpoint caps, security headers, deletion cleanup, push-token privacy, data export, beta code).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
 
-> **Current suite (2026-08-10): 469 passed, 1 skipped — see "v1.8.6 public-beta
-> sprint" below.** The per-version figures in this document are historical
+> **Current suite (2026-08-29): 525 passed, 1 skipped — see "v1.8.9 challenge
+> fairness" below.** The per-version figures in this document are historical
 > snapshots taken at the end of each sprint.
+
+---
+
+## v1.8.9 — Challenge Fairness Hardening (2026-08-29)
+
+**Backend:** 525 passed, 1 skipped (was 507/1 — +18 in `ChallengeFairnessTest`).
+**Mobile:** `tsc --noEmit` clean; `expo export --platform web` builds cleanly.
+No mobile code changed.
+
+### Behaviour found before this sprint
+
+- `LeagueService::start` drew random active same-sport challenges and cycled
+  them with `$i % count` — a 3-day tournament with 1–2 photos repeated the
+  same photo, and Daily-used photos were freely selected.
+- The Daily scheduler, admin picker, `set-as-daily` shortcut and
+  `ballspot:schedule-daily-challenges` already enforced "a daily at most
+  once", but treated **every** active challenge as daily-eligible.
+- Packs are **curated/static**: admins pick pack members by hand
+  (`challenge_pack_challenge` pivot). Nothing selects pack content
+  dynamically, so packs were left untouched.
+
+### Rules implemented (all enforced server-side)
+
+1. **`challenges.usage_pool`** — `daily` | `tournament` | `pack` | `general`
+   (default `general` = eligible for both daily and tournament, i.e. the old
+   behaviour). Backfill: any challenge already in `daily_challenges` becomes
+   `daily`; everything else stays `general`. Additive, idempotent, no deletes.
+2. **Daily has priority and is exclusive.** Any row in `daily_challenges`
+   (past, today, future/scheduled, archived) marks the challenge permanently
+   *Daily-used*, regardless of `usage_pool`. Daily-used photos never appear
+   in new tournaments.
+3. **Daily scheduler** (service, admin batch picker, CLI) only offers
+   `daily`/`general` challenges that are ready, active and never used.
+   A Daily cannot be scheduled twice (`SKIP_ALREADY_USED`); a wrong-pool
+   pick is skipped with `SKIP_WRONG_POOL`. `set-as-daily` refuses both.
+4. **Tournament start** selects exactly `duration_days × rounds_per_day`
+   **unique** challenges from `tournament`/`general`, same sport, active,
+   ready, never Daily-used. Rounds stay shared for all players (fair).
+   If fewer eligible photos exist than needed, `POST /leagues/{id}/start`
+   returns **422** `Not enough unused tournament challenges available. Add
+   more tournament photos first.` — no partial rounds, league stays `lobby`.
+5. **Old tournaments are untouched.** Existing rounds (including repeated or
+   Daily-used photos) still load and score. Historical guesses are not
+   rewritten; gameplay history is retained for fairness/audit.
+6. **Packs:** curated only. `usage_pool = pack` is a labelling aid; pack
+   membership is still whatever the admin picked. A daily-used photo *can*
+   sit in a pack if an admin puts it there — packs are not part of the
+   daily/tournament exclusivity rule.
+
+### Tests added (`ChallengeFairnessTest`, 18)
+
+- usage_pool column present, default `general`; backfill marks daily-used
+  rows `daily`, leaves others, is idempotent, deletes nothing.
+- Daily scheduler offers only unused daily-pool challenges; skips
+  tournament-pool and already-used with the right reasons; a daily cannot
+  repeat across runs; CLI ignores tournament-only content; admin
+  `set-as-daily` rejects wrong pool and reuse.
+- Tournament: duration 1 → 1 unique non-daily round; duration 3 → 3 unique
+  non-daily rounds (future scheduled daily also excluded); 20×7-day starts
+  over a 10-photo pool never repeat a photo; 422 with exact message when
+  pool is short, when only daily-used photos exist; daily/pack pools are
+  ignored; service aborts without creating rounds.
+- Legacy tournament with repeated + daily-used rounds still lists, serves
+  `current-round` and accepts a guess.
+- Admin stores `usage_pool`, preserves it when the field is omitted, rejects
+  invalid values; index/edit/create pages show pool, "Used as daily" and the
+  low-pool warning; daily picker hides used/tournament-pool photos and the
+  POST still filters them.
+
+### Admin changes
+
+- Challenge create/edit: **Usage pool** select with plain-language help;
+  "Already used as a Daily Challenge" notice on edit.
+- Challenge list: pool badge per row, pool filter, and a **Low tournament
+  photo pool** warning per active sport with fewer than 7 eligible photos.
+- Daily index "ready" count now counts only schedulable (unused, daily-pool)
+  photos. Daily picker explains the pool rule.
+
+### Accepted limitations
+
+- Fairness is proven by the tests above, not by a DB constraint: there is
+  still deliberately no unique index on `daily_challenges.challenge_id`, and
+  `ballspot:schedule-daily-challenges --allow-reuse` remains an explicit
+  emergency escape hatch that *can* repeat a daily.
+- Uniqueness is per tournament. Two different tournaments may draw the same
+  photo — the pool is shared, not consumed.
+- If the tournament pool is short, players see the 422 message; **the admin
+  must add more active Tournament/General photos** (or move photos into
+  those pools) before tournaments of that length can start.
 
 ---
 

@@ -103,6 +103,14 @@ class LeagueController extends Controller
             );
         }
 
+        // v1.8.9 fairness: needs duration_days * rounds_per_day UNIQUE
+        // tournament-eligible photos (never Daily-used). Same check as the
+        // service, surfaced here so the API returns a plain 422 JSON body.
+        $needed = $league->duration_days * $league->rounds_per_day;
+        if ($this->leagueService->eligibleTournamentChallenges((int) $sport->id)->count() < $needed) {
+            return response()->json(['message' => LeagueService::NOT_ENOUGH_CHALLENGES_MESSAGE], 422);
+        }
+
         $league = $this->leagueService->start($league, $userId);
         return new LeagueResource($league->load('members', 'sport'));
     }

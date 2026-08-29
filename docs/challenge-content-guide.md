@@ -71,9 +71,27 @@ Ball position is stored as X/Y ratios (0–1) relative to the image dimensions:
 
 ---
 
+## Usage pools (v1.8.9)
+
+Every challenge has a **Usage pool** (set on create/edit):
+
+| Pool | Daily schedule | Tournament rounds |
+|------|----------------|-------------------|
+| General (default) | ✅ | ✅ |
+| Daily only | ✅ | ❌ |
+| Tournament only | ❌ | ✅ |
+| Pack only | ❌ | ❌ (curated packs only) |
+
+**Daily has priority.** Once a photo has been scheduled as a daily (any date,
+any status) it is permanently *Daily-used*: it can never be a daily again and
+will never be drawn into a new tournament, whatever its pool says. Tournaments
+draw `duration_days` **unique** photos; if a sport has too few eligible
+Tournament/General photos, players get "Not enough unused tournament challenges
+available" until you add more. The challenge list warns per sport below 7.
+
 ## Assigning a daily challenge
 
-A challenge must be **active** and have a hidden image and ball position before it can be used as a daily challenge.
+A challenge must be **active**, in the **Daily** or **General** pool, never used as a daily before, and have a hidden image and ball position before it can be used as a daily challenge.
 
 From the **Edit** page (or **Preview** page), a "Set as daily challenge" form appears at the bottom when the challenge is ready. Pick a date and submit.
 
