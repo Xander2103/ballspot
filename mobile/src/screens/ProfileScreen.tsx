@@ -330,6 +330,7 @@ export function ProfileScreen({ navigation }: Props) {
       </TouchableOpacity>
 
       <Text style={styles.versionText}>v{APP_VERSION}</Text>
+      <Text style={styles.creditText}>BallPicker is created by Van Malder Studio.</Text>
 
       <ConfirmModal
         visible={showDeleteModal}
@@ -405,6 +406,7 @@ function createStyles(theme: ThemeTokens) {
     footerDot: { fontSize: 13, color: theme.textMuted },
     deleteLink: { alignSelf: 'center', paddingVertical: spacing.xs, marginBottom: spacing.md },
     deleteLinkText: { fontSize: 13, fontWeight: '600', color: theme.danger },
-    versionText: { fontSize: 12, color: theme.textMuted, textAlign: 'center', marginBottom: spacing.md },
+    versionText: { fontSize: 12, color: theme.textMuted, textAlign: 'center', marginBottom: spacing.xs },
+    creditText: { fontSize: 11, color: theme.textMuted, textAlign: 'center', marginBottom: spacing.md },
   });
 }

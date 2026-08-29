@@ -118,6 +118,7 @@
 
 <footer>
     <p>&copy; {{ date('Y') }} BallPicker &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/support">Support</a></p>
+    <p>BallPicker is created by Van Malder Studio.</p>
 </footer>
 </body>
 </html>

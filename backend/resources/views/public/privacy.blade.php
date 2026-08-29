@@ -8,7 +8,7 @@
 <p>BallPicker is a skill-based sports guessing game. This policy explains what personal information we process, why, how long we keep it, and what rights you have. We do not sell your data, we do not run advertisements, and we do not use advertising or analytics trackers.</p>
 
 <div class="callout">
-    <p><strong>Who is responsible for your data:</strong> BallPicker is operated by Xander Van Malder, Belgium. For any privacy question or to exercise your rights, contact <a class="inline-link" href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>.</p>
+    <p><strong>Who is responsible for your data:</strong> BallPicker is created by Van Malder Studio and operated by Xander Van Malder, Belgium. For any privacy question or to exercise your rights, contact <a class="inline-link" href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>.</p>
 </div>
 
 <h2>What we collect</h2>

@@ -10,7 +10,7 @@ The served legal pages were rewritten in the 2026-08-05 pre-launch audit
 (`backend/resources/views/public/privacy.blade.php` and `terms.blade.php`) and
 the operator placeholders were filled on 2026-08-20:
 
-- Operator: **Xander Van Malder, Belgium** (individual operator; no postal
+- Operator: **Xander Van Malder, Belgium**, trading as Van Malder Studio (individual operator; no postal
   address published — revisit if a lawyer or a store review requires one)
 - Hosting: **Hetzner Online GmbH, Germany** (verified: server rDNS
   `clients.your-server.de`)
@@ -18,8 +18,8 @@ the operator placeholders were filled on 2026-08-20:
   `MAIL_HOST=mail.zxcs.nl`; confirm the production `.env` uses the same host)
 - Contact: `{{ $supportEmail }}` from `BALLSPOT_SUPPORT_EMAIL`. **The old
   default `support@ballspot.app` was a dead address — the `ballspot.app`
-  domain does not exist.** The config fallback is now `duisburg2103@gmail.com`;
-  set `BALLSPOT_SUPPORT_EMAIL=duisburg2103@gmail.com` in the production `.env`
+  domain does not exist.** The config fallback is now `info@vanmalderstudio.be`;
+  set `BALLSPOT_SUPPORT_EMAIL=info@vanmalderstudio.be` (Van Malder Studio) in the production `.env`
   (or a dedicated monitored mailbox) before deploy.
 
 A privacy policy that does not name the data controller is not a valid privacy

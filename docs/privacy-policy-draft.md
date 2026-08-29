@@ -9,9 +9,9 @@ _Last updated: 2026-08-20_
 
 ## Who we are
 
-BallPicker is operated by **Xander Van Malder**, based in
+BallPicker is created by Van Malder Studio and operated by **Xander Van Malder**, based in
 **Belgium**. For anything in this policy, contact us at
-**duisburg2103@gmail.com**.
+**info@vanmalderstudio.be**.
 
 ## The short version
 
@@ -162,7 +162,7 @@ processing of your personal data, and to **data portability**.
   timestamps for each device). It also never includes another player's email
   address or friend code.
 - **Deletion:** Profile → Delete account, or email us.
-- **Everything else:** email **duisburg2103@gmail.com** and we will respond
+- **Everything else:** email **info@vanmalderstudio.be** and we will respond
   within the legally required time. You also have the right to complain to
   your local data-protection authority.
 
@@ -182,5 +182,5 @@ reflects the current version.
 
 ## Contact
 
-Privacy questions: **duisburg2103@gmail.com**
-General support: **duisburg2103@gmail.com**
+Privacy questions: **info@vanmalderstudio.be**
+General support: **info@vanmalderstudio.be**

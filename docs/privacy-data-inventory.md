@@ -32,7 +32,7 @@ reviewed by a lawyer before public launch.**
 | Admin flag | `users.is_admin` | Authorization. In `$hidden` — never serialized | — | — | Server-side only |
 | Sessions (admin web) | `sessions` table — **stores `ip_address` + `user_agent`** for the session's lifetime | Admin CMS login | Contract / legitimate interest (security) | `SESSION_LIFETIME` (120 min) | Server-side only |
 | Content backups | `backups/` folders (DB snapshot + uploaded images), produced by `ballspot:backup-content` | Disaster recovery | Legitimate interest | **Define and enforce a retention window (e.g. 30 days, then delete). Backups taken before a deletion contain pre-anonymization personal data until they expire** | Operator only (never committed — gitignored) |
-| Support/contact data | none collected in-app; `BALLSPOT_SUPPORT_EMAIL` receives email the user sends voluntarily | Support | Legitimate interest | Mailbox policy | Operator |
+| Support/contact data | none collected in-app; `BALLSPOT_SUPPORT_EMAIL` (info@vanmalderstudio.be) receives email the user sends voluntarily | Support | Legitimate interest | Mailbox policy | Operator |
 | Admin audit data | **none currently** — see docs/security-hardening.md recommendation | — | — | — | — |
 
 ## Visible to other players (v1.8.2)

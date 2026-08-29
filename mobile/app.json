@@ -47,6 +47,14 @@
           "cameraPermission": "BallPicker needs your camera only to scan a friend's QR code.",
           "recordAudioAndroid": false
         }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#050D1B"
+        }
       ]
     ],
     "extra": {

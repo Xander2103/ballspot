@@ -3,7 +3,7 @@
 return [
     // ballspot.app is not a registered domain — the fallback must stay a real,
     // monitored mailbox or the legal pages advertise a dead address.
-    'support_email' => env('BALLSPOT_SUPPORT_EMAIL', 'duisburg2103@gmail.com'),
+    'support_email' => env('BALLSPOT_SUPPORT_EMAIL', 'info@vanmalderstudio.be'),
 
     // Marketing / legal website (privacy, terms). NOT the app frontend — see
     // frontend_url below for deep links back into the running app.

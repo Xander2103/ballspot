@@ -28,5 +28,8 @@
 </ul>
 
 <h2>Other questions</h2>
-<p>For anything else — account issues, feedback, or content concerns — email <a class="inline-link" href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>.</p>
+<p>For support, privacy requests, account questions or other questions, contact <a class="inline-link" href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>.</p>
+
+<h2>About</h2>
+<p>BallPicker is created by Van Malder Studio.</p>
 @endsection

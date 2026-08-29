@@ -5,7 +5,7 @@
 <h1>Terms of Service</h1>
 <p class="page-meta">Last updated: August 2026</p>
 
-<p>By using BallPicker you agree to these terms. If you do not agree, do not use the app. BallPicker is operated by Xander Van Malder, Belgium.</p>
+<p>By using BallPicker you agree to these terms. If you do not agree, do not use the app. BallPicker is created by Van Malder Studio and operated by Xander Van Malder, Belgium.</p>
 
 <h2>Minimum age</h2>
 <p>You must be at least {{ $minimumAge }} years old to create a BallPicker account. You confirm your age when you register. If we learn that an account belongs to someone below that age, we will remove it.</p>
