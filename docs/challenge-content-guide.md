@@ -191,3 +191,34 @@ php artisan ballspot:schedule-daily-challenges --days=7 --start=2026-07-01
 - The command **never deletes challenges or images**.
 
 **Warning:** Always run `php artisan ballspot:backup-content` before bulk-scheduling real production content.
+
+---
+
+## Resetting test Daily history (PRE-LAUNCH ONLY)
+
+During testing many challenges were used as Daily Challenges. Every row in
+`daily_challenges` marks its challenge as permanently **"Used as Daily"** and
+blocks it from tournaments. That rule is correct in production, but before the
+**first public launch** the test history should be wiped so those photos become
+reusable.
+
+```bash
+# Dry-run (default): shows how many daily_challenges / daily_challenge_guesses
+# rows would be deleted and which challenges are affected. Deletes nothing.
+php artisan ballspot:reset-test-daily-history
+
+# Actual reset — BOTH flags are required, either one alone is refused.
+php artisan ballspot:backup-content
+php artisan ballspot:reset-test-daily-history --force --confirm-prelaunch
+```
+
+**What it deletes:** only `daily_challenge_guesses` and `daily_challenges`.
+
+**What it never touches:** challenges, challenge images, `usage_pool` values,
+tournament rounds/guesses, users, badges, packs. A challenge with
+`usage_pool=daily` stays in the Daily pool — change it to Tournament/General in
+the admin panel afterwards if needed.
+
+**⚠️ This is a one-time pre-launch tool. Never run it casually after public
+launch** — once real players exist it would erase their daily scores, streaks
+and leaderboard history.
