@@ -24,7 +24,9 @@ class ChallengeController extends Controller
 
     public function index(Request $request)
     {
-        $query = Challenge::with(['sport', 'category', 'tags', 'subcategories'])
+        // Shared filter set. Both sections (available + used-daily) apply the
+        // same filters; they differ only by the daily-used split (v1.9.1).
+        $base = fn () => Challenge::with(['sport', 'category', 'tags', 'subcategories'])
             ->withExists(['dailyChallenges as used_as_daily'])
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->difficulty, fn ($q, $v) => $q->where('difficulty', $v))
@@ -33,15 +35,33 @@ class ChallengeController extends Controller
             ->when($request->tag, fn ($q, $v) => $q->whereHas('tags', fn ($t) => $t->where('tags.id', $v)))
             ->when($request->has_reveal === 'yes', fn ($q) => $q->whereNotNull('original_image_path'))
             ->when($request->has_reveal === 'no',  fn ($q) => $q->whereNull('original_image_path'))
-            ->when($request->used_as_daily === 'yes', fn ($q) => $q->whereHas('dailyChallenges'))
-            ->when($request->used_as_daily === 'no',  fn ($q) => $q->whereDoesntHave('dailyChallenges'))
             ->when($request->usage_pool && in_array($request->usage_pool, Challenge::POOLS, true), fn ($q) => $q->where('usage_pool', $request->usage_pool))
             ->when($request->tournament === 'eligible', fn ($q) => $q->tournamentEligibleStrict())
             ->when($request->tournament === 'blocked',  fn ($q) => $q->tournamentBlocked())
             ->when($request->search, fn ($q, $v) => $q->where('title', 'like', '%' . $v . '%'))
-            ->latest()
-            ->paginate(25)
-            ->withQueryString();
+            ->latest();
+
+        $usedFilter = $request->used_as_daily; // null, 'yes' or 'no'
+
+        // Main section: challenges never used as a Daily. Skipped entirely when
+        // the admin explicitly filters for "Used" only.
+        $query = $usedFilter === 'yes'
+            ? $base()->whereRaw('1 = 0')->paginate(25)->withQueryString()
+            : $base()->notDailyUsed()->paginate(25)->withQueryString();
+
+        // Collapsed section: Daily-used challenges (permanently excluded from
+        // tournaments). Separate page name so the two paginators don't clash.
+        $usedDaily = $usedFilter === 'no'
+            ? null
+            : $base()->dailyUsed()->paginate(25, ['*'], 'used_page')->withQueryString();
+
+        // Auto-open when filtering for used items, when paging inside the
+        // panel, or when the current filters matched only used items.
+        $usedDailyOpen = $usedDaily !== null && (
+            $usedFilter === 'yes'
+            || $request->has('used_page')
+            || ($query->isEmpty() && $usedDaily->isNotEmpty())
+        );
 
         $categories = ChallengeCategory::orderBy('sort_order')->orderBy('name')->get();
         $sports     = Sport::orderBy('sort_order')->get();
@@ -70,7 +90,7 @@ class ChallengeController extends Controller
             'low_tournament'      => $tournamentEligibleTotal < self::LOW_TOURNAMENT_POOL,
         ];
 
-        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags', 'lowTournamentPools', 'summary'))->with('challenges', $query);
+        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags', 'lowTournamentPools', 'summary', 'usedDaily', 'usedDailyOpen'))->with('challenges', $query);
     }
 
     public function create()

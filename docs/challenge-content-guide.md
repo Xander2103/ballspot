@@ -138,6 +138,15 @@ From the **Daily** admin page, use **New Daily Challenge** → select from the l
 
 **Archive vs Delete:** The Archive button is the recommended way to retire a challenge. The Delete option (available on the edit form) permanently deletes the database record and both image files — use only for test/junk content.
 
+### Available vs Used Daily sections (v1.9.1)
+
+`/admin/challenges` is split in two:
+
+- **Available challenges** (top, open) — challenges never used as a Daily.
+- **🔒 Used Daily challenges** (bottom, collapsed `<details>` panel with a count) — challenges that have a `daily_challenges` row and are therefore permanently excluded from new tournaments. Same columns and Edit / Preview / Archive actions.
+
+All filters (search, status, difficulty, category, reveal, usage pool, tournament) apply to **both** sections. The panel opens automatically when the filter *Used as Daily: Used* is selected, when the filters match only Used Daily items (e.g. a search that hits an old daily photo), or when paging inside the panel (`used_page`). *Used as Daily: Not used* hides the panel. This is presentation only — fairness rules are unchanged.
+
 ---
 
 ## Readiness badges

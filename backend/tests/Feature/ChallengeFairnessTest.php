@@ -403,8 +403,15 @@ class ChallengeFairnessTest extends TestCase
         $this->assertSame(1, $page->viewData('summary')['used_as_daily']);
         $this->assertSame(3, $page->viewData('summary')['pack_general']); // GeneralOne, PackOne, UsedGeneral
 
-        $titles = fn ($q) => $this->actingAs($admin)->get('/admin/challenges?' . $q)->assertOk()
-            ->viewData('challenges')->pluck('title')->sort()->values()->all();
+        // v1.9.1: the index is split into the main list ('challenges') and the
+        // collapsed Used Daily panel ('usedDaily'). Filters apply to both, so
+        // "visible" means present in either section.
+        $titles = function ($q) use ($admin) {
+            $res  = $this->actingAs($admin)->get('/admin/challenges?' . $q)->assertOk();
+            $main = $res->viewData('challenges')->pluck('title');
+            $used = $res->viewData('usedDaily')?->pluck('title') ?? collect();
+            return $main->merge($used)->sort()->values()->all();
+        };
 
         $this->assertSame(['EligibleTour', 'GeneralOne'], $titles('tournament=eligible'));
         $this->assertSame(['DailyPoolOne', 'DraftTour', 'PackOne', 'UsedGeneral'], $titles('tournament=blocked'));
