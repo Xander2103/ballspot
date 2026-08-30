@@ -9,7 +9,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "be.vanmalderstudio.ballpicker",
-      "buildNumber": "17.0.0",
+      "buildNumber": "18.0.0",
       "supportsTablet": false,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "BallPicker needs access to your photos so you can choose a profile picture.",
@@ -53,7 +53,13 @@
         {
           "image": "./assets/splash.png",
           "resizeMode": "cover",
-          "backgroundColor": "#050D1B"
+          "backgroundColor": "#050D1B",
+          "ios": {
+            "enableFullScreenImage_legacy": true
+          },
+          "android": {
+            "imageWidth": 200
+          }
         }
       ]
     ],

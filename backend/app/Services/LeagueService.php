@@ -17,6 +17,17 @@ class LeagueService
 
     public function create(array $data, int $userId): League
     {
+        // Serialize per user: the cap checks below are count-then-write, so
+        // concurrent requests must queue behind a row lock on the user.
+        return DB::transaction(function () use ($data, $userId) {
+            $this->lockUser($userId);
+
+            return $this->createLocked($data, $userId);
+        });
+    }
+
+    private function createLocked(array $data, int $userId): League
+    {
         // Free-tier limit — foundation only, no payments. Archived/completed/
         // cancelled tournaments do not count.
         $activeOwned = League::where('owner_user_id', $userId)
@@ -206,6 +217,15 @@ class LeagueService
 
     public function join(string $joinCode, int $userId): League
     {
+        return DB::transaction(function () use ($joinCode, $userId) {
+            $this->lockUser($userId);
+
+            return $this->joinLocked($joinCode, $userId);
+        });
+    }
+
+    private function joinLocked(string $joinCode, int $userId): League
+    {
         $league = League::where('join_code', $joinCode)->firstOrFail();
 
         abort_if(
@@ -274,6 +294,15 @@ class LeagueService
             422,
             'You can only be in two active tournaments at the same time.'
         );
+    }
+
+    /**
+     * Row-lock the user for the current transaction (SELECT ... FOR UPDATE).
+     * No-op on SQLite (tests); serializes per-user cap checks on MySQL.
+     */
+    private function lockUser(int $userId): void
+    {
+        DB::table('users')->where('id', $userId)->lockForUpdate()->first();
     }
 
     private function generateJoinCode(): string
