@@ -51,6 +51,10 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::post('sports/{sport}/status', [\App\Http\Controllers\Admin\SportController::class, 'updateStatus'])
         ->name('admin.sports.status');
 
+    // Gameplay settings (tournament challenge cooldown)
+    Route::get('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('admin.settings.index');
+    Route::put('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('admin.settings.update');
+
     Route::get('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('admin.notifications.index');
     // Throttled like /send: store() also fans out to every device when the
     // composer is submitted with send_now.

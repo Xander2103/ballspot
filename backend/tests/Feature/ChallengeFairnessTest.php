@@ -180,35 +180,36 @@ class ChallengeFairnessTest extends TestCase
     // Tournament generation
     // ------------------------------------------------------------------
 
-    public function test_tournament_duration_1_creates_1_unique_non_daily_round(): void
+    public function test_tournament_excludes_active_daily_and_uses_exactly_the_free_photos(): void
     {
         $sport = $this->sport();
         $dailyUsed = $this->challenge($sport, 'Daily used');
         DailyChallenge::create(['challenge_id' => $dailyUsed->id, 'challenge_date' => today()->toDateString(), 'status' => 'active']);
-        $free = $this->challenge($sport, 'Free');
+        $free = collect(range(1, 7))->map(fn ($i) => $this->challenge($sport, "Free {$i}")->id)->all();
         [$user, $headers] = $this->auth();
 
-        $id = $this->createLeague($headers, 1);
+        $id = $this->createLeague($headers, 7);
         $this->postJson("/api/leagues/{$id}/start", [], $headers)->assertOk();
 
         $rounds = LeagueRound::where('league_id', $id)->pluck('challenge_id')->all();
-        $this->assertSame([$free->id], $rounds);
+        $this->assertEqualsCanonicalizing($free, $rounds);
+        $this->assertNotContains($dailyUsed->id, $rounds);
     }
 
-    public function test_tournament_duration_3_creates_3_unique_non_daily_rounds(): void
+    public function test_tournament_duration_7_creates_7_unique_non_daily_rounds(): void
     {
         $sport = $this->sport();
         $dailyUsed = $this->challenge($sport, 'Daily used');
         // A FUTURE scheduled daily is also Daily-used.
         DailyChallenge::create(['challenge_id' => $dailyUsed->id, 'challenge_date' => today()->addDays(5)->toDateString(), 'status' => 'scheduled']);
-        $eligible = collect(['A', 'B', 'C'])->map(fn ($t) => $this->challenge($sport, $t)->id)->all();
+        $eligible = collect(['A', 'B', 'C', 'D', 'E', 'F', 'G'])->map(fn ($t) => $this->challenge($sport, $t)->id)->all();
         [$user, $headers] = $this->auth();
 
-        $id = $this->createLeague($headers, 3);
+        $id = $this->createLeague($headers, 7);
         $this->postJson("/api/leagues/{$id}/start", [], $headers)->assertOk();
 
         $rounds = LeagueRound::where('league_id', $id)->orderBy('round_number')->pluck('challenge_id')->all();
-        $this->assertCount(3, $rounds);
+        $this->assertCount(7, $rounds);
         $this->assertSame($rounds, array_values(array_unique($rounds)), 'no duplicate challenge in one tournament');
         $this->assertEqualsCanonicalizing($eligible, $rounds);
         $this->assertNotContains($dailyUsed->id, $rounds);
@@ -245,7 +246,7 @@ class ChallengeFairnessTest extends TestCase
         $this->challenge($sport, 'Two');
         [$user, $headers] = $this->auth();
 
-        $id = $this->createLeague($headers, 3);
+        $id = $this->createLeague($headers, 7);
         $res = $this->postJson("/api/leagues/{$id}/start", [], $headers);
 
         $res->assertStatus(422)
@@ -261,7 +262,7 @@ class ChallengeFairnessTest extends TestCase
         DailyChallenge::create(['challenge_id' => $c->id, 'challenge_date' => '2026-01-01', 'status' => 'archived']);
         [$user, $headers] = $this->auth();
 
-        $id = $this->createLeague($headers, 1);
+        $id = $this->createLeague($headers, 7);
 
         $this->postJson("/api/leagues/{$id}/start", [], $headers)
             ->assertStatus(422)
@@ -273,13 +274,13 @@ class ChallengeFairnessTest extends TestCase
         $sport = $this->sport();
         $this->challenge($sport, 'Daily pool', ['usage_pool' => Challenge::POOL_DAILY]);
         $this->challenge($sport, 'Pack pool',  ['usage_pool' => Challenge::POOL_PACK]);
-        $tour = $this->challenge($sport, 'Tour pool', ['usage_pool' => Challenge::POOL_TOURNAMENT]);
+        $tour = collect(range(1, 7))->map(fn ($i) => $this->challenge($sport, "Tour pool {$i}", ['usage_pool' => Challenge::POOL_TOURNAMENT])->id)->all();
         [$user, $headers] = $this->auth();
 
-        $id = $this->createLeague($headers, 1);
+        $id = $this->createLeague($headers, 7);
         $this->postJson("/api/leagues/{$id}/start", [], $headers)->assertOk();
 
-        $this->assertSame([$tour->id], LeagueRound::where('league_id', $id)->pluck('challenge_id')->all());
+        $this->assertEqualsCanonicalizing($tour, LeagueRound::where('league_id', $id)->pluck('challenge_id')->all());
     }
 
     public function test_tournament_service_aborts_422_without_creating_rounds(): void

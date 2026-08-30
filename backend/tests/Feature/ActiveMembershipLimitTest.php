@@ -68,7 +68,7 @@ class ActiveMembershipLimitTest extends TestCase
         $this->league($owner, 'active', $me);
 
         $this->postJson('/api/leagues', [
-            'name' => 'Mine', 'duration_days' => 3,
+            'name' => 'Mine', 'duration_days' => 7,
         ], $headers)
             ->assertStatus(422)
             ->assertJsonFragment(['message' => self::LIMIT_MSG]);
@@ -110,7 +110,7 @@ class ActiveMembershipLimitTest extends TestCase
 
         // I host one (auto-membership) + I'm a member of another = 2.
         $this->postJson('/api/leagues', [
-            'name' => 'Hosted', 'duration_days' => 3,
+            'name' => 'Hosted', 'duration_days' => 7,
         ], $headers)->assertStatus(201);
         $this->league($owner, 'active', $me);
         $this->league($owner, 'lobby', null, 'THIRDX');

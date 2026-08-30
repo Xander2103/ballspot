@@ -22,15 +22,18 @@ class LeagueTournamentLifecycleTest extends TestCase
     private function makeFootballWithChallenge(): Sport
     {
         $sport = Sport::firstOrCreate(['slug' => 'football'], ['name' => 'Football']);
-        Challenge::create([
-            'sport_id'          => $sport->id,
-            'title'             => 'Test Challenge',
-            'ball_x_ratio'      => 0.5,
-            'ball_y_ratio'      => 0.5,
-            'difficulty'        => 'easy',
-            'status'            => 'active',
-            'hidden_image_path' => 'challenges/hidden/test.jpg',
-        ]);
+        // v1.9.0: shortest tournament is 7 days = 7 unique photos.
+        for ($i = 1; $i <= 7; $i++) {
+            Challenge::create([
+                'sport_id'          => $sport->id,
+                'title'             => "Test Challenge {$i}",
+                'ball_x_ratio'      => 0.5,
+                'ball_y_ratio'      => 0.5,
+                'difficulty'        => 'easy',
+                'status'            => 'active',
+                'hidden_image_path' => "challenges/hidden/test{$i}.jpg",
+            ]);
+        }
         return $sport;
     }
 
@@ -41,7 +44,7 @@ class LeagueTournamentLifecycleTest extends TestCase
 
         $res = $this->withToken($token)->postJson('/api/leagues', [
             'name'           => 'Test Tournament',
-            'duration_days'  => 1,
+            'duration_days'  => 7,
             'rounds_per_day' => 1,
         ]);
 
@@ -58,7 +61,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
 
@@ -67,7 +70,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $res->assertOk();
         $res->assertJsonPath('data.status', 'active');
         $this->assertDatabaseHas('leagues', ['id' => $leagueId, 'status' => 'active']);
-        $this->assertDatabaseCount('league_rounds', 1);
+        $this->assertDatabaseCount('league_rounds', 7);
     }
 
     public function test_non_owner_cannot_start_tournament(): void
@@ -77,7 +80,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($ownerToken)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
 
@@ -94,7 +97,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         // No challenges
 
         $createRes = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
 
@@ -110,7 +113,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($ownerToken)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $joinCode = $createRes->json('data.join_code');
 
@@ -125,7 +128,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($ownerToken)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
         $joinCode  = $createRes->json('data.join_code');
@@ -142,7 +145,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
 
@@ -157,7 +160,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Active', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Active', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
 
@@ -176,7 +179,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($ownerToken)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
         League::find($leagueId)->members()->attach($other->id, ['joined_at' => now()]);
@@ -191,7 +194,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $createRes = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
         $leagueId = $createRes->json('data.id');
         $this->withToken($token)->deleteJson("/api/leagues/{$leagueId}");
@@ -208,7 +211,7 @@ class LeagueTournamentLifecycleTest extends TestCase
         $this->makeFootballWithChallenge();
 
         $res = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Test', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
 
         $res->assertJsonStructure(['data' => [

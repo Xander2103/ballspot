@@ -89,6 +89,32 @@ draw `duration_days` **unique** photos; if a sport has too few eligible
 Tournament/General photos, players get "Not enough unused tournament challenges
 available" until you add more. The challenge list warns per sport below 7.
 
+**Tournament lengths (v1.9.0):** players can only pick **7 days, 14 days or
+1 month (30 days)**, one photo per day. So a sport needs at least 7 eligible
+photos for the shortest tournament and 30 for a month-long one. Older
+tournaments with other lengths keep playing as they are.
+
+## Tournament challenge cooldown (v1.9.0)
+
+Admin → **Settings** (`/admin/settings`) → **Tournament challenge cooldown**.
+
+- **What it does:** when a tournament starts, BallPicker prefers photos that
+  none of its players have guessed (in a daily, a tournament or a pack)
+  within the last *N* days. If there are not enough fresh photos for the
+  whole tournament, older eligible Tournament/General photos are reused to
+  fill the remaining rounds — a tournament is never blocked just because the
+  pool is small, only when the pool is smaller than the tournament length.
+- **Default:** 90 days. **Range:** 0–365 whole days.
+- **0 means disabled:** guess history is ignored and any eligible photo can
+  be drawn straight away.
+- **Daily-used photos are always excluded**, whatever this value is. That is
+  the permanent "Daily has priority" rule from v1.8.9, not a cooldown: a
+  photo that was (or is scheduled to be) a Daily Challenge is never drawn
+  into a new tournament, so a daily photo stays a one-off surprise for every
+  player.
+- Rounds are still shared by all players in a tournament, and a photo never
+  repeats within the same tournament.
+
 ## Assigning a daily challenge
 
 A challenge must be **active**, in the **Daily** or **General** pool, never used as a daily before, and have a hidden image and ball position before it can be used as a daily challenge.

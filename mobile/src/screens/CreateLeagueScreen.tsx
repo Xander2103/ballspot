@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -14,20 +14,38 @@ import type { Sport } from '../types/sport';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateLeague'>;
 
-function OptionRow({ label, options, value, onChange, styles }: { label: string; options: number[]; value: number; onChange: (v: number) => void; styles: Styles }) {
+/**
+ * Fixed tournament lengths (v1.9.0). One photo per day, so days === photos.
+ * "1 month" is 30 days server-side. Must match the backend allow-list
+ * (config ballspot.tournaments.allowed_duration_days).
+ */
+const DURATION_OPTIONS: { days: number; label: string }[] = [
+  { days: 7, label: '7 days' },
+  { days: 14, label: '14 days' },
+  { days: 30, label: '1 month' },
+];
+
+function DurationSelector({ value, onChange, styles }: { value: number; onChange: (v: number) => void; styles: Styles }) {
   return (
     <View style={styles.optionGroup}>
-      <Text style={styles.optionLabel}>{label}</Text>
+      <Text style={styles.optionLabel}>Duration</Text>
       <View style={styles.optionRow}>
-        {options.map((opt) => (
-          <AppButton
-            key={opt}
-            title={String(opt)}
-            onPress={() => onChange(opt)}
-            variant={value === opt ? 'primary' : 'secondary'}
-            style={styles.optBtn}
-          />
-        ))}
+        {DURATION_OPTIONS.map((opt) => {
+          const selected = value === opt.days;
+          return (
+            <Pressable
+              key={opt.days}
+              onPress={() => onChange(opt.days)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={`${opt.label}, ${opt.days} photos`}
+              style={[styles.optCard, selected && styles.optCardSelected]}
+            >
+              <Text style={[styles.optCardTitle, selected && styles.optCardTitleSelected]}>{opt.label}</Text>
+              <Text style={[styles.optCardSub, selected && styles.optCardSubSelected]}>{opt.days} photos</Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -38,7 +56,7 @@ export function CreateLeagueScreen({ navigation }: Props) {
   const styles = createStyles(theme);
 
   const [name, setName] = useState('');
-  const [durationDays, setDurationDays] = useState(3);
+  const [durationDays, setDurationDays] = useState(7);
   const [loading, setLoading] = useState(false);
   const [sport, setSport] = useState<Sport | null>(null);
 
@@ -76,11 +94,10 @@ export function CreateLeagueScreen({ navigation }: Props) {
       </View>
 
       <AppInput label="Tournament Name" value={name} onChangeText={setName} placeholder="e.g. Friday Squad" />
-      <OptionRow label="Duration in days" options={[1, 3, 7]} value={durationDays} onChange={setDurationDays} styles={styles} />
-      <Text style={styles.helperText}>How many days should players have to complete it?</Text>
+      <DurationSelector value={durationDays} onChange={setDurationDays} styles={styles} />
       <Text style={styles.helperText}>Players get 1 photo per day.</Text>
       <Text style={styles.summary}>
-        {durationDays === 1 ? '1 photo total — one per day.' : `${durationDays} photos total — one per day.`}
+        {`${DURATION_OPTIONS.find((o) => o.days === durationDays)?.label ?? `${durationDays} days`} · ${durationDays} photos`}
       </Text>
       <AppButton title="Create Tournament" onPress={handleCreate} loading={loading} />
       <Text style={styles.freeNote}>You can host 1 tournament and be in up to 2 at the same time. Up to 8 players each.</Text>
@@ -104,7 +121,15 @@ function createStyles(theme: ThemeTokens) {
     optionGroup: { marginBottom: spacing.md },
     optionLabel: { fontSize: 13, color: theme.textSecondary, marginBottom: spacing.xs, fontWeight: '600' },
     optionRow: { flexDirection: 'row', gap: spacing.sm },
-    optBtn: { flex: 1 },
+    optCard: {
+      flex: 1, alignItems: 'center', paddingVertical: spacing.sm, paddingHorizontal: spacing.xs,
+      borderRadius: 12, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surfaceElevated,
+    },
+    optCardSelected: { borderColor: theme.primary, backgroundColor: theme.primary },
+    optCardTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
+    optCardTitleSelected: { color: theme.onPrimary },
+    optCardSub: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+    optCardSubSelected: { color: theme.onPrimary, opacity: 0.85 },
     helperText: { color: theme.textSecondary, fontSize: 12, marginBottom: 4 },
     summary: { textAlign: 'center', color: theme.primary, fontWeight: '700', marginVertical: spacing.lg, fontSize: 15 },
     freeNote: { textAlign: 'center', color: theme.textSecondary, fontSize: 12, marginTop: spacing.lg },

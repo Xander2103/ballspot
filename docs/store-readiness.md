@@ -476,6 +476,22 @@ This satisfies Google Play and Apple App Store account deletion requirements. Th
   settings; opt-out and account deletion fully remove them. No questionnaire
   delta — push was already declared for admin announcements.
 
+## v1.9.0 store-relevant notes (Fixed durations + challenge cooldown)
+
+- **Tournaments are 7 days, 14 days or 1 month (30 days).** The API rejects
+  every other `duration_days` with a 422; existing tournaments with older
+  durations keep playing. Still one photo per day, so a sport needs at least
+  7 / 14 / 30 eligible unique Tournament/General photos for each length —
+  the 422 "Not enough unused tournament challenges available" is unchanged.
+- **New EAS build required** for the new duration selector: old builds still
+  offer 1 / 3 / 7 days and creating a 1- or 3-day tournament now fails with a
+  clear validation alert (7 keeps working).
+- **Soft photo cooldown (admin setting, default 90 days, 0 = off).** New
+  tournaments prefer photos none of the members guessed in the last N days;
+  older/seen photos are reused only when fresh ones run out. Daily-used
+  photos are never reused. Set at `/admin/settings`. No privacy impact — it
+  reads existing guess history, stores nothing new about players.
+
 ## v1.8.9 store-relevant notes (Challenge Fairness)
 
 - **Daily-used photos never appear in tournaments.** Any challenge that has

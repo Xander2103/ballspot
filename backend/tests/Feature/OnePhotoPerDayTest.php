@@ -43,7 +43,7 @@ class OnePhotoPerDayTest extends TestCase
         [$user, $headers] = $this->actingAsUser();
 
         $this->postJson('/api/leagues', [
-            'name' => 'Cheaty', 'duration_days' => 3, 'rounds_per_day' => 3,
+            'name' => 'Cheaty', 'duration_days' => 7, 'rounds_per_day' => 3,
         ], $headers)->assertStatus(201);
 
         $this->assertSame(1, League::latest('id')->first()->rounds_per_day);
@@ -61,32 +61,32 @@ class OnePhotoPerDayTest extends TestCase
         $this->assertSame(1, League::latest('id')->first()->rounds_per_day);
     }
 
-    public function test_duration_3_generates_exactly_3_rounds_on_start(): void
+    public function test_duration_7_with_malicious_rounds_per_day_generates_exactly_7_rounds_on_start(): void
     {
         $this->sportWithChallenges();
         [$user, $headers] = $this->actingAsUser();
 
         $leagueId = $this->postJson('/api/leagues', [
-            'name' => 'ThreeDays', 'duration_days' => 3, 'rounds_per_day' => 3,
+            'name' => 'ThreeDays', 'duration_days' => 7, 'rounds_per_day' => 3,
         ], $headers)->json('data.id');
 
         $this->postJson("/api/leagues/{$leagueId}/start", [], $headers)->assertOk();
 
-        $this->assertSame(3, League::find($leagueId)->rounds()->count());
+        $this->assertSame(7, League::find($leagueId)->rounds()->count());
     }
 
-    public function test_duration_1_generates_exactly_1_round(): void
+    public function test_duration_7_generates_exactly_7_rounds(): void
     {
         $this->sportWithChallenges();
         [$user, $headers] = $this->actingAsUser();
 
         $leagueId = $this->postJson('/api/leagues', [
-            'name' => 'OneDay', 'duration_days' => 1,
+            'name' => 'OneDay', 'duration_days' => 7,
         ], $headers)->json('data.id');
 
         $this->postJson("/api/leagues/{$leagueId}/start", [], $headers)->assertOk();
 
-        $this->assertSame(1, League::find($leagueId)->rounds()->count());
+        $this->assertSame(7, League::find($leagueId)->rounds()->count());
     }
 
     public function test_existing_league_with_3_rounds_per_day_still_serves_rounds(): void

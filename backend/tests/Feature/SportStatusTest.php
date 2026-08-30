@@ -27,7 +27,7 @@ class SportStatusTest extends TestCase
         $token = User::factory()->create()->createToken('test')->plainTextToken;
 
         $res = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Golf Cup', 'duration_days' => 1, 'rounds_per_day' => 1, 'sport_id' => $golf->id,
+            'name' => 'Golf Cup', 'duration_days' => 7, 'rounds_per_day' => 1, 'sport_id' => $golf->id,
         ]);
 
         $res->assertStatus(422)->assertJsonValidationErrors('sport_id');
@@ -41,7 +41,7 @@ class SportStatusTest extends TestCase
         $token = User::factory()->create()->createToken('test')->plainTextToken;
 
         $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'X', 'duration_days' => 1, 'rounds_per_day' => 1, 'sport_id' => $hidden->id,
+            'name' => 'X', 'duration_days' => 7, 'rounds_per_day' => 1, 'sport_id' => $hidden->id,
         ])->assertStatus(422);
     }
 

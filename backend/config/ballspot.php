@@ -286,6 +286,19 @@ return [
 
         'max_players_per_tournament'   => (int) env('BALLSPOT_MAX_PLAYERS_PER_TOURNAMENT', 8),
 
+        // Allowed tournament lengths (days). One photo per day, so this is also
+        // the number of unique photos a tournament needs. "1 month" = 30 days.
+        // Old tournaments with other durations keep working; only creation is
+        // restricted.
+        'allowed_duration_days' => [7, 14, 30],
+
+        // DEFAULT soft cooldown for reusing a photo in a new tournament: photos
+        // any member guessed within this many days are avoided when enough
+        // fresh eligible photos exist. Admin can override it at /admin/settings
+        // (gameplay_settings.tournament_challenge_cooldown_days). 0 = disabled.
+        // Daily-used photos stay hard-excluded regardless of this value.
+        'challenge_cooldown_days' => (int) env('BALLSPOT_TOURNAMENT_CHALLENGE_COOLDOWN_DAYS', 90),
+
         // Premium placeholders (not enforced yet — no billing exists).
         'premium_max_created_per_user'       => (int) env('BALLSPOT_PREMIUM_MAX_CREATED_TOURNAMENTS', 20),
         'premium_max_players_per_tournament' => (int) env('BALLSPOT_PREMIUM_MAX_PLAYERS_PER_TOURNAMENT', 32),

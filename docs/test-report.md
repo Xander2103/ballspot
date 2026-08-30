@@ -5,11 +5,93 @@ Build date: 2026-07-30
 **Backend:** 334 feature tests passing (was 302; +32 across rate limiting, endpoint caps, security headers, deletion cleanup, push-token privacy, data export, beta code).
 **Mobile:** `tsc --noEmit` clean. Web bundle (`expo export --platform web`) builds cleanly.
 
-> **Current suite (2026-08-29): 525 passed, 1 skipped — see "v1.8.9 challenge
-> fairness" below.** The per-version figures in this document are historical
-> snapshots taken at the end of each sprint.
+> **Current suite (2026-08-30): 546 passed, 1 skipped — see "v1.9.0 fixed
+> durations + challenge cooldown" below.** The per-version figures in this
+> document are historical snapshots taken at the end of each sprint.
 
 ---
+
+## v1.9.0 — Fixed Tournament Durations + Challenge Cooldown (2026-08-30)
+
+**Backend:** 546 passed, 1 skipped (was 525/1 — +19 in `TournamentCooldownTest`;
+2 `ChallengeFairnessTest` cases rewritten for 7-day tournaments).
+**Mobile:** `tsc --noEmit` clean; `expo export --platform web` builds cleanly.
+**Migration:** `2026_08_30_000001_create_gameplay_settings_table` (new
+key/value table, no backfill, no changes to existing tables).
+
+### Fixed durations
+
+- `POST /leagues` accepts `duration_days` **7, 14 or 30 only**
+  (`config('ballspot.tournaments.allowed_duration_days')`; "1 month" = 30).
+  0, 1, 3, 29, 31, 365, negatives, strings and a missing field all return a
+  422 validation error (`Tournament length must be 7 days, 14 days or 1
+  month.`). Still one photo per day, so a tournament needs exactly
+  `duration_days` unique eligible photos.
+- **Old tournaments are untouched.** Rows with 1/2/3/5-day durations still
+  list, `show`, serve `current-round` and accept guesses (regression test).
+  Only creation is restricted.
+- Mobile `CreateLeagueScreen`: the 1/3/7 buttons are replaced by three option
+  cards — *7 days · 7 photos*, *14 days · 14 photos*, *1 month · 30 photos* —
+  default 7 days, helper "Players get 1 photo per day." Old app builds that
+  still send 1 or 3 get the 422 message in the existing alert.
+
+### Admin-configurable challenge cooldown
+
+- New setting **`tournament_challenge_cooldown_days`** stored in the
+  `gameplay_settings` table (`App\Models\GameplaySetting`), default **90**
+  (config `ballspot.tournaments.challenge_cooldown_days`, env
+  `BALLSPOT_TOURNAMENT_CHALLENGE_COOLDOWN_DAYS`), integer **0–365**.
+  **0 = disabled.** Tournament selection only.
+- Admin page **`/admin/settings`** ("Settings" in the nav): number input,
+  helper text, Save. Validation: required integer, min 0, max 365; -1, 366,
+  text, null and 1.5 are rejected and nothing is stored. Admin-only.
+- Selection (`LeagueService::selectTournamentChallenges`) on start:
+  1. Eligible pool = active + ready + `tournament|general` pool + **never
+     Daily-used** (unchanged hard rule).
+  2. *Seen* = challenge ids any current member guessed within the cooldown
+     window, from **`daily_challenge_guesses` → `daily_challenges.challenge_id`**,
+     **`guesses` → `league_rounds.challenge_id`** and
+     **`pack_attempt_guesses.challenge_id` → `pack_attempts.user_id`**
+     (all three are traceable; pack guesses use `created_at` as the
+     timestamp). No new indexes were needed: the joins use existing PKs/FKs
+     and the members' user ids.
+  3. If ≥ `duration_days` fresh (unseen) photos exist, only fresh ones are
+     used. Otherwise all fresh photos are used and the shortfall is topped up
+     from seen-but-eligible photos. Daily-used photos are never a fallback.
+  4. Rounds are shared by every member and never repeat a photo.
+  5. Only when the whole eligible pool is smaller than `duration_days` does
+     start return the existing 422 `Not enough unused tournament challenges
+     available. Add more tournament photos first.` — no partial rounds.
+
+### Tests added (`TournamentCooldownTest`, 19)
+
+- Durations: 7/14/30 succeed with exactly that many eligible photos and
+  create that many unique rounds; 0/1/3/29/31/365/-1/"seven"/missing are
+  rejected; 6 photos for a 7-day tournament → existing 422, league stays
+  `lobby`.
+- Setting: default is 90; admin page shows the value, saves 30 and 0;
+  -1/366/text/null/1.5 rejected with validation errors; non-admin and guest
+  cannot change it.
+- Selection: photos seen within the window (one per history source, spread
+  across owner and a member) are avoided when enough fresh exist; a photo
+  seen 91 days ago is used; cooldown 0 disables avoidance; an admin value of
+  30 drops a 45-day-old guess from *seen*; every member's history counts.
+- Fallback: 4 fresh + 5 seen for a 7-day tournament → all 4 fresh + exactly
+  3 seen, no repeats, league `active`; Daily-used photos never appear in the
+  fallback; 3 fresh + 3 seen + 1 daily-used → 422, adding one more (seen)
+  photo makes it start; 15 heavy-fallback starts never repeat a photo.
+- Legacy: tournaments with 1/2/3/5-day durations still list, load, serve
+  `current-round` and accept a guess.
+
+### Limitations
+
+- Pack history is traced per challenge via `pack_attempt_guesses`; the
+  cooldown timestamp is the guess row's `created_at` (there is no
+  `submitted_at` on that table).
+- "Seen" only counts **guessed** photos. A photo shown in a tournament round
+  a member never answered is not counted as seen.
+- Cooldown applies to tournament selection only; the Daily scheduler still
+  uses the permanent "a daily at most once" rule.
 
 ## v1.8.9 — Challenge Fairness Hardening (2026-08-29)
 

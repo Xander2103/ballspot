@@ -2,10 +2,12 @@
 namespace App\Services;
 
 use App\Models\Challenge;
+use App\Models\GameplaySetting;
 use App\Models\League;
 use App\Models\LeagueMember;
 use App\Models\LeagueRound;
 use App\Models\Sport;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class LeagueService
@@ -102,16 +104,80 @@ class LeagueService
             ->values();
     }
 
+    /**
+     * Challenge ids any of the given users guessed within the last $days days
+     * (the soft cooldown window). Sources:
+     *  - daily_challenge_guesses  → daily_challenges.challenge_id
+     *  - guesses (tournament)     → league_rounds.challenge_id
+     *  - pack_attempt_guesses     → challenge_id (via pack_attempts.user_id)
+     *
+     * $days <= 0 means the cooldown is disabled: nothing counts as seen.
+     */
+    public function recentlySeenChallengeIds(array $userIds, int $days): array
+    {
+        if ($days <= 0 || $userIds === []) {
+            return [];
+        }
+        $since = now()->subDays($days);
+
+        $daily = DB::table('daily_challenge_guesses as g')
+            ->join('daily_challenges as d', 'd.id', '=', 'g.daily_challenge_id')
+            ->whereIn('g.user_id', $userIds)
+            ->where('g.submitted_at', '>=', $since)
+            ->pluck('d.challenge_id');
+
+        $tournament = DB::table('guesses as g')
+            ->join('league_rounds as r', 'r.id', '=', 'g.league_round_id')
+            ->whereIn('g.user_id', $userIds)
+            ->where('g.submitted_at', '>=', $since)
+            ->pluck('r.challenge_id');
+
+        $pack = DB::table('pack_attempt_guesses as g')
+            ->join('pack_attempts as a', 'a.id', '=', 'g.pack_attempt_id')
+            ->whereIn('a.user_id', $userIds)
+            ->where('g.created_at', '>=', $since)
+            ->pluck('g.challenge_id');
+
+        return $daily->concat($tournament)->concat($pack)
+            ->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
+    /**
+     * Pick $total unique photos for a new tournament.
+     *
+     * Hard rules: eligible pool only (active, ready, tournament|general pool,
+     * never Daily-used) and no repeats. Soft rule: prefer photos none of the
+     * current members guessed within the admin-set cooldown window; if that
+     * leaves too few, top up with seen-but-eligible photos. Rounds stay
+     * shared for every member. Returns fewer than $total only when the whole
+     * eligible pool is too small (caller aborts 422).
+     */
+    public function selectTournamentChallenges(League $league, int $total): \Illuminate\Support\Collection
+    {
+        $eligible  = $this->eligibleTournamentChallenges((int) $league->sport_id);
+        $memberIds = $league->members()->pluck('users.id')->map(fn ($id) => (int) $id)->all();
+        $seen      = $this->recentlySeenChallengeIds(
+            $memberIds,
+            GameplaySetting::tournamentChallengeCooldownDays()
+        );
+
+        [$fresh, $stale] = $eligible->partition(fn (Challenge $c) => !in_array((int) $c->id, $seen, true));
+
+        $picked = $fresh->shuffle()->take($total);
+        if ($picked->count() < $total) {
+            $picked = $picked->concat($stale->shuffle()->take($total - $picked->count()));
+        }
+
+        return $picked->values();
+    }
+
     public function start(League $league, int $userId): League
     {
         $total = $league->duration_days * $league->rounds_per_day;
 
         // Unique photos only: never the same challenge twice in one tournament,
         // never a Daily-used photo. Fail cleanly rather than recycle.
-        $challenges = $this->eligibleTournamentChallenges((int) $league->sport_id)
-            ->shuffle()
-            ->take($total)
-            ->values();
+        $challenges = $this->selectTournamentChallenges($league, $total);
 
         abort_if($challenges->count() < $total, 422, self::NOT_ENOUGH_CHALLENGES_MESSAGE);
 

@@ -135,7 +135,7 @@ class BadgeSprintV186Test extends TestCase
         $user = User::factory()->create();
 
         $this->actingWithToken($user->createToken('t')->plainTextToken)
-            ->postJson('/api/leagues', ['name' => 'Badge Cup', 'duration_days' => 1, 'rounds_per_day' => 1])
+            ->postJson('/api/leagues', ['name' => 'Badge Cup', 'duration_days' => 7, 'rounds_per_day' => 1])
             ->assertStatus(201);
 
         $this->assertTrue($user->fresh()->badges()->where('code', 'host_starter')->exists());

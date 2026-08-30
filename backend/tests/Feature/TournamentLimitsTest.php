@@ -47,7 +47,7 @@ class TournamentLimitsTest extends TestCase
         $this->createLeague($user->id, $sport->id, 'lobby');
 
         $response = $this->postJson('/api/leagues', [
-            'name' => 'Second', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Second', 'duration_days' => 7, 'rounds_per_day' => 1,
         ], $headers);
 
         $response->assertStatus(422)->assertJsonFragment([
@@ -66,7 +66,7 @@ class TournamentLimitsTest extends TestCase
         $this->createLeague($user->id, $sport->id, 'finished');
 
         $response = $this->postJson('/api/leagues', [
-            'name' => 'Fresh', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Fresh', 'duration_days' => 7, 'rounds_per_day' => 1,
         ], $headers);
 
         $response->assertStatus(201);
@@ -78,13 +78,13 @@ class TournamentLimitsTest extends TestCase
         [$user, $headers] = $this->actingAsUser();
 
         $firstId = $this->postJson('/api/leagues', [
-            'name' => 'First', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'First', 'duration_days' => 7, 'rounds_per_day' => 1,
         ], $headers)->assertStatus(201)->json('data.id');
 
         $this->deleteJson("/api/leagues/{$firstId}", [], $headers)->assertNoContent();
 
         $this->postJson('/api/leagues', [
-            'name' => 'Second', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'Second', 'duration_days' => 7, 'rounds_per_day' => 1,
         ], $headers)->assertStatus(201);
     }
 

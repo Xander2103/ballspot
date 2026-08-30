@@ -110,7 +110,7 @@ class SportFilteringTest extends TestCase
         $user = User::factory()->create();
 
         $res = $this->withToken($this->auth($user))->postJson('/api/leagues', [
-            'name' => 'My Cup', 'duration_days' => 1, 'rounds_per_day' => 1, 'sport_id' => $tennis->id,
+            'name' => 'My Cup', 'duration_days' => 7, 'rounds_per_day' => 1, 'sport_id' => $tennis->id,
         ]);
 
         $res->assertCreated();
@@ -124,7 +124,7 @@ class SportFilteringTest extends TestCase
         $user = User::factory()->create(['preferred_sport_id' => $tennis->id]);
 
         $res = $this->withToken($this->auth($user))->postJson('/api/leagues', [
-            'name' => 'My Cup', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'My Cup', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
 
         $res->assertCreated();
@@ -137,7 +137,7 @@ class SportFilteringTest extends TestCase
         $user = User::factory()->create();
 
         $res = $this->withToken($this->auth($user))->postJson('/api/leagues', [
-            'name' => 'My Cup', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'My Cup', 'duration_days' => 7, 'rounds_per_day' => 1,
         ]);
 
         $res->assertCreated();
@@ -148,14 +148,17 @@ class SportFilteringTest extends TestCase
     {
         $football = $this->sport('football', 'Football');
         $tennis   = $this->sport('tennis', 'Tennis');
-        $footballChallenge = $this->challenge($football, 'Football One');
-        $tennisChallenge   = $this->challenge($tennis, 'Tennis One');
+        // Enough photos in BOTH sports for a 7-day tournament: only tennis may be drawn.
+        for ($i = 1; $i <= 7; $i++) {
+            $this->challenge($football, "Football {$i}");
+            $this->challenge($tennis, "Tennis {$i}");
+        }
 
         $user = User::factory()->create();
         $token = $this->auth($user);
 
         $create = $this->withToken($token)->postJson('/api/leagues', [
-            'name' => 'Tennis Cup', 'duration_days' => 1, 'rounds_per_day' => 1, 'sport_id' => $tennis->id,
+            'name' => 'Tennis Cup', 'duration_days' => 7, 'rounds_per_day' => 1, 'sport_id' => $tennis->id,
         ]);
         $leagueId = $create->json('data.id');
 

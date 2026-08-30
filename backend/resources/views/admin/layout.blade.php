@@ -44,6 +44,8 @@
            href="/admin/competition">Competition</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/notifications*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/notifications">Notifications</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/settings*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/settings">Settings</a>
         <span class="text-secondary small ms-auto me-3">v1</span>
         <form action="{{ route('admin.logout') }}" method="POST" class="mb-0">
             @csrf

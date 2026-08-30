@@ -26,7 +26,7 @@ class LeagueTest extends TestCase
 
         [$user, $headers] = $this->actingAsUser();
         $response = $this->postJson('/api/leagues', [
-            'name' => 'My League', 'duration_days' => 1, 'rounds_per_day' => 1,
+            'name' => 'My League', 'duration_days' => 7, 'rounds_per_day' => 1,
         ], $headers);
         $response->assertStatus(201)->assertJsonFragment(['name' => 'My League']);
     }
