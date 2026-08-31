@@ -75,11 +75,12 @@ class BadgeSprintV186Test extends TestCase
         ]);
     }
 
-    public function test_seeder_contains_37_badges_including_new_codes(): void
+    public function test_seeder_contains_39_badges_including_new_codes(): void
     {
-        $this->assertSame(37, Badge::count());
+        $this->assertSame(39, Badge::count());
         foreach (['social_starter', 'friendly_five', 'host_starter', 'tournament_regular',
-                  'sharp_scorer', 'pack_explorer', 'daily_loyalist'] as $code) {
+                  'sharp_scorer', 'pack_explorer', 'daily_loyalist',
+                  'sharpshooter', 'most_consistent'] as $code) {
             $this->assertDatabaseHas('badges', ['code' => $code]);
         }
     }
@@ -155,7 +156,7 @@ class BadgeSprintV186Test extends TestCase
             ]);
         }
 
-        app(BadgeService::class)->evaluateTournamentFinish($user, $lastLeague, 4);
+        app(BadgeService::class)->evaluateTournamentFinish($user, $lastLeague, 4, 6);
 
         $this->assertTrue($user->badges()->where('code', 'tournament_regular')->exists());
     }

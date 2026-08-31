@@ -99,11 +99,12 @@ class TournamentCompletionTest extends TestCase
         $this->assertDatabaseHas('tournament_finishes', ['league_id' => $league->id, 'user_id' => $owner->id, 'placement' => 1, 'total_score' => 180]);
         $this->assertDatabaseHas('tournament_finishes', ['league_id' => $league->id, 'user_id' => $second->id, 'placement' => 2, 'total_score' => 80]);
 
-        // Winner badge + podium; runner-up gets podium only.
+        // Winner badge for 1st. Podium requires a field of >= 3 players, so a
+        // two-player tournament awards no podium badges at all.
         $this->assertTrue($owner->fresh()->badges()->where('code', 'tournament_winner')->exists());
-        $this->assertTrue($owner->fresh()->badges()->where('code', 'podium_finish')->exists());
+        $this->assertFalse($owner->fresh()->badges()->where('code', 'podium_finish')->exists());
         $this->assertFalse($second->fresh()->badges()->where('code', 'tournament_winner')->exists());
-        $this->assertTrue($second->fresh()->badges()->where('code', 'podium_finish')->exists());
+        $this->assertFalse($second->fresh()->badges()->where('code', 'podium_finish')->exists());
 
         // Tournament-win XP via the ledger.
         $this->assertDatabaseHas('xp_events', ['user_id' => $owner->id, 'source_type' => 'tournament_win', 'source_id' => $league->id, 'amount' => 1000]);

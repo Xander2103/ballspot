@@ -99,7 +99,7 @@ class TournamentCompletionService
                 }
 
                 $badges = $rewardsEnabled
-                    ? $this->badgeService->evaluateTournamentFinish($user, $league, $row['placement'])
+                    ? $this->badgeService->evaluateTournamentFinish($user, $league, $row['placement'], $totalPlayers)
                     : [];
                 $xp     = $rewardsEnabled
                     ? $this->awardXp($user, $league, $row['placement'])
@@ -123,8 +123,96 @@ class TournamentCompletionService
                 ];
             }
 
+            if ($rewardsEnabled) {
+                $this->awardSkillTrophies($league, $standings, $perUser);
+            }
+
             return ['total_players' => $totalPlayers, 'per_user' => $perUser];
         });
+    }
+
+    /**
+     * Tournament-wide skill trophies: Sharpshooter (closest single guess by
+     * distance; highest single score when any distance is missing) and Most
+     * Consistent (best average over enough rounds). Awards are skipped, never
+     * guessed, when the data cannot support a fair call. Idempotent via
+     * BadgeService::award() + the completion claim.
+     */
+    private function awardSkillTrophies(League $league, array $standings, array &$perUser): void
+    {
+        $totalRounds = $league->rounds()->count();
+
+        $winners = [
+            'sharpshooter'    => $this->sharpshooterUserId($league),
+            'most_consistent' => $this->mostConsistentUserId($standings, $totalRounds),
+        ];
+
+        foreach ($winners as $code => $userId) {
+            if ($userId === null) {
+                continue;
+            }
+            $user = User::find($userId);
+            if (!$user) {
+                continue;
+            }
+            $badge = $this->badgeService->award($user, $code, ['league_id' => $league->id]);
+            if ($badge && isset($perUser[$userId])) {
+                $perUser[$userId]['new_badges'][] = $badge;
+            }
+        }
+    }
+
+    /** Closest single guess. Distance only counts when every guess has one. */
+    private function sharpshooterUserId(League $league): ?int
+    {
+        $guesses = Guess::whereIn('league_round_id', $league->rounds()->pluck('id'))
+            ->get(['user_id', 'distance', 'score', 'submitted_at']);
+        if ($guesses->isEmpty()) {
+            return null;
+        }
+
+        $useDistance = $guesses->every(fn ($g) => $g->distance !== null);
+
+        $best = $guesses->sort(function ($a, $b) use ($useDistance) {
+            if ($useDistance && (float) $a->distance !== (float) $b->distance) {
+                return (float) $a->distance <=> (float) $b->distance; // closer first
+            }
+            if (!$useDistance && (int) $a->score !== (int) $b->score) {
+                return (int) $b->score <=> (int) $a->score; // higher first
+            }
+            if ((string) $a->submitted_at !== (string) $b->submitted_at) {
+                return strcmp((string) $a->submitted_at, (string) $b->submitted_at); // earlier first
+            }
+            return $a->user_id <=> $b->user_id; // stable final tiebreak
+        })->first();
+
+        return $best?->user_id;
+    }
+
+    /** Best average over enough rounds; null when fairness can't be established. */
+    private function mostConsistentUserId(array $standings, int $totalRounds): ?int
+    {
+        if ($totalRounds < 2) {
+            return null; // a single round is not an average
+        }
+        $minRounds = max(2, (int) ceil($totalRounds / 2));
+        $eligible = array_values(array_filter(
+            $standings,
+            fn ($row) => $row['rounds_played'] >= $minRounds,
+        ));
+        if (count($eligible) < 2) {
+            return null; // no field to be more consistent than
+        }
+        usort($eligible, function ($a, $b) {
+            $avgA = $a['total_score'] / $a['rounds_played'];
+            $avgB = $b['total_score'] / $b['rounds_played'];
+            if ($avgA !== $avgB) {
+                return $avgB <=> $avgA; // higher average first
+            }
+            return $a['placement'] <=> $b['placement']; // standings tiebreak
+        });
+
+        return $eligible[0]['user_id'];
     }
 
     /**

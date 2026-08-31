@@ -52,9 +52,19 @@ and are out of scope until a full legal/compliance review is done.**
 
 - **When a tournament completes:** it is `active` and every member has played every round. The
   finishing round-guess triggers an **atomic, once-only** completion (`active → completed`).
-- **Recognition:** placement 1 → `tournament_winner` + `podium_finish` badges; placements 1–3 →
-  `podium_finish` (new 🥉 rare badge). Placement XP via the **existing XP ledger**
+- **Recognition:** placement 1 → `tournament_winner`; placements 1–3 → `podium_finish` (🥉 rare),
+  awarded only when the tournament has **at least 3 players** (v1.9.3 — in a 2-player field
+  everybody is "top 3"). Placement XP via the **existing XP ledger**
   (`source_type: tournament_win`, deduped per user per tournament): **1st +1000, 2nd +500, 3rd +250**.
+- **Skill trophies (v1.9.3, awarded on the same once-only completion):**
+  - `sharpshooter` (🏹 rare) — the single closest guess of the tournament by stored `distance`
+    (ties: earliest submission, then user id; falls back to highest single score if a distance
+    were ever missing — the schema currently guarantees one).
+  - `most_consistent` (📊 rare) — best average score; only players with guesses on at least
+    half the rounds (minimum 2) are eligible, at least 2 must be eligible, and single-round
+    tournaments are skipped. When fairness can't be established, the award is skipped.
+  - Both respect the `min_players_for_rewards` gate (solo tournaments award nothing) and the
+    once-per-user `user_badges` uniqueness — repeat wins show in `tournament_finishes` history.
 - **Tie rule:** total score desc → earliest completion (last-guess time) asc → user id asc.
 - **Final standings** are stored in `tournament_finishes` (one row per member) and surfaced in the
   Trophy Room "Tournament trophies" section via `GET /api/me/tournament-finishes`.

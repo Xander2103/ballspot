@@ -987,7 +987,9 @@ v1.7.7 added `podium_finish`:
 | `top_10_daily` | Top 10% | 🥇 | leaderboard | rare | ✅ finishing top 10% of a daily (field ≥ 10, snapshot at submit) |
 | `multi_sport_starter` | Multi-Sport Starter | 🌍 | sport | rare | ✅ on first non-football challenge |
 | `tournament_winner` | Tournament Winner | 🏆 | tournament | epic | ✅ (v1.7.7) to placement 1 when a tournament completes |
-| `podium_finish` | Podium Finish | 🥉 | tournament | rare | ✅ (v1.7.7) to placements 1–3 when a tournament completes |
+| `podium_finish` | Podium Finish | 🥉 | tournament | rare | ✅ (v1.7.7) to placements 1–3 when a tournament completes (v1.9.3: field must have ≥ 3 players) |
+| `sharpshooter` | Sharpshooter | 🏹 | tournament | rare | ✅ (v1.9.3) closest single guess (by distance) when a tournament completes |
+| `most_consistent` | Most Consistent | 📊 | tournament | rare | ✅ (v1.9.3) best average score when a tournament completes (≥ 2 rounds, ≥ 2 eligible players) |
 
 Perfect / almost-perfect thresholds live in **one place** — `config('ballspot.scoring')`
 (`max_score` = 100, `almost_perfect_threshold` = 95) via `ScoreService::isPerfectScore()` /
@@ -1013,10 +1015,15 @@ the tournament open — the owner can still cancel it (a time-based sweep is a d
 player who reached their score first wins the tie — then user id ASC as a final stable tiebreak.
 Deterministic.
 
-**Rewards (virtual only).** Placement 1 → `tournament_winner` + `podium_finish` badges; placements
-1–3 → `podium_finish`. Placement XP via the ledger (`source_type: tournament_win`, `source_id:
-league id`, deduped once per user per league): **1st +1000, 2nd +500, 3rd +250**
-(`config('ballspot.xp.tournament_win')`). Reasons: "Tournament winner" / "Tournament runner-up" /
+**Rewards (virtual only).** Placement 1 → `tournament_winner`; placements 1–3 → `podium_finish`
+**only when the field has ≥ 3 players** (v1.9.3 — in a 2-player tournament everybody is "top 3";
+the same definition applies to `tournament_beast` podium counting). v1.9.3 also awards
+`sharpshooter` (closest single guess by distance; ties → earliest submission → user id) and
+`most_consistent` (best average score; needs ≥ 2 rounds and ≥ 2 players with guesses on at least
+half the rounds, else skipped). Placement XP via the ledger (`source_type: tournament_win`,
+`source_id: league id`, deduped once per user per league): **1st +1000, 2nd +500, 3rd +250**
+(`config('ballspot.xp.tournament_win')`) — note XP is placement-based and unchanged by the
+badge-side ≥ 3 guard. Reasons: "Tournament winner" / "Tournament runner-up" /
 "Tournament top 3 finish".
 
 **`GET /api/me/tournament-finishes`** *(auth + verified required)* — the current user's placements

@@ -81,9 +81,12 @@ history (see below).
   public gameplay profile data. No new personal data is collected; locked
   badges are not listed; anonymized accounts still return 404;
   `PublicProfileTest` asserts the allow-list and the absence of email/tokens.
-- Four new badges (37 total): `rising_star`, `golden_touch`, `legend_status`
+- Four new badges: `rising_star`, `golden_touch`, `legend_status`
   (rank milestones) and `tournament_beast` (three podium finishes). Same
   storage and retention as all badges.
+- v1.9.3 adds `sharpshooter` and `most_consistent` (tournament skill trophies,
+  39 badges total). Same storage and retention as all badges; no new personal
+  data is collected.
 - Tournament rules tightened (gameplay config, not personal data): a user can
   host at most 1 lobby/active tournament, be a member of at most 2 lobby/active
   tournaments, and every new tournament serves exactly 1 photo per day

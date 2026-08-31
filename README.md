@@ -44,7 +44,9 @@ Tournaments now finish and reward players — all **virtual** (badges + XP ledge
   round**. Checked after each round guess; the finishing guess completes it **exactly once**
   (atomic `active → completed`). Standings tie-break: total score → earliest completion → user id.
 - **Winner / top-3** — placement 1 gets the `tournament_winner` badge; placements 1–3 get
-  `podium_finish` (new 🥉 badge). Placement XP via the ledger (**1st +1000, 2nd +500, 3rd +250**),
+  `podium_finish` (🥉) when the field has **≥ 3 players** (v1.9.3). v1.9.3 also awards
+  `sharpshooter` (🏹 closest single guess) and `most_consistent` (📊 best average, when fair).
+  Placement XP via the ledger (**1st +1000, 2nd +500, 3rd +250**),
   deduped once per user per tournament, counted toward `xp_gained` (can trigger a rank-up).
 - **Result screen** shows a completion card ("You finished 1st of 8", "+1000 XP").
 - **Trophy Room** gains a **"Tournament trophies"** section listing your placements
