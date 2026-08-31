@@ -99,7 +99,7 @@ class TournamentCompletionService
                 }
 
                 $badges = $rewardsEnabled
-                    ? $this->badgeService->evaluateTournamentFinish($user, $league, $row['placement'])
+                    ? $this->badgeService->evaluateTournamentFinish($user, $league, $row['placement'], $totalPlayers)
                     : [];
                 $xp     = $rewardsEnabled
                     ? $this->awardXp($user, $league, $row['placement'])

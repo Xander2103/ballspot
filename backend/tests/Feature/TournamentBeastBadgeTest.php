@@ -56,7 +56,7 @@ class TournamentBeastBadgeTest extends TestCase
         $this->priorFinish($user, 1);
         $this->priorFinish($user, 3);
 
-        app(BadgeService::class)->evaluateTournamentFinish($user, $this->league($user), 2);
+        app(BadgeService::class)->evaluateTournamentFinish($user, $this->league($user), 2, 3);
 
         $this->assertTrue($user->badges()->where('code', 'tournament_beast')->exists());
     }
@@ -66,7 +66,7 @@ class TournamentBeastBadgeTest extends TestCase
         $user = User::factory()->create();
         $this->priorFinish($user, 2);
 
-        app(BadgeService::class)->evaluateTournamentFinish($user, $this->league($user), 1);
+        app(BadgeService::class)->evaluateTournamentFinish($user, $this->league($user), 1, 3);
 
         $this->assertFalse($user->badges()->where('code', 'tournament_beast')->exists());
     }
@@ -77,7 +77,7 @@ class TournamentBeastBadgeTest extends TestCase
         $this->priorFinish($user, 4);
         $this->priorFinish($user, 5);
 
-        app(BadgeService::class)->evaluateTournamentFinish($user, $this->league($user), 1);
+        app(BadgeService::class)->evaluateTournamentFinish($user, $this->league($user), 1, 3);
 
         $this->assertFalse($user->badges()->where('code', 'tournament_beast')->exists());
     }
@@ -97,7 +97,7 @@ class TournamentBeastBadgeTest extends TestCase
             'total_score' => 100,
         ]);
 
-        app(BadgeService::class)->evaluateTournamentFinish($user, $current, 1);
+        app(BadgeService::class)->evaluateTournamentFinish($user, $current, 1, 3);
 
         // Only ONE distinct podium exists (the current league) — no badge.
         $this->assertFalse($user->badges()->where('code', 'tournament_beast')->exists());

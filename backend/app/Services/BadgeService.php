@@ -316,18 +316,20 @@ class BadgeService
 
     /**
      * Badges for a final tournament placement: the winner badge (1st) and the
-     * podium badge (top 3). Idempotent — safe to call when completion replays.
+     * podium badge (top 3). A podium only means something in a real field, so
+     * top-3 requires at least 3 players — in a 2-player tournament everybody
+     * is "top 3". Idempotent — safe to call when completion replays.
      *
      * @return Badge[]
      */
-    public function evaluateTournamentFinish(User $user, League $league, int $placement): array
+    public function evaluateTournamentFinish(User $user, League $league, int $placement, int $totalPlayers): array
     {
         $awarded = [];
 
         if ($placement === 1) {
             $awarded[] = $this->award($user, 'tournament_winner', ['league_id' => $league->id]);
         }
-        if ($placement <= 3) {
+        if ($placement <= 3 && $totalPlayers >= 3) {
             $awarded[] = $this->award($user, 'podium_finish', ['league_id' => $league->id, 'placement' => $placement]);
 
             // v1.8.8 Tournament Beast: three podium finishes. The CURRENT

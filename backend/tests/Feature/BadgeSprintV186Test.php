@@ -156,7 +156,7 @@ class BadgeSprintV186Test extends TestCase
             ]);
         }
 
-        app(BadgeService::class)->evaluateTournamentFinish($user, $lastLeague, 4);
+        app(BadgeService::class)->evaluateTournamentFinish($user, $lastLeague, 4, 6);
 
         $this->assertTrue($user->badges()->where('code', 'tournament_regular')->exists());
     }
