@@ -1,4 +1,4 @@
-# Tournament Rivalry Text + Completion Trophies Implementation Plan
+﻿# Tournament Rivalry Text + Completion Trophies Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -417,7 +417,7 @@ And add the three private methods (rules exactly as in the Interfaces block abov
 
 **Behavior (exact):** `rivalryLine` returns null (hide) when entries are missing or fewer than 2 or scores aren't numbers. Sorts a copy by `total_score` desc. If the current user is the leader: "You are leading by X points" (margin over #2), or "It's currently tied." when margin is 0. If the current user is present but behind: "You are X points behind {name}", or tied when deficit 0. If the current user is absent (hasn't guessed): "{name} leads by X points" / tied. Singular "point" when X is 1. Name = entry `name` falling back to `username`. `daysLeftLabel` returns null for null/invalid `ends_at`; otherwise `ceil` of remaining ms clamped to ≥0 → "X days left" ("1 day left").
 
-- [ ] **Step 1: Write the failing tests:**
+- [x] **Step 1: Write the failing tests:**
 
 ```ts
 import { rivalryLine, daysLeftLabel } from '../rivalry';
@@ -521,9 +521,9 @@ describe('daysLeftLabel', () => {
 });
 ```
 
-- [ ] **Step 2: Run** `cd mobile && npx jest src/utils/__tests__/rivalry.test.ts` → FAIL (module not found).
+- [x] **Step 2: Run** `cd mobile && npx jest src/utils/__tests__/rivalry.test.ts` → FAIL (module not found).
 
-- [ ] **Step 3: Implement `mobile/src/utils/rivalry.ts`:**
+- [x] **Step 3: Implement `mobile/src/utils/rivalry.ts`:**
 
 ```ts
 import { LeaderboardEntry } from '../types/guess';
@@ -576,9 +576,9 @@ export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new
 }
 ```
 
-- [ ] **Step 4: Run** `npx jest src/utils/__tests__/rivalry.test.ts` → PASS. Also `npx jest` (whole suite) → PASS.
+- [x] **Step 4: Run** `npx jest src/utils/__tests__/rivalry.test.ts` → PASS. Also `npx jest` (whole suite) → PASS.
 
-- [ ] **Step 5: Commit** `feat(mobile): rivalry line + days-left helpers with tests`
+- [x] **Step 5: Commit** `feat(mobile): rivalry line + days-left helpers with tests`
 
 ---
 
@@ -590,14 +590,14 @@ export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new
 **Interfaces:**
 - Consumes: `rivalryLine`, `daysLeftLabel` from `../utils/rivalry`; existing `league` and `leaderboard` state.
 
-- [ ] **Step 1: Import** `import { rivalryLine, daysLeftLabel } from '../utils/rivalry';` and compute inside the component body (before `return`):
+- [x] **Step 1: Import** `import { rivalryLine, daysLeftLabel } from '../utils/rivalry';` and compute inside the component body (before `return`):
 
 ```tsx
   const rivalry = league?.status === 'active' ? rivalryLine(leaderboard) : null;
   const daysLeft = league?.status === 'active' ? daysLeftLabel(league?.ends_at) : null;
 ```
 
-- [ ] **Step 2: Render a compact box** at the TOP of the `league?.status === 'active'` section (before the `dailyLimitReached` ternary):
+- [x] **Step 2: Render a compact box** at the TOP of the `league?.status === 'active'` section (before the `dailyLimitReached` ternary):
 
 ```tsx
           {(rivalry || daysLeft) && (
@@ -608,7 +608,7 @@ export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new
           )}
 ```
 
-- [ ] **Step 3: Add styles** (this screen still uses the static `colors` module — match it, do not migrate to `useTheme`):
+- [x] **Step 3: Add styles** (this screen still uses the static `colors` module — match it, do not migrate to `useTheme`):
 
 ```ts
   rivalryBox: {
@@ -624,9 +624,9 @@ export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new
   rivalryDays: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 ```
 
-- [ ] **Step 4: Run** `cd mobile && npx tsc --noEmit` → clean.
+- [x] **Step 4: Run** `cd mobile && npx tsc --noEmit` → clean.
 
-- [ ] **Step 5: Commit** `feat(mobile): rivalry status + days left on tournament screen`
+- [x] **Step 5: Commit** `feat(mobile): rivalry status + days left on tournament screen`
 
 ---
 
@@ -635,10 +635,10 @@ export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new
 **Files:**
 - Modify: `docs/prizes-and-trophy-room.md` (add the two new badges + podium ≥3 rule to the tournament section)
 
-- [ ] **Step 1:** `cd backend && php artisan test` → ALL PASS.
-- [ ] **Step 2:** `cd mobile && npx tsc --noEmit` → clean; `npx expo export --platform web` → succeeds.
-- [ ] **Step 3:** Update `docs/prizes-and-trophy-room.md`: note `sharpshooter` / `most_consistent` award rules and the new ≥3-players podium guard (short bullets in the existing tournament completion section).
-- [ ] **Step 4: Commit** `docs: tournament skill trophies + podium guard`
+- [x] **Step 1:** `cd backend && php artisan test` → ALL PASS.
+- [x] **Step 2:** `cd mobile && npx tsc --noEmit` → clean; `npx expo export --platform web` → succeeds.
+- [x] **Step 3:** Update `docs/prizes-and-trophy-room.md`: note `sharpshooter` / `most_consistent` award rules and the new ≥3-players podium guard (short bullets in the existing tournament completion section).
+- [x] **Step 4: Commit** `docs: tournament skill trophies + podium guard`
 
 ---
 
@@ -648,3 +648,4 @@ export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new
 - Rivalry text derives from the leaderboard (no tie-break) so a tie can display "tied" while final standings later break it by earliest completion — acceptable for a status line.
 - With every member completing every round, Most Consistent usually matches the winner (average ordering equals total ordering over equal denominators); it diverges when partial/departed players exist. Spec-mandated metric.
 - Badge is once-per-user (existing system); repeat wins show in `tournament_finishes` history, not duplicate badges.
+
