@@ -21,6 +21,7 @@ class ChallengePack extends Model
     protected $fillable = [
         'sport_id', 'name', 'slug', 'description', 'cover_image_path',
         'status', 'visibility', 'difficulty', 'sort_order', 'is_featured',
+        'completion_badge_id',
     ];
 
     protected function casts(): array
@@ -34,6 +35,12 @@ class ChallengePack extends Model
     public function sport(): BelongsTo
     {
         return $this->belongsTo(Sport::class);
+    }
+
+    /** Optional trophy awarded on first completion of this pack. */
+    public function completionBadge(): BelongsTo
+    {
+        return $this->belongsTo(Badge::class, 'completion_badge_id');
     }
 
     public function challenges(): BelongsToMany

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -8,7 +8,7 @@ import { packApi } from '../api/packApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import type { ChallengePackDetail, PackChallengeSummary, PackAttemptState } from '../types/pack';
+import type { ChallengePackDetail, PackAttemptState } from '../types/pack';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackDetail'>;
 
@@ -77,56 +77,41 @@ export function PackDetailScreen({ route, navigation }: Props) {
         ? 'Play again'
         : 'Start Pack';
 
+  // No challenge previews before starting — that would spoil the pack.
+  // The player only sees cover, title, description, sport, difficulty,
+  // challenge count and the Start button.
   return (
-    <Screen padding={false}>
-      <FlatList<PackChallengeSummary>
-        data={pack.challenges}
-        keyExtractor={(c) => String(c.id)}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text style={styles.title}>{pack.name}</Text>
-            {pack.description ? <Text style={styles.desc}>{pack.description}</Text> : null}
-            <View style={styles.metaRow}>
-              <Text style={styles.metaChip}>{pack.sport?.name ?? 'All sports'}</Text>
-              <Text style={styles.metaChip}>{count} {count === 1 ? 'challenge' : 'challenges'}</Text>
-              {pack.difficulty ? <Text style={styles.metaChip}>{cap(pack.difficulty)}</Text> : null}
-              {isCompleted ? <Text style={[styles.metaChip, styles.completedChip]}>✓ Completed</Text> : null}
-              {isActive ? <Text style={[styles.metaChip, styles.activeChip]}>In progress</Text> : null}
-            </View>
-
-            {playable ? (
-              <AppButton
-                title={ctaLabel}
-                onPress={() => handlePlay(pack.name)}
-                loading={starting}
-                style={styles.cta}
-              />
-            ) : (
-              <Text style={styles.note}>This pack has no ready challenges yet. Check back soon.</Text>
-            )}
-            {error ? <Text style={styles.errorInline}>{error}</Text> : null}
-          </View>
-        }
-        renderItem={({ item }) => (
-          <View style={styles.row}>
-            <View style={styles.thumbWrap}>
-              {item.hidden_image_url
-                ? <Image source={{ uri: item.hidden_image_url }} style={styles.thumb} resizeMode="cover" />
-                : <Text style={styles.thumbEmoji}>{item.sport?.emoji ?? '⚽'}</Text>}
-            </View>
-            <View style={styles.rowText}>
-              <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.rowMeta}>{cap(item.difficulty)}{item.category ? ` · ${item.category.name}` : ''}</Text>
-            </View>
+    <Screen scroll>
+      <View style={styles.header}>
+        {pack.cover_image_url ? (
+          <Image source={{ uri: pack.cover_image_url }} style={styles.cover} resizeMode="cover" />
+        ) : (
+          <View style={styles.coverFallback}>
+            <Text style={styles.coverEmoji}>{pack.sport?.emoji ?? '⚽'}</Text>
           </View>
         )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No challenges in this pack yet.</Text>
-          </View>
-        }
-      />
+        <Text style={styles.title}>{pack.name}</Text>
+        {pack.description ? <Text style={styles.desc}>{pack.description}</Text> : null}
+        <View style={styles.metaRow}>
+          <Text style={styles.metaChip}>{pack.sport?.name ?? 'All sports'}</Text>
+          <Text style={styles.metaChip}>{count} {count === 1 ? 'challenge' : 'challenges'}</Text>
+          {pack.difficulty ? <Text style={styles.metaChip}>{cap(pack.difficulty)}</Text> : null}
+          {isCompleted ? <Text style={[styles.metaChip, styles.completedChip]}>✓ Completed</Text> : null}
+          {isActive ? <Text style={[styles.metaChip, styles.activeChip]}>In progress</Text> : null}
+        </View>
+
+        {playable ? (
+          <AppButton
+            title={ctaLabel}
+            onPress={() => handlePlay(pack.name)}
+            loading={starting}
+            style={styles.cta}
+          />
+        ) : (
+          <Text style={styles.note}>This pack has no ready challenges yet. Check back soon.</Text>
+        )}
+        {error ? <Text style={styles.errorInline}>{error}</Text> : null}
+      </View>
     </Screen>
   );
 }
@@ -138,8 +123,13 @@ function cap(s: string): string {
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 240 },
-    listContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
     header: { marginBottom: spacing.md },
+    cover: { width: '100%', height: 160, borderRadius: 12, marginBottom: spacing.md },
+    coverFallback: {
+      width: '100%', height: 120, borderRadius: 12, marginBottom: spacing.md,
+      backgroundColor: theme.surfaceElevated, alignItems: 'center', justifyContent: 'center',
+    },
+    coverEmoji: { fontSize: 48 },
     title: { fontSize: 24, fontWeight: '800', color: theme.text },
     desc: { fontSize: 14, color: theme.textSecondary, marginTop: spacing.xs, lineHeight: 20 },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.sm },
@@ -152,21 +142,6 @@ function createStyles(theme: ThemeTokens) {
     completedChip: { color: theme.success, fontWeight: '700' },
     activeChip: { color: theme.primary, fontWeight: '700' },
     errorInline: { color: theme.danger, fontSize: 13, marginTop: spacing.sm },
-    row: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
-      padding: spacing.sm, marginBottom: spacing.sm,
-    },
-    thumbWrap: {
-      width: 56, height: 56, borderRadius: 8, overflow: 'hidden',
-      backgroundColor: theme.surfaceElevated, alignItems: 'center', justifyContent: 'center',
-    },
-    thumb: { width: '100%', height: '100%' },
-    thumbEmoji: { fontSize: 24 },
-    rowText: { flex: 1 },
-    rowTitle: { fontSize: 15, fontWeight: '600', color: theme.text },
-    rowMeta: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
-    empty: { alignItems: 'center', paddingVertical: spacing.xxl },
     emptyText: { fontSize: 15, color: theme.textMuted, textAlign: 'center' },
   });
 }

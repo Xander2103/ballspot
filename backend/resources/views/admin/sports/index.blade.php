@@ -5,6 +5,7 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">Sports</h1>
+    <a href="/admin/sports/create" class="btn btn-primary">+ New Sport</a>
 </div>
 
 <p class="text-muted small mb-3">
@@ -26,6 +27,7 @@
                     <th>Status</th>
                     <th>Content readiness</th>
                     <th>Set status</th>
+                    <th style="width:130px">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -75,10 +77,21 @@
                             </form>
                         @endif
                     </td>
+                    <td>
+                        <a href="/admin/sports/{{ $sport->id }}/edit" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        @if($sport->slug !== 'football' && $sport->challenges_count === 0)
+                            <form action="/admin/sports/{{ $sport->id }}" method="POST" class="d-inline"
+                                  onsubmit="return confirm('Delete {{ $sport->name }}? This cannot be undone.');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                            </form>
+                        @endif
+                    </td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-4">
+                    <td colspan="9" class="text-center text-muted py-4">
                         No sports yet.
                     </td>
                 </tr>

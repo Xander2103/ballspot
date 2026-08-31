@@ -108,9 +108,13 @@ class DailyChallengeController extends Controller
             'has_daily'       => true,
             'already_played'  => $alreadyPlayed,
             'daily_challenge' => [
-                'id'             => $dc->id,
-                'challenge_date' => $dc->challenge_date->toDateString(),
-                'challenge'      => $challengeData,
+                'id'                => $dc->id,
+                'challenge_date'    => $dc->challenge_date->toDateString(),
+                // Monthly progress: "Daily Challenge 4/31", derived from the
+                // challenge date so it resets automatically each month.
+                'daily_month_index' => $dc->challenge_date->day,
+                'daily_month_total' => $dc->challenge_date->daysInMonth,
+                'challenge'         => $challengeData,
                 // SECURITY: never include ball_x_ratio, ball_y_ratio, reveal_image_url in today response
             ],
         ]);

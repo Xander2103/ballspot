@@ -61,12 +61,16 @@ function DailyCard({
   }
 
   const emoji = today.daily_challenge?.challenge?.sport?.emoji ?? '⚽';
+  // Monthly progress ("Day 4 of 31") from the backend; absent on older servers.
+  const monthIndex = today.daily_challenge?.daily_month_index;
+  const monthTotal = today.daily_challenge?.daily_month_total;
+  const monthProgress = monthIndex && monthTotal ? ` · Day ${monthIndex} of ${monthTotal}` : '';
 
   if (today.already_played) {
     return (
       <View style={styles.dailyCard}>
         <Text style={styles.dailyCardTitle}>{emoji} Daily Ball Challenge</Text>
-        <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
+        <Text style={styles.dailyCardDate}>{todayDateFormatted()}{monthProgress}</Text>
         {!!stats?.current_streak && <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>}
         <AppButton
           title="View Today's Result"
@@ -81,7 +85,7 @@ function DailyCard({
   return (
     <View style={styles.dailyCard}>
       <Text style={styles.dailyCardTitle}>{emoji} Daily Ball Challenge</Text>
-      <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
+      <Text style={styles.dailyCardDate}>{todayDateFormatted()}{monthProgress}</Text>
       {today.daily_challenge?.challenge && (
         <Text style={styles.dailyChallengeInfo}>
           {today.daily_challenge.challenge.category ? `${today.daily_challenge.challenge.category.name} · ` : ''}

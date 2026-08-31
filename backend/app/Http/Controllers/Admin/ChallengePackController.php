@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Badge;
 use App\Models\Challenge;
 use App\Models\ChallengePack;
 use App\Models\Sport;
@@ -50,6 +51,8 @@ class ChallengePackController extends Controller
                 : null,
         ]);
 
+        $this->syncCompletionTrophy($pack, $request->boolean('award_completion_trophy'));
+
         return redirect('/admin/packs/' . $pack->id . '/edit')
             ->with('success', 'Pack created. Now add challenges below.');
     }
@@ -59,8 +62,11 @@ class ChallengePackController extends Controller
         $pack->load('challenges', 'sport');
 
         // Candidate challenges to add: scoped to the pack's sport when set.
+        // Pack-pool content lists first — packs are curated from the Pack pool;
+        // other pools stay selectable for explicit admin picks.
         $available = Challenge::with('sport')
             ->when($pack->sport_id, fn ($q) => $q->where('sport_id', $pack->sport_id))
+            ->orderByRaw("CASE WHEN usage_pool = 'pack' THEN 0 ELSE 1 END")
             ->orderBy('title')
             ->get();
 
@@ -95,6 +101,8 @@ class ChallengePackController extends Controller
             'is_featured'      => $request->boolean('is_featured'),
             'cover_image_path' => $data['cover_image_path'] ?? $pack->cover_image_path,
         ]);
+
+        $this->syncCompletionTrophy($pack, $request->boolean('award_completion_trophy'));
 
         // Sync membership. sort_order follows the submitted order so simple
         // reordering works without a drag UI. Detach never deletes challenges.
@@ -138,7 +146,43 @@ class ChallengePackController extends Controller
             'sort_order'  => ['nullable', 'integer', 'min:0'],
             'is_featured' => ['boolean'],
             'cover_image' => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+            'award_completion_trophy' => ['boolean'],
         ]);
+    }
+
+    /**
+     * Create/link or unlink the per-pack completion trophy. The badge code is
+     * keyed on the pack id, so re-saving the pack reuses (and renames) the same
+     * badge row instead of creating duplicates. Disabling only unlinks — users
+     * who already earned the trophy keep it.
+     */
+    private function syncCompletionTrophy(ChallengePack $pack, bool $enabled): void
+    {
+        if (!$enabled) {
+            if ($pack->completion_badge_id) {
+                $pack->update(['completion_badge_id' => null]);
+            }
+            return;
+        }
+
+        $badge = Badge::updateOrCreate(
+            ['code' => "pack_{$pack->id}_completed"],
+            [
+                'name'        => "{$pack->name} Completed",
+                'description' => "Complete the {$pack->name} challenge pack.",
+                'icon'        => $pack->sport?->emoji ?? '🏆',
+                'category'    => 'pack',
+                'rarity'      => match ($pack->difficulty) {
+                    'hard'            => 'epic',
+                    'medium', 'mixed' => 'rare',
+                    default           => 'common',
+                },
+            ],
+        );
+
+        if ($pack->completion_badge_id !== $badge->id) {
+            $pack->update(['completion_badge_id' => $badge->id]);
+        }
     }
 
     private function uniqueSlug(string $source, ?int $ignoreId): string

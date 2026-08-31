@@ -74,4 +74,19 @@
             <label class="form-check-label" for="is_featured">Featured</label>
         </div>
     </div>
+
+    <div class="col-12">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="award_completion_trophy" name="award_completion_trophy" value="1"
+                   {{ old('award_completion_trophy', ($pack->completion_badge_id ?? null) !== null) ? 'checked' : '' }}>
+            <label class="form-check-label" for="award_completion_trophy">
+                🏆 Create trophy for completing this pack
+            </label>
+            <div class="form-text">
+                Players earn this trophy once, the first time they finish the pack.
+                The trophy name follows the pack name; its rarity follows the pack difficulty.
+                Unchecking stops future awards (already-earned trophies are kept).
+            </div>
+        </div>
+    </div>
 </div>

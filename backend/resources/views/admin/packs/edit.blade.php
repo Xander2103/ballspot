@@ -28,7 +28,7 @@
                 <select name="challenges[]" multiple size="12" class="form-select">
                     @foreach($available as $ch)
                         <option value="{{ $ch->id }}" {{ $selected->contains($ch->id) ? 'selected' : '' }}>
-                            {{ $ch->title }} — {{ ucfirst($ch->difficulty) }} / {{ ucfirst($ch->status) }}{{ $ch->isReadyForDaily() ? '' : ' (not ready)' }}
+                            {{ $ch->title }} — {{ ucfirst($ch->difficulty) }} / {{ ucfirst($ch->status) }} [{{ ucfirst($ch->usage_pool) }} pool]{{ $ch->isReadyForDaily() ? '' : ' (not ready)' }}
                         </option>
                     @endforeach
                 </select>

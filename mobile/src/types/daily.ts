@@ -16,6 +16,10 @@ export interface ChallengeTag {
 export interface DailyChallengeEntry {
   id: number;
   challenge_date: string;
+  /** Day number of the challenge date within its month (1-based), e.g. 4 for Aug 4. */
+  daily_month_index?: number;
+  /** Number of days in the challenge date's month (28-31). */
+  daily_month_total?: number;
   challenge: {
     id: number;
     title: string;

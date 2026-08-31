@@ -19,9 +19,9 @@
         @endforeach
     </select>
     <div class="form-text">
-        <div><span class="badge bg-pool-daily">Daily only</span> reserved for the Daily Challenge schedule. <strong>Daily-used challenges are automatically excluded from tournaments.</strong></div>
+        <div><span class="badge bg-pool-daily">Daily only</span> Daily challenges are exclusive and will not be used in tournaments. <strong>Once used as a Daily, a photo is excluded from tournaments forever.</strong></div>
         <div class="mt-1"><span class="badge bg-pool-tournament">Tournament</span> Tournament challenges are used for friend tournaments (never reused within one tournament).</div>
-        <div class="mt-1"><span class="badge bg-pool-pack">Pack</span> curated pack content only — never auto-selected.</div>
+        <div class="mt-1"><span class="badge bg-pool-pack">Pack</span> Pack challenges are used for singleplayer challenge packs — kept separate from Daily and Tournament content, never auto-selected.</div>
         <div class="mt-1"><span class="badge bg-pool-general">General</span> may be used for Daily <em>and</em> tournaments (until used as a Daily).</div>
     </div>
     @if($dailyUsed)

@@ -48,6 +48,12 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::get('competition', [\App\Http\Controllers\Admin\CompetitionController::class, 'index'])->name('admin.competition.index');
 
     Route::get('sports', [\App\Http\Controllers\Admin\SportController::class, 'index'])->name('admin.sports.index');
+    Route::get('sports/create', [\App\Http\Controllers\Admin\SportController::class, 'create'])->name('admin.sports.create');
+    Route::post('sports', [\App\Http\Controllers\Admin\SportController::class, 'store'])->name('admin.sports.store');
+    Route::get('sports/{sport}/edit', [\App\Http\Controllers\Admin\SportController::class, 'edit'])->name('admin.sports.edit');
+    Route::put('sports/{sport}', [\App\Http\Controllers\Admin\SportController::class, 'update'])->name('admin.sports.update');
+    // No hard-delete of sports with content — hide/archive via status instead.
+    Route::delete('sports/{sport}', [\App\Http\Controllers\Admin\SportController::class, 'destroy'])->name('admin.sports.destroy');
     Route::post('sports/{sport}/status', [\App\Http\Controllers\Admin\SportController::class, 'updateStatus'])
         ->name('admin.sports.status');
 

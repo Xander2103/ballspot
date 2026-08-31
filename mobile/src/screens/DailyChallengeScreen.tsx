@@ -121,6 +121,10 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   const imageUrl = challenge.challenge.hidden_image_url;
 
   const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  // Monthly progress ("Daily 4/31") from the backend; absent on older servers.
+  const monthProgress = challenge.daily_month_index && challenge.daily_month_total
+    ? ` · Daily ${challenge.daily_month_index}/${challenge.daily_month_total}`
+    : '';
 
   const guessLabel = hasGuess
     ? `Guess locked at ${Math.round(guessX! * 100)}%, ${Math.round(guessY! * 100)}%`
@@ -130,7 +134,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
     <Screen scroll={false} padding={false}>
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>
-          <Text style={styles.dateLabel}>{todayLabel}</Text>
+          <Text style={styles.dateLabel}>{todayLabel}{monthProgress}</Text>
           <View style={styles.badges}>
             {challenge.challenge.sport ? (
               <View style={[styles.catBadge, { backgroundColor: (challenge.challenge.sport.primary_color ?? theme.primary) + '26' }]}>

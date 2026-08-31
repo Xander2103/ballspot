@@ -399,6 +399,13 @@ class BadgeService
 
         $awarded[] = $this->award($user, 'first_pack_completed', $context);
 
+        // Per-pack completion trophy (admin opt-in). award() is idempotent, so
+        // replays and races cannot duplicate it.
+        $packBadge = $attempt->pack?->completionBadge;
+        if ($packBadge) {
+            $awarded[] = $this->award($user, $packBadge->code, $context);
+        }
+
         $guesses = $attempt->guesses;
         if ($guesses->isNotEmpty() && $guesses->every(fn ($g) => $this->scoreService->isPerfectScore((int) $g->score))) {
             $awarded[] = $this->award($user, 'perfect_pack', $context);

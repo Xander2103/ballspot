@@ -363,6 +363,33 @@ class ChallengeFairnessTest extends TestCase
         $this->assertSame('tournament', $c->fresh()->usage_pool);
     }
 
+    public function test_admin_update_stores_pack_pool_and_it_is_not_tournament_eligible(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $c = $this->challenge($this->sport(), 'PackPhoto');
+
+        $this->actingAs($admin)->patch("/admin/challenges/{$c->id}", [
+            'title' => 'PackPhoto', 'difficulty' => 'easy', 'status' => 'active',
+            'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5,
+            'usage_pool' => Challenge::POOL_PACK,
+        ])->assertRedirect('/admin/challenges');
+
+        $c->refresh();
+        $this->assertSame(Challenge::POOL_PACK, $c->usage_pool);
+        $this->assertFalse(Challenge::tournamentEligible()->where('id', $c->id)->exists());
+    }
+
+    public function test_admin_list_shows_pack_badge_for_pack_only_challenge(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+        $this->challenge($this->sport(), 'PackBadgeOne', ['usage_pool' => Challenge::POOL_PACK]);
+
+        $this->actingAs($admin)->get('/admin/challenges')
+            ->assertOk()
+            ->assertSee('bg-pool-pack', false)
+            ->assertSee('Pack');
+    }
+
     public function test_admin_challenge_pages_show_pool_and_daily_used(): void
     {
         $admin = User::factory()->create(['is_admin' => true]);
