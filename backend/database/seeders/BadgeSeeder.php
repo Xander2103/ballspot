@@ -67,6 +67,12 @@ class BadgeSeeder extends Seeder
             ['code' => 'golden_touch',       'name' => 'Golden Touch',       'icon' => '✨', 'category' => 'rank',        'rarity' => 'epic',      'description' => 'Reach the Legend rank.'],
             ['code' => 'legend_status',      'name' => 'Legend Status',      'icon' => '🐐', 'category' => 'rank',        'rarity' => 'legendary', 'description' => 'Reach the Ball Master rank.'],
             ['code' => 'tournament_beast',   'name' => 'Tournament Beast',   'icon' => '🦁', 'category' => 'tournament',  'rarity' => 'epic',      'description' => 'Finish on the podium in three tournaments.'],
+
+            // --- v1.9.3 tournament skill trophies (awarded on completion) ------
+            // "Sharpshooter" (one word) is distinct from the daily "Sharp
+            // Shooter" (top_10_percent_daily) and skill "Sharp Scorer".
+            ['code' => 'sharpshooter',       'name' => 'Sharpshooter',       'icon' => '🏹', 'category' => 'tournament',  'rarity' => 'rare',      'description' => 'Hit the closest single guess of a tournament.'],
+            ['code' => 'most_consistent',    'name' => 'Most Consistent',    'icon' => '📊', 'category' => 'tournament',  'rarity' => 'rare',      'description' => 'Post the best average score of a tournament.'],
         ];
 
         foreach ($badges as $i => $badge) {
