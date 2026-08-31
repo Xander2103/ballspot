@@ -12,6 +12,7 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { League, LobbyMember } from '../types/league';
 import { LeaderboardEntry } from '../types/guess';
+import { rivalryLine, daysLeftLabel } from '../utils/rivalry';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
@@ -108,6 +109,9 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
     }
   }
 
+  const rivalry = league?.status === 'active' ? rivalryLine(leaderboard) : null;
+  const daysLeft = league?.status === 'active' ? daysLeftLabel(league?.ends_at) : null;
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -197,6 +201,12 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
 
       {league?.status === 'active' && (
         <View style={styles.section}>
+          {(rivalry || daysLeft) && (
+            <View style={styles.rivalryBox}>
+              {rivalry && <Text style={styles.rivalryText}>{rivalry}</Text>}
+              {daysLeft && <Text style={styles.rivalryDays}>{daysLeft}</Text>}
+            </View>
+          )}
           {dailyLimitReached ? (
             <View style={styles.doneBox}>
               <Text style={styles.doneText}>✓ You've played all rounds for today</Text>
@@ -337,6 +347,17 @@ const styles = StyleSheet.create({
   },
   waitingText: { color: colors.textSecondary, fontSize: 14, fontStyle: 'italic' },
   playBtn: { marginBottom: 0 },
+  rivalryBox: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  rivalryText: { fontSize: 14, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  rivalryDays: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   doneBox: {
     backgroundColor: colors.surface,
     borderRadius: 12,
