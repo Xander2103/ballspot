@@ -291,14 +291,30 @@ class BadgeService
         // finish rows are all persisted here, so a plain count is correct.
         $awarded = array_merge($awarded, $this->evaluateRankBadges($user));
 
-        $podiums = \App\Models\TournamentFinish::where('user_id', $user->id)
-            ->where('placement', '<=', 3)
-            ->count();
+        $podiums = $this->podiumFinishCount($user);
         if ($podiums >= 3) {
             $awarded[] = $this->award($user, 'tournament_beast', ['podiums' => $podiums]);
         }
 
         return $this->clean($awarded);
+    }
+
+    /**
+     * A user's podium finishes under the v1.9.3 definition: placement <= 3 in
+     * a field of at least 3 players (in a 2-player tournament everybody is
+     * "top 3"). Rows without total_players metadata are grandfathered in —
+     * every real finish row stores it, so this only shields odd legacy data.
+     */
+    private function podiumFinishCount(User $user, ?int $excludeLeagueId = null): int
+    {
+        return \App\Models\TournamentFinish::where('user_id', $user->id)
+            ->where('placement', '<=', 3)
+            ->when($excludeLeagueId !== null, fn ($q) => $q->where('league_id', '!=', $excludeLeagueId))
+            ->where(function ($q) {
+                $q->whereNull('metadata')
+                  ->orWhere('metadata->total_players', '>=', 3);
+            })
+            ->count();
     }
 
     /**
@@ -332,13 +348,11 @@ class BadgeService
         if ($placement <= 3 && $totalPlayers >= 3) {
             $awarded[] = $this->award($user, 'podium_finish', ['league_id' => $league->id, 'placement' => $placement]);
 
-            // v1.8.8 Tournament Beast: three podium finishes. The CURRENT
-            // finish row is persisted after this method runs, so count prior
-            // podiums (excluding this league — replay-safe) plus this one.
-            $podiums = \App\Models\TournamentFinish::where('user_id', $user->id)
-                ->where('placement', '<=', 3)
-                ->where('league_id', '!=', $league->id)
-                ->count() + 1;
+            // v1.8.8 Tournament Beast: three podium finishes (same >= 3
+            // players definition as podium_finish). The CURRENT finish row is
+            // persisted after this method runs, so count prior podiums
+            // (excluding this league — replay-safe) plus this one.
+            $podiums = $this->podiumFinishCount($user, $league->id) + 1;
             if ($podiums >= 3) {
                 $awarded[] = $this->award($user, 'tournament_beast', ['podiums' => $podiums]);
             }

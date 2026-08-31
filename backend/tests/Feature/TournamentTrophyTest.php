@@ -8,7 +8,9 @@ use App\Models\League;
 use App\Models\LeagueMember;
 use App\Models\LeagueRound;
 use App\Models\Sport;
+use App\Models\TournamentFinish;
 use App\Models\User;
+use App\Services\BadgeService;
 use App\Services\TournamentCompletionService;
 use Database\Seeders\BadgeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -218,6 +220,32 @@ class TournamentTrophyTest extends TestCase
             $this->assertFalse($this->hasBadge($owner, 'sharpshooter'), $status);
             $this->assertDatabaseHas('leagues', ['id' => $league->id, 'status' => $status]);
         }
+    }
+
+    public function test_two_player_finishes_do_not_count_toward_tournament_beast(): void
+    {
+        // Podium (and therefore Tournament Beast progress) uses the same
+        // >= 3 players definition everywhere: two prior 2-player finishes are
+        // not podiums, so this user's first real podium must not award beast.
+        $user = User::factory()->create();
+        $sport = Sport::firstOrCreate(['slug' => 'football'], ['name' => 'Football']);
+        $makeLeague = fn () => League::create([
+            'name' => 'T', 'join_code' => strtoupper(Str::random(6)), 'owner_user_id' => $user->id,
+            'sport_id' => $sport->id, 'duration_days' => 1, 'rounds_per_day' => 1, 'status' => 'completed',
+        ]);
+
+        foreach ([1, 2] as $placement) {
+            TournamentFinish::create([
+                'league_id' => $makeLeague()->id, 'user_id' => $user->id,
+                'placement' => $placement, 'total_score' => 100,
+                'metadata' => ['total_players' => 2],
+            ]);
+        }
+
+        app(BadgeService::class)->evaluateTournamentFinish($user, $makeLeague(), 3, 3);
+
+        $this->assertTrue($this->hasBadge($user, 'podium_finish'));
+        $this->assertFalse($this->hasBadge($user, 'tournament_beast'));
     }
 
     public function test_league_with_no_guesses_does_not_crash_standings(): void

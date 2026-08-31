@@ -67,6 +67,24 @@ describe('rivalryLine', () => {
     expect(line).toBe('You are 50 points behind sam99');
   });
 
+  it('handles stringified scores from the production MySQL API', () => {
+    // SUM() aggregates come back as strings on MySQL — the line must still work.
+    const line = rivalryLine([
+      entry({ user_id: 1, total_score: '120' as unknown as number, is_current_user: true }),
+      entry({ user_id: 2, total_score: '95' as unknown as number, name: 'Sam' }),
+    ]);
+    expect(line).toBe('You are leading by 25 points');
+  });
+
+  it('sorts stringified scores numerically, not lexicographically', () => {
+    // "9" > "85" as strings; as numbers the 85 leads.
+    const line = rivalryLine([
+      entry({ user_id: 1, total_score: '9' as unknown as number, is_current_user: true }),
+      entry({ user_id: 2, total_score: '85' as unknown as number, name: 'Sam' }),
+    ]);
+    expect(line).toBe('You are 76 points behind Sam');
+  });
+
   it('hides for empty, single-entry, or malformed standings', () => {
     expect(rivalryLine([])).toBeNull();
     expect(rivalryLine(null)).toBeNull();
