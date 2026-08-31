@@ -37,7 +37,7 @@ export function PackResultScreen({ route, navigation }: Props) {
 
   return (
     <Screen scroll={false} padding={false}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.content}>
         {/* Score */}
         <View style={styles.scoreCard}>
           <Text style={styles.scoreValue}>{r.score}</Text>
@@ -120,6 +120,10 @@ export function PackResultScreen({ route, navigation }: Props) {
 
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
+    // Bound the scroll area so it scrolls internally instead of pushing the
+    // sticky footer (Next challenge / Back to Packs) off-screen when the
+    // reveal image is taller than the viewport.
+    scrollArea: { flex: 1 },
     content: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
     scoreCard: { alignItems: 'center', backgroundColor: theme.surface, borderRadius: 16, paddingVertical: spacing.lg, borderWidth: 1, borderColor: theme.border },
     scoreValue: { fontSize: 48, fontWeight: '800', color: theme.primary },

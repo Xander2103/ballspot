@@ -102,7 +102,9 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const total = attempt.total_challenges;
 
   return (
-    <Screen scroll={false} padding={false}>
+    // scroll: a portrait image (height = width / aspect) can overflow small
+    // phones; without scrolling the Submit footer becomes unreachable.
+    <Screen scroll padding={false}>
       <View style={styles.infoCard}>
         <Text style={styles.progressLabel}>Challenge {step} / {total}</Text>
         <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>

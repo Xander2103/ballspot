@@ -136,7 +136,9 @@ export function GuessScreen({ route, navigation }: Props) {
     : 'Tap the image to place your guess';
 
   return (
-    <Screen scroll={false} padding={false}>
+    // scroll: a portrait image (height = width / aspect) can overflow small
+    // phones; without scrolling the Submit footer becomes unreachable.
+    <Screen scroll padding={false}>
       {/* Challenge info card */}
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>

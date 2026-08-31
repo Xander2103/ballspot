@@ -1,11 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet, FlatList, StyleProp, ViewStyle } from 'react-native';
 import { LeaderboardEntry } from '../types/guess';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 
 interface Props {
   entries: LeaderboardEntry[];
+  /**
+   * Pass { flex: 1 } when this list is the main content of a non-scrolling
+   * screen, so it is bounded and scrolls internally instead of clipping its
+   * last rows. Leave unset when nested inside a ScrollView (e.g. the top-3
+   * preview on the tournament detail screen).
+   */
+  style?: StyleProp<ViewStyle>;
 }
 
 function getRankEmoji(rank: number) {
@@ -33,7 +40,7 @@ function EntryRow({ item }: { item: LeaderboardEntry }) {
   );
 }
 
-export function LeaderboardList({ entries }: Props) {
+export function LeaderboardList({ entries, style }: Props) {
   if (entries.length === 0) {
     return (
       <View style={styles.emptyWrap}>
@@ -49,6 +56,8 @@ export function LeaderboardList({ entries }: Props) {
       keyExtractor={(item) => String(item.user_id)}
       renderItem={({ item }) => <EntryRow item={item} />}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
+      style={style}
+      contentContainerStyle={styles.listContent}
     />
   );
 }
@@ -66,6 +75,7 @@ const styles = StyleSheet.create({
   scoreHighlight: { color: colors.warning },
   guesses: { fontSize: 11, color: colors.textMuted },
   separator: { height: 1, backgroundColor: colors.border, marginLeft: spacing.md },
+  listContent: { paddingBottom: spacing.md },
   emptyWrap: { padding: spacing.xxl, alignItems: 'center' },
   emptyIcon: { fontSize: 48, marginBottom: spacing.md },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },

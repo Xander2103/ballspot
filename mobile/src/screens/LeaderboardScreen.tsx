@@ -43,7 +43,8 @@ export function LeaderboardScreen({ route }: Props) {
           score={meta.current_user_score}
         />
       ) : null}
-      <LeaderboardList entries={entries} />
+      {/* flex: 1 bounds the list so it scrolls internally on small screens. */}
+      <LeaderboardList entries={entries} style={{ flex: 1 }} />
     </Screen>
   );
 }
