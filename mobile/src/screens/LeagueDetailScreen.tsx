@@ -10,6 +10,7 @@ import { leagueApi } from '../api/leagueApi';
 import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { getApiErrorMessage } from '../utils/apiError';
 import { League, LobbyMember } from '../types/league';
 import { LeaderboardEntry } from '../types/guess';
 import { rivalryLine, daysLeftLabel } from '../utils/rivalry';
@@ -88,8 +89,8 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
       await leagueApi.start(league.id);
       setShowStartConfirm(false);
       await load();
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to start tournament');
+    } catch (e: unknown) {
+      Alert.alert('Could not start tournament', getApiErrorMessage(e, 'Failed to start tournament. Please try again.'));
     } finally {
       setStarting(false);
     }

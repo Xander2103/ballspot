@@ -133,15 +133,24 @@ class Challenge extends Model
     }
 
     /**
+     * SQL-only approximation of isReady(): hidden image + ball position present
+     * (title/sport are NOT NULL columns). Used by list filters and diagnostics
+     * so counts never load every row into PHP.
+     */
+    public function scopeReadySql(Builder $query): Builder
+    {
+        return $query->whereNotNull('hidden_image_path')
+            ->where('hidden_image_path', '!=', '')
+            ->whereNotNull('ball_x_ratio')
+            ->whereNotNull('ball_y_ratio');
+    }
+
+    /**
      * SQL-only approximation of isTournamentEligible() for list filtering.
-     * Readiness = hidden image + ball position present (title/sport are NOT NULL columns).
      */
     public function scopeTournamentEligibleStrict(Builder $query): Builder
     {
-        return $query->tournamentEligible()
-            ->whereNotNull('hidden_image_path')
-            ->whereNotNull('ball_x_ratio')
-            ->whereNotNull('ball_y_ratio');
+        return $query->tournamentEligible()->readySql();
     }
 
     public function scopeTournamentBlocked(Builder $query): Builder

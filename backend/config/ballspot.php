@@ -5,6 +5,10 @@ return [
     // monitored mailbox or the legal pages advertise a dead address.
     'support_email' => env('BALLSPOT_SUPPORT_EMAIL', 'info@vanmalderstudio.be'),
 
+    // Human-readable release label shown in the admin header, on
+    // /admin/diagnostics and in operational logs. Bump per deploy.
+    'version'       => env('BALLPICKER_APP_VERSION', 'v1'),
+
     // Marketing / legal website (privacy, terms). NOT the app frontend — see
     // frontend_url below for deep links back into the running app.
     'web_url'       => env('BALLSPOT_WEB_URL', env('APP_URL', 'http://localhost')),

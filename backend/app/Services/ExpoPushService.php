@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AdminNotification;
 use App\Models\PushToken;
+use App\Support\AppLog;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -39,6 +40,7 @@ class ExpoPushService
                 'status'   => AdminNotification::STATUS_DRAFT,
                 'metadata' => ['reason' => 'push_disabled', 'recipients' => 0],
             ]);
+            AppLog::warn('push.announcement_skipped', ['notification_id' => $notification->id, 'reason' => 'push_disabled']);
 
             return $notification->fresh();
         }
@@ -64,16 +66,27 @@ class ExpoPushService
 
         $outcome = $this->sendMessages($messages);
 
+        $status = $outcome['failed'] > 0 && $outcome['sent'] === 0
+            ? AdminNotification::STATUS_FAILED
+            : AdminNotification::STATUS_SENT;
+
         $notification->update([
-            'status'   => $outcome['failed'] > 0 && $outcome['sent'] === 0
-                ? AdminNotification::STATUS_FAILED
-                : AdminNotification::STATUS_SENT,
+            'status'   => $status,
             'sent_at'  => now(),
             'metadata' => [
                 'recipients' => $tokens->count(),
                 'sent'       => $outcome['sent'],
                 'failed'     => $outcome['failed'],
             ],
+        ]);
+
+        AppLog::event('push.announcement', [
+            'notification_id' => $notification->id,
+            'target'          => $notification->target_type,
+            'status'          => $status,
+            'recipients'      => $tokens->count(),
+            'sent'            => $outcome['sent'],
+            'failed'          => $outcome['failed'],
         ]);
 
         return $notification->fresh();
@@ -93,6 +106,9 @@ class ExpoPushService
         $sent = 0;
         $failed = 0;
         $invalid = [];
+        $failureReasons = [];
+
+        AppLog::event('push.attempt', ['message_count' => count($messages), 'batches' => (int) ceil(count($messages) / self::BATCH_SIZE)]);
 
         foreach (array_chunk($messages, self::BATCH_SIZE) as $chunk) {
             try {
@@ -100,13 +116,17 @@ class ExpoPushService
                     ->acceptJson()
                     ->post(config('ballspot.notifications.expo_push_url'), $chunk);
             } catch (\Throwable $e) {
-                Log::warning('Expo push send failed', ['error' => $e->getMessage(), 'count' => count($chunk)]);
+                // Exception class only — the message could echo request data.
+                AppLog::warn('push.batch_failed', ['reason' => 'http_exception', 'exception' => get_class($e), 'count' => count($chunk)]);
                 $failed += count($chunk);
+                $failureReasons['http_exception'] = ($failureReasons['http_exception'] ?? 0) + count($chunk);
                 continue;
             }
 
             if (! $response->successful()) {
+                AppLog::warn('push.batch_failed', ['reason' => 'http_status', 'status' => $response->status(), 'count' => count($chunk)]);
                 $failed += count($chunk);
+                $failureReasons['http_' . $response->status()] = ($failureReasons['http_' . $response->status()] ?? 0) + count($chunk);
                 continue;
             }
 
@@ -120,7 +140,9 @@ class ExpoPushService
                     continue;
                 }
                 $failed++;
-                if (($ticket['details']['error'] ?? null) === 'DeviceNotRegistered') {
+                $reason = (string) ($ticket['details']['error'] ?? 'ticket_error');
+                $failureReasons[$reason] = ($failureReasons[$reason] ?? 0) + 1;
+                if ($reason === 'DeviceNotRegistered') {
                     $invalid[] = $message['to'];
                 }
             }
@@ -130,6 +152,13 @@ class ExpoPushService
         if ($invalid !== []) {
             $removed = PushToken::whereIn('token', $invalid)->delete();
             Log::info('Pruned DeviceNotRegistered push tokens', ['count' => $removed]);
+        }
+
+        if ($failed > 0) {
+            // Reason categories + counts only. Never the Expo tokens.
+            AppLog::warn('push.failures', ['sent' => $sent, 'failed' => $failed, 'reasons' => $failureReasons, 'invalid_tokens_removed' => $removed]);
+        } else {
+            AppLog::event('push.sent', ['sent' => $sent, 'failed' => 0, 'invalid_tokens_removed' => $removed]);
         }
 
         return ['sent' => $sent, 'failed' => $failed, 'invalid_tokens_removed' => $removed];

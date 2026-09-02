@@ -8,8 +8,10 @@ use App\Models\ChallengeSubcategory;
 use App\Models\DailyChallenge;
 use App\Models\Sport;
 use App\Models\Tag;
+use App\Support\AppLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class ChallengeController extends Controller
 {
@@ -105,7 +107,7 @@ class ChallengeController extends Controller
     {
         $this->normalizeBallRatios($request);
 
-        $data = $request->validate([
+        $data = $this->validateChallenge($request, [
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
             'status'                 => ['required', 'in:draft,active,archived'],
@@ -144,6 +146,11 @@ class ChallengeController extends Controller
         $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
         $challenge->subcategories()->sync($data['subcategories'] ?? []);
 
+        AppLog::event('admin.challenge_created', [
+            'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
+            'status' => $challenge->status, 'has_reveal' => $originalPath !== null, 'admin_user_id' => $request->user()->id,
+        ]);
+
         return redirect('/admin/challenges')->with('success', 'Challenge created.');
     }
 
@@ -160,7 +167,7 @@ class ChallengeController extends Controller
     {
         $this->normalizeBallRatios($request);
 
-        $data = $request->validate([
+        $data = $this->validateChallenge($request, [
             'title'                  => ['required', 'string', 'max:255'],
             'difficulty'             => ['required', 'in:easy,medium,hard'],
             'status'                 => ['required', 'in:draft,active,archived'],
@@ -207,7 +214,32 @@ class ChallengeController extends Controller
         $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
         $challenge->subcategories()->sync($data['subcategories'] ?? []);
 
+        AppLog::event('admin.challenge_updated', [
+            'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
+            'status' => $challenge->status, 'new_hidden_image' => $request->hasFile('hidden_image'),
+            'new_reveal_image' => $request->hasFile('original_image'), 'admin_user_id' => $request->user()->id,
+        ]);
+
         return redirect('/admin/challenges')->with('success', 'Challenge updated.');
+    }
+
+    /**
+     * Validate the challenge form and log the failing FIELD NAMES (never the
+     * values) so "my upload keeps failing" can be diagnosed from the log.
+     */
+    private function validateChallenge(Request $request, array $rules): array
+    {
+        try {
+            return $request->validate($rules);
+        } catch (ValidationException $e) {
+            $fields = array_keys($e->errors());
+            AppLog::warn('admin.challenge_validation_failed', [
+                'fields'         => $fields,
+                'upload_related' => (bool) array_intersect($fields, ['hidden_image', 'original_image']),
+                'admin_user_id'  => $request->user()?->id,
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -271,6 +303,10 @@ class ChallengeController extends Controller
         }
 
         $challenge->update(['status' => $data['status']]);
+        AppLog::event('admin.challenge_updated', [
+            'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
+            'status' => $challenge->status, 'quick_status' => true, 'admin_user_id' => $request->user()->id,
+        ]);
         $label = ucfirst($data['status']);
         return back()->with('success', "\"{$challenge->title}\" is now {$label}.");
     }

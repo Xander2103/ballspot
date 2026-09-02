@@ -10,6 +10,7 @@ import { authApi } from '../api/authApi';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { getApiErrorMessage } from '../utils/apiError';
 import type { Sport } from '../types/sport';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateLeague'>;
@@ -75,8 +76,8 @@ export function CreateLeagueScreen({ navigation }: Props) {
         sport_id: sport?.id ?? null,
       });
       navigation.replace('LeagueDetail', { leagueId: league.id, leagueName: league.name });
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Failed to create league');
+    } catch (e: unknown) {
+      Alert.alert('Could not create tournament', getApiErrorMessage(e, 'Failed to create tournament. Please try again.'));
     } finally {
       setLoading(false);
     }

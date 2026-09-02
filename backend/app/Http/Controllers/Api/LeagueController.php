@@ -96,7 +96,13 @@ class LeagueController extends Controller
             ->where('sport_id', $sport->id)
             ->exists();
 
+        $needed = $league->duration_days * $league->rounds_per_day;
+
         if (!$hasChallenges) {
+            \App\Support\AppLog::warn('tournament.start_failed', [
+                'league_id' => $league->id, 'user_id' => $userId, 'reason' => 'no_active_challenges',
+                'sport_id' => (int) $sport->id, 'requested_count' => $needed, 'eligible_count' => 0,
+            ]);
             return response()->json(
                 ['message' => "No active {$sport->name} challenges available. Add challenges in admin."],
                 422
@@ -106,8 +112,12 @@ class LeagueController extends Controller
         // v1.8.9 fairness: needs duration_days * rounds_per_day UNIQUE
         // tournament-eligible photos (never Daily-used). Same check as the
         // service, surfaced here so the API returns a plain 422 JSON body.
-        $needed = $league->duration_days * $league->rounds_per_day;
-        if ($this->leagueService->eligibleTournamentChallenges((int) $sport->id)->count() < $needed) {
+        $eligible = $this->leagueService->eligibleTournamentChallenges((int) $sport->id)->count();
+        if ($eligible < $needed) {
+            \App\Support\AppLog::warn('tournament.start_failed', [
+                'league_id' => $league->id, 'user_id' => $userId, 'reason' => 'not_enough_challenges',
+                'sport_id' => (int) $sport->id, 'requested_count' => $needed, 'eligible_count' => $eligible,
+            ]);
             return response()->json(['message' => LeagueService::NOT_ENOUGH_CHALLENGES_MESSAGE], 422);
         }
 

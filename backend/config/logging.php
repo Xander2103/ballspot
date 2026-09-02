@@ -58,6 +58,30 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        /*
+        | BallPicker operational events (see App\Support\AppLog). Info-level
+        | gameplay/content/auth events land in their own rotated file so they
+        | survive a production LOG_LEVEL=warning, AND are forwarded to the
+        | normal channels (where LOG_LEVEL still applies) so warnings show up
+        | in laravel.log too.
+        */
+        'events' => [
+            'driver'            => 'stack',
+            'channels'          => array_values(array_unique(array_merge(
+                ['events_file'],
+                explode(',', (string) env('LOG_STACK', 'single')),
+            ))),
+            'ignore_exceptions' => false,
+        ],
+
+        'events_file' => [
+            'driver'               => 'daily',
+            'path'                 => storage_path('logs/ballpicker-events.log'),
+            'level'                => env('LOG_EVENTS_LEVEL', 'info'),
+            'days'                 => env('LOG_EVENTS_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),

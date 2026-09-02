@@ -46,7 +46,9 @@
            href="/admin/notifications">Notifications</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/settings*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/settings">Settings</a>
-        <span class="text-secondary small ms-auto me-3">v1</span>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/diagnostics*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/diagnostics">Diagnostics</a>
+        <span class="text-secondary small ms-auto me-3">{{ config('ballspot.version', 'v1') }}</span>
         <form action="{{ route('admin.logout') }}" method="POST" class="mb-0">
             @csrf
             <button type="submit" class="btn btn-sm btn-outline-secondary text-white">Logout</button>

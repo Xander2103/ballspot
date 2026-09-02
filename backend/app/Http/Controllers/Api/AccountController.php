@@ -81,6 +81,8 @@ class AccountController extends Controller
         // sessions, which survive independently of Sanctum.
         $this->purgeWebSessions($id);
 
+        \App\Support\AppLog::event('account.anonymized', ['user_id' => $id]);
+
         return response()->json(['message' => 'Your account has been deleted.']);
     }
 

@@ -68,6 +68,11 @@ class ResetTestDailyHistory extends Command
 
         if (!$force && !$confirm) {
             $this->warn('DRY RUN — nothing deleted. Re-run with --force --confirm-prelaunch to delete.');
+            \App\Support\AppLog::event('daily.history_reset_dry_run', [
+                'daily_challenges'        => $dailyCount,
+                'daily_challenge_guesses' => $guessCount,
+                'affected_challenges'     => $affected->count(),
+            ]);
             return self::SUCCESS;
         }
 
@@ -88,6 +93,11 @@ class ResetTestDailyHistory extends Command
 
         $this->info("Deleted {$deletedGuesses} daily_challenge_guesses rows.");
         $this->info("Deleted {$deletedDailies} daily_challenges rows.");
+        \App\Support\AppLog::warn('daily.history_reset', [
+            'deleted_daily_challenges'        => $deletedDailies,
+            'deleted_daily_challenge_guesses' => $deletedGuesses,
+            'affected_challenges'             => $affected->count(),
+        ]);
         $this->info('Daily history reset. Challenges are no longer "Used as Daily"; usage_pool values unchanged.');
 
         return self::SUCCESS;

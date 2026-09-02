@@ -22,7 +22,9 @@ use App\Http\Controllers\Api\AvatarController;
 use App\Http\Controllers\Api\SportController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/health', fn() => response()->json(['status' => 'ok', 'timestamp' => now()]));
+// Public liveness check (deploy scripts / uptime monitor). Minimal by design —
+// detailed operational status lives on the admin-only /admin/diagnostics page.
+Route::get('/health', \App\Http\Controllers\Api\HealthController::class);
 
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
 

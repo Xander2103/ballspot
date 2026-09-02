@@ -31,6 +31,24 @@ class RegisterRequest extends FormRequest
         return $rules;
     }
 
+    /**
+     * Beta-gate failures are the #1 "I can't sign up" support question, so
+     * log the category (missing vs wrong) — never the submitted or expected
+     * code, never the email.
+     */
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator): void
+    {
+        $errors = $validator->errors();
+
+        if ($errors->has('beta_code')) {
+            \App\Support\AppLog::warn('auth.beta_code_rejected', [
+                'reason' => $this->filled('beta_code') ? 'invalid_code' : 'missing_code',
+            ]);
+        }
+
+        parent::failedValidation($validator);
+    }
+
     public function messages(): array
     {
         return [

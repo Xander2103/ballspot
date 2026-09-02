@@ -6,6 +6,7 @@ use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\EmailVerificationService;
 use App\Services\LoginVerificationService;
+use App\Support\AppLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -44,6 +45,12 @@ class AuthController extends Controller
 
         $token = $user->createToken('mobile')->plainTextToken;
 
+        AppLog::event('auth.registered', [
+            'user_id'               => $user->id,
+            'verification_required' => $this->emailVerificationRequired(),
+            'beta_gate'             => (bool) config('ballspot.beta_code'),
+        ]);
+
         return response()->json([
             'user'           => new UserResource($user),
             'token'          => $token,
@@ -81,6 +88,11 @@ class AuthController extends Controller
             if (!$user) {
                 Hash::make($request->password);
             }
+            // Category only — never the email, never the password.
+            AppLog::warn('auth.login_failed', [
+                'reason'  => $user ? 'wrong_password' : 'unknown_account',
+                'user_id' => $user?->id,
+            ]);
             throw ValidationException::withMessages(['email' => ['Invalid credentials.']]);
         }
 

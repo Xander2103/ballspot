@@ -8,6 +8,7 @@ use App\Models\PackAttempt;
 use App\Models\PackAttemptGuess;
 use App\Models\User;
 use App\Models\XpEvent;
+use App\Support\AppLog;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -42,10 +43,11 @@ class PackPlayService
 
         $challengeIds = $pack->readyChallenges()->pluck('id')->values()->all();
         if (empty($challengeIds)) {
+            AppLog::warn('pack.start_failed', ['pack_id' => $pack->id, 'user_id' => $user->id, 'reason' => 'no_ready_challenges']);
             abort(422, 'This pack has no ready challenges yet.');
         }
 
-        return PackAttempt::create([
+        $attempt = PackAttempt::create([
             'user_id'           => $user->id,
             'challenge_pack_id' => $pack->id,
             'status'            => PackAttempt::STATUS_ACTIVE,
@@ -54,6 +56,10 @@ class PackPlayService
             'total_score'       => 0,
             'metadata'          => ['challenge_ids' => $challengeIds],
         ]);
+
+        AppLog::event('pack.started', ['pack_id' => $pack->id, 'user_id' => $user->id, 'attempt_id' => $attempt->id, 'challenge_count' => count($challengeIds)]);
+
+        return $attempt;
     }
 
     /** The active attempt if any, otherwise the most recent attempt (or null). */
@@ -180,6 +186,29 @@ class PackPlayService
             // Badges stay evaluated on replays — they are idempotent, so this
             // only ever back-fills one the user legitimately qualified for.
             $newBadges = $this->badgeService->evaluatePackCompletion($user, $attempt->load('guesses'));
+
+            $packId = (int) $attempt->challenge_pack_id;
+            AppLog::event('pack.completed', [
+                'pack_id'       => $packId,
+                'user_id'       => $user->id,
+                'attempt_id'    => $attempt->id,
+                'replay'        => $isReplay,
+                'total_score'   => (int) $attempt->total_score,
+                'completion_xp' => $completionXp,
+            ]);
+
+            $packBadgeId = $attempt->pack?->completion_badge_id;
+            if ($packBadgeId === null) {
+                AppLog::event('pack.trophy_skipped', ['pack_id' => $packId, 'user_id' => $user->id, 'reason' => 'no_trophy_configured']);
+            }
+            foreach ($newBadges as $badge) {
+                AppLog::event('pack.trophy_awarded', [
+                    'pack_id'    => $packId,
+                    'user_id'    => $user->id,
+                    'badge_id'   => $badge->id,
+                    'badge_code' => $badge->code,
+                ]);
+            }
         }
 
         $xpAfter = $this->xpService->getTotalXp($user);

@@ -9,6 +9,7 @@ import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { ChallengePackDetail, PackAttemptState } from '../types/pack';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackDetail'>;
 
@@ -51,7 +52,7 @@ export function PackDetailScreen({ route, navigation }: Props) {
       await packApi.start(slug);
       navigation.navigate('PackGuess', { slug, packName });
     } catch (e: unknown) {
-      setError((e as { message?: string })?.message ?? 'Could not start this pack.');
+      setError(getApiErrorMessage(e, 'Could not start this pack.'));
     } finally {
       setStarting(false);
     }

@@ -61,6 +61,10 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::get('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('admin.settings.index');
     Route::put('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('admin.settings.update');
 
+    // Read-only operational status (queue, daily, content pool, storage, log
+    // counts). Never runs shell commands, never shows secrets.
+    Route::get('diagnostics', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'index'])->name('admin.diagnostics.index');
+
     Route::get('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('admin.notifications.index');
     // Throttled like /send: store() also fans out to every device when the
     // composer is submitted with send_now.

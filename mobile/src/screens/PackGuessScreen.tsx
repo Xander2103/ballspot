@@ -13,6 +13,7 @@ import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { PackAttemptState, PackChallengeSummary } from '../types/pack';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackGuess'>;
 
@@ -74,8 +75,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
         imageUrl: result.result.reveal_image_url ?? challenge.hidden_image_url,
       });
     } catch (e: unknown) {
-      const err = e as { message?: string };
-      setError(err?.message ?? 'Failed to submit guess. Please try again.');
+      setError(getApiErrorMessage(e, 'Failed to submit guess. Please try again.'));
       setSubmitting(false);
     }
   }

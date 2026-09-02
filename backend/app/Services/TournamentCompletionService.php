@@ -7,6 +7,7 @@ use App\Models\League;
 use App\Models\TournamentFinish;
 use App\Models\User;
 use App\Models\XpEvent;
+use App\Support\AppLog;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -125,6 +126,23 @@ class TournamentCompletionService
 
             if ($rewardsEnabled) {
                 $this->awardSkillTrophies($league, $standings, $perUser);
+            }
+
+            AppLog::event('tournament.completed', [
+                'league_id'         => $league->id,
+                'participant_count' => $totalPlayers,
+                'rewards_enabled'   => $rewardsEnabled,
+                'winner_user_id'    => $standings[0]['user_id'] ?? null,
+            ]);
+            foreach ($perUser as $userId => $row) {
+                foreach ($row['new_badges'] as $badge) {
+                    AppLog::event('trophy.awarded', [
+                        'badge_code' => $badge->code,
+                        'user_id'    => $userId,
+                        'league_id'  => $league->id,
+                        'placement'  => $row['placement'],
+                    ]);
+                }
             }
 
             return ['total_players' => $totalPlayers, 'per_user' => $perUser];

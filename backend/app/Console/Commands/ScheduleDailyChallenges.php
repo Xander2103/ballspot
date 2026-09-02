@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Challenge;
 use App\Models\DailyChallenge;
 use App\Models\Sport;
+use App\Support\AppLog;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -81,6 +82,7 @@ class ScheduleDailyChallenges extends Command
 
         if ($allEligible->isEmpty()) {
             $this->error('No eligible challenges found. Active challenges in the daily or general pool need a hidden image and ball position.');
+            AppLog::error('daily.schedule_failed', ['reason' => 'no_eligible_challenges', 'sport_id' => $sportId, 'eligible_count' => 0, 'days' => $days]);
             return self::FAILURE;
         }
 
@@ -92,6 +94,7 @@ class ScheduleDailyChallenges extends Command
 
             if ($allEligible->isEmpty()) {
                 $this->warn('All ready challenges have already been used as a daily challenge. Add new content, or re-run with --allow-reuse.');
+                AppLog::warn('daily.schedule_skipped', ['reason' => 'all_used', 'sport_id' => $sportId, 'eligible_count' => 0, 'days' => $days]);
                 return self::SUCCESS;
             }
         }
@@ -165,6 +168,7 @@ class ScheduleDailyChallenges extends Command
                 $existing->update(['challenge_id' => $chosen->id, 'status' => 'scheduled']);
                 $this->line("  <fg=cyan>REPLACE</> {$date} → {$chosen->title}");
                 $replacedCount++;
+                AppLog::event('daily.scheduled', ['challenge_id' => $chosen->id, 'date' => $date, 'sport_id' => $chosen->sport_id, 'status' => 'scheduled', 'replaced' => true]);
             } else {
                 DailyChallenge::create([
                     'challenge_id'   => $chosen->id,
@@ -173,6 +177,7 @@ class ScheduleDailyChallenges extends Command
                 ]);
                 $this->line("  <fg=green>CREATE</> {$date} → {$chosen->title}");
                 $createdCount++;
+                AppLog::event('daily.scheduled', ['challenge_id' => $chosen->id, 'date' => $date, 'sport_id' => $chosen->sport_id, 'status' => 'scheduled', 'replaced' => false]);
             }
         }
 
@@ -183,6 +188,7 @@ class ScheduleDailyChallenges extends Command
             $this->warn("Pool exhausted: scheduled {$scheduled} of {$days} requested days.");
             $this->line('Every ready challenge has now been used as a daily. Add new challenges, or re-run with --allow-reuse.');
             $this->newLine();
+            AppLog::warn('daily.pool_exhausted', ['reason' => 'pool_exhausted', 'sport_id' => $sportId, 'eligible_count' => $pool->count(), 'scheduled' => $scheduled, 'requested_days' => $days, 'dry_run' => $dryRun]);
         }
 
         if ($dryRun) {
@@ -191,6 +197,7 @@ class ScheduleDailyChallenges extends Command
         }
 
         $this->info("Done. Created: {$createdCount}, Replaced: {$replacedCount}, Skipped: {$skippedCount}.");
+        AppLog::event('daily.schedule_run', ['created' => $createdCount, 'replaced' => $replacedCount, 'skipped' => $skippedCount, 'requested_days' => $days, 'sport_id' => $sportId, 'eligible_count' => $pool->count(), 'demo_content' => $usingDemo]);
 
         if ($usingDemo) {
             $this->warn('Scheduled with demo content. Add real challenges to replace them.');

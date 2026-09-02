@@ -12,6 +12,7 @@ import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { LeagueRound, CurrentRoundProgress } from '../types/challenge';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Guess'>;
 
@@ -110,8 +111,8 @@ export function GuessScreen({ route, navigation }: Props) {
         rankUp,
         tournamentCompletion,
       });
-    } catch (e: any) {
-      setSubmitError(e?.message || 'Failed to submit guess. Please try again.');
+    } catch (e: unknown) {
+      setSubmitError(getApiErrorMessage(e, 'Failed to submit guess. Please try again.'));
     } finally {
       setSubmitting(false);
     }

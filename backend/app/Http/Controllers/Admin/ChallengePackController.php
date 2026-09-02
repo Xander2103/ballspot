@@ -53,6 +53,12 @@ class ChallengePackController extends Controller
 
         $this->syncCompletionTrophy($pack, $request->boolean('award_completion_trophy'));
 
+        \App\Support\AppLog::event('admin.pack_created', [
+            'pack_id' => $pack->id, 'status' => $pack->status, 'visibility' => $pack->visibility,
+            'challenge_count' => 0, 'trophy' => $pack->fresh()->completion_badge_id !== null,
+            'admin_user_id' => $request->user()->id,
+        ]);
+
         return redirect('/admin/packs/' . $pack->id . '/edit')
             ->with('success', 'Pack created. Now add challenges below.');
     }
@@ -114,7 +120,14 @@ class ChallengePackController extends Controller
             $pack->challenges()->sync($sync);
         }
 
-        return redirect('/admin/packs')->with('success', $this->readinessNote($pack->fresh()));
+        $fresh = $pack->fresh();
+        \App\Support\AppLog::event('admin.pack_updated', [
+            'pack_id' => $fresh->id, 'status' => $fresh->status, 'visibility' => $fresh->visibility,
+            'challenge_count' => $fresh->challenges()->count(), 'trophy' => $fresh->completion_badge_id !== null,
+            'admin_user_id' => $request->user()->id,
+        ]);
+
+        return redirect('/admin/packs')->with('success', $this->readinessNote($fresh));
     }
 
     /** Quick status/visibility change from the index. */
@@ -130,7 +143,14 @@ class ChallengePackController extends Controller
             'visibility' => $data['visibility'] ?? null,
         ]));
 
-        return redirect('/admin/packs')->with('success', $this->readinessNote($pack->fresh()));
+        $fresh = $pack->fresh();
+        \App\Support\AppLog::event('admin.pack_updated', [
+            'pack_id' => $fresh->id, 'status' => $fresh->status, 'visibility' => $fresh->visibility,
+            'challenge_count' => $fresh->challenges()->count(), 'trophy' => $fresh->completion_badge_id !== null,
+            'admin_user_id' => $request->user()->id,
+        ]);
+
+        return redirect('/admin/packs')->with('success', $this->readinessNote($fresh));
     }
 
     private function validated(Request $request, ?int $ignoreId): array

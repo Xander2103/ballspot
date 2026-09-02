@@ -134,6 +134,24 @@ class DailyChallengeScheduler
             }
         });
 
+        foreach ($created as $row) {
+            \App\Support\AppLog::event('daily.scheduled', [
+                'challenge_id' => $row['challenge']->id,
+                'date'         => $row['date'],
+                'sport_id'     => $row['challenge']->sport_id,
+                'status'       => $status,
+                'source'       => 'admin',
+            ]);
+        }
+        if ($skipped !== []) {
+            \App\Support\AppLog::warn('daily.schedule_skipped', [
+                'source'        => 'admin',
+                'skipped_count' => count($skipped),
+                'reasons'       => array_count_values(array_column($skipped, 'reason')),
+                'created_count' => count($created),
+            ]);
+        }
+
         return ['created' => $created, 'skipped' => $skipped];
     }
 

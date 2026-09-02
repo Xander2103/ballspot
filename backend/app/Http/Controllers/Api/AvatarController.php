@@ -25,8 +25,12 @@ class AvatarController extends Controller
         // otherwise leak the uploader's home location). Falls back to a raw
         // store only when GD cannot decode the (already image-validated) file.
         // Randomized name — never trusts the client filename.
-        $path = $this->storeSanitized($request->file('avatar'), $disk, $dir)
-            ?? $request->file('avatar')->store($dir, $disk);
+        $path = $this->storeSanitized($request->file('avatar'), $disk, $dir);
+        if ($path === null) {
+            // Fallback keeps EXIF — worth knowing if it happens often (GD missing?).
+            \App\Support\AppLog::warn('upload.avatar_sanitize_fallback', ['user_id' => $user->id, 'reason' => 'gd_unavailable_or_undecodable']);
+            $path = $request->file('avatar')->store($dir, $disk);
+        }
 
         $user->avatar_path = $path;
         $user->save();

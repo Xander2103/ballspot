@@ -8,6 +8,7 @@ import { AppButton } from '../components/AppButton';
 import { leagueApi } from '../api/leagueApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JoinLeague'>;
 
@@ -22,8 +23,14 @@ export function JoinLeagueScreen({ navigation }: Props) {
     try {
       const league = await leagueApi.join(trimmed);
       navigation.replace('LeagueDetail', { leagueId: league.id, leagueName: league.name });
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'League not found');
+    } catch (e: unknown) {
+      const status = (e as { status?: number })?.status;
+      Alert.alert(
+        'Could not join tournament',
+        status === 404
+          ? 'No tournament found for that code. Check the code and try again.'
+          : getApiErrorMessage(e, 'Could not join this tournament. Please try again.'),
+      );
     } finally {
       setLoading(false);
     }

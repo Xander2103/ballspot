@@ -7,6 +7,7 @@ use App\Models\League;
 use App\Models\LeagueMember;
 use App\Models\LeagueRound;
 use App\Models\Sport;
+use App\Support\AppLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -34,11 +35,10 @@ class LeagueService
             ->whereIn('status', self::ACTIVE_STATUSES)
             ->count();
 
-        abort_if(
-            $activeOwned >= $this->maxCreatedPerUser($userId),
-            422,
-            'You can only host one active tournament at a time.'
-        );
+        if ($activeOwned >= $this->maxCreatedPerUser($userId)) {
+            AppLog::event('tournament.cap_rejected', ['user_id' => $userId, 'reason' => 'host_limit', 'active_owned' => $activeOwned]);
+            abort(422, 'You can only host one active tournament at a time.');
+        }
 
         // v1.8.8: creating auto-joins the owner, so it must respect the
         // active-membership cap too.
@@ -60,6 +60,13 @@ class LeagueService
             'league_id' => $league->id,
             'user_id'   => $userId,
             'joined_at' => now(),
+        ]);
+
+        AppLog::event('tournament.created', [
+            'league_id'     => $league->id,
+            'user_id'       => $userId,
+            'duration_days' => (int) $league->duration_days,
+            'sport_id'      => $sport->id,
         ]);
 
         return $league;
@@ -190,7 +197,17 @@ class LeagueService
         // never a Daily-used photo. Fail cleanly rather than recycle.
         $challenges = $this->selectTournamentChallenges($league, $total);
 
-        abort_if($challenges->count() < $total, 422, self::NOT_ENOUGH_CHALLENGES_MESSAGE);
+        if ($challenges->count() < $total) {
+            AppLog::warn('tournament.start_failed', [
+                'league_id'       => $league->id,
+                'user_id'         => $userId,
+                'reason'          => 'not_enough_challenges',
+                'sport_id'        => (int) $league->sport_id,
+                'requested_count' => $total,
+                'eligible_count'  => $challenges->count(),
+            ]);
+            abort(422, self::NOT_ENOUGH_CHALLENGES_MESSAGE);
+        }
 
         foreach ($challenges as $i => $challenge) {
             LeagueRound::create([
@@ -207,12 +224,22 @@ class LeagueService
             'ends_at'   => now()->addDays($league->duration_days),
         ]);
 
+        AppLog::event('tournament.started', [
+            'league_id'                => $league->id,
+            'user_id'                  => $userId,
+            'sport_id'                 => (int) $league->sport_id,
+            'selected_challenge_count' => $challenges->count(),
+            'member_count'             => $league->members()->count(),
+        ]);
+
         return $league->fresh();
     }
 
     public function cancel(League $league, int $userId): void
     {
         $league->update(['status' => 'cancelled']);
+
+        AppLog::event('tournament.cancelled', ['league_id' => $league->id, 'user_id' => $userId]);
     }
 
     public function join(string $joinCode, int $userId): League
@@ -241,16 +268,17 @@ class LeagueService
             // v1.8.8: max 2 lobby/active tournaments per user (hosting counts).
             $this->assertMembershipCapacity($userId);
 
-            abort_if(
-                $league->members()->count() >= $this->maxPlayersPerTournament($league->owner_user_id),
-                422,
-                'This tournament is full.'
-            );
+            if ($league->members()->count() >= $this->maxPlayersPerTournament($league->owner_user_id)) {
+                AppLog::event('tournament.join_rejected', ['league_id' => $league->id, 'user_id' => $userId, 'reason' => 'tournament_full']);
+                abort(422, 'This tournament is full.');
+            }
 
             LeagueMember::firstOrCreate([
                 'league_id' => $league->id,
                 'user_id'   => $userId,
             ], ['joined_at' => now()]);
+
+            AppLog::event('tournament.joined', ['league_id' => $league->id, 'user_id' => $userId]);
         }
 
         return $league;
@@ -289,11 +317,11 @@ class LeagueService
     {
         $max = (int) config('ballspot.tournaments.max_active_memberships_per_user', 2);
 
-        abort_if(
-            $this->activeMembershipCount($userId) >= $max,
-            422,
-            'You can only be in two active tournaments at the same time.'
-        );
+        $active = $this->activeMembershipCount($userId);
+        if ($active >= $max) {
+            AppLog::event('tournament.cap_rejected', ['user_id' => $userId, 'reason' => 'member_limit', 'active_memberships' => $active]);
+            abort(422, 'You can only be in two active tournaments at the same time.');
+        }
     }
 
     /**

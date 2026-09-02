@@ -13,6 +13,7 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { DailyChallengeEntry } from '../types/daily';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyChallenge'>;
 
@@ -95,12 +96,12 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         rankUp: res.rank_up ?? null,
       });
     } catch (e: unknown) {
-      const err = e as { status?: number; message?: string };
+      const err = e as { status?: number };
       if (err?.status === 422) {
         navigation.replace('DailyResult', { dailyChallengeId });
         return;
       }
-      setSubmitError(err?.message ?? 'Failed to submit guess. Please try again.');
+      setSubmitError(getApiErrorMessage(e, 'Failed to submit guess. Please try again.'));
       setSubmitting(false);
     }
   }

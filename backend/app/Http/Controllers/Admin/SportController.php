@@ -32,7 +32,7 @@ class SportController extends Controller
     {
         $data = $this->validated($request, null);
 
-        Sport::create([
+        $sport = Sport::create([
             'name'            => $data['name'],
             'slug'            => $data['slug'] ?: $this->uniqueSlug($data['name'], null),
             'emoji'           => $data['emoji'] ?? '⚽',
@@ -42,6 +42,8 @@ class SportController extends Controller
             // New sports launch as "coming soon" until content is ready.
             'status'          => $data['status'] ?? Sport::STATUS_COMING_SOON,
         ]);
+
+        \App\Support\AppLog::event('admin.sport_created', ['sport_id' => $sport->id, 'slug' => $sport->slug, 'status' => $sport->status, 'admin_user_id' => $request->user()->id]);
 
         return redirect('/admin/sports')->with('success', "\u{201C}{$data['name']}\u{201D} created.");
     }
@@ -77,6 +79,8 @@ class SportController extends Controller
             'sort_order'    => $data['sort_order'] ?? $sport->sort_order,
             'status'        => $status,
         ]);
+
+        \App\Support\AppLog::event('admin.sport_updated', ['sport_id' => $sport->id, 'slug' => $sport->slug, 'status' => $sport->status, 'admin_user_id' => $request->user()->id]);
 
         return redirect('/admin/sports')->with('success', "\u{201C}{$sport->name}\u{201D} saved.");
     }

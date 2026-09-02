@@ -26,6 +26,11 @@ class NotificationSettingsController extends Controller
         $settings->fill($request->validated());
         $settings->save();
 
+        \App\Support\AppLog::event('notifications.settings_updated', [
+            'user_id' => $request->user()->id,
+            'fields'  => array_keys($request->validated()),
+        ]);
+
         return response()->json($this->payload($settings));
     }
 
