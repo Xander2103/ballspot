@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureIsAdmin::class,
+            // Overrides the framework alias so the gate follows
+            // ballspot.auth.require_email_verification (see the class).
+            'verified' => \App\Http\Middleware\EnsureEmailIsVerifiedIfRequired::class,
         ]);
 
         // Trust the reverse proxy / load balancer so $request->ip() reflects the

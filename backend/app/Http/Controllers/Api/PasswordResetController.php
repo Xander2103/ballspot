@@ -5,17 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\ResetPasswordRequest;
-use App\Models\User;
-use Illuminate\Auth\Events\PasswordReset;
+use App\Services\PasswordResetFlow;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 class PasswordResetController extends Controller
 {
+    public function __construct(private PasswordResetFlow $flow) {}
+
     /**
      * POST /api/forgot-password
      *
@@ -25,7 +21,7 @@ class PasswordResetController extends Controller
      */
     public function forgot(ForgotPasswordRequest $request): JsonResponse
     {
-        Password::sendResetLink($request->only('email'));
+        $this->flow->request((string) $request->input('email'), 'api');
 
         return response()->json([
             'message' => 'If an account exists for that email, a password reset link has been sent.',
@@ -40,37 +36,20 @@ class PasswordResetController extends Controller
      */
     public function reset(ResetPasswordRequest $request): JsonResponse
     {
-        $status = Password::reset(
+        $ok = $this->flow->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) {
-                $user->forceFill([
-                    'password'       => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
-
-                // Revoke all existing Sanctum API tokens after a reset.
-                $user->tokens()->delete();
-
-                // ...and the database-backed web sessions behind the admin
-                // panel, which Sanctum revocation does not touch. Without this
-                // a hijacked admin session survives the one remediation the
-                // product offers.
-                if (Schema::hasTable('sessions')) {
-                    DB::table('sessions')->where('user_id', $user->id)->delete();
-                }
-
-                event(new PasswordReset($user));
-            }
+            'api',
         );
 
-        if ($status === Password::PASSWORD_RESET) {
+        if ($ok) {
             return response()->json(['message' => 'Your password has been reset. Please log in.']);
         }
 
         // Generic failure for invalid/expired token or unknown email — do not
         // leak which of the two failed (avoids enumeration).
         return response()->json([
-            'message' => 'This password reset link is invalid or has expired.',
+            'message' => PasswordResetFlow::INVALID_LINK_MESSAGE,
+            'reason'  => 'invalid_or_expired',
         ], 422);
     }
 }

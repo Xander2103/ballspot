@@ -21,6 +21,8 @@ export interface AuthResponse {
   user: User;
   token: string;
   email_verified?: boolean;
+  /** Register: whether the verification email actually left the server. */
+  code_sent?: boolean;
 }
 
 /** Login result — forced 2FA is on; a login code was emailed, no token yet. */
@@ -35,6 +37,8 @@ export interface TwoFactorRequired {
 export interface EmailVerificationRequired {
   requires_email_verification: true;
   email_verified: false;
+  /** False when a usable code was already emailed earlier (nothing new sent). */
+  code_sent?: boolean;
   token: string;
   user: User;
   message: string;

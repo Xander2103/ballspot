@@ -8,6 +8,12 @@ class RegisterRequest extends FormRequest
 
     public function rules(): array
     {
+        // Deleted accounts are anonymized in place: email/username are rewritten
+        // to deleted-{id} values inside the deletion transaction, so they never
+        // collide with a fresh registration and the same identifiers can be
+        // reused (AccountReRegistrationTest). The plain unique rule is kept on
+        // purpose — the DB unique index would reject a lingering identifier
+        // anyway, and a 422 here beats a 500 there.
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
@@ -53,6 +59,8 @@ class RegisterRequest extends FormRequest
     {
         return [
             'beta_code.required'      => 'A beta code is required during closed testing.',
+            'email.unique'            => 'An account with this email already exists. Try logging in or resetting your password.',
+            'username.unique'         => 'This username is already taken. Please choose another one.',
             'terms_accepted.accepted' => 'You must accept the Terms of Service and Privacy Policy.',
             'age_confirmed.accepted'  => 'You must confirm you meet the minimum age requirement.',
         ];

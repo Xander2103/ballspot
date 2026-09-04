@@ -87,6 +87,9 @@ export function PackResultScreen({ route, navigation }: Props) {
               <Text style={styles.completeStat}>Total score: {result.final_score ?? progress.total_score}</Text>
               {result.completion_xp ? <Text style={styles.completeStat}>Completion bonus: +{result.completion_xp} XP</Text> : null}
               <Text style={styles.completeStat}>{progress.total_challenges} challenges</Text>
+              {result.already_completed ? (
+                <Text style={styles.completeStat}>This guess was already counted — nothing was scored twice.</Text>
+              ) : null}
             </View>
           </View>
         ) : (
@@ -102,7 +105,10 @@ export function PackResultScreen({ route, navigation }: Props) {
       <View style={styles.footer}>
         {completed ? (
           <>
-            <AppButton title="View Trophy Room" onPress={() => navigation.navigate('TrophyRoom')} />
+            <AppButton
+              title="View pack results"
+              onPress={() => navigation.replace('PackComplete', { slug, packName, completion: result.completion ?? null })}
+            />
             <AppButton title="Back to Packs" onPress={() => goPacks(navigation)} variant="secondary" />
           </>
         ) : (

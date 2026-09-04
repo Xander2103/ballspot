@@ -166,3 +166,31 @@ but strictly **virtual** — recognition:
 - ❌ Real prize claiming or fulfilment
 - ❌ XP marketplace / buying, selling, or redeeming XP for value
 - ❌ Ads
+
+## Pack replay & score-based trophies (v1.9.5)
+
+**Replay is disabled.** A completed pack cannot be started again (`POST
+/packs/{slug}/start` → 409): the player already knows every ball position, so a
+second run would be worthless as a challenge and exploitable for XP. The app
+shows "✓ Completed" + "View results" (the completion overview) instead of "Play
+again". Old in-flight replay attempts from before this rule stay playable but
+pay no XP (`PackPlayService::hasCompletedBefore`).
+
+**TODO (not implemented for launch — deliberately):** score-based pack tiers.
+Plan, when picked up:
+- Keep the existing per-pack completion trophy (`completion_badge_id`) as the
+  "Bronze" tier — complete the pack.
+- Silver: `completion.average_pct >= 70`; Gold: `>= 85` (thresholds in
+  `config/ballspot.php` under `packs.trophy_tiers`, not hard-coded).
+- Either two extra badge rows per pack (`pack_{id}_silver|gold`, seeded by the
+  admin pack form like the completion badge) or one badge with a `tier` pivot
+  column — decide with the Trophy Room design; the pivot approach avoids a
+  badge-count explosion in `/api/badges`.
+- Evaluate in `BadgeService::evaluatePackCompletion` from the same
+  `completionSummary()` the API already returns, so app and server agree on the
+  percentage. Idempotent `award()` keeps it race-safe.
+- Because replay is disabled, tiers are decided by the first (only) run — no
+  "grind to gold" loophole. Document that in the Trophy Room copy.
+- Risk that pushed it out of the launch sprint: a new badge taxonomy touches
+  `BadgeSeeder` counts in ~10 test files and the Trophy Room UI; not worth
+  coupling to the completion-bug fix.

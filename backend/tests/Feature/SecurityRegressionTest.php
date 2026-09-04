@@ -270,8 +270,9 @@ class SecurityRegressionTest extends TestCase
         $xpAfterFirstRun = XpEvent::where('user_id', $user->id)->sum('amount');
         $this->assertGreaterThan(0, $xpAfterFirstRun, 'first playthrough should pay XP');
 
-        // Replay the whole pack now that every ball position is known.
-        $this->playPack($token, $pack);
+        // Replaying the pack now that every ball position is known is refused
+        // outright (v1.9.5) — and even the refused start pays nothing.
+        $this->withToken($token)->postJson("/api/packs/{$pack->slug}/start")->assertStatus(409);
 
         $this->assertSame(
             (int) $xpAfterFirstRun,

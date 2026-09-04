@@ -20,6 +20,10 @@ class AuthController extends Controller
      * verification and read /me), and emails a 6-digit verification code.
      * Full app endpoints stay gated behind the `verified` middleware until the
      * email is verified.
+     *
+     * `code_sent` tells the app whether the email actually left the building —
+     * a mail-transport failure must not turn into a dead verification screen,
+     * so the account is still created and the user can tap "resend".
      */
     public function register(RegisterRequest $request, EmailVerificationService $emailVerification)
     {
@@ -36,8 +40,9 @@ class AuthController extends Controller
         $user->terms_version     = (string) config('ballspot.legal.terms_version', '2026-08');
         $user->save();
 
+        $codeSent = false;
         if ($this->emailVerificationRequired()) {
-            $emailVerification->send($user, $request->ip(), $request->userAgent(), force: true);
+            $codeSent = $emailVerification->send($user, $request->ip(), $request->userAgent(), force: true);
         } else {
             // Verification disabled by config — treat new accounts as verified.
             $user->markEmailAsVerified();
@@ -48,6 +53,7 @@ class AuthController extends Controller
         AppLog::event('auth.registered', [
             'user_id'               => $user->id,
             'verification_required' => $this->emailVerificationRequired(),
+            'code_sent'             => $codeSent,
             'beta_gate'             => (bool) config('ballspot.beta_code'),
         ]);
 
@@ -55,6 +61,7 @@ class AuthController extends Controller
             'user'           => new UserResource($user),
             'token'          => $token,
             'email_verified' => $user->hasVerifiedEmail(),
+            'code_sent'      => $codeSent,
         ], 201);
     }
 
@@ -63,8 +70,10 @@ class AuthController extends Controller
      *
      * With a verified email this returns a token directly (email + password is
      * enough for normal play). Two extra paths:
-     *  - Unverified email  -> requires_email_verification (a code is re-sent; a
-     *    token is issued so the app can call the verify/resend endpoints).
+     *  - Unverified email  -> requires_email_verification. A token is issued so
+     *    the app can call the verify/resend endpoints. A code is only (re)sent
+     *    when the user has no usable one left — sending a new code on every
+     *    login used to invalidate the one already sitting in their inbox.
      *  - Forced 2FA (config force_login_2fa, or any admin) -> requires_2fa and a
      *    login code is emailed; the token is only issued by /login/verify.
      * Invalid credentials return a single generic error (no user enumeration)
@@ -96,18 +105,24 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['email' => ['Invalid credentials.']]);
         }
 
-        // Email not verified yet — block full login, (re)send a code, and hand
-        // back a token so the app can drive the verification screen.
+        // Email not verified yet — block full login and hand back a token so
+        // the app can drive the verification screen.
         if ($this->emailVerificationRequired() && !$user->hasVerifiedEmail()) {
-            $emailVerification->send($user, $request->ip(), $request->userAgent());
+            $codeSent = false;
+            if (!$emailVerification->hasUsableCode($user)) {
+                $codeSent = $emailVerification->send($user, $request->ip(), $request->userAgent());
+            }
             $token = $user->createToken('mobile')->plainTextToken;
 
             return response()->json([
                 'requires_email_verification' => true,
                 'email_verified'              => false,
+                'code_sent'                   => $codeSent,
                 'user'                        => new UserResource($user),
                 'token'                       => $token,
-                'message'                     => 'Please verify your email address to continue. We sent you a code.',
+                'message'                     => $codeSent
+                    ? 'Please verify your email address to continue. We sent you a new code.'
+                    : 'Please verify your email address to continue. Enter the code we emailed you, or request a new one.',
             ]);
         }
 

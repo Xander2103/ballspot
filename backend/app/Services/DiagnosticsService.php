@@ -36,6 +36,18 @@ class DiagnosticsService
     /** How many days of scheduled dailies we want in reserve before warning. */
     public const DAILY_RUNWAY_DAYS = 3;
 
+    /**
+     * Warning-level events that still deserve a red row on the dashboard —
+     * each one is a user-visible failure of a launch-critical flow.
+     */
+    public const WATCHED_WARNINGS = [
+        'password.reset_failed',
+        'password.reset_requested',
+        'auth.verification_failed',
+        'auth.beta_code_rejected',
+        'pack.start_failed',
+    ];
+
     /** How much of the log file tail to scan for recent errors (bytes). */
     private const LOG_TAIL_BYTES = 512 * 1024;
 
@@ -148,7 +160,49 @@ class DiagnosticsService
             $this->warn('warning', 'log', "{$result['errors_24h']} error(s) logged in the last 24h — run: tail -n 100 storage/logs/laravel.log");
         }
 
+        $result['event_errors_24h'] = $this->eventErrors($now);
+        foreach ($result['event_errors_24h'] as $name => $count) {
+            $this->warn('warning', 'log', "{$count}× {$name} in the last 24h (events log)");
+        }
+
         return $result;
+    }
+
+    /**
+     * Failed operational events (AppLog::error / ::warn on the critical account
+     * flows) from today's and yesterday's events files, counted by event name.
+     * Only names and counts — the JSON context is never read into the page.
+     *
+     * @return array<string,int>
+     */
+    private function eventErrors(Carbon $now): array
+    {
+        $since  = $now->copy()->subDay();
+        $counts = [];
+
+        foreach ([$now->copy()->subDay(), $now] as $day) {
+            $path = storage_path('logs/ballpicker-events-' . $day->toDateString() . '.log');
+            if (!is_file($path)) {
+                continue;
+            }
+            foreach (preg_split('/\r?\n/', $this->tail($path, self::LOG_TAIL_BYTES)) as $line) {
+                if (!preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] \w+\.(ERROR|CRITICAL|ALERT|EMERGENCY|WARNING): ([a-z_]+\.[a-z_]+)\b/', $line, $m)) {
+                    continue;
+                }
+                if (Carbon::parse($m[1])->lt($since)) {
+                    continue;
+                }
+                $name = $m[3];
+                if ($m[2] === 'WARNING' && !in_array($name, self::WATCHED_WARNINGS, true)) {
+                    continue;
+                }
+                $counts[$name] = ($counts[$name] ?? 0) + 1;
+            }
+        }
+
+        ksort($counts);
+
+        return $counts;
     }
 
     private function queue(Carbon $now): array

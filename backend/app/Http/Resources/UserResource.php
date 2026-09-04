@@ -14,7 +14,11 @@ class UserResource extends JsonResource
             'name'           => $this->name,
             'username'       => $this->username,
             'email'          => $this->when($isSelf, $this->email),
-            'email_verified' => $this->when($isSelf, fn () => $this->hasVerifiedEmail()),
+            // When verification is switched off, every account counts as
+            // verified — the app must never route a user to a code screen for
+            // a code that will not be sent.
+            'email_verified' => $this->when($isSelf, fn () => $this->hasVerifiedEmail()
+                || !config('ballspot.auth.require_email_verification', true)),
             // Preferences — only meaningful for the authenticated user themselves.
             'selected_theme' => $this->when($isSelf, $this->selected_theme),
             'avatar_url'     => $this->avatarUrl(),

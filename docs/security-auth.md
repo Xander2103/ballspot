@@ -427,3 +427,31 @@ future work:
 - **No suspicious-login alerts yet.**
 - Future candidates: authenticator app / TOTP, passkeys, device trust /
   remember-device, suspicious-login alerts, and a per-user 2FA toggle.
+
+## v1.9.5 launch hardening — password reset & verification codes
+
+- **Reset link web fallback.** `GET /reset-password?token=&email=` (form) and
+  `POST /reset-password` live on the backend domain, so the link in the reset
+  email works on any device. Same password rules and the same generic
+  "invalid or has expired" failure as the API; the page is `Cache-Control:
+  no-store` and the token is never logged. `GET|POST /forgot-password` mirrors
+  the API endpoint, throttled by the same named limiters. The page offers the
+  `ballpicker://reset-password?…` deep link (custom scheme — universal/app
+  links are NOT configured; there is no AASA/assetlinks yet).
+- **Events:** `password.reset_requested {channel, outcome: sent|no_account|
+  throttled|send_failed}`, `password.reset_failed {reason}`,
+  `password.reset_completed {channel, user_id}`. Never the email, token or
+  password (AppLog::sanitize + PasswordResetWebTest).
+- **Verification codes:** the last 3 unconsumed codes stay valid; a login no
+  longer replaces a usable code; the attempt lock (5) is tracked on the newest
+  record so the brute-force budget does not grow. Events:
+  `auth.verification_sent`, `auth.verification_send_failed` (mail transport),
+  `auth.verification_failed {reason: no_code|locked|expired|wrong_code}`,
+  `auth.verification_completed`.
+- **Kill switch:** `BALLPICKER_REQUIRE_EMAIL_VERIFICATION=false` disables the
+  code step end-to-end (registration marks accounts verified, the `verified`
+  gate is bypassed by `EnsureEmailIsVerifiedIfRequired`, `/me` reports
+  `email_verified: true`).
+- **Account deletion** is one transaction (`AccountDeletionService`), logs
+  `account.deleted` / `account.delete_failed {user_id, exception}` and frees
+  the original email + username immediately.

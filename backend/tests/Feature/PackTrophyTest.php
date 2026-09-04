@@ -150,11 +150,13 @@ class PackTrophyTest extends TestCase
 
         [$user, $token] = $this->auth();
         $this->completePack($token, $pack->fresh());
-        $res = $this->completePack($token, $pack->fresh()); // replay
+
+        // v1.9.5: a completed pack cannot be replayed at all (the photos are
+        // known) — start answers 409 and the trophy stays single.
+        $this->actingWithToken($token)->postJson("/api/packs/{$pack->slug}/start")->assertStatus(409);
 
         $badge = Badge::where('code', "pack_{$pack->id}_completed")->first();
         $this->assertSame(1, $user->badges()->where('badges.id', $badge->id)->count());
-        $this->assertNotContains($badge->code, array_column($res->json('new_badges') ?? [], 'code'));
     }
 
     public function test_disabling_trophy_prevents_future_awards(): void

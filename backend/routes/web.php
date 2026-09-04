@@ -13,6 +13,14 @@ Route::get('/privacy', [PublicController::class, 'privacy'])->name('privacy');
 Route::get('/terms',   [PublicController::class, 'terms'])->name('terms');
 Route::get('/support', [PublicController::class, 'support'])->name('support');
 
+// Password reset — web fallback for the link in the reset email (see
+// App\Http\Controllers\Web\PasswordResetWebController). Same named limiters
+// as the API endpoints so the web form cannot be used to bypass them.
+Route::get('/reset-password',   [\App\Http\Controllers\Web\PasswordResetWebController::class, 'showReset'])->name('password.reset');
+Route::post('/reset-password',  [\App\Http\Controllers\Web\PasswordResetWebController::class, 'reset'])->name('password.update')->middleware('throttle:reset-password');
+Route::get('/forgot-password',  [\App\Http\Controllers\Web\PasswordResetWebController::class, 'showForgot'])->name('password.request');
+Route::post('/forgot-password', [\App\Http\Controllers\Web\PasswordResetWebController::class, 'forgot'])->name('password.email')->middleware('throttle:forgot-password');
+
 // Admin auth (unguarded)
 Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'login'])->name('admin.login.submit')->middleware('throttle:admin-login');

@@ -26,6 +26,10 @@ use Illuminate\Support\Facades\Route;
 // detailed operational status lives on the admin-only /admin/diagnostics page.
 Route::get('/health', \App\Http\Controllers\Api\HealthController::class);
 
+// Public feature flags for the pre-login screens (beta gate on/off, is email
+// verification required). Booleans only — never the beta code or a secret.
+Route::get('/config', \App\Http\Controllers\Api\AppConfigController::class);
+
 Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:register');
 
 // Email two-factor login (step 1: credentials -> emailed code; step 2: verify -> token)

@@ -79,6 +79,16 @@
                     @if($d['log']['last_error_summary'])<div class="small text-muted">{{ $d['log']['last_error_summary'] }}</div>@endif
                 </td></tr>
                 <tr><th>Events file</th><td><code>{{ $d['log']['events_file'] }}</code> <span class="text-muted small">today: {!! $yesNo($d['log']['events_file_today']) !!}</span></td></tr>
+                <tr><th>Failed flows (24h)</th><td>
+                    @if(empty($d['log']['event_errors_24h']))
+                        <span class="badge bg-success">none</span>
+                    @else
+                        @foreach($d['log']['event_errors_24h'] as $name => $count)
+                            <span class="badge bg-danger me-1" title="events log">{{ $count }}× {{ $name }}</span>
+                        @endforeach
+                    @endif
+                    <div class="small text-muted">account.delete_failed · password.reset_* · auth.verification_* · pack.completion_reward_failed</div>
+                </td></tr>
             </table>
             <div class="card-footer small text-muted">Counts come from the tail of the log only. Full details: <code>tail -n 100 storage/logs/laravel.log</code>. Stack traces are never shown here.</div>
         </div>

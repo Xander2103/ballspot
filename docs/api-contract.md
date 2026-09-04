@@ -1640,3 +1640,70 @@ Returns **404** for anonymized (deleted) accounts as of v1.8.6.
 Catalogue grows to **33** with: `social_starter`, `friendly_five`,
 `host_starter`, `tournament_regular`, `sharp_scorer`, `pack_explorer`,
 `daily_loyalist`.
+
+---
+
+## v1.9.5 — launch hardening (2026-09-04)
+
+### GET /api/config  *(public)*
+Feature flags the app needs before login. Booleans/public constants only —
+never the beta code or any secret (`AppConfigTest`).
+```json
+{ "app_name": "BallPicker", "beta_gate": false, "email_verification_required": true,
+  "minimum_age": 16, "terms_version": "2026-08" }
+```
+The register screen shows its beta-code field only when `beta_gate` is true.
+
+### POST /api/register — `code_sent`
+Response now carries `code_sent` (bool): whether the verification email left the
+server. The account is created either way; on `false` the app tells the user to
+tap "Resend code".
+
+### POST /api/login — unverified accounts
+`requires_email_verification` responses carry `code_sent`. A new code is only
+sent when the user has **no usable code left**; otherwise the code already in
+their inbox stays valid. Verification codes: the last **3** unconsumed codes are
+all valid (a late email still works); the 5-attempt lock is shared across them.
+Specific 422 messages: expired → "This code has expired. Please request a new
+one.", locked → "Too many incorrect attempts. Please request a new code."
+
+`BALLPICKER_REQUIRE_EMAIL_VERIFICATION=false` now also disables the `verified`
+gate (custom middleware) and reports every account as `email_verified: true`.
+
+### Password reset — web fallback
+The email link `{FRONTEND_URL}/reset-password?token=…&email=…` is now served by
+the backend itself (`GET /reset-password` form → `POST /reset-password`), plus
+`GET|POST /forgot-password`. The page offers `ballpicker://reset-password?…`
+for phones with the app installed; the app also accepts the whole link pasted
+into its "Reset link or code" field. Failed API resets return
+`{ message, reason: "invalid_or_expired" }` (422).
+
+### DELETE /api/account
+Atomic (one transaction). Success: `{ deleted: true, message }`. Failure:
+`{ deleted: false, message }` with HTTP 500 and an `account.delete_failed`
+event — never a raw exception. The original email and username are free to
+register again immediately.
+
+### Packs — completion & replay
+- `POST /packs/{slug}/start` on a pack the user already completed → **409**
+  `{ message, attempt, challenge: null, completion }`. Replay is disabled.
+- `POST /pack-attempts/{attempt}/guess` on the final challenge returns
+  `pack_completed: true`, `already_completed: false` and a `completion` block.
+  Re-submitting a guess the server already accepted is **idempotent**: same
+  shape, `already_completed: true`, `rank_progress.xp_gained: 0`, no new
+  badges. A different challenge on a completed attempt → 409 with
+  `pack_completed: true`, `progress`, `completion`.
+- `GET /packs/{slug}/attempt` and the start/guess payloads carry `completion`
+  once completed:
+```json
+{ "attempt_id": 12, "pack": {"id":1,"name":"…","slug":"…"},
+  "total_score": 730, "max_score": 1000, "average_score": 73, "average_pct": 73,
+  "best_guess": {"challenge_id": 5, "title": "…", "score": 100},
+  "completed_count": 10, "total_challenges": 10, "is_perfect": false,
+  "completion_xp": 250,
+  "trophy": {"code":"pack_1_completed","name":"…","icon":"🏆","rarity":"rare","earned":true} | null,
+  "completed_at": "…" }
+```
+- Reward failures after the completion commit (badges/XP) never produce a 500:
+  they are logged as `pack.completion_reward_failed` and the completion payload
+  is still returned.

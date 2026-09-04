@@ -12,7 +12,8 @@ import { goPacks, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import type { PackAttemptState, PackChallengeSummary } from '../types/pack';
+import { isPackAlreadyCompleted } from '../types/pack';
+import type { PackAttemptState, PackChallengeSummary, PackCompletionSummary } from '../types/pack';
 import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackGuess'>;
@@ -32,13 +33,21 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const [error, setError] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
 
+  const showCompletion = useCallback((completion?: PackCompletionSummary | null) => {
+    navigation.replace('PackComplete', { slug, packName, completion: completion ?? null });
+  }, [navigation, slug, packName]);
+
   useEffect(() => {
     let cancelled = false;
     // start() resumes the active attempt and returns the current challenge.
     packApi.start(slug)
       .then((res) => {
         if (cancelled) return;
-        if (res.attempt.status === 'completed' || !res.challenge) {
+        if (res.attempt.status === 'completed') {
+          showCompletion(res.completion);
+          return;
+        }
+        if (!res.challenge) {
           // Nothing left to play — bounce back to the pack detail.
           navigation.replace('PackDetail', { slug, name: packName });
           return;
@@ -47,8 +56,15 @@ export function PackGuessScreen({ route, navigation }: Props) {
         setChallenge(res.challenge);
         setLoading(false);
       })
-      .catch(() => {
-        if (!cancelled) { setError('Could not start this pack.'); setLoading(false); }
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        if (isPackAlreadyCompleted(e)) {
+          // The pack is already done: results, not an error.
+          showCompletion(e.completion);
+          return;
+        }
+        setError(getApiErrorMessage(e, 'Could not start this pack.'));
+        setLoading(false);
       });
     return () => { cancelled = true; };
   }, [slug]);
@@ -61,6 +77,10 @@ export function PackGuessScreen({ route, navigation }: Props) {
   }
 
   async function handleSubmit() {
+    // `submitting` is checked synchronously too: a double tap can fire before
+    // the disabled prop re-renders, and the second request used to hit an
+    // attempt that was already completed by the first.
+    if (submitting) return;
     if (guessX === null || guessY === null || !attempt || !challenge) return;
     if (!Number.isFinite(guessX) || !Number.isFinite(guessY)) {
       setError('Tap the image to lock your guess before submitting.');
@@ -75,6 +95,12 @@ export function PackGuessScreen({ route, navigation }: Props) {
         imageUrl: result.result.reveal_image_url ?? challenge.hidden_image_url,
       });
     } catch (e: unknown) {
+      if (isPackAlreadyCompleted(e)) {
+        // Server says the pack is finished (e.g. the previous response was
+        // lost): go to the completion overview instead of showing an error.
+        showCompletion(e.completion);
+        return;
+      }
       setError(getApiErrorMessage(e, 'Failed to submit guess. Please try again.'));
       setSubmitting(false);
     }
@@ -100,13 +126,14 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const hasGuess = guessX !== null && guessY !== null;
   const step = attempt.completed_count + 1; // 1-indexed current step
   const total = attempt.total_challenges;
+  const isFinal = step >= total;
 
   return (
     // scroll: a portrait image (height = width / aspect) can overflow small
     // phones; without scrolling the Submit footer becomes unreachable.
     <Screen scroll padding={false}>
       <View style={styles.infoCard}>
-        <Text style={styles.progressLabel}>Challenge {step} / {total}</Text>
+        <Text style={styles.progressLabel}>Challenge {step} / {total}{isFinal ? ' · final' : ''}</Text>
         <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${total > 0 ? (attempt.completed_count / total) * 100 : 0}%` }]} />
@@ -134,7 +161,12 @@ export function PackGuessScreen({ route, navigation }: Props) {
           </Text>
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        <AppButton title="Submit Guess" onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
+        <AppButton
+          title={isFinal ? 'Submit final guess' : 'Submit Guess'}
+          onPress={handleSubmit}
+          loading={submitting}
+          disabled={!hasGuess || submitting}
+        />
       </View>
 
       <FullscreenImageViewer

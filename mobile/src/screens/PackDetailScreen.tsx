@@ -8,8 +8,10 @@ import { packApi } from '../api/packApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import type { ChallengePackDetail, PackAttemptState } from '../types/pack';
+import { isPackAlreadyCompleted } from '../types/pack';
+import type { ChallengePackDetail, PackAttemptState, PackCompletionSummary } from '../types/pack';
 import { getApiErrorMessage } from '../utils/apiError';
+import { formatPct } from '../utils/packCompletion';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackDetail'>;
 
@@ -20,6 +22,7 @@ export function PackDetailScreen({ route, navigation }: Props) {
 
   const [pack, setPack] = useState<ChallengePackDetail | null>(null);
   const [attempt, setAttempt] = useState<PackAttemptState | null>(null);
+  const [completion, setCompletion] = useState<PackCompletionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
@@ -30,12 +33,13 @@ export function PackDetailScreen({ route, navigation }: Props) {
     try {
       const [packRes, attemptRes] = await Promise.all([
         packApi.get(slug),
-        packApi.attempt(slug).catch(() => ({ attempt: null, challenge: null })),
+        packApi.attempt(slug).catch(() => ({ attempt: null, challenge: null, completion: null })),
       ]);
       setPack(packRes.data);
       setAttempt(attemptRes.attempt);
-    } catch {
-      setError('Could not load this pack.');
+      setCompletion(attemptRes.completion ?? null);
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Could not load this pack.'));
     } finally {
       setLoading(false);
     }
@@ -45,13 +49,26 @@ export function PackDetailScreen({ route, navigation }: Props) {
   // Refresh progress when returning from a play session.
   useEffect(() => navigation.addListener('focus', load), [navigation, load]);
 
+  function showResults(packName: string) {
+    navigation.navigate('PackComplete', { slug, packName, completion });
+  }
+
   async function handlePlay(packName: string) {
+    if (starting) return;
     setStarting(true);
     setError('');
     try {
       await packApi.start(slug);
       navigation.navigate('PackGuess', { slug, packName });
     } catch (e: unknown) {
+      if (isPackAlreadyCompleted(e)) {
+        // Completed in the meantime (other device / stale screen): show the
+        // overview instead of an error.
+        setAttempt(e.attempt ?? attempt);
+        setCompletion(e.completion ?? completion);
+        navigation.navigate('PackComplete', { slug, packName, completion: e.completion ?? completion });
+        return;
+      }
       setError(getApiErrorMessage(e, 'Could not start this pack.'));
     } finally {
       setStarting(false);
@@ -63,20 +80,20 @@ export function PackDetailScreen({ route, navigation }: Props) {
   }
 
   if (!pack) {
-    return <Screen><View style={styles.center}><Text style={styles.emptyText}>{error || 'Pack not found.'}</Text></View></Screen>;
+    return (
+      <Screen padding>
+        <View style={styles.center}>
+          <Text style={styles.emptyText}>{error || 'Pack not found.'}</Text>
+          <AppButton title="Retry" onPress={load} variant="secondary" style={styles.cta} />
+        </View>
+      </Screen>
+    );
   }
 
   const count = pack.challenges.length;
   const playable = count > 0;
   const isActive = attempt?.status === 'active';
   const isCompleted = attempt?.status === 'completed';
-  const ctaLabel = !playable
-    ? 'No challenges yet'
-    : isActive
-      ? `Continue (${attempt!.completed_count}/${attempt!.total_challenges})`
-      : isCompleted
-        ? 'Play again'
-        : 'Start Pack';
 
   // No challenge previews before starting — that would spoil the pack.
   // The player only sees cover, title, description, sport, difficulty,
@@ -101,9 +118,21 @@ export function PackDetailScreen({ route, navigation }: Props) {
           {isActive ? <Text style={[styles.metaChip, styles.activeChip]}>In progress</Text> : null}
         </View>
 
-        {playable ? (
+        {isCompleted ? (
+          // Completed packs are not replayable (the photos are known). The
+          // player gets their results instead of a "Play again".
+          <View style={styles.completedCard}>
+            <Text style={styles.completedTitle}>You completed this pack</Text>
+            <Text style={styles.completedSub}>
+              {completion
+                ? `${completion.total_score} / ${completion.max_score} points · ${formatPct(completion.average_pct)}${completion.trophy?.earned ? ` · ${completion.trophy.icon} trophy earned` : ''}`
+                : `${attempt!.total_score} points`}
+            </Text>
+            <AppButton title="View results" onPress={() => showResults(pack.name)} style={styles.cta} />
+          </View>
+        ) : playable ? (
           <AppButton
-            title={ctaLabel}
+            title={isActive ? `Continue (${attempt!.completed_count}/${attempt!.total_challenges})` : 'Start Pack'}
             onPress={() => handlePlay(pack.name)}
             loading={starting}
             style={styles.cta}
@@ -140,6 +169,12 @@ function createStyles(theme: ThemeTokens) {
     },
     note: { fontSize: 12, color: theme.textMuted, marginTop: spacing.md, fontStyle: 'italic' },
     cta: { marginTop: spacing.md },
+    completedCard: {
+      marginTop: spacing.md, backgroundColor: theme.surface, borderRadius: 14, padding: spacing.md,
+      borderWidth: 1, borderColor: theme.border,
+    },
+    completedTitle: { fontSize: 16, fontWeight: '700', color: theme.text },
+    completedSub: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
     completedChip: { color: theme.success, fontWeight: '700' },
     activeChip: { color: theme.primary, fontWeight: '700' },
     errorInline: { color: theme.danger, fontSize: 13, marginTop: spacing.sm },

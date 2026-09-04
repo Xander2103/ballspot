@@ -10,6 +10,7 @@ import { tokenStorage } from '../storage/tokenStorage';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { getApiErrorMessage, UNAUTHORIZED_MESSAGE } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'EmailVerification'>;
 
@@ -18,9 +19,13 @@ const RESEND_COOLDOWN = 60;
 /**
  * Registration step 2 — confirm the email address with the 6-digit code.
  * The auth token is already stored; verifying unlocks full app access.
+ *
+ * Every code the server sent recently stays valid (a late email still works),
+ * so "resend" is safe to tap. Expired / locked codes get a specific message
+ * that points at "Resend code".
  */
 export function EmailVerificationScreen({ route, navigation }: Props) {
-  const { email } = route.params ?? {};
+  const { email, codeSent } = route.params ?? {};
   const { theme, setTheme } = useTheme();
   const styles = createStyles(theme);
 
@@ -28,8 +33,12 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
-  const [cooldown, setCooldown] = useState(RESEND_COOLDOWN);
+  const [notice, setNotice] = useState(
+    codeSent === false ? 'We could not send a new email just now. Enter the code you already received, or tap "Resend code".' : '',
+  );
+  // No cooldown when the server told us nothing was sent — the user needs the
+  // resend button right away.
+  const [cooldown, setCooldown] = useState(codeSent === false ? 0 : RESEND_COOLDOWN);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -44,7 +53,13 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
     return () => clearInterval(id);
   }, [cooldown]);
 
+  async function goToLogin() {
+    await tokenStorage.remove();
+    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+  }
+
   async function handleVerify() {
+    if (verifying) return;
     if (code.length !== 6) {
       setError('Enter the 6-digit code.');
       return;
@@ -56,8 +71,15 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
       await authApi.verifyEmail({ code });
       const target = await applyProfileAndRoute(setTheme);
       navigation.reset({ index: 0, routes: [{ name: target }] });
-    } catch (e: any) {
-      setError(e?.message || 'Invalid or expired verification code.');
+    } catch (e: unknown) {
+      const status = (e as { status?: number })?.status;
+      if (status === 401) {
+        // The token behind this screen is gone (deleted account, revoked).
+        setError(UNAUTHORIZED_MESSAGE);
+        setTimeout(goToLogin, 1200);
+        return;
+      }
+      setError(getApiErrorMessage(e, 'Invalid or expired verification code.'));
       setCode('');
       setVerifying(false);
     }
@@ -69,20 +91,26 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
     setError('');
     setNotice('');
     try {
-      await authApi.resendEmailVerification();
-      setNotice('A new code has been sent to your email.');
+      const res = await authApi.resendEmailVerification();
+      if (res.email_verified) {
+        // Verified elsewhere in the meantime — just go in.
+        const target = await applyProfileAndRoute(setTheme);
+        navigation.reset({ index: 0, routes: [{ name: target }] });
+        return;
+      }
+      setNotice('A new code has been sent to your email. Older codes you received still work too.');
       setCooldown(RESEND_COOLDOWN);
-    } catch (e: any) {
-      setError(e?.message || 'Could not resend the code.');
+    } catch (e: unknown) {
+      const status = (e as { status?: number })?.status;
+      if (status === 401) {
+        setError(UNAUTHORIZED_MESSAGE);
+        setTimeout(goToLogin, 1200);
+        return;
+      }
+      setError(getApiErrorMessage(e, 'Could not resend the code. Please try again in a moment.'));
     } finally {
       setResending(false);
     }
-  }
-
-  async function handleBackToLogin() {
-    // Abandon the pending unverified session and return to login.
-    await tokenStorage.remove();
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   }
 
   return (
@@ -124,7 +152,9 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
         </Text>
       </Pressable>
 
-      <Pressable onPress={handleBackToLogin} hitSlop={8} style={styles.back}>
+      <Text style={styles.hint}>Didn't get it? Check your spam folder. Codes stay valid for an hour.</Text>
+
+      <Pressable onPress={goToLogin} hitSlop={8} style={styles.back}>
         <Text style={styles.backText}>Back to login</Text>
       </Pressable>
     </Screen>
@@ -153,6 +183,7 @@ function createStyles(theme: ThemeTokens) {
     resend: { alignSelf: 'center', paddingVertical: spacing.md, marginTop: spacing.sm },
     resendText: { color: theme.accent, fontSize: 15, fontWeight: '700' },
     resendDisabled: { color: theme.textMuted },
+    hint: { color: theme.textMuted, fontSize: 12, textAlign: 'center', marginBottom: spacing.sm },
     back: { alignSelf: 'center', paddingVertical: spacing.sm },
     backText: { color: theme.textSecondary, fontSize: 14, fontWeight: '600' },
   });

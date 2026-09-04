@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, StyleSheet, TextInput, Pressable, View, Linking } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -6,11 +6,13 @@ import { Screen } from '../components/Screen';
 import { AppInput } from '../components/AppInput';
 import { AppButton } from '../components/AppButton';
 import { authApi } from '../api/authApi';
+import { configApi, DEFAULT_APP_CONFIG } from '../api/configApi';
 import { tokenStorage } from '../storage/tokenStorage';
 import { applyProfileAndRoute } from '../app/authFlow';
 import { useTheme } from '../theme/useTheme';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -25,6 +27,8 @@ type FieldErrors = {
   beta_code?: string;
 };
 
+const KNOWN_FIELDS: (keyof FieldErrors)[] = ['name', 'username', 'email', 'password', 'beta_code'];
+
 export function RegisterScreen({ navigation }: Props) {
   const { setTheme } = useTheme();
   const [name, setName] = useState('');
@@ -36,10 +40,27 @@ export function RegisterScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
+  // The beta-code field is hidden for the public launch. It only appears when
+  // the backend reports the gate as ON (private beta) — or, as a fallback, when
+  // the backend rejects a registration for a missing code.
+  const [betaGate, setBetaGate] = useState(DEFAULT_APP_CONFIG.beta_gate);
+  const [minimumAge, setMinimumAge] = useState(DEFAULT_APP_CONFIG.minimum_age);
 
   const usernameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    configApi.get()
+      .then((cfg) => {
+        if (cancelled) return;
+        setBetaGate(!!cfg.beta_gate);
+        if (cfg.minimum_age) setMinimumAge(cfg.minimum_age);
+      })
+      .catch(() => { /* keep defaults: gate hidden, the server still validates */ });
+    return () => { cancelled = true; };
+  }, []);
 
   async function handleRegister() {
     if (loading) return; // guard against double-submit (button + keyboard "done")
@@ -51,6 +72,8 @@ export function RegisterScreen({ navigation }: Props) {
     if (!username.trim()) errors.username = 'Username is required';
     if (!email.trim()) errors.email = 'Email is required';
     if (!password) errors.password = 'Password is required';
+    else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
+    if (betaGate && !betaCode.trim()) errors.beta_code = 'A beta code is required during closed testing';
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -71,7 +94,7 @@ export function RegisterScreen({ navigation }: Props) {
         password,
         terms_accepted: true,
         age_confirmed: true,
-        ...(betaCode.trim() ? { beta_code: betaCode.trim() } : {}),
+        ...(betaGate && betaCode.trim() ? { beta_code: betaCode.trim() } : {}),
       });
       await tokenStorage.save(res.token);
       if (res.email_verified === true) {
@@ -81,17 +104,31 @@ export function RegisterScreen({ navigation }: Props) {
         navigation.reset({ index: 0, routes: [{ name: route }] });
       } else {
         // New accounts must verify their email before full access.
-        navigation.reset({ index: 0, routes: [{ name: 'EmailVerification', params: { email: email.trim() } }] });
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'EmailVerification', params: { email: email.trim(), codeSent: res.code_sent !== false } }],
+        });
       }
-    } catch (e: any) {
-      if (e?.errors) {
+    } catch (e: unknown) {
+      const err = e as { errors?: Record<string, unknown> };
+      if (err?.errors && typeof err.errors === 'object') {
         const apiErrors: FieldErrors = {};
-        for (const [field, messages] of Object.entries(e.errors)) {
-          apiErrors[field as keyof FieldErrors] = (messages as string[]).join(', ');
+        const other: string[] = [];
+        for (const [field, messages] of Object.entries(err.errors)) {
+          const text = Array.isArray(messages) ? messages.filter((m) => typeof m === 'string').join(' ') : String(messages ?? '');
+          if (KNOWN_FIELDS.includes(field as keyof FieldErrors)) {
+            apiErrors[field as keyof FieldErrors] = text;
+          } else if (text) {
+            other.push(text);
+          }
         }
+        // The server asked for a beta code: reveal the field even if /config
+        // said the gate was off (config drift between deploys).
+        if (apiErrors.beta_code) setBetaGate(true);
         setFieldErrors(apiErrors);
+        if (other.length) setFormError(other[0]);
       } else {
-        setFormError(e?.message || 'Registration failed. Please try again.');
+        setFormError(getApiErrorMessage(e, 'Registration failed. Please try again.'));
       }
     } finally {
       setLoading(false);
@@ -130,6 +167,7 @@ export function RegisterScreen({ navigation }: Props) {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        autoComplete="email"
         error={fieldErrors.email}
         returnKeyType="next"
         onSubmitEditing={() => passwordRef.current?.focus()}
@@ -137,21 +175,28 @@ export function RegisterScreen({ navigation }: Props) {
       />
       <AppInput
         ref={passwordRef}
-        label="Password"
+        label="Password (at least 8 characters)"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        autoComplete="new-password"
+        textContentType="newPassword"
         error={fieldErrors.password}
-        returnKeyType="done"
-        onSubmitEditing={handleRegister}
+        returnKeyType={betaGate ? 'next' : 'done'}
+        onSubmitEditing={betaGate ? undefined : handleRegister}
       />
-      <AppInput
-        label="Beta code (if you have one)"
-        value={betaCode}
-        onChangeText={setBetaCode}
-        autoCapitalize="characters"
-        error={fieldErrors.beta_code}
-      />
+      {betaGate ? (
+        <AppInput
+          label="Beta code"
+          value={betaCode}
+          onChangeText={setBetaCode}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          error={fieldErrors.beta_code}
+          returnKeyType="done"
+          onSubmitEditing={handleRegister}
+        />
+      ) : null}
 
       {/* Terms/Privacy consent — required before account creation. */}
       <Pressable
@@ -164,7 +209,7 @@ export function RegisterScreen({ navigation }: Props) {
           {agreed ? <Text style={styles.checkboxMark}>✓</Text> : null}
         </View>
         <Text style={styles.consentText}>
-          I am at least 16 years old, I agree to the{' '}
+          I am at least {minimumAge} years old, I agree to the{' '}
           <Text style={styles.link} onPress={() => Linking.openURL(`${WEB_BASE}/terms`)}>
             Terms
           </Text>{' '}
@@ -177,6 +222,9 @@ export function RegisterScreen({ navigation }: Props) {
       </Pressable>
 
       <AppButton title="Create Account" onPress={handleRegister} loading={loading} disabled={!agreed} />
+      <Pressable onPress={() => navigation.navigate('Login')} style={styles.loginLink} hitSlop={8} disabled={loading}>
+        <Text style={styles.loginLinkText}>Already have an account? Log in</Text>
+      </Pressable>
     </Screen>
   );
 }
@@ -207,4 +255,6 @@ const styles = StyleSheet.create({
   checkboxMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
   consentText: { flex: 1, color: colors.textSecondary, fontSize: 13, lineHeight: 19 },
   link: { color: colors.primary, fontWeight: '600' },
+  loginLink: { alignSelf: 'center', paddingVertical: spacing.md },
+  loginLinkText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
 });

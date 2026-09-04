@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavigationContainer, NavigatorScreenParams } from '@react-navigation/native';
+import { NavigationContainer, NavigatorScreenParams, LinkingOptions } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
 import { useTheme } from '../theme/useTheme';
@@ -10,7 +10,7 @@ import { authApi } from '../api/authApi';
 import type { Badge } from '../types/badge';
 import type { RankProgress, RankUp } from '../types/auth';
 import type { TournamentCompletion } from '../types/guess';
-import type { PackGuessResult } from '../types/pack';
+import type { PackGuessResult, PackCompletionSummary } from '../types/pack';
 import { LoginScreen } from '../screens/LoginScreen';
 import { LoginVerificationScreen } from '../screens/LoginVerificationScreen';
 import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
@@ -29,6 +29,7 @@ import { PacksScreen } from '../screens/PacksScreen';
 import { PackDetailScreen } from '../screens/PackDetailScreen';
 import { PackGuessScreen } from '../screens/PackGuessScreen';
 import { PackResultScreen } from '../screens/PackResultScreen';
+import { PackCompleteScreen } from '../screens/PackCompleteScreen';
 import { RankOverviewScreen } from '../screens/RankOverviewScreen';
 import { TrophyRoomScreen } from '../screens/TrophyRoomScreen';
 import { DailyChallengeScreen } from '../screens/DailyChallengeScreen';
@@ -42,7 +43,7 @@ import { goHome, goPacks } from './navigationActions';
 export type RootStackParamList = {
   Login: undefined;
   LoginVerification: { verificationId: string; email?: string };
-  EmailVerification: { email?: string } | undefined;
+  EmailVerification: { email?: string; codeSent?: boolean } | undefined;
   Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { email?: string; token?: string } | undefined;
@@ -54,6 +55,7 @@ export type RootStackParamList = {
   PackDetail: { slug: string; name: string };
   PackGuess: { slug: string; packName: string };
   PackResult: { slug: string; packName: string; result: PackGuessResult; imageUrl: string | null };
+  PackComplete: { slug: string; packName: string; completion?: PackCompletionSummary | null };
   RankOverview: undefined;
   TrophyRoom: undefined;
   CreateLeague: undefined;
@@ -70,6 +72,33 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://ballpicker.vanmalderstudio.be';
+
+/**
+ * Deep links. Only the password-reset link is routable from outside the app:
+ *   ballpicker://reset-password?token=…&email=…   (offered on the web reset page)
+ *   https://<WEB_BASE>/reset-password?token=…      (the link in the email; only
+ *   opens the app on platforms where universal/app links are configured —
+ *   otherwise the web fallback page handles it)
+ * Everything else stays app-internal on purpose: no route may be opened by a
+ * URL that would land a signed-out user on an authenticated screen.
+ */
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: ['ballpicker://', WEB_BASE],
+  config: {
+    initialRouteName: 'Login',
+    screens: {
+      ResetPassword: {
+        path: 'reset-password',
+        parse: {
+          token: (value: string) => decodeURIComponent(value),
+          email: (value: string) => decodeURIComponent(value),
+        },
+      },
+    },
+  },
+};
 
 type AppNavigatorProps = {
   /** Fired once the initial route has been resolved and rendered. */
@@ -130,7 +159,7 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
         <Stack.Screen name="LoginVerification" component={LoginVerificationScreen} options={{ title: 'Verify Login' }} />
@@ -157,6 +186,16 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
           component={PackResultScreen}
           options={({ navigation }) => ({
             title: 'Pack Result',
+            gestureEnabled: false,
+            headerBackVisible: false,
+            headerLeft: () => <HeaderExitButton label="Packs" onPress={() => goPacks(navigation)} />,
+          })}
+        />
+        <Stack.Screen
+          name="PackComplete"
+          component={PackCompleteScreen}
+          options={({ navigation }) => ({
+            title: 'Pack Completed',
             gestureEnabled: false,
             headerBackVisible: false,
             headerLeft: () => <HeaderExitButton label="Packs" onPress={() => goPacks(navigation)} />,

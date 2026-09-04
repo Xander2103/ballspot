@@ -50,14 +50,57 @@ export interface PackAttemptState {
   completed_at?: string | null;
 }
 
+/** The pack's completion trophy (admin-configured) and whether the user holds it. */
+export interface PackTrophy {
+  code: string;
+  name: string;
+  icon: string;
+  rarity: string;
+  earned: boolean;
+}
+
+/** Overview of a completed attempt (the "Pack completed" screen). */
+export interface PackCompletionSummary {
+  attempt_id: number;
+  pack: { id: number; name: string; slug: string } | null;
+  total_score: number;
+  max_score: number;
+  average_score: number;
+  average_pct: number;
+  best_guess: { challenge_id: number; title: string | null; score: number } | null;
+  completed_count: number;
+  total_challenges: number;
+  is_perfect: boolean;
+  completion_xp: number;
+  trophy: PackTrophy | null;
+  completed_at: string | null;
+}
+
 export interface PackAttemptResponse {
   attempt: PackAttemptState | null;
   challenge: PackChallengeSummary | null;
+  /** Present once the attempt is completed. */
+  completion?: PackCompletionSummary | null;
 }
 
 export interface PackStartResponse {
   attempt: PackAttemptState;
   challenge: PackChallengeSummary | null;
+  completion?: PackCompletionSummary | null;
+}
+
+/** Body of the 409 the backend returns when a completed pack is started again. */
+export interface PackAlreadyCompletedError {
+  status: 409;
+  message: string;
+  attempt?: PackAttemptState | null;
+  completion?: PackCompletionSummary | null;
+  progress?: PackAttemptState;
+  pack_completed?: boolean;
+}
+
+export function isPackAlreadyCompleted(e: unknown): e is PackAlreadyCompletedError {
+  return !!e && typeof e === 'object' && (e as { status?: number }).status === 409;
 }
 
 export interface PackGuessResult {
@@ -76,8 +119,11 @@ export interface PackGuessResult {
   rank_up: RankUp | null;
   new_badges: Badge[];
   pack_completed: boolean;
+  /** True when this was a retry of a guess the server had already accepted. */
+  already_completed?: boolean;
   final_score: number | null;
   completion_xp: number | null;
+  completion?: PackCompletionSummary | null;
 }
 
 export interface PackCompletion {

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Alert } from 'react-native';
+import { getApiErrorMessage } from '../utils/apiError';
 import * as ImagePicker from 'expo-image-picker';
 import { CommonActions } from '@react-navigation/native';
 import { MainTabScreenProps } from '../app/MainTabs';
@@ -116,15 +117,33 @@ export function ProfileScreen({ navigation }: Props) {
     if (deleting) return; // guard against double-submit
     setDeleting(true);
     setDeleteError('');
+    const leave = () => navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
     try {
       // The server removes ALL push registrations on deletion, so only the
       // local cleanup is needed here.
       await authApi.deleteAccount();
       await signOut();
       setShowDeleteModal(false);
-      navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
-    } catch {
-      setDeleteError('Failed to delete account. Please try again or contact support.');
+      // The account is gone server-side; make that unmistakable before the
+      // app returns to the public login screen.
+      Alert.alert(
+        'Account deleted',
+        'Your account has been deleted and your personal details removed. You can create a new account with the same email at any time.',
+        [{ text: 'OK', onPress: leave }],
+        { cancelable: false },
+      );
+      setTimeout(leave, 4000); // never strand the user if the alert is dismissed silently (web)
+    } catch (e: unknown) {
+      const status = (e as { status?: number })?.status;
+      if (status === 401) {
+        // The session is already dead (token revoked) — nothing to delete
+        // with; sign out locally so the user is not stuck on a dead screen.
+        await signOut();
+        setShowDeleteModal(false);
+        leave();
+        return;
+      }
+      setDeleteError(getApiErrorMessage(e, 'We could not delete your account right now. Please try again in a moment or contact support.'));
       setDeleting(false);
     }
   }

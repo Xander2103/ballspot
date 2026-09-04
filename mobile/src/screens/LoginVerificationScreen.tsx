@@ -9,6 +9,7 @@ import { completeLogin } from '../app/authFlow';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LoginVerification'>;
 
@@ -53,8 +54,8 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
       const { token } = await authApi.verifyLoginCode({ verification_id: verificationId, code });
       const target = await completeLogin(token, setTheme);
       navigation.reset({ index: 0, routes: [{ name: target }] });
-    } catch (e: any) {
-      setError(e?.message || 'Invalid or expired verification code.');
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, 'Invalid or expired verification code.'));
       setCode('');
       setVerifying(false);
     }
@@ -69,9 +70,9 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
       await authApi.resendLoginCode({ verification_id: verificationId });
       setNotice('A new code has been sent to your email.');
       setCooldown(RESEND_COOLDOWN);
-    } catch (e: any) {
+    } catch (e: unknown) {
       // Expired/invalid session → the user must start over.
-      const msg = e?.message || 'Could not resend the code.';
+      const msg = getApiErrorMessage(e, 'Could not resend the code. Please try again in a moment.');
       setError(msg);
       if (/login again/i.test(msg)) {
         setTimeout(() => navigation.goBack(), 1200);

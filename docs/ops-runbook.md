@@ -42,7 +42,12 @@ grep '"user_id":123' storage/logs/ballpicker-events-*.log
 ```
 
 Event names: `auth.registered`, `auth.login_failed`, `auth.beta_code_rejected`,
-`account.anonymized`, `daily.scheduled`, `daily.schedule_run`,
+`auth.verification_sent`, `auth.verification_send_failed`,
+`auth.verification_failed`, `auth.verification_completed`,
+`password.reset_requested`, `password.reset_failed`, `password.reset_completed`,
+`account.deleted`, `account.delete_failed`, `account.anonymized` (legacy alias
+of `account.deleted`), `pack.replay_blocked`, `pack.duplicate_submit`,
+`pack.completion_reward_failed`, `daily.scheduled`, `daily.schedule_run`,
 `daily.schedule_skipped`, `daily.schedule_failed`, `daily.pool_exhausted`,
 `daily.history_reset_dry_run`, `daily.history_reset`, `tournament.created`,
 `tournament.joined`, `tournament.join_rejected`, `tournament.cap_rejected`,
@@ -243,3 +248,54 @@ diagnostics page show the release you actually deployed.
 - Tournament completion has no time-based sweep; expired active tournaments
   are reported, not closed.
 - The daily `scheduled → active` step is still manual.
+
+---
+
+## 6. Launch-hardening flows (v1.9.5) — what to check
+
+The `/admin/diagnostics` log card now has a **Failed flows (24h)** row that
+counts ERROR/WARNING events from the events log by name. Anything listed there
+is a user-visible failure of one of these flows.
+
+### "The reset link doesn't work"
+1. The link in the email is `{FRONTEND_URL}/reset-password?token=…&email=…`.
+   In production `FRONTEND_URL` **must be the backend domain**
+   (`https://ballpicker.vanmalderstudio.be`) — the backend serves the reset
+   page itself. Confirm: `curl -sI https://ballpicker.vanmalderstudio.be/reset-password | head -1` → `200`.
+2. `grep 'password\.' storage/logs/ballpicker-events-$(date +%F).log`:
+   `reset_requested {outcome: send_failed}` = mail transport problem (check
+   `MAIL_*`, `tail laravel.log`); `reset_failed {reason: invalid_token}` =
+   expired/used link (tokens expire per `config/auth.php` `passwords.users.expire`,
+   default 60 min) — the user must request a new one and open the **newest** email.
+3. The app accepts the whole link pasted into "Reset link or code".
+
+### "The verification code doesn't work"
+1. `grep 'auth.verification' storage/logs/ballpicker-events-$(date +%F).log`.
+   `verification_send_failed` = mail not leaving (fix mail, user taps Resend);
+   `verification_failed {reason: expired}` = older than
+   `BALLPICKER_EMAIL_CODE_EXPIRY_MINUTES` (60); `{reason: locked}` = 5 wrong
+   tries — Resend issues a fresh code and resets the lock.
+2. The last 3 codes sent are all valid, so a late email still works.
+3. Emergency switch: `BALLPICKER_REQUIRE_EMAIL_VERIFICATION=false` +
+   `php artisan config:cache` disables the code step entirely (new accounts
+   verified at once, existing unverified accounts let in).
+
+### "Delete account fails"
+`grep account.delete_failed storage/logs/ballpicker-events-*.log` → the context
+carries `user_id` + exception class; the full trace is in `laravel.log` at the
+same timestamp. Deletion is one transaction: a failure leaves the account
+fully intact (the user can retry). After success the original email and
+username are free to register again.
+
+### "Pack shows 'attempt is not active' on the last challenge"
+Fixed in v1.9.5: re-submitting an accepted guess is idempotent and a completed
+pack returns its overview. If `pack.completion_reward_failed` appears, the
+completion itself succeeded but badges/XP did not — check `laravel.log` for
+the exception and re-run `php artisan db:seed --class=BadgeSeeder` if a badge
+row is missing.
+
+### Beta gate
+Private beta: set `BALLPICKER_BETA_CODE=<code>`. Public launch: leave it
+**empty** — the app hides its beta-code field based on `GET /api/config`
+(`beta_gate: false`) and the backend accepts registrations without a code.
+Change requires `php artisan config:cache`; no app build.
