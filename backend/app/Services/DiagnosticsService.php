@@ -71,6 +71,7 @@ class DiagnosticsService
             'packs'        => $this->packs(),
             'storage'      => $this->storage(),
             'activity'     => $this->activity($now),
+            'prelaunch'    => $this->prelaunch(),
             'commands'     => $this->commands(),
         ];
 
@@ -449,6 +450,16 @@ class DiagnosticsService
     }
 
     /** Text only. Never executed from the web. */
+    /**
+     * Counts for the pre-launch "Clear Daily History" tool: what the action
+     * would remove and how many challenges become reusable. Read-only here;
+     * the action itself lives in DailyHistoryClearService.
+     */
+    private function prelaunch(): array
+    {
+        return app(DailyHistoryClearService::class)->counts();
+    }
+
     private function commands(): array
     {
         return [

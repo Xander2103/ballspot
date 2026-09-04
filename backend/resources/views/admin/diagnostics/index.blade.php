@@ -245,6 +245,65 @@
         </div>
     </div>
 
+    {{-- Danger zone / pre-launch tools — the ONLY mutating action on this page --}}
+    <div class="col-12">
+        <div class="card shadow-sm border-danger" data-section="danger">
+            <div class="card-header bg-danger text-white d-flex align-items-center gap-2">
+                <strong>Danger zone / Pre-launch tools</strong>
+                <span class="badge bg-warning text-dark">confirmation PIN required</span>
+            </div>
+            <div class="card-body">
+                @if($errors->has('pin') || $errors->has('acknowledge'))
+                    <div class="alert alert-danger py-2">{{ $errors->first('pin') ?: $errors->first('acknowledge') }} Nothing was changed.</div>
+                @endif
+
+                <details {{ $errors->has('pin') || $errors->has('acknowledge') ? 'open' : '' }}>
+                    <summary class="fw-semibold text-danger" style="cursor:pointer">Clear Daily History</summary>
+
+                    <div class="alert alert-warning mt-3 mb-3">
+                        <strong>This clears Daily scheduling/history only. It does not delete challenge photos.</strong><br>
+                        Removes every row from <code>daily_challenges</code> and <code>daily_challenge_guesses</code>
+                        (players' daily scores and streak history included). Challenges, images, usage_pool values, tournaments,
+                        users, badges and packs are untouched. Afterwards no challenge counts as "Used as Daily" any more.
+                        A content backup (same as <code>php artisan ballspot:backup-content</code>) is written first; if the backup
+                        fails, nothing is deleted.<br>
+                        <strong>After clearing, run Daily scheduling again or use Admin → Daily to schedule new dailies.</strong>
+                    </div>
+
+                    <table class="table table-sm w-auto mb-3">
+                        <tr><th>daily_challenges rows</th><td><span class="badge bg-secondary">{{ $d['prelaunch']['daily_challenges'] }}</span></td></tr>
+                        <tr><th>daily_challenge_guesses rows</th><td><span class="badge bg-secondary">{{ $d['prelaunch']['daily_challenge_guesses'] }}</span></td></tr>
+                        <tr><th>Affected challenges</th><td><span class="badge bg-secondary">{{ $d['prelaunch']['affected_challenges'] }}</span> <span class="text-muted small">become reusable for daily/tournaments</span></td></tr>
+                    </table>
+
+                    @if($d['prelaunch']['daily_challenges'] === 0 && $d['prelaunch']['daily_challenge_guesses'] === 0)
+                        <div class="text-muted small mb-3">Nothing to clear right now.</div>
+                    @endif
+
+                    <form method="POST" action="{{ route('admin.diagnostics.clear-daily-history') }}" class="row g-2 align-items-end" autocomplete="off"
+                          onsubmit="return confirm('Clear ALL Daily history now? A backup is written first. This cannot be undone from the browser.');">
+                        @csrf
+                        <div class="col-auto">
+                            <label for="clear-pin" class="form-label small mb-1">Confirmation PIN</label>
+                            <input id="clear-pin" name="pin" type="password" inputmode="numeric" autocomplete="one-time-code"
+                                   class="form-control form-control-sm {{ $errors->has('pin') ? 'is-invalid' : '' }}" style="max-width: 10rem" required>
+                        </div>
+                        <div class="col-auto">
+                            <div class="form-check">
+                                <input id="clear-ack" name="acknowledge" type="checkbox" value="1" class="form-check-input {{ $errors->has('acknowledge') ? 'is-invalid' : '' }}" required>
+                                <label for="clear-ack" class="form-check-label small">{{ $acknowledgement }}</label>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-sm btn-danger">Clear Daily History</button>
+                        </div>
+                    </form>
+                    <div class="text-muted small mt-2">Every attempt (allowed or denied) is logged as <code>daily_history_clear.*</code> without the PIN.</div>
+                </details>
+            </div>
+        </div>
+    </div>
+
     {{-- 8. Manual operations --}}
     <div class="col-12">
         <div class="card shadow-sm" data-section="commands">

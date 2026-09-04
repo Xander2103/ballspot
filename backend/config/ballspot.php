@@ -9,6 +9,20 @@ return [
     // /admin/diagnostics and in operational logs. Bump per deploy.
     'version'       => env('BALLPICKER_APP_VERSION', 'v1'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Content backups (ballspot:backup-content + admin pre-launch tools)
+    |--------------------------------------------------------------------------
+    | root: folder that receives one timestamped sub-folder per backup. Null =
+    | ../backups/ballspot-content next to the backend (historical default).
+    | storage_path: the uploads tree that gets copied. Null = storage/app/public.
+    | Both exist so tests can point at scratch directories.
+    */
+    'backup' => [
+        'root'         => env('BALLPICKER_BACKUP_ROOT'),
+        'storage_path' => null,
+    ],
+
     // Marketing / legal website (privacy, terms). NOT the app frontend — see
     // frontend_url below for deep links back into the running app.
     'web_url'       => env('BALLSPOT_WEB_URL', env('APP_URL', 'http://localhost')),

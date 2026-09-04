@@ -47,7 +47,9 @@ Event names: `auth.registered`, `auth.login_failed`, `auth.beta_code_rejected`,
 `password.reset_requested`, `password.reset_failed`, `password.reset_completed`,
 `account.deleted`, `account.delete_failed`, `account.anonymized` (legacy alias
 of `account.deleted`), `pack.replay_blocked`, `pack.duplicate_submit`,
-`pack.completion_reward_failed`, `daily.scheduled`, `daily.schedule_run`,
+`pack.completion_reward_failed`, `daily_history_clear.denied`,
+`daily_history_clear.completed`, `daily_history_clear.failed`,
+`daily.scheduled`, `daily.schedule_run`,
 `daily.schedule_skipped`, `daily.schedule_failed`, `daily.pool_exhausted`,
 `daily.history_reset_dry_run`, `daily.history_reset`, `tournament.created`,
 `tournament.joined`, `tournament.join_rejected`, `tournament.cap_rejected`,
@@ -299,3 +301,25 @@ Private beta: set `BALLPICKER_BETA_CODE=<code>`. Public launch: leave it
 **empty** — the app hides its beta-code field based on `GET /api/config`
 (`beta_gate: false`) and the backend accepts registrations without a code.
 Change requires `php artisan config:cache`; no app build.
+
+### Pre-launch tool: Clear Daily History (`/admin/diagnostics` → Danger zone)
+
+Web twin of `php artisan ballspot:reset-test-daily-history --force --confirm-prelaunch`.
+Deletes **only** `daily_challenge_guesses` and `daily_challenge_guesses`' parent
+`daily_challenges` rows — never challenges, images, `usage_pool`, tournaments,
+users, badges or packs. Use it once before public launch to make test-scheduled
+photos reusable; never casually afterwards (it erases players' daily scores).
+
+Safety chain, in order: admin session → POST + CSRF only (GET is 405) →
+acknowledgement checkbox → confirmation PIN (constant-time compare, never
+logged, never rendered) → full content backup via the same service as
+`ballspot:backup-content` (backup failure = nothing deleted) → one DB
+transaction. Every attempt logs `daily_history_clear.denied {reason}`,
+`.completed {counts, backup_folder}` or `.failed {stage}`; the PIN value is
+never in any context.
+
+After clearing: "Used as Daily" is 0, the daily pool grows again and
+diagnostics warns that no daily exists for today — run
+`php artisan ballspot:schedule-daily-challenges` or use Admin → Daily.
+Backups land in `../backups/ballspot-content/<timestamp>/` (override with
+`BALLPICKER_BACKUP_ROOT`).

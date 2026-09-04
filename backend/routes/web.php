@@ -72,6 +72,10 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     // Read-only operational status (queue, daily, content pool, storage, log
     // counts). Never runs shell commands, never shows secrets.
     Route::get('diagnostics', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'index'])->name('admin.diagnostics.index');
+    // Pre-launch tool: the ONLY mutating diagnostics route. POST + CSRF +
+    // admin + confirmation PIN + acknowledgement; backup before delete.
+    Route::post('diagnostics/clear-daily-history', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'clearDailyHistory'])
+        ->name('admin.diagnostics.clear-daily-history');
 
     Route::get('notifications', [\App\Http\Controllers\Admin\NotificationController::class, 'index'])->name('admin.notifications.index');
     // Throttled like /send: store() also fans out to every device when the
