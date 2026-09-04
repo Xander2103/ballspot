@@ -26,16 +26,29 @@ export const authApi = {
   resendLoginCode: (data: { verification_id: string }) =>
     apiClient.request<{ message: string }>('/login/resend-code', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Email verification (registration step 2). Requires the auth token.
-  verifyEmail: (data: { code: string }) =>
+  // Email verification (registration step 2). Requires the auth token. The
+  // optional email is a hint: the server answers 409 session_mismatch when the
+  // token belongs to a different account than the one being verified.
+  verifyEmail: (data: { code: string; email?: string }) =>
     apiClient.request<{ email_verified: boolean; user: User; message: string }>(
       '/email/verify', { method: 'POST', body: JSON.stringify(data) }
     ),
 
   resendEmailVerification: () =>
-    apiClient.request<{ email_verified: boolean; message: string }>(
+    apiClient.request<{ email_verified: boolean; email?: string; message: string }>(
       '/email/verification-notification', { method: 'POST' }
     ),
+
+  // Which account the stored token belongs to + whether a code is live.
+  verificationStatus: () =>
+    apiClient.request<{
+      email: string;
+      email_verified: boolean;
+      has_usable_code: boolean;
+      can_resend: boolean;
+      resend_available_in_seconds: number;
+      code_expires_in_seconds: number;
+    }>('/email/verification-status'),
 
   logout: () =>
     apiClient.request<{ message: string }>('/logout', { method: 'POST' }),

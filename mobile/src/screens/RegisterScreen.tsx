@@ -9,6 +9,8 @@ import { authApi } from '../api/authApi';
 import { configApi, DEFAULT_APP_CONFIG } from '../api/configApi';
 import { tokenStorage } from '../storage/tokenStorage';
 import { applyProfileAndRoute } from '../app/authFlow';
+import { signOut } from '../app/signOut';
+import { prepareForNewAccount, adoptToken } from '../utils/verificationFlow';
 import { useTheme } from '../theme/useTheme';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -87,6 +89,12 @@ export function RegisterScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
+      // A previous account on this device must not leak into the new one: no
+      // stale Authorization header on the register call, no old reminders or
+      // theme, and no chance that a failed registration leaves the old session
+      // half-alive. (Being on this screen already means "switch account".)
+      await prepareForNewAccount(tokenStorage, signOut);
+
       const res = await authApi.register({
         name: name.trim(),
         username: username.trim(),
@@ -96,7 +104,9 @@ export function RegisterScreen({ navigation }: Props) {
         age_confirmed: true,
         ...(betaGate && betaCode.trim() ? { beta_code: betaCode.trim() } : {}),
       });
-      await tokenStorage.save(res.token);
+      // Persist the NEW token and prove it is what the device now holds — the
+      // verification screen must never run against a leftover credential.
+      await adoptToken(tokenStorage, res.token);
       if (res.email_verified === true) {
         // Email verification disabled by config — account is already verified,
         // so skip the verification screen and route straight into the app.

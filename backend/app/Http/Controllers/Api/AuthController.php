@@ -109,7 +109,11 @@ class AuthController extends Controller
         // the app can drive the verification screen.
         if ($this->emailVerificationRequired() && !$user->hasVerifiedEmail()) {
             $codeSent = false;
-            if (!$emailVerification->hasUsableCode($user)) {
+            if ($emailVerification->hasUsableCode($user)) {
+                // The code already in their inbox stays valid — sending another
+                // here is exactly what used to make "the emailed code" fail.
+                AppLog::event('auth.verification_skipped', ['user_id' => $user->id, 'reason' => 'usable_code_exists', 'trigger' => 'login']);
+            } else {
                 $codeSent = $emailVerification->send($user, $request->ip(), $request->userAgent());
             }
             $token = $user->createToken('mobile')->plainTextToken;

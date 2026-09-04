@@ -6,6 +6,7 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
 use App\Support\AppLog;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -23,12 +24,18 @@ use Illuminate\Validation\ValidationException;
  * in. The last MAX_LIVE_CODES unconsumed codes stay valid; the attempt lock is
  * shared across them (tracked on the newest record), so the brute-force budget
  * does not grow with the number of live codes.
+ *
+ * Every failure carries a `reason` (no_code | expired | locked | wrong_code)
+ * in the 422 body and in the `auth.verification_failed` event, together with
+ * diagnostic counts (live codes, age of the newest code, attempts) — never the
+ * code itself.
  */
 class EmailVerificationService
 {
     public const GENERIC_FAILURE = 'Invalid or expired verification code.';
     public const EXPIRED_FAILURE = 'This code has expired. Please request a new one.';
     public const LOCKED_FAILURE  = 'Too many incorrect attempts. Please request a new code.';
+    public const NO_CODE_FAILURE = 'No verification code is active for this account. Tap "Resend code" to get a new one.';
 
     /** How many of the most recent unconsumed codes remain valid at once. */
     public const MAX_LIVE_CODES = 3;
@@ -53,6 +60,8 @@ class EmailVerificationService
 
         if (!$force && $recent && $recent->code_sent_at->diffInSeconds(now()) < $this->cooldownSeconds()) {
             // A fresh code was sent very recently — do not send another.
+            AppLog::event('auth.verification_skipped', ['user_id' => $user->id, 'reason' => 'cooldown']);
+
             return false;
         }
 
@@ -64,8 +73,13 @@ class EmailVerificationService
         $keep = EmailVerificationCode::where('user_id', $user->id)
             ->latest('code_sent_at')->latest('id')
             ->limit(self::MAX_LIVE_CODES - 1)
-            ->pluck('id');
-        EmailVerificationCode::where('user_id', $user->id)->whereNotIn('id', $keep)->delete();
+            ->pluck('id')
+            ->all();
+        if ($keep !== []) {
+            EmailVerificationCode::where('user_id', $user->id)->whereNotIn('id', $keep)->delete();
+        } else {
+            EmailVerificationCode::where('user_id', $user->id)->delete();
+        }
 
         $code          = $this->generateCode();
         $expiryMinutes = $this->expiryMinutes();
@@ -93,8 +107,9 @@ class EmailVerificationService
         }
 
         AppLog::event('auth.verification_sent', [
-            'user_id' => $user->id,
-            'forced'  => $force,
+            'user_id'    => $user->id,
+            'forced'     => $force,
+            'live_codes' => EmailVerificationCode::where('user_id', $user->id)->whereNull('consumed_at')->count(),
         ]);
 
         return true;
@@ -109,8 +124,48 @@ class EmailVerificationService
     }
 
     /**
+     * What the verification screen needs to render truthfully: which account
+     * the token belongs to, whether a code is live, when resend unlocks.
+     */
+    public function status(User $user): array
+    {
+        $latest   = $this->latestLive($user);
+        $now      = now();
+        $cooldown = $this->cooldownSeconds();
+        $sentAgo  = $latest ? (int) $latest->code_sent_at->diffInSeconds($now) : null;
+
+        return [
+            'email'                       => $user->email,
+            'email_verified'              => $user->hasVerifiedEmail(),
+            'has_usable_code'             => $latest !== null && $latest->isUsable($this->maxAttempts()),
+            'can_resend'                  => !$user->hasVerifiedEmail() && ($latest === null || $sentAgo >= $cooldown),
+            'resend_available_in_seconds' => $latest === null ? 0 : max(0, $cooldown - $sentAgo),
+            'code_expires_in_seconds'     => $latest && $latest->expires_at->isFuture() ? (int) $now->diffInSeconds($latest->expires_at) : 0,
+        ];
+    }
+
+    /**
+     * Normalise whatever the client sent into a 6-digit string, or null.
+     * Accepts strings with whitespace, and JSON numbers (leading zeros are
+     * impossible for those — a 5-digit number is left-padded to keep a
+     * "012345" typed on a numeric keypad working).
+     */
+    public static function normalizeCode(mixed $raw): ?string
+    {
+        if (is_int($raw)) {
+            $raw = str_pad((string) $raw, 6, '0', STR_PAD_LEFT);
+        }
+        if (!is_string($raw)) {
+            return null;
+        }
+        $digits = preg_replace('/\D+/', '', $raw) ?? '';
+
+        return strlen($digits) === 6 ? $digits : null;
+    }
+
+    /**
      * Verify a submitted code for the given user and mark the email verified.
-     * Throws a ValidationException with a friendly, specific message on failure.
+     * Throws a 422 with a friendly, specific message + `reason` on failure.
      */
     public function verify(User $user, string $code): void
     {
@@ -128,13 +183,13 @@ class EmailVerificationService
         $latest = $live->first();
 
         if (!$latest) {
-            throw $this->failure($user, 'no_code', self::GENERIC_FAILURE);
+            throw $this->failure($user, 'no_code', self::NO_CODE_FAILURE, $live);
         }
         if ($latest->isLocked($max)) {
-            throw $this->failure($user, 'locked', self::LOCKED_FAILURE);
+            throw $this->failure($user, 'locked', self::LOCKED_FAILURE, $live);
         }
         if ($latest->isExpired()) {
-            throw $this->failure($user, 'expired', self::EXPIRED_FAILURE);
+            throw $this->failure($user, 'expired', self::EXPIRED_FAILURE, $live);
         }
 
         $match = $live->first(fn (EmailVerificationCode $c) => !$c->isExpired() && Hash::check($code, $c->code_hash));
@@ -143,7 +198,7 @@ class EmailVerificationService
             // The lock lives on the newest record so the total budget is
             // max_attempts regardless of how many codes are live.
             $latest->increment('attempts');
-            throw $this->failure($user, 'wrong_code', self::GENERIC_FAILURE);
+            throw $this->failure($user, 'wrong_code', self::GENERIC_FAILURE, $live);
         }
 
         $match->forceFill(['consumed_at' => now()])->save();
@@ -188,6 +243,21 @@ class EmailVerificationService
             ->delete();
     }
 
+    /** Log a verification failure (category + counts, never the code) — public so the controller can report session mismatches the same way. */
+    public function logFailure(User $user, string $reason, array $extra = []): void
+    {
+        $live   = EmailVerificationCode::where('user_id', $user->id)->whereNull('consumed_at')->latest('code_sent_at')->latest('id')->get();
+        $latest = $live->first();
+
+        AppLog::warn('auth.verification_failed', array_merge([
+            'user_id'                 => $user->id,
+            'reason'                  => $reason,
+            'live_codes'              => $live->count(),
+            'latest_code_age_seconds' => $latest ? (int) $latest->code_sent_at->diffInSeconds(now()) : null,
+            'attempts'                => $latest ? (int) $latest->attempts : null,
+        ], $extra));
+    }
+
     private function latestLive(User $user): ?EmailVerificationCode
     {
         return EmailVerificationCode::where('user_id', $user->id)
@@ -201,11 +271,24 @@ class EmailVerificationService
         return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 
-    private function failure(User $user, string $reason, string $message): ValidationException
+    private function failure(User $user, string $reason, string $message, $live): HttpResponseException
     {
-        AppLog::warn('auth.verification_failed', ['user_id' => $user->id, 'reason' => $reason]);
+        $latest = $live->first();
+        AppLog::warn('auth.verification_failed', [
+            'user_id'                 => $user->id,
+            'reason'                  => $reason,
+            'live_codes'              => $live->count(),
+            'latest_code_age_seconds' => $latest ? (int) $latest->code_sent_at->diffInSeconds(now()) : null,
+            'attempts'                => $latest ? (int) $latest->fresh()->attempts : null,
+        ]);
 
-        return ValidationException::withMessages(['code' => [$message]]);
+        // Same shape as a Laravel validation error (message + errors.code) so
+        // every existing client reads it, plus a machine-readable reason.
+        return new HttpResponseException(response()->json([
+            'message' => $message,
+            'errors'  => ['code' => [$message]],
+            'reason'  => $reason,
+        ], 422));
     }
 
     private function expiryMinutes(): int

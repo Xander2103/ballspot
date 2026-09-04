@@ -53,6 +53,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Email verification (register step 2)
     Route::post('/email/verify',                    [EmailVerificationController::class, 'verify'])->middleware('throttle:email-verify');
     Route::post('/email/verification-notification', [EmailVerificationController::class, 'resend'])->middleware('throttle:email-resend');
+    // Which account the token belongs to + whether a code is live (read-only).
+    Route::get('/email/verification-status',        [EmailVerificationController::class, 'status']);
 
     // Sport list is non-sensitive onboarding reference data — needed during
     // sign-up before/while verifying, so it is NOT behind the verified gate.

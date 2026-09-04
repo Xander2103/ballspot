@@ -1707,3 +1707,23 @@ register again immediately.
 - Reward failures after the completion commit (badges/XP) never produce a 500:
   they are logged as `pack.completion_reward_failed` and the completion payload
   is still returned.
+
+### v1.9.6 — fresh-registration verification hardening (2026-09-04)
+
+- `POST /email/verify` normalises the code (whitespace stripped, JSON number
+  accepted, exactly 6 digits) and accepts an optional `email` hint. When the
+  hint does not match the token's account the answer is **409**
+  `{ message, reason: "session_mismatch" }` — a stale session from another
+  account on the same device, not an invalid code. Every 422 now carries
+  `reason`: `wrong_code | expired | locked | no_code` next to the usual
+  `message` / `errors.code`.
+- New `GET /email/verification-status` (auth, not verified-gated):
+  `{ email, email_verified, has_usable_code, can_resend,
+  resend_available_in_seconds, code_expires_in_seconds }` — the verification
+  screen shows the token's account, never a navigation param.
+- `POST /email/verification-notification` now also returns `email`.
+- Login for an unverified account with a usable code sends nothing and logs
+  `auth.verification_skipped {reason: usable_code_exists}`. Verified accounts
+  never receive a code on login.
+- `auth.verification_failed` context now carries `live_codes`,
+  `latest_code_age_seconds`, `attempts` (never the code).

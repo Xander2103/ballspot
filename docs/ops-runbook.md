@@ -43,7 +43,7 @@ grep '"user_id":123' storage/logs/ballpicker-events-*.log
 
 Event names: `auth.registered`, `auth.login_failed`, `auth.beta_code_rejected`,
 `auth.verification_sent`, `auth.verification_send_failed`,
-`auth.verification_failed`, `auth.verification_completed`,
+`auth.verification_failed`, `auth.verification_completed`, `auth.verification_skipped`,
 `password.reset_requested`, `password.reset_failed`, `password.reset_completed`,
 `account.deleted`, `account.delete_failed`, `account.anonymized` (legacy alias
 of `account.deleted`), `pack.replay_blocked`, `pack.duplicate_submit`,
@@ -278,6 +278,11 @@ is a user-visible failure of one of these flows.
    `BALLPICKER_EMAIL_CODE_EXPIRY_MINUTES` (60); `{reason: locked}` = 5 wrong
    tries — Resend issues a fresh code and resets the lock.
 2. The last 3 codes sent are all valid, so a late email still works.
+   `verification_failed {reason: session_mismatch}` = the phone still held a
+   previous account's token (the app now detects this and offers "Log in
+   again"). The context also shows `live_codes`, `latest_code_age_seconds` and
+   `attempts`, which is enough to tell "typed the old email" from "no code was
+   ever sent" without ever logging the code.
 3. Emergency switch: `BALLPICKER_REQUIRE_EMAIL_VERIFICATION=false` +
    `php artisan config:cache` disables the code step entirely (new accounts
    verified at once, existing unverified accounts let in).
