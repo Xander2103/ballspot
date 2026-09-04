@@ -32,7 +32,7 @@ class ClearDailyHistoryTest extends TestCase
     use RefreshDatabase;
 
     private const URL = '/admin/diagnostics/clear-daily-history';
-    private const PIN = '12811';
+    private const PIN = '1281';
     private const ACK = 'I understand this clears Daily history';
 
     private TestHandler $records;
@@ -213,6 +213,28 @@ class ClearDailyHistoryTest extends TestCase
         $this->assertArrayHasKey('admin_id', $denied[0]->context);
         $this->assertStringNotContainsString('00000', json_encode($denied[0]->context));
         $this->assertPinNeverLogged();
+    }
+
+    public function test_the_previous_pin_is_no_longer_accepted(): void
+    {
+        $this->actingAs($this->admin())->from('/admin/diagnostics')
+            ->post(self::URL, ['pin' => '12811', 'acknowledge' => '1'])
+            ->assertRedirect('/admin/diagnostics')
+            ->assertSessionHas('error');
+
+        $this->assertNothingDeleted();
+        $this->assertSame('wrong_pin', $this->logged('daily_history_clear.denied')[0]->context['reason']);
+        $this->assertStringNotContainsString('12811', json_encode(array_map(fn ($r) => $r->context, $this->records->getRecords())));
+    }
+
+    public function test_pin_with_surrounding_whitespace_is_accepted(): void
+    {
+        $this->actingAs($this->admin())->from('/admin/diagnostics')
+            ->post(self::URL, ['pin' => ' ' . self::PIN . ' ', 'acknowledge' => '1'])
+            ->assertRedirect('/admin/diagnostics')
+            ->assertSessionHas('success');
+
+        $this->assertSame(0, DailyChallenge::count());
     }
 
     public function test_missing_acknowledgement_deletes_nothing(): void

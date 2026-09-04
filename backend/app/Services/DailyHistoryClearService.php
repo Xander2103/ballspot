@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\DB;
  */
 class DailyHistoryClearService
 {
-    public const CONFIRMATION_PIN = '12811';
+    public const CONFIRMATION_PIN = '1281';
     public const ACKNOWLEDGEMENT  = 'I understand this clears Daily history';
 
     public function pinMatches(?string $pin): bool

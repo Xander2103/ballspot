@@ -285,7 +285,7 @@
                         @csrf
                         <div class="col-auto">
                             <label for="clear-pin" class="form-label small mb-1">Confirmation PIN</label>
-                            <input id="clear-pin" name="pin" type="password" inputmode="numeric" autocomplete="one-time-code"
+                            <input id="clear-pin" name="pin" type="password" inputmode="numeric" autocomplete="new-password" data-lpignore="true"
                                    class="form-control form-control-sm {{ $errors->has('pin') ? 'is-invalid' : '' }}" style="max-width: 10rem" required>
                         </div>
                         <div class="col-auto">
