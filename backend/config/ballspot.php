@@ -64,6 +64,21 @@ return [
         'terms_version' => env('BALLSPOT_TERMS_VERSION', '2026-08'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Daily challenge scheduling
+    |--------------------------------------------------------------------------
+    | auto_schedule gates the 00:05 scheduler entry (routes/console.php) that
+    | runs `ballspot:schedule-daily-challenges` and fills the next 14 days with
+    | status=scheduled rows. true (default) = hands-off operation. false =
+    | launch control: nothing creates daily_challenges rows automatically; only
+    | a manual `php artisan ballspot:schedule-daily-challenges` or Admin → Daily
+    | does. The manual command ignores this flag. Shown on /admin/diagnostics.
+    */
+    'daily' => [
+        'auto_schedule' => filter_var(env('BALLPICKER_AUTO_SCHEDULE_DAILIES', true), FILTER_VALIDATE_BOOL),
+    ],
+
     // Closed-beta gate: when set, registration requires a matching beta_code
     // (case-insensitive). Empty/null = registration open. Share one code with
     // testers; rotate by changing the env value.

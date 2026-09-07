@@ -78,7 +78,7 @@
                 <tr><th>Last error</th><td>{{ $fmt($d['log']['last_error_at']) }}
                     @if($d['log']['last_error_summary'])<div class="small text-muted">{{ $d['log']['last_error_summary'] }}</div>@endif
                 </td></tr>
-                <tr><th>Events file</th><td><code>{{ $d['log']['events_file'] }}</code> <span class="text-muted small">today: {!! $yesNo($d['log']['events_file_today']) !!}</span></td></tr>
+                <tr><th>Events file</th><td><code>{{ $d['log']['events_file'] }}</code> <span class="text-muted small">today: {!! $yesNo($d['log']['events_file_today']) !!} · writable by web user: {!! $yesNo($d['log']['events_writable']) !!}</span></td></tr>
                 <tr><th>Failed flows (24h)</th><td>
                     @if(empty($d['log']['event_errors_24h']))
                         <span class="badge bg-success">none</span>
@@ -126,9 +126,13 @@
                 <tr><th>Scheduled (today onward)</th><td>{{ $d['daily']['scheduled_count'] }}</td></tr>
                 <tr><th>Active (future dates)</th><td>{{ $d['daily']['active_upcoming_count'] }}</td></tr>
                 <tr><th>Daily pool available</th><td><span class="badge {{ $d['daily']['pool_available'] < $d['daily']['pool_low_threshold'] ? 'bg-warning text-dark' : 'bg-success' }}">{{ $d['daily']['pool_available'] }}</span> <span class="text-muted small">never-used, ready, daily/general pool (warn &lt; {{ $d['daily']['pool_low_threshold'] }})</span></td></tr>
+                <tr><th>Auto-schedule dailies</th><td>
+                    {!! $d['daily']['auto_schedule_enabled'] ? '<span class="badge bg-success">on</span>' : '<span class="badge bg-warning text-dark">off</span>' !!}
+                    <span class="text-muted small"><code>{{ $d['daily']['auto_schedule_env'] }}</code> — {{ $d['daily']['auto_schedule_enabled'] ? 'the 00:05 cron fills the next 14 days automatically' : 'launch control: the 00:05 cron entry is skipped; only manual scheduling creates dailies' }}</span>
+                </td></tr>
                 <tr><th>Cron</th><td><code>{{ $d['daily']['cron_command'] }}</code></td></tr>
             </table>
-            <div class="card-footer small text-muted">The cron creates rows as <code>scheduled</code>; the app only serves <code>active</code>. Check <code>php artisan schedule:list</code> if nothing is being created.</div>
+            <div class="card-footer small text-muted">The cron creates rows as <code>scheduled</code>; the app only serves <code>active</code>. Check <code>php artisan schedule:list</code> if nothing is being created. Set <code>BALLPICKER_AUTO_SCHEDULE_DAILIES=false</code> to stop automatic creation.</div>
         </div>
     </div>
 

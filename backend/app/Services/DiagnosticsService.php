@@ -127,11 +127,20 @@ class DiagnosticsService
             'modified_at'       => is_file($path) ? Carbon::createFromTimestamp(filemtime($path)) : null,
             'events_file'       => 'storage/logs/ballpicker-events-YYYY-MM-DD.log',
             'events_file_today' => is_file($eventsPath),
+            // Today's rotated events file (or the logs dir when it does not
+            // exist yet) must be writable by THIS process. When cron creates
+            // the file as another user, the web user cannot append and every
+            // event is dropped (before 2026-09-07 it was a 500 instead).
+            'events_writable'   => is_file($eventsPath) ? is_writable($eventsPath) : is_writable(dirname($eventsPath)),
             'errors_24h'        => 0,
             'warnings_24h'      => 0,
             'last_error_at'     => null,
             'last_error_summary'=> null,
         ];
+
+        if (!$result['events_writable']) {
+            $this->warn('danger', 'log', 'Today\'s events log (storage/logs/ballpicker-events-' . $now->toDateString() . '.log) is not writable by the web user — operational events are being dropped and laravel.log shows applog.write_failed. Fix ownership (chown to the web user) and run the scheduler cron as that same user.');
+        }
 
         if (!$result['exists']) {
             return $result;
@@ -275,7 +284,17 @@ class DiagnosticsService
             $this->warn('warning', 'daily', "Daily pool is low: {$poolAvailable} never-used daily-eligible photo(s) left (threshold " . self::DAILY_POOL_LOW . '). Upload more daily/general photos.');
         }
 
+        // Launch control: with the flag off nothing creates dailies on its own
+        // (see routes/console.php). Say so loudly so an empty calendar is never
+        // mistaken for a broken cron.
+        $autoSchedule = (bool) config('ballspot.daily.auto_schedule', true);
+        if (!$autoSchedule) {
+            $this->warn('warning', 'daily', 'Automatic daily scheduling is OFF (BALLPICKER_AUTO_SCHEDULE_DAILIES=false). The 00:05 cron entry is skipped; dailies are only created by hand (php artisan ballspot:schedule-daily-challenges or Admin → Daily).');
+        }
+
         return [
+            'auto_schedule_enabled' => $autoSchedule,
+            'auto_schedule_env'     => 'BALLPICKER_AUTO_SCHEDULE_DAILIES',
             'today'                => $today,
             'today_status'         => $todayStatus,
             'today_challenge_id'   => $todayRow?->challenge_id,
@@ -285,7 +304,7 @@ class DiagnosticsService
             'active_upcoming_count'=> $activeUpcoming,
             'pool_available'       => $poolAvailable,
             'pool_low_threshold'   => self::DAILY_POOL_LOW,
-            'cron_command'         => 'ballspot:schedule-daily-challenges (daily 00:05)',
+            'cron_command'         => 'ballspot:schedule-daily-challenges (daily 00:05' . ($autoSchedule ? ')' : ', currently skipped)'),
         ];
     }
 

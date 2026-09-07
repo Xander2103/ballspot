@@ -34,19 +34,56 @@ final class AppLog
     /** Something happened that is worth knowing about (normal operation). */
     public static function event(string $message, array $context = []): void
     {
-        Log::channel(self::CHANNEL)->info($message, self::sanitize($context));
+        self::write('info', $message, $context);
     }
 
     /** Something went wrong or is degraded but the app carried on. */
     public static function warn(string $message, array $context = []): void
     {
-        Log::channel(self::CHANNEL)->warning($message, self::sanitize($context));
+        self::write('warning', $message, $context);
     }
 
     /** A failure that needs a human. */
     public static function error(string $message, array $context = []): void
     {
-        Log::channel(self::CHANNEL)->error($message, self::sanitize($context));
+        self::write('error', $message, $context);
+    }
+
+    /**
+     * Logging must never break the request that is being logged.
+     *
+     * Production incident (2026-09-07): the day's rotated events file was not
+     * writable by the web user, Monolog threw from inside the logging call, and
+     * every flow that logs an event (register — after the verification mail had
+     * already gone out —, unverified login, failed login) answered 500 while the
+     * one flow that logs nothing (verified login) kept working. The events
+     * channel is a stack with ignore_exceptions=false so the failure also never
+     * reached laravel.log.
+     *
+     * So: catch everything, then report the logging failure itself (exception
+     * class + message, the event name and its sanitized context) on the default
+     * channel so the event is not silently lost and the diagnostics page can
+     * count it. If that channel is broken too, give up quietly.
+     */
+    private static function write(string $level, string $message, array $context): void
+    {
+        $clean = self::sanitize($context);
+
+        try {
+            Log::channel(self::CHANNEL)->log($level, $message, $clean);
+        } catch (\Throwable $e) {
+            try {
+                Log::channel((string) config('logging.default'))->error('applog.write_failed', [
+                    'event'     => $message,
+                    'level'     => $level,
+                    'exception' => class_basename($e),
+                    'error'     => substr($e->getMessage(), 0, 300),
+                    'context'   => $clean,
+                ]);
+            } catch (\Throwable) {
+                // Nothing left to write to. The user's request still succeeds.
+            }
+        }
     }
 
     /**

@@ -133,6 +133,23 @@ Thresholds live in `App\Services\DiagnosticsService` (`DAILY_POOL_LOW = 14`,
   more days (`--days=14`) or upload more daily/general-pool photos.
 - **Daily pool is low** — fewer than 14 never-used, ready, daily/general
   photos. A photo is a daily at most once, so this only goes up with uploads.
+- **Automatic daily scheduling is OFF** — `BALLPICKER_AUTO_SCHEDULE_DAILIES=false`
+  in `.env`. Expected during launch control: the 00:05 scheduler entry is
+  listed by `schedule:list` but skipped at run time, so a deploy or the
+  nightly cron never recreates `daily_challenges` rows after Clear Daily
+  History. Dailies are then created only by hand
+  (`php artisan ballspot:schedule-daily-challenges`, which ignores the flag, or
+  Admin → Daily). Set the flag to `true` (or remove it) and
+  `php artisan config:cache` to hand scheduling back to the cron.
+- **Today's events log is not writable by the web user** — the day's
+  `storage/logs/ballpicker-events-YYYY-MM-DD.log` was created by another user
+  (typically the cron running `schedule:run` as root). Events are dropped and
+  `laravel.log` shows `applog.write_failed` with the exception. Fix:
+  `chown www-data:www-data storage/logs/ballpicker-events-*.log` and make the
+  cron entry run as the web user (`sudo -u www-data` or the `www-data`
+  crontab). Before 2026-09-07 this state made every request that logs an event
+  fail with 500 (register, unverified login, failed login); AppLog now never
+  throws, so it degrades to dropped events instead.
 - **Sport: only N tournament-eligible photo(s)** — a 7-day tournament needs 7
   unique photos that are active, ready, in the tournament/general pool and
   never used as a daily. Upload tournament-pool photos for that sport.
@@ -164,6 +181,17 @@ Thresholds live in `App\Services\DiagnosticsService` (`DAILY_POOL_LOW = 14`,
    arrives (`MAIL_*` in `.env`, `tail laravel.log` for mail exceptions).
 4. Unverified accounts are sent back to the verification screen; that is not
    a failure.
+
+### "Create Account says 'Something went wrong on our side' but the email arrived"
+Seen on TestFlight 2026-09-07. The account and the code were created and the
+mail went out; the 500 came from the event log write that follows it. Check
+`grep applog.write_failed storage/logs/laravel.log` and the diagnostics
+"Backend errors" card ("writable by web user"). Fix the ownership of
+`storage/logs/ballpicker-events-*.log` (see After a deploy). The affected user
+is NOT stuck: logging in again with the same email + password answers
+`requires_email_verification` and mints a fresh code when none is usable, and
+"Resend code" does the same. Expired codes are purged hourly, so a stranded
+account having zero `email_verification_codes` rows is normal, not damage.
 
 ### "I can't register" / beta code rejected
 `grep auth.beta_code_rejected …` — `missing_code` means the app build did not
@@ -236,6 +264,22 @@ curl -s https://ballpicker.vanmalderstudio.be/api/health
 Then open `/admin/diagnostics` and clear every red warning before announcing
 the build. Set `BALLPICKER_APP_VERSION` in `.env` so the admin header and the
 diagnostics page show the release you actually deployed.
+
+Two deploy rules learned the hard way (2026-09-07):
+
+- **Run every artisan command and the scheduler cron as the web user**
+  (`sudo -u www-data php artisan …`). A log file created by root cannot be
+  appended to by php-fpm; the diagnostics "Backend errors" card shows
+  "writable by web user: no" for today's events file when this has happened.
+  Repair: `chown -R www-data:www-data storage/logs`.
+- **Nothing in this repo schedules dailies during a deploy.** The only
+  automatic writer of `daily_challenges` is the 00:05 scheduler entry
+  (`ballspot:schedule-daily-challenges`, default 14 days). To keep a cleared
+  daily calendar empty until you schedule by hand, set
+  `BALLPICKER_AUTO_SCHEDULE_DAILIES=false` in `.env` and run
+  `php artisan config:cache`. `php artisan db:seed` (the full seeder) would also
+  add today's daily via `DailyChallengeSeeder` — run only `--class=BadgeSeeder`
+  on production.
 
 ---
 

@@ -22,8 +22,17 @@ Artisan::command('inspire', function () {
 */
 Schedule::command('ballspot:cleanup-login-codes')->hourly()->withoutOverlapping();
 
-// Publishes the day's daily challenge.
-Schedule::command('ballspot:schedule-daily-challenges')->dailyAt('00:05')->withoutOverlapping();
+// Fills the daily calendar (default: the next 14 days, status=scheduled).
+// Gated by BALLPICKER_AUTO_SCHEDULE_DAILIES (config ballspot.daily.auto_schedule):
+// the entry stays listed in `schedule:list`, but with the flag off the run
+// filter skips it so a deploy or the nightly cron can never recreate
+// daily_challenges rows while the calendar is curated by hand. The manual
+// `php artisan ballspot:schedule-daily-challenges` ignores the flag.
+Schedule::command('ballspot:schedule-daily-challenges')
+    ->dailyAt('00:05')
+    ->withoutOverlapping()
+    ->when(fn () => (bool) config('ballspot.daily.auto_schedule', true))
+    ->description('Auto-schedule dailies (skipped while BALLPICKER_AUTO_SCHEDULE_DAILIES=false)');
 
 // Closes the monthly competition and awards placements.
 Schedule::command('ballspot:close-competition')->monthlyOn(1, '00:15')->withoutOverlapping();
