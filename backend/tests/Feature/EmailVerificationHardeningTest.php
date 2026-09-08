@@ -145,7 +145,7 @@ class EmailVerificationHardeningTest extends TestCase
         for ($i = 0; $i < 5; $i++) {
             $this->withToken($token)->postJson('/api/email/verify', ['code' => $wrong])
                 ->assertStatus(422)
-                ->assertJsonPath('errors.code.0', 'Invalid or expired verification code.');
+                ->assertJsonPath('code', 'verification_code_invalid');
         }
 
         // Even the right code is refused once locked — request a new one.
@@ -173,9 +173,9 @@ class EmailVerificationHardeningTest extends TestCase
         $this->withToken($token)->postJson('/api/email/verify', ['code' => $wrong])->assertStatus(422);
         $this->withToken($token)->postJson('/api/email/verify', ['code' => $code])->assertOk();
 
-        $this->assertNotEmpty($this->logged('auth.verification_sent'));
-        $this->assertSame('wrong_code', $this->logged('auth.verification_failed')[0]->context['reason']);
-        $this->assertSame($user->id, $this->logged('auth.verification_completed')[0]->context['user_id']);
+        $this->assertNotEmpty($this->logged('email_verification.sent'));
+        $this->assertSame('wrong_code', $this->logged('email_verification.failed')[0]->context['reason']);
+        $this->assertSame($user->id, $this->logged('email_verification.completed')[0]->context['user_id']);
 
         $dump = json_encode(array_map(fn ($r) => $r->context, $this->records->getRecords()));
         $this->assertStringNotContainsString($code, $dump);
@@ -189,7 +189,7 @@ class EmailVerificationHardeningTest extends TestCase
         $res = $this->postJson('/api/register', $this->payload);
 
         $res->assertStatus(201)->assertJsonPath('email_verified', false)->assertJsonPath('code_sent', false);
-        $failed = $this->logged('auth.verification_send_failed');
+        $failed = $this->logged('email_verification.send_failed');
         $this->assertNotEmpty($failed);
         $this->assertSame('RuntimeException', $failed[0]->context['exception']);
         $this->assertStringNotContainsString('mail.example.internal', json_encode($failed[0]->context));

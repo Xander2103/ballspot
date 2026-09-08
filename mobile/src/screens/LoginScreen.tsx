@@ -11,7 +11,7 @@ import { completeLogin } from '../app/authFlow';
 import { tokenStorage } from '../storage/tokenStorage';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
-import { getApiErrorMessage } from '../utils/apiError';
+import { getAuthErrorMessage } from '../utils/authErrors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -44,7 +44,8 @@ export function LoginScreen({ navigation }: Props) {
         return;
       }
 
-      // Forced 2FA (config/admin): a login code was emailed. Go verify it.
+      // This user has 2FA on (or it is forced by config): a login code was
+      // emailed. Go verify it. With 2FA off the token arrives directly below.
       if (isTwoFactorRequired(result)) {
         navigation.navigate('LoginVerification', { verificationId: result.verification_id, email: trimmedEmail });
         return;
@@ -54,9 +55,9 @@ export function LoginScreen({ navigation }: Props) {
       const target = await completeLogin(result.token, setTheme);
       navigation.reset({ index: 0, routes: [{ name: target }] });
     } catch (e: unknown) {
-      // 422 "Invalid credentials." is the only expected failure; everything
-      // else (offline, 429, 5xx) is reduced to one clean sentence.
-      setError(getApiErrorMessage(e, 'Login failed. Please check your details and try again.'));
+      // invalid_credentials is the only expected failure (friendly copy via
+      // its code); everything else (offline, 429, 5xx) is one clean sentence.
+      setError(getAuthErrorMessage(e, 'Login failed. Please check your details and try again.'));
     } finally {
       setLoading(false);
     }

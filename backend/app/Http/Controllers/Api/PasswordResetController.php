@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Services\PasswordResetFlow;
+use App\Support\AuthError;
 use Illuminate\Http\JsonResponse;
 
 class PasswordResetController extends Controller
@@ -33,23 +34,26 @@ class PasswordResetController extends Controller
      *
      * Validates the token, sets the new password, and revokes existing
      * sessions/API tokens so a leaked old session cannot survive a reset.
+     *
+     * Outcomes (never a raw exception):
+     *  200 { message }                                   — done, log in again
+     *  422 { message, code: reset_token_expired|reset_token_invalid, reason }
+     *  500 { message, code: reset_failed }               — retryable; the old
+     *      password and the link are both still valid (transactional reset)
      */
     public function reset(ResetPasswordRequest $request): JsonResponse
     {
-        $ok = $this->flow->reset(
+        $outcome = $this->flow->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             'api',
         );
 
-        if ($ok) {
-            return response()->json(['message' => 'Your password has been reset. Please log in.']);
-        }
-
-        // Generic failure for invalid/expired token or unknown email — do not
-        // leak which of the two failed (avoids enumeration).
-        return response()->json([
-            'message' => PasswordResetFlow::INVALID_LINK_MESSAGE,
-            'reason'  => 'invalid_or_expired',
-        ], 422);
+        return match ($outcome) {
+            PasswordResetFlow::COMPLETED     => response()->json(['message' => 'Your password has been reset. Please log in.']),
+            PasswordResetFlow::EXPIRED_TOKEN => AuthError::response(AuthError::RESET_TOKEN_EXPIRED, 422, null, ['reason' => 'expired']),
+            PasswordResetFlow::FAILED        => AuthError::response(AuthError::RESET_FAILED, 500, null, ['reason' => 'failed']),
+            // Unknown account and wrong token share one answer — no enumeration.
+            default                          => AuthError::response(AuthError::RESET_TOKEN_INVALID, 422, null, ['reason' => 'invalid_or_expired']),
+        };
     }
 }

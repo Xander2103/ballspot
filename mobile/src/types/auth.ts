@@ -7,6 +7,10 @@ export interface User {
   email?: string;
   email_verified?: boolean;
   selected_theme?: string;
+  /** nl | en | fr | de | es — only present on the user's own profile. */
+  preferred_language?: string;
+  /** Optional email login code (2FA). Only present on the user's own profile. */
+  two_factor_enabled?: boolean;
   avatar_url?: string | null;
   preferred_sport?: Sport | null;
 }
@@ -25,11 +29,12 @@ export interface AuthResponse {
   code_sent?: boolean;
 }
 
-/** Login result — forced 2FA is on; a login code was emailed, no token yet. */
+/** Login result — the user has 2FA on (or it is forced); a login code was emailed, no token yet. */
 export interface TwoFactorRequired {
   requires_2fa: true;
   verification_id: string;
   message: string;
+  code?: 'two_factor_required';
 }
 
 /** Login/register result — the email is not verified yet. A token IS issued so

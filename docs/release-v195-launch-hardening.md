@@ -22,18 +22,18 @@ untouched.
   (`Web\PasswordResetWebController`, views `public/reset-password*.blade.php`,
   `public/forgot-password.blade.php`), shared `PasswordResetFlow` service used by the
   API too. `no-store` caching, deep-link button `ballpicker://reset-password?…`,
-  events `password.reset_requested/failed/completed` (never token/email/password).
+  events `password_reset.requested/failed/completed` (never token/email/password).
 - **Verification codes** (`EmailVerificationService`): last 3 unconsumed codes stay
   valid, shared attempt lock, specific expired/locked messages, `hasUsableCode()`;
   login no longer replaces a usable code; `code_sent` in register/login responses;
-  mail-transport failures logged (`auth.verification_send_failed`) instead of 500.
+  mail-transport failures logged (`email_verification.send_failed`) instead of 500.
   New middleware `EnsureEmailIsVerifiedIfRequired` replaces the `verified` alias and
   honours `BALLPICKER_REQUIRE_EMAIL_VERIFICATION`; `UserResource.email_verified` follows it.
 - **`GET /api/config`** (public): `beta_gate`, `email_verification_required`,
   `minimum_age`, `terms_version`, `app_name`. No secrets (tested).
 - **Account deletion**: `AccountDeletionService` (one transaction, avatar removed after
-  commit), controller returns `{deleted, message}`, logs `account.deleted` /
-  `account.delete_failed {user_id, exception}`; friendly 500 on failure.
+  commit), controller returns `{deleted, message}`, logs `account.delete.completed` /
+  `account.delete.failed {user_id, exception}`; friendly 500 on failure.
   Friendlier `email.unique` / `username.unique` messages.
 - **Packs** (`PackPlayService`/`PackPlayController`): start on a completed pack → 409
   with attempt + completion; duplicate submit → idempotent 200 with
@@ -42,7 +42,7 @@ untouched.
   `completionSummary()` (total/max/average/pct/best guess/trophy/XP) on
   start/attempt/guess payloads.
 - **Diagnostics**: "Failed flows (24h)" row counting ERROR/WARNING events by name from
-  the events log (account.delete_failed, password.*, auth.verification_*, pack.*).
+  the events log (account.delete.failed, password.*, auth.verification_*, pack.*).
 - Docs: `api-contract.md`, `security-auth.md`, `prizes-and-trophy-room.md` (score-tier
   TODO), `ops-runbook.md` §6, `.env.example`.
 

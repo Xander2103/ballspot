@@ -87,7 +87,7 @@
                             <span class="badge bg-danger me-1" title="events log">{{ $count }}× {{ $name }}</span>
                         @endforeach
                     @endif
-                    <div class="small text-muted">account.delete_failed · password.reset_* · auth.verification_* · pack.completion_reward_failed</div>
+                    <div class="small text-muted">account.delete.failed · password_reset.* · email_verification.* · login.2fa_failed · pack.completion_reward_failed</div>
                 </td></tr>
             </table>
             <div class="card-footer small text-muted">Counts come from the tail of the log only. Full details: <code>tail -n 100 storage/logs/laravel.log</code>. Stack traces are never shown here.</div>

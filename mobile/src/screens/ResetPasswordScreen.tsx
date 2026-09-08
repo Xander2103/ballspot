@@ -8,12 +8,12 @@ import { AppButton } from '../components/AppButton';
 import { authApi } from '../api/authApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { getApiErrorMessage } from '../utils/apiError';
 import { parseResetInput, looksLikeResetLink } from '../utils/resetLink';
+import { classifyResetError, mapAuthError, validatePasswordPair } from '../utils/authErrors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
 
-type FieldErrors = { email?: string; token?: string; password?: string };
+type FieldErrors = { email?: string; token?: string; password?: string; password_confirmation?: string };
 
 const INVALID_LINK = 'This reset link is invalid or has expired. Request a new one and use the newest email.';
 
@@ -32,6 +32,7 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [state, setState] = useState<'form' | 'done' | 'expired'>('form');
+  const [expiredReason, setExpiredReason] = useState<'expired' | 'invalid'>('expired');
 
   // Deep link opened while the screen is already mounted.
   useEffect(() => {
@@ -58,12 +59,9 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
     const parsed = parseResetInput(linkInput);
     const resolvedEmail = (email.trim() || parsed?.email || '').trim();
 
-    const next: FieldErrors = {};
+    const next: FieldErrors = { ...validatePasswordPair(password, confirm) };
     if (!resolvedEmail) next.email = 'Email is required';
     if (!parsed) next.token = 'Paste the reset link (or the code from it) from your email';
-    if (!password) next.password = 'Password is required';
-    else if (password.length < 8) next.password = 'Password must be at least 8 characters';
-    else if (password !== confirm) next.password = 'Passwords do not match';
     if (Object.keys(next).length > 0) { setErrors(next); return; }
 
     setLoading(true);
@@ -76,19 +74,23 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
       });
       setState('done');
     } catch (e: unknown) {
-      const err = e as { status?: number; errors?: Record<string, unknown>; reason?: string };
-      if (err?.errors && typeof err.errors === 'object') {
+      // Expired vs invalid link → the "link no longer works" screen with the
+      // right sentence; field validation → on the field; a transient server
+      // failure (reset_failed, nothing changed) → friendly retry text.
+      const problem = classifyResetError(e);
+      const info = mapAuthError(e, INVALID_LINK);
+      if (problem) {
+        setExpiredReason(problem);
+        setState('expired');
+      } else if (Object.keys(info.fieldErrors).length > 0) {
         const apiErrors: FieldErrors = {};
-        for (const [field, messages] of Object.entries(err.errors)) {
-          const text = Array.isArray(messages) ? messages.filter((m) => typeof m === 'string').join(' ') : String(messages ?? '');
-          if (field === 'email' || field === 'token' || field === 'password') apiErrors[field] = text;
+        for (const [field, text] of Object.entries(info.fieldErrors)) {
+          if (field === 'email' || field === 'token' || field === 'password' || field === 'password_confirmation') apiErrors[field] = text;
           else if (!apiErrors.password && text) apiErrors.password = text;
         }
         setErrors(apiErrors);
-      } else if (err?.status === 422 || err?.reason === 'invalid_or_expired') {
-        setState('expired');
       } else {
-        setFormError(getApiErrorMessage(e, INVALID_LINK));
+        setFormError(info.message);
       }
     } finally {
       setLoading(false);
@@ -115,9 +117,13 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
       <Screen scroll padding>
         <View style={styles.centerBox}>
           <Text style={styles.bigIcon}>⏰</Text>
-          <Text style={[styles.title, styles.centerText]}>This link no longer works</Text>
+          <Text style={[styles.title, styles.centerText]}>
+            {expiredReason === 'expired' ? 'This link has expired' : 'This link no longer works'}
+          </Text>
           <Text style={[styles.body, styles.centerText]}>
-            Reset links are valid for a limited time and can only be used once. Request a new link and use the newest email.
+            {expiredReason === 'expired'
+              ? 'Reset links are valid for a limited time. Request a new link and use the newest email.'
+              : 'Reset links can only be used once and must match the email they were sent to. Request a new link and use the newest email.'}
           </Text>
           <AppButton title="Request a new link" onPress={() => navigation.navigate('ForgotPassword')} style={styles.btn} />
           <AppButton title="Try again" variant="secondary" onPress={() => { setState('form'); setLinkInput(''); }} style={styles.btn} />
@@ -164,7 +170,8 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
       <AppInput
         label="Confirm new password"
         value={confirm}
-        onChangeText={setConfirm}
+        onChangeText={(t) => { setConfirm(t); setErrors((p) => ({ ...p, password_confirmation: undefined })); }}
+        error={errors.password_confirmation}
         secureTextEntry
         autoComplete="new-password"
         textContentType="newPassword"

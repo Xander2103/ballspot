@@ -1,6 +1,7 @@
 <?php
 namespace App\Models;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements MustVerifyEmail, HasLocalePreference
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -21,15 +22,40 @@ class User extends Authenticatable implements MustVerifyEmail
     // avatar_path at user B's file and delete it via DELETE /me/avatar.
     protected $fillable = [
         'name', 'username', 'email', 'password',
-        'preferred_sport_id', 'selected_theme',
+        'preferred_sport_id', 'selected_theme', 'preferred_language',
     ];
+    // two_factor_enabled is deliberately NOT fillable: it is a security
+    // setting, set explicitly by PreferenceController from validated input.
 
     // New accounts start on Pitch Green. Model-level (not a schema change) so
     // existing rows — including users who deliberately chose another theme —
-    // are never rewritten.
+    // are never rewritten. Language/2FA defaults mirror the column defaults so
+    // an unsaved model behaves like a stored one.
     protected $attributes = [
-        'selected_theme' => 'pitch_green',
+        'selected_theme'     => 'pitch_green',
+        'preferred_language' => 'en',
+        'two_factor_enabled' => false,
     ];
+
+    /**
+     * Notification locale (HasLocalePreference): the user's stored language.
+     * Every notification/email sent to this user is rendered under that locale.
+     * There are no translated strings yet, so the copy stays English — but the
+     * preference is already in place for when translations land. Values are
+     * validated against config('ballspot.languages') on write.
+     */
+    public function preferredLocale(): ?string
+    {
+        $lang = (string) ($this->preferred_language ?: config('ballspot.default_language', 'en'));
+
+        return in_array($lang, (array) config('ballspot.languages', ['en']), true) ? $lang : (string) config('ballspot.default_language', 'en');
+    }
+
+    /** Login codes are sent only when the user opted in (or the global force flag is on). */
+    public function wantsLoginTwoFactor(): bool
+    {
+        return (bool) $this->two_factor_enabled || (bool) config('ballspot.auth.force_login_2fa', false);
+    }
 
     /** Use our API-friendly reset notification instead of the default web-route one. */
     public function sendPasswordResetNotification($token): void
@@ -76,6 +102,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'terms_accepted_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
+            'two_factor_enabled' => 'boolean',
         ];
     }
 

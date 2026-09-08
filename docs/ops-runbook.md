@@ -42,11 +42,11 @@ grep '"user_id":123' storage/logs/ballpicker-events-*.log
 ```
 
 Event names: `auth.registered`, `auth.login_failed`, `auth.beta_code_rejected`,
-`auth.verification_sent`, `auth.verification_send_failed`,
-`auth.verification_failed`, `auth.verification_completed`, `auth.verification_skipped`,
-`password.reset_requested`, `password.reset_failed`, `password.reset_completed`,
-`account.deleted`, `account.delete_failed`, `account.anonymized` (legacy alias
-of `account.deleted`), `pack.replay_blocked`, `pack.duplicate_submit`,
+`email_verification.sent`, `email_verification.send_failed`,
+`email_verification.failed`, `email_verification.completed`, `email_verification.skipped`,
+`password_reset.requested`, `password_reset.failed`, `password_reset.completed`,
+`account.delete.completed`, `account.delete.failed`, `account.anonymized` (legacy alias
+of `account.delete.completed`), `pack.replay_blocked`, `pack.duplicate_submit`,
 `pack.completion_reward_failed`, `daily_history_clear.denied`,
 `daily_history_clear.completed`, `daily_history_clear.failed`,
 `daily.scheduled`, `daily.schedule_run`,
@@ -177,8 +177,9 @@ Thresholds live in `App\Services\DiagnosticsService` (`DAILY_POOL_LOW = 14`,
    `reason` is `wrong_password` (with `user_id`) or `unknown_account`.
 2. 429s: the login limiter is 5/min per email+IP (see
    `docs/security-hardening.md`); the app shows the wait time.
-3. Admins always get email 2FA: check the mail transport if the code never
-   arrives (`MAIL_*` in `.env`, `tail laravel.log` for mail exceptions).
+3. A user with two-factor login ON (Profile → Account & security, or
+   `BALLPICKER_FORCE_LOGIN_2FA=true`) gets `requires_2fa`; `login.2fa_required`
+   is logged. Check the mail transport if the code never arrives (`MAIL_*` in `.env`, `tail laravel.log` for mail exceptions).
 4. Unverified accounts are sent back to the verification screen; that is not
    a failure.
 
@@ -332,7 +333,7 @@ is a user-visible failure of one of these flows.
    verified at once, existing unverified accounts let in).
 
 ### "Delete account fails"
-`grep account.delete_failed storage/logs/ballpicker-events-*.log` → the context
+`grep account.delete.failed storage/logs/ballpicker-events-*.log` → the context
 carries `user_id` + exception class; the full trace is in `laravel.log` at the
 same timestamp. Deletion is one transaction: a failure leaves the account
 fully intact (the user can retry). After success the original email and

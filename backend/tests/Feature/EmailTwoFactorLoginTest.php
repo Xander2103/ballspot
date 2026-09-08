@@ -115,7 +115,7 @@ class EmailTwoFactorLoginTest extends TestCase
 
         $this->postJson('/api/login/verify', ['verification_id' => $verificationId, 'code' => $wrong])
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Invalid or expired verification code.');
+            ->assertJsonPath('code', 'two_factor_code_invalid');
 
         $this->assertSame(1, LoginVerificationCode::where('verification_id', $verificationId)->first()->attempts);
     }

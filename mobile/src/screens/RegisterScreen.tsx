@@ -5,16 +5,18 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppInput } from '../components/AppInput';
 import { AppButton } from '../components/AppButton';
+import { LanguagePicker } from '../components/LanguagePicker';
 import { authApi } from '../api/authApi';
 import { configApi, DEFAULT_APP_CONFIG } from '../api/configApi';
 import { tokenStorage } from '../storage/tokenStorage';
 import { applyProfileAndRoute } from '../app/authFlow';
 import { signOut } from '../app/signOut';
 import { prepareForNewAccount, adoptToken } from '../utils/verificationFlow';
+import { mapAuthError, validatePasswordPair } from '../utils/authErrors';
+import { defaultLanguageForDevice, LanguageCode } from '../utils/language';
 import { useTheme } from '../theme/useTheme';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
@@ -26,10 +28,14 @@ type FieldErrors = {
   username?: string;
   email?: string;
   password?: string;
+  password_confirmation?: string;
+  preferred_language?: string;
   beta_code?: string;
 };
 
-const KNOWN_FIELDS: (keyof FieldErrors)[] = ['name', 'username', 'email', 'password', 'beta_code'];
+const KNOWN_FIELDS: (keyof FieldErrors)[] = [
+  'name', 'username', 'email', 'password', 'password_confirmation', 'preferred_language', 'beta_code',
+];
 
 export function RegisterScreen({ navigation }: Props) {
   const { setTheme } = useTheme();
@@ -37,6 +43,8 @@ export function RegisterScreen({ navigation }: Props) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [language, setLanguage] = useState<LanguageCode>(() => defaultLanguageForDevice());
   const [betaCode, setBetaCode] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -51,6 +59,7 @@ export function RegisterScreen({ navigation }: Props) {
   const usernameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,17 +73,19 @@ export function RegisterScreen({ navigation }: Props) {
     return () => { cancelled = true; };
   }, []);
 
+  function clearField(field: keyof FieldErrors) {
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  }
+
   async function handleRegister() {
     if (loading) return; // guard against double-submit (button + keyboard "done")
     setFieldErrors({});
     setFormError('');
 
-    const errors: FieldErrors = {};
+    const errors: FieldErrors = { ...validatePasswordPair(password, confirm) };
     if (!name.trim()) errors.name = 'Full name is required';
     if (!username.trim()) errors.username = 'Username is required';
     if (!email.trim()) errors.email = 'Email is required';
-    if (!password) errors.password = 'Password is required';
-    else if (password.length < 8) errors.password = 'Password must be at least 8 characters';
     if (betaGate && !betaCode.trim()) errors.beta_code = 'A beta code is required during closed testing';
 
     if (Object.keys(errors).length > 0) {
@@ -100,6 +111,8 @@ export function RegisterScreen({ navigation }: Props) {
         username: username.trim(),
         email: email.trim(),
         password,
+        password_confirmation: confirm,
+        preferred_language: language,
         terms_accepted: true,
         age_confirmed: true,
         ...(betaGate && betaCode.trim() ? { beta_code: betaCode.trim() } : {}),
@@ -120,25 +133,27 @@ export function RegisterScreen({ navigation }: Props) {
         });
       }
     } catch (e: unknown) {
-      const err = e as { errors?: Record<string, unknown> };
-      if (err?.errors && typeof err.errors === 'object') {
-        const apiErrors: FieldErrors = {};
-        const other: string[] = [];
-        for (const [field, messages] of Object.entries(err.errors)) {
-          const text = Array.isArray(messages) ? messages.filter((m) => typeof m === 'string').join(' ') : String(messages ?? '');
-          if (KNOWN_FIELDS.includes(field as keyof FieldErrors)) {
-            apiErrors[field as keyof FieldErrors] = text;
-          } else if (text) {
-            other.push(text);
-          }
+      // Known account errors (email taken, username taken, passwords do not
+      // match, …) land on their field with friendly copy; anything else is
+      // one clean sentence — never raw backend text.
+      const info = mapAuthError(e, 'Registration failed. Please try again.');
+      const apiErrors: FieldErrors = {};
+      const other: string[] = [];
+      for (const [field, text] of Object.entries(info.fieldErrors)) {
+        if (KNOWN_FIELDS.includes(field as keyof FieldErrors)) {
+          apiErrors[field as keyof FieldErrors] = text;
+        } else if (text) {
+          other.push(text);
         }
-        // The server asked for a beta code: reveal the field even if /config
-        // said the gate was off (config drift between deploys).
-        if (apiErrors.beta_code) setBetaGate(true);
-        setFieldErrors(apiErrors);
-        if (other.length) setFormError(other[0]);
-      } else {
-        setFormError(getApiErrorMessage(e, 'Registration failed. Please try again.'));
+      }
+      // The server asked for a beta code: reveal the field even if /config
+      // said the gate was off (config drift between deploys).
+      if (apiErrors.beta_code) setBetaGate(true);
+      setFieldErrors(apiErrors);
+      if (Object.keys(apiErrors).length === 0) {
+        setFormError(info.message);
+      } else if (other.length) {
+        setFormError(other[0]);
       }
     } finally {
       setLoading(false);
@@ -152,7 +167,7 @@ export function RegisterScreen({ navigation }: Props) {
       <AppInput
         label="Full Name"
         value={name}
-        onChangeText={setName}
+        onChangeText={(t) => { setName(t); clearField('name'); }}
         autoCapitalize="words"
         error={fieldErrors.name}
         returnKeyType="next"
@@ -163,8 +178,9 @@ export function RegisterScreen({ navigation }: Props) {
         ref={usernameRef}
         label="Username"
         value={username}
-        onChangeText={setUsername}
+        onChangeText={(t) => { setUsername(t); clearField('username'); }}
         autoCapitalize="none"
+        autoCorrect={false}
         error={fieldErrors.username}
         returnKeyType="next"
         onSubmitEditing={() => emailRef.current?.focus()}
@@ -174,7 +190,7 @@ export function RegisterScreen({ navigation }: Props) {
         ref={emailRef}
         label="Email"
         value={email}
-        onChangeText={setEmail}
+        onChangeText={(t) => { setEmail(t); clearField('email'); }}
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="email"
@@ -187,11 +203,24 @@ export function RegisterScreen({ navigation }: Props) {
         ref={passwordRef}
         label="Password (at least 8 characters)"
         value={password}
-        onChangeText={setPassword}
+        onChangeText={(t) => { setPassword(t); clearField('password'); clearField('password_confirmation'); }}
         secureTextEntry
         autoComplete="new-password"
         textContentType="newPassword"
         error={fieldErrors.password}
+        returnKeyType="next"
+        onSubmitEditing={() => confirmRef.current?.focus()}
+        blurOnSubmit={false}
+      />
+      <AppInput
+        ref={confirmRef}
+        label="Confirm password"
+        value={confirm}
+        onChangeText={(t) => { setConfirm(t); clearField('password_confirmation'); }}
+        secureTextEntry
+        autoComplete="new-password"
+        textContentType="newPassword"
+        error={fieldErrors.password_confirmation}
         returnKeyType={betaGate ? 'next' : 'done'}
         onSubmitEditing={betaGate ? undefined : handleRegister}
       />
@@ -199,7 +228,7 @@ export function RegisterScreen({ navigation }: Props) {
         <AppInput
           label="Beta code"
           value={betaCode}
-          onChangeText={setBetaCode}
+          onChangeText={(t) => { setBetaCode(t); clearField('beta_code'); }}
           autoCapitalize="characters"
           autoCorrect={false}
           error={fieldErrors.beta_code}
@@ -207,6 +236,14 @@ export function RegisterScreen({ navigation }: Props) {
           onSubmitEditing={handleRegister}
         />
       ) : null}
+
+      <LanguagePicker
+        label="Preferred language"
+        value={language}
+        onChange={(code) => { setLanguage(code); clearField('preferred_language'); }}
+        disabled={loading}
+      />
+      {fieldErrors.preferred_language ? <Text style={styles.fieldError}>{fieldErrors.preferred_language}</Text> : null}
 
       {/* Terms/Privacy consent — required before account creation. */}
       <Pressable
@@ -242,6 +279,7 @@ export function RegisterScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: spacing.lg },
   formError: { color: colors.error, fontSize: 14, marginBottom: spacing.md },
+  fieldError: { color: colors.error, fontSize: 12, marginTop: -spacing.sm, marginBottom: spacing.md },
   consentRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

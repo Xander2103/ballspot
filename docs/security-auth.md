@@ -9,9 +9,10 @@ strategy is:
   **unverified** and must verify a one-time 6-digit code before they can use the
   app. Access to protected endpoints is gated by Laravel's `verified` middleware.
 - **Normal login is email + password**, once the email is verified. The 6-digit
-  login 2FA introduced in v1.6.1 still exists but is **off by default** and opt-in
-  via config (`force_login_2fa`). **Admins always get login 2FA** regardless of the
-  flag.
+  login 2FA introduced in v1.6.1 still exists but is **off by default** and, since
+  v1.9.7, a **per-user opt-in** (`users.two_factor_enabled`, Profile → Account &
+  security). `force_login_2fa` forces it for everyone; admins are no longer
+  special-cased on the API (the admin web panel has its own login).
 - Password reset and account deletion are unchanged (account deletion works even for
   an unverified user).
 
@@ -312,7 +313,8 @@ override:
   (default 60). The `email_code` flow **reuses** `login_code_max_attempts` (5) and
   `login_code_resend_cooldown_seconds` (60) for its attempt lock and resend cooldown.
 - **`force_login_2fa`** — when `true`, every **verified** login goes through the
-  6-digit login 2FA. **Admins always get login 2FA** regardless of this flag.
+  6-digit login 2FA regardless of their own setting. Otherwise the per-user
+  `two_factor_enabled` column decides (v1.9.7; default false, admins included).
 - Existing login-code config (`login_code_*`) is unchanged.
 
 `config('ballspot.app_name')` is used in the email subjects — **"Your BallPicker
@@ -421,9 +423,9 @@ future work:
 
 - **Email-only codes** — no SMS, no authenticator app / TOTP, and no passkeys yet
   (by design).
-- **Login 2FA is a single global flag (`force_login_2fa`) plus an admin override** —
-  there is no per-user opt-in 2FA toggle or device-trust / "remember this device"
-  option yet.
+- **Login 2FA is a per-user email-code toggle (`two_factor_enabled`, v1.9.7) plus
+  the global `force_login_2fa` flag** — there is no device-trust / "remember this
+  device" option yet, and admins are not forced on the API.
 - **No suspicious-login alerts yet.**
 - Future candidates: authenticator app / TOTP, passkeys, device trust /
   remember-device, suspicious-login alerts, and a per-user 2FA toggle.
@@ -438,20 +440,20 @@ future work:
   the API endpoint, throttled by the same named limiters. The page offers the
   `ballpicker://reset-password?…` deep link (custom scheme — universal/app
   links are NOT configured; there is no AASA/assetlinks yet).
-- **Events:** `password.reset_requested {channel, outcome: sent|no_account|
-  throttled|send_failed}`, `password.reset_failed {reason}`,
-  `password.reset_completed {channel, user_id}`. Never the email, token or
+- **Events:** `password_reset.requested {channel, outcome: sent|no_account|
+  throttled|send_failed}`, `password_reset.failed {reason}`,
+  `password_reset.completed {channel, user_id}`. Never the email, token or
   password (AppLog::sanitize + PasswordResetWebTest).
 - **Verification codes:** the last 3 unconsumed codes stay valid; a login no
   longer replaces a usable code; the attempt lock (5) is tracked on the newest
   record so the brute-force budget does not grow. Events:
-  `auth.verification_sent`, `auth.verification_send_failed` (mail transport),
-  `auth.verification_failed {reason: no_code|locked|expired|wrong_code}`,
-  `auth.verification_completed`.
+  `email_verification.sent`, `email_verification.send_failed` (mail transport),
+  `email_verification.failed {reason: no_code|locked|expired|wrong_code}`,
+  `email_verification.completed`.
 - **Kill switch:** `BALLPICKER_REQUIRE_EMAIL_VERIFICATION=false` disables the
   code step end-to-end (registration marks accounts verified, the `verified`
   gate is bypassed by `EnsureEmailIsVerifiedIfRequired`, `/me` reports
   `email_verified: true`).
 - **Account deletion** is one transaction (`AccountDeletionService`), logs
-  `account.deleted` / `account.delete_failed {user_id, exception}` and frees
+  `account.delete.completed` / `account.delete.failed {user_id, exception}` and frees
   the original email + username immediately.

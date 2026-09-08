@@ -87,8 +87,8 @@ class PasswordResetWebTest extends TestCase
         $res->assertOk()->assertSee('Password updated');
         $this->assertTrue(Hash::check('brandnewpass123', $user->fresh()->password));
         $this->assertSame(0, $user->fresh()->tokens()->count());
-        $this->assertNotEmpty($this->logged('password.reset_completed'));
-        $this->assertSame('web', $this->logged('password.reset_completed')[0]->context['channel']);
+        $this->assertNotEmpty($this->logged('password_reset.completed'));
+        $this->assertSame('web', $this->logged('password_reset.completed')[0]->context['channel']);
     }
 
     public function test_expired_or_invalid_token_shows_a_friendly_error_with_a_way_out(): void
@@ -108,7 +108,7 @@ class PasswordResetWebTest extends TestCase
             ->assertDontSee('Exception');
         $this->assertTrue(Hash::check('oldpassword123', User::first()->password));
 
-        $failed = $this->logged('password.reset_failed');
+        $failed = $this->logged('password_reset.failed');
         $this->assertNotEmpty($failed);
         $this->assertSame('invalid_token', $failed[0]->context['reason']);
         $this->assertArrayNotHasKey('token', $failed[0]->context);
@@ -144,7 +144,7 @@ class PasswordResetWebTest extends TestCase
         Notification::assertSentTimes(ResetPasswordNotification::class, 1);
 
         // Both requests are logged by category; neither carries the address.
-        $requested = $this->logged('password.reset_requested');
+        $requested = $this->logged('password_reset.requested');
         $this->assertCount(2, $requested);
         foreach ($requested as $r) {
             $this->assertArrayNotHasKey('email', $r->context);
@@ -169,10 +169,10 @@ class PasswordResetWebTest extends TestCase
             'password' => 'brandnewpass123', 'password_confirmation' => 'brandnewpass123',
         ])->assertOk();
 
-        $this->assertNotEmpty($this->logged('password.reset_requested'));
-        $this->assertNotEmpty($this->logged('password.reset_failed'));
-        $this->assertNotEmpty($this->logged('password.reset_completed'));
-        $this->assertSame('api', $this->logged('password.reset_completed')[0]->context['channel']);
+        $this->assertNotEmpty($this->logged('password_reset.requested'));
+        $this->assertNotEmpty($this->logged('password_reset.failed'));
+        $this->assertNotEmpty($this->logged('password_reset.completed'));
+        $this->assertSame('api', $this->logged('password_reset.completed')[0]->context['channel']);
 
         $dump = json_encode(array_map(fn ($r) => $r->context, $this->records->getRecords()));
         $this->assertStringNotContainsString($token, $dump);

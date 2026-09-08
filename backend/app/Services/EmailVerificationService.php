@@ -6,6 +6,7 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
 use App\Support\AppLog;
+use App\Support\AuthError;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
@@ -26,7 +27,7 @@ use Illuminate\Validation\ValidationException;
  * does not grow with the number of live codes.
  *
  * Every failure carries a `reason` (no_code | expired | locked | wrong_code)
- * in the 422 body and in the `auth.verification_failed` event, together with
+ * in the 422 body and in the `email_verification.failed` event, together with
  * diagnostic counts (live codes, age of the newest code, attempts) — never the
  * code itself.
  */
@@ -60,7 +61,7 @@ class EmailVerificationService
 
         if (!$force && $recent && $recent->code_sent_at->diffInSeconds(now()) < $this->cooldownSeconds()) {
             // A fresh code was sent very recently — do not send another.
-            AppLog::event('auth.verification_skipped', ['user_id' => $user->id, 'reason' => 'cooldown']);
+            AppLog::event('email_verification.skipped', ['user_id' => $user->id, 'reason' => 'cooldown']);
 
             return false;
         }
@@ -98,7 +99,7 @@ class EmailVerificationService
             // The record stays (a later resend replaces it); the user sees a
             // clear "we could not send" state instead of a dead flow.
             $record->delete();
-            AppLog::error('auth.verification_send_failed', [
+            AppLog::error('email_verification.send_failed', [
                 'user_id'   => $user->id,
                 'exception' => class_basename($e),
             ]);
@@ -106,7 +107,7 @@ class EmailVerificationService
             return false;
         }
 
-        AppLog::event('auth.verification_sent', [
+        AppLog::event('email_verification.sent', [
             'user_id'    => $user->id,
             'forced'     => $force,
             'live_codes' => EmailVerificationCode::where('user_id', $user->id)->whereNull('consumed_at')->count(),
@@ -209,7 +210,7 @@ class EmailVerificationService
             ->where('id', '!=', $match->id)
             ->delete();
 
-        AppLog::event('auth.verification_completed', ['user_id' => $user->id]);
+        AppLog::event('email_verification.completed', ['user_id' => $user->id]);
     }
 
     /**
@@ -249,7 +250,7 @@ class EmailVerificationService
         $live   = EmailVerificationCode::where('user_id', $user->id)->whereNull('consumed_at')->latest('code_sent_at')->latest('id')->get();
         $latest = $live->first();
 
-        AppLog::warn('auth.verification_failed', array_merge([
+        AppLog::warn('email_verification.failed', array_merge([
             'user_id'                 => $user->id,
             'reason'                  => $reason,
             'live_codes'              => $live->count(),
@@ -274,7 +275,7 @@ class EmailVerificationService
     private function failure(User $user, string $reason, string $message, $live): HttpResponseException
     {
         $latest = $live->first();
-        AppLog::warn('auth.verification_failed', [
+        AppLog::warn('email_verification.failed', [
             'user_id'                 => $user->id,
             'reason'                  => $reason,
             'live_codes'              => $live->count(),
@@ -286,9 +287,21 @@ class EmailVerificationService
         // every existing client reads it, plus a machine-readable reason.
         return new HttpResponseException(response()->json([
             'message' => $message,
+            'code'    => self::errorCodeFor($reason),
             'errors'  => ['code' => [$message]],
             'reason'  => $reason,
         ], 422));
+    }
+
+    /** Stable AuthError code per failure reason (the app maps these to copy). */
+    public static function errorCodeFor(string $reason): string
+    {
+        return match ($reason) {
+            'expired' => AuthError::VERIFICATION_CODE_EXPIRED,
+            'locked'  => AuthError::VERIFICATION_LOCKED,
+            'no_code' => AuthError::VERIFICATION_NO_CODE,
+            default   => AuthError::VERIFICATION_CODE_INVALID,
+        };
     }
 
     private function expiryMinutes(): int

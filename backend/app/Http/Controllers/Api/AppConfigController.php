@@ -24,6 +24,10 @@ class AppConfigController extends Controller
             'email_verification_required' => (bool) config('ballspot.auth.require_email_verification', true),
             'minimum_age'                 => (int) config('ballspot.legal.minimum_age', 16),
             'terms_version'               => (string) config('ballspot.legal.terms_version', '2026-08'),
+            // Preferred-language allow-list + default, so the register screen
+            // never offers a value the backend would reject.
+            'supported_languages'         => (array) config('ballspot.languages', ['en']),
+            'default_language'            => (string) config('ballspot.default_language', 'en'),
         ]);
     }
 }

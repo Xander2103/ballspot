@@ -171,10 +171,18 @@ class EmailVerificationTest extends TestCase
         Notification::assertSentTo($user, LoginVerificationCodeNotification::class);
     }
 
-    public function test_admin_login_always_requires_2fa(): void
+    public function test_admin_login_follows_the_per_user_2fa_setting(): void
     {
-        // Even with forced 2FA off, admins get the second factor.
+        // v1.9.7: the login code is opt-in for every account, admins included
+        // (the admin web panel has its own login). Off by default...
         $admin = User::factory()->create(['password' => bcrypt('password123'), 'is_admin' => true]);
+
+        $this->postJson('/api/login', ['email' => $admin->email, 'password' => 'password123'])
+            ->assertOk()->assertJsonStructure(['token'])->assertJsonMissing(['requires_2fa' => true]);
+
+        // ...and honoured once the admin switches it on.
+        $admin->two_factor_enabled = true;
+        $admin->save();
 
         $this->postJson('/api/login', ['email' => $admin->email, 'password' => 'password123'])
             ->assertOk()->assertJsonPath('requires_2fa', true);

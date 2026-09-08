@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\ResetPasswordRequest;
 use App\Services\PasswordResetFlow;
+use App\Support\AuthError;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -19,6 +20,10 @@ use Illuminate\Http\Response;
  * no app install/deep-link support required). It also offers the
  * ballpicker:// deep link so a phone with the app installed can hand the
  * token straight to the in-app reset screen.
+ *
+ * Every outcome renders a friendly page — expired / invalid link (with a
+ * "request a new link" button), transient failure (retry, nothing changed),
+ * or success. No raw exception text ever reaches the page.
  */
 class PasswordResetWebController extends Controller
 {
@@ -35,17 +40,29 @@ class PasswordResetWebController extends Controller
 
     public function reset(ResetPasswordRequest $request): Response
     {
-        $ok = $this->flow->reset(
+        $outcome = $this->flow->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             'web',
         );
 
+        [$status, $state, $message] = match ($outcome) {
+            PasswordResetFlow::COMPLETED     => [200, 'ok', 'Password updated'],
+            PasswordResetFlow::EXPIRED_TOKEN => [422, 'expired', AuthError::message(AuthError::RESET_TOKEN_EXPIRED)],
+            PasswordResetFlow::FAILED        => [500, 'failed', AuthError::message(AuthError::RESET_FAILED)],
+            default                          => [422, 'invalid', PasswordResetFlow::INVALID_LINK_MESSAGE],
+        };
+
         $view = view('public.reset-password-result', [
-            'ok'      => $ok,
-            'message' => $ok ? 'Password updated' : PasswordResetFlow::INVALID_LINK_MESSAGE,
+            'ok'      => $state === 'ok',
+            'state'   => $state,
+            'message' => $message,
+            // A transient failure leaves the link valid: offer the form again.
+            'retryUrl' => $state === 'failed'
+                ? route('password.reset', ['token' => $request->input('token'), 'email' => $request->input('email')])
+                : null,
         ]);
 
-        return $this->noStore($view, $ok ? 200 : 422);
+        return $this->noStore($view, $status);
     }
 
     public function showForgot(): Response

@@ -96,7 +96,7 @@ credentials there are **three** outcomes (all HTTP **200**). See
   "message": "..."
 }
 
-// Response 200 (b) — verified + forced 2FA (force_login_2fa=true OR admin): login code emailed, NO token
+// Response 200 (b) — verified + 2FA on (users.two_factor_enabled, or force_login_2fa=true): login code emailed, NO token
 {
   "requires_2fa": true,
   "verification_id": "<uuid>",
@@ -1680,7 +1680,7 @@ into its "Reset link or code" field. Failed API resets return
 
 ### DELETE /api/account
 Atomic (one transaction). Success: `{ deleted: true, message }`. Failure:
-`{ deleted: false, message }` with HTTP 500 and an `account.delete_failed`
+`{ deleted: false, message }` with HTTP 500 and an `account.delete.failed`
 event — never a raw exception. The original email and username are free to
 register again immediately.
 
@@ -1723,7 +1723,49 @@ register again immediately.
   screen shows the token's account, never a navigation param.
 - `POST /email/verification-notification` now also returns `email`.
 - Login for an unverified account with a usable code sends nothing and logs
-  `auth.verification_skipped {reason: usable_code_exists}`. Verified accounts
+  `email_verification.skipped {reason: usable_code_exists}`. Verified accounts
   never receive a code on login.
-- `auth.verification_failed` context now carries `live_codes`,
+- `email_verification.failed` context now carries `live_codes`,
   `latest_code_age_seconds`, `attempts` (never the code).
+
+### v1.9.7 — auth UX sprint (2026-09-08)
+
+**Error shape for known account failures** (`App\Support\AuthError`):
+`{ message, code, errors?: {field: [msg]}, codes?: {field: code}, reason? }`.
+`message` is safe to show; `code` is stable; `errors` keeps the Laravel shape
+for older clients. Codes: `email_taken`, `username_taken`, `password_mismatch`,
+`invalid_credentials`, `two_factor_required` (200, not an error),
+`two_factor_code_invalid`, `two_factor_code_expired`, `two_factor_locked`,
+`two_factor_session_invalid`, `verification_code_invalid`,
+`verification_code_expired`, `verification_locked`, `verification_no_code`,
+`reset_token_invalid`, `reset_token_expired`, `reset_failed`. Real 500s stay
+`{ message: "Server Error" }`.
+
+- `POST /register` accepts `password_confirmation` (must equal `password`;
+  mandatory when `BALLPICKER_REQUIRE_PASSWORD_CONFIRMATION=true`) and
+  `preferred_language` (`nl|en|fr|de|es`, default `en`). 422 bodies carry
+  `codes` per field.
+- `POST /login` — verified account with 2FA **off** (default): token directly,
+  no code row, no email (`login.2fa_skipped`). 2FA **on**
+  (`users.two_factor_enabled` or `BALLPICKER_FORCE_LOGIN_2FA`): `{ requires_2fa,
+  code: "two_factor_required", verification_id, message }` (`login.2fa_required`).
+  Unverified accounts keep `requires_email_verification` (separate mechanism).
+- `POST /login/verify` failures: 422 with `code` + `reason`
+  (`wrong_code | expired | locked | session_invalid`).
+- `POST /reset-password` — 200 on success; 422 `{ code: reset_token_expired,
+  reason: "expired" }` or `{ code: reset_token_invalid, reason:
+  "invalid_or_expired" }`; friendly 500 `{ code: reset_failed }` when the
+  transactional reset could not complete (old password + link still valid).
+  Web `POST /reset-password` renders the matching page (expired / invalid /
+  try-again / updated).
+- `GET|PATCH /me/preferences` — adds `preferred_language`, `two_factor_enabled`
+  (boolean), `available_languages`. `GET /me` (self) exposes both.
+- `GET /config` — adds `supported_languages`, `default_language`.
+- `DELETE /account` — also removes pending `password_reset_tokens` for the
+  address. Same email/username register again immediately.
+- Events: `register.validation_failed {fields, codes}`,
+  `login.2fa_required|2fa_skipped|2fa_completed|2fa_failed|2fa_setting_changed`,
+  `email_verification.*` (renamed from `auth.verification_*`),
+  `password_reset.requested|completed|failed` (renamed from `password.reset_*`),
+  `account.delete.completed|failed` (renamed from `account.deleted` /
+  `account.delete_failed`).

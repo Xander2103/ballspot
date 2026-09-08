@@ -7,9 +7,9 @@ use App\Models\User;
 use App\Services\EmailVerificationService;
 use App\Services\LoginVerificationService;
 use App\Support\AppLog;
+use App\Support\AuthError;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -28,10 +28,11 @@ class AuthController extends Controller
     public function register(RegisterRequest $request, EmailVerificationService $emailVerification)
     {
         $user = User::create([
-            'name' => $request->name,
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'name'               => $request->name,
+            'username'           => $request->username,
+            'email'              => $request->email,
+            'password'           => Hash::make($request->password),
+            'preferred_language' => $request->input('preferred_language') ?: config('ballspot.default_language', 'en'),
         ]);
 
         // Record the consent moment so acceptance can be demonstrated later.
@@ -55,6 +56,7 @@ class AuthController extends Controller
             'verification_required' => $this->emailVerificationRequired(),
             'code_sent'             => $codeSent,
             'beta_gate'             => (bool) config('ballspot.beta_code'),
+            'language'              => $user->preferred_language,
         ]);
 
         return response()->json([
@@ -68,16 +70,20 @@ class AuthController extends Controller
     /**
      * POST /api/login
      *
-     * With a verified email this returns a token directly (email + password is
-     * enough for normal play). Two extra paths:
+     * With a verified email and 2FA OFF (the default) this returns a token
+     * directly — email + password is enough and NO code email is sent. Two
+     * other paths:
      *  - Unverified email  -> requires_email_verification. A token is issued so
      *    the app can call the verify/resend endpoints. A code is only (re)sent
      *    when the user has no usable one left — sending a new code on every
      *    login used to invalidate the one already sitting in their inbox.
-     *  - Forced 2FA (config force_login_2fa, or any admin) -> requires_2fa and a
-     *    login code is emailed; the token is only issued by /login/verify.
+     *    This is REGISTRATION email verification, not login 2FA.
+     *  - 2FA ON for this user (users.two_factor_enabled, or the global
+     *    force_login_2fa flag) -> requires_2fa and a login code is emailed; the
+     *    token is only issued by /login/verify.
      * Invalid credentials return a single generic error (no user enumeration)
-     * and never trigger an email.
+     * and never trigger an email. Deleted (anonymized) accounts fall into the
+     * same generic path: their original email no longer matches any row.
      */
     public function login(
         Request $request,
@@ -91,7 +97,7 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user || $user->anonymized_at !== null || !Hash::check($request->password, $user->password)) {
             // Burn comparable time when the account is unknown so response
             // timing does not reveal whether the email exists.
             if (!$user) {
@@ -99,10 +105,10 @@ class AuthController extends Controller
             }
             // Category only — never the email, never the password.
             AppLog::warn('auth.login_failed', [
-                'reason'  => $user ? 'wrong_password' : 'unknown_account',
+                'reason'  => !$user ? 'unknown_account' : ($user->anonymized_at ? 'anonymized_account' : 'wrong_password'),
                 'user_id' => $user?->id,
             ]);
-            throw ValidationException::withMessages(['email' => ['Invalid credentials.']]);
+            AuthError::throw(AuthError::INVALID_CREDENTIALS, 422, 'email');
         }
 
         // Email not verified yet — block full login and hand back a token so
@@ -112,7 +118,7 @@ class AuthController extends Controller
             if ($emailVerification->hasUsableCode($user)) {
                 // The code already in their inbox stays valid — sending another
                 // here is exactly what used to make "the emailed code" fail.
-                AppLog::event('auth.verification_skipped', ['user_id' => $user->id, 'reason' => 'usable_code_exists', 'trigger' => 'login']);
+                AppLog::event('email_verification.skipped', ['user_id' => $user->id, 'reason' => 'usable_code_exists', 'trigger' => 'login']);
             } else {
                 $codeSent = $emailVerification->send($user, $request->ip(), $request->userAgent());
             }
@@ -130,18 +136,26 @@ class AuthController extends Controller
             ]);
         }
 
-        // Optional/forced 2FA — always on for admins, otherwise config-driven.
-        if ($this->twoFactorForced($user)) {
+        // Optional login 2FA — per-user opt-in, or forced globally by config.
+        if ($user->wantsLoginTwoFactor()) {
             $record = $login2fa->start($user, $request->ip(), $request->userAgent());
+
+            AppLog::event('login.2fa_required', [
+                'user_id' => $user->id,
+                'reason'  => $user->two_factor_enabled ? 'user_setting' : 'forced_by_config',
+            ]);
 
             return response()->json([
                 'requires_2fa'    => true,
+                'code'            => AuthError::TWO_FACTOR_REQUIRED,
                 'verification_id' => $record->verification_id,
-                'message'         => 'We sent a verification code to your email.',
+                'message'         => AuthError::message(AuthError::TWO_FACTOR_REQUIRED),
             ]);
         }
 
-        // Normal login — email + password is enough.
+        // Normal login — email + password is enough. No code row, no email.
+        AppLog::event('login.2fa_skipped', ['user_id' => $user->id, 'reason' => 'disabled']);
+
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
@@ -153,11 +167,6 @@ class AuthController extends Controller
     private function emailVerificationRequired(): bool
     {
         return (bool) config('ballspot.auth.require_email_verification', true);
-    }
-
-    private function twoFactorForced(User $user): bool
-    {
-        return (bool) config('ballspot.auth.force_login_2fa', false) || (bool) $user->is_admin;
     }
 
     public function logout(Request $request)

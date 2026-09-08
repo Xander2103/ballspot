@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Alert, Switch } from 'react-native';
 import { getApiErrorMessage } from '../utils/apiError';
 import * as ImagePicker from 'expo-image-picker';
 import { CommonActions } from '@react-navigation/native';
@@ -14,7 +14,10 @@ import { ProfileHistoryCard } from '../components/ProfileHistoryCard';
 import { CollapsibleSection } from '../components/CollapsibleSection';
 import { EmptyState } from '../components/EmptyState';
 import { StatList } from '../components/StatList';
+import { LanguagePicker } from '../components/LanguagePicker';
 import { authApi } from '../api/authApi';
+import { preferencesApi } from '../api/preferencesApi';
+import { isLanguageCode, languageLabel, LanguageCode, DEFAULT_LANGUAGE } from '../utils/language';
 import { badgeApi } from '../api/badgeApi';
 import { avatarApi } from '../api/avatarApi';
 import { signOut } from '../app/signOut';
@@ -48,6 +51,11 @@ export function ProfileScreen({ navigation }: Props) {
   const [profileFailed, setProfileFailed] = useState(false);
   const [statsFailed, setStatsFailed] = useState(false);
   const [historyFailed, setHistoryFailed] = useState(false);
+  // Account settings (language / 2FA) — saved through /me/preferences and
+  // mirrored into the local user so the summary lines update immediately.
+  const [savingLanguage, setSavingLanguage] = useState<LanguageCode | null>(null);
+  const [savingTwoFactor, setSavingTwoFactor] = useState(false);
+  const [accountError, setAccountError] = useState('');
 
   const loadProfile = useCallback(async () => {
     // allSettled, not all: one failing section must not blank the whole
@@ -98,6 +106,37 @@ export function ProfileScreen({ navigation }: Props) {
       setAvatarError(e?.message || 'Could not update your photo. Please try again.');
     } finally {
       setUploadingAvatar(false);
+    }
+  }
+
+  async function handleLanguageChange(code: LanguageCode) {
+    if (savingLanguage || !user || user.preferred_language === code) return;
+    setAccountError('');
+    setSavingLanguage(code);
+    try {
+      const res = await preferencesApi.update({ preferred_language: code });
+      setUser((u) => (u ? { ...u, preferred_language: res.preferred_language } : u));
+    } catch (e: unknown) {
+      setAccountError(getApiErrorMessage(e, 'Could not save your language. Please try again.'));
+    } finally {
+      setSavingLanguage(null);
+    }
+  }
+
+  async function handleTwoFactorToggle(enabled: boolean) {
+    if (savingTwoFactor || !user) return;
+    setAccountError('');
+    setSavingTwoFactor(true);
+    const previous = user.two_factor_enabled ?? false;
+    setUser((u) => (u ? { ...u, two_factor_enabled: enabled } : u)); // optimistic
+    try {
+      const res = await preferencesApi.update({ two_factor_enabled: enabled });
+      setUser((u) => (u ? { ...u, two_factor_enabled: res.two_factor_enabled } : u));
+    } catch (e: unknown) {
+      setUser((u) => (u ? { ...u, two_factor_enabled: previous } : u)); // revert
+      setAccountError(getApiErrorMessage(e, 'Could not update two-factor login. Please try again.'));
+    } finally {
+      setSavingTwoFactor(false);
     }
   }
 
@@ -173,6 +212,8 @@ export function ProfileScreen({ navigation }: Props) {
   const sport = user?.preferred_sport ?? null;
   const activeThemeLabel = THEME_META.find((m) => m.name === themeName)?.label;
   const retryProfile = () => { loadProfile(); };
+  const currentLanguage: LanguageCode = isLanguageCode(user?.preferred_language) ? user.preferred_language : DEFAULT_LANGUAGE;
+  const twoFactorOn = user?.two_factor_enabled === true;
 
   return (
     <Screen scroll padding>
@@ -324,6 +365,40 @@ export function ProfileScreen({ navigation }: Props) {
         <NotificationSettingsCard flat />
       </CollapsibleSection>
 
+      <CollapsibleSection
+        title="Account & security"
+        summary={`${languageLabel(currentLanguage)} · 2FA ${twoFactorOn ? 'on' : 'off'}`}
+      >
+        <LanguagePicker
+          label="Preferred language"
+          value={currentLanguage}
+          onChange={handleLanguageChange}
+          disabled={!!savingLanguage}
+          savingCode={savingLanguage}
+        />
+        <Text style={styles.settingHint}>Used for emails and, soon, app text.</Text>
+
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleTextWrap}>
+            <Text style={styles.toggleLabel}>Two-factor login</Text>
+            <Text style={styles.toggleHint}>
+              {twoFactorOn
+                ? 'Each login asks for a 6-digit code we email you.'
+                : 'Off: email and password sign you straight in.'}
+            </Text>
+          </View>
+          <Switch
+            value={twoFactorOn}
+            onValueChange={handleTwoFactorToggle}
+            disabled={savingTwoFactor}
+            trackColor={{ true: theme.primary, false: theme.border }}
+            thumbColor="#ffffff"
+            accessibilityLabel="Two-factor login"
+          />
+        </View>
+        {accountError ? <Text style={styles.inlineError}>{accountError}</Text> : null}
+      </CollapsibleSection>
+
       <AppButton title="Logout" onPress={handleLogout} variant="secondary" style={styles.logoutBtn} />
 
       {/* Info / legal footer — plain links, not fake settings. */}
@@ -416,6 +491,11 @@ function createStyles(theme: ThemeTokens) {
     themeLabel: { fontSize: 15, fontWeight: '700', color: theme.text },
     themeDesc: { fontSize: 12, color: theme.textMuted, marginTop: 2 },
     themeActive: { fontSize: 12, fontWeight: '700', color: theme.primary, marginTop: spacing.sm },
+    settingHint: { fontSize: 12, color: theme.textMuted, marginTop: -spacing.xs, marginBottom: spacing.md },
+    toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md },
+    toggleTextWrap: { flex: 1 },
+    toggleLabel: { fontSize: 15, fontWeight: '700', color: theme.text },
+    toggleHint: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
     logoutBtn: { marginTop: spacing.lg, marginBottom: spacing.xl },
     footerLinks: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

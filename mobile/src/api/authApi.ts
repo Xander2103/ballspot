@@ -7,6 +7,10 @@ export const authApi = {
     username: string;
     email: string;
     password: string;
+    /** Must equal password — the backend rejects a mismatch (password_mismatch). */
+    password_confirmation: string;
+    /** nl | en | fr | de | es. Defaults to English server-side when omitted. */
+    preferred_language?: string;
     /** Server records the consent moment; both are required by the API. */
     terms_accepted: boolean;
     age_confirmed: boolean;

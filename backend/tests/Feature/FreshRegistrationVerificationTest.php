@@ -85,7 +85,7 @@ class FreshRegistrationVerificationTest extends TestCase
         $this->assertNotSame($code, $row->code_hash);
         $this->assertTrue(Hash::check($code, $row->code_hash));
         $this->assertTrue($row->isUsable(5));
-        $this->assertNotEmpty($this->logged('auth.verification_sent'));
+        $this->assertNotEmpty($this->logged('email_verification.sent'));
     }
 
     public function test_the_returned_token_verifies_the_exact_emailed_code(): void
@@ -99,7 +99,7 @@ class FreshRegistrationVerificationTest extends TestCase
             ->assertJsonPath('user.id', $user->id)
             ->assertJsonPath('user.email', $this->payload['email']);
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
-        $this->assertSame($user->id, $this->logged('auth.verification_completed')[0]->context['user_id']);
+        $this->assertSame($user->id, $this->logged('email_verification.completed')[0]->context['user_id']);
     }
 
     public function test_the_latest_db_row_is_the_one_the_email_carries(): void
@@ -216,8 +216,8 @@ class FreshRegistrationVerificationTest extends TestCase
             ->assertJsonPath('message', 'This code belongs to a different account than the one signed in on this device. Please log in again with the account you just created.');
         $this->assertFalse($user->fresh()->hasVerifiedEmail());
         $this->assertFalse($previous->fresh()->hasVerifiedEmail());
-        $this->assertSame('session_mismatch', $this->logged('auth.verification_failed')[0]->context['reason']);
-        $this->assertArrayNotHasKey('email', $this->logged('auth.verification_failed')[0]->context);
+        $this->assertSame('session_mismatch', $this->logged('email_verification.failed')[0]->context['reason']);
+        $this->assertArrayNotHasKey('email', $this->logged('email_verification.failed')[0]->context);
     }
 
     public function test_previous_users_token_without_email_hint_fails_as_a_wrong_code_not_a_verification(): void
@@ -271,7 +271,7 @@ class FreshRegistrationVerificationTest extends TestCase
             ->assertOk()->assertJsonPath('code_sent', false);
 
         Notification::assertNothingSent();
-        $skipped = $this->logged('auth.verification_skipped');
+        $skipped = $this->logged('email_verification.skipped');
         $this->assertSame('usable_code_exists', $skipped[0]->context['reason']);
         $this->assertSame($user->id, $skipped[0]->context['user_id']);
     }
@@ -317,7 +317,7 @@ class FreshRegistrationVerificationTest extends TestCase
 
         $this->withToken($token)->postJson('/api/email/verify', ['code' => $wrong])->assertStatus(422);
 
-        $failed = $this->logged('auth.verification_failed')[0]->context;
+        $failed = $this->logged('email_verification.failed')[0]->context;
         $this->assertSame('wrong_code', $failed['reason']);
         $this->assertSame(1, $failed['live_codes']);
         $this->assertArrayHasKey('latest_code_age_seconds', $failed);

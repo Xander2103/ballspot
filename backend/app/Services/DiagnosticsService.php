@@ -41,9 +41,10 @@ class DiagnosticsService
      * each one is a user-visible failure of a launch-critical flow.
      */
     public const WATCHED_WARNINGS = [
-        'password.reset_failed',
-        'password.reset_requested',
-        'auth.verification_failed',
+        'password_reset.failed',
+        'password_reset.requested',
+        'email_verification.failed',
+        'login.2fa_failed',
         'auth.beta_code_rejected',
         'pack.start_failed',
     ];

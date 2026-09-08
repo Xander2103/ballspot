@@ -255,10 +255,30 @@ return [
         'require_email_verification'         => (bool) env('BALLPICKER_REQUIRE_EMAIL_VERIFICATION', true),
         'email_code_expiry_minutes'          => (int) env('BALLPICKER_EMAIL_CODE_EXPIRY_MINUTES', 60),
 
-        // Force the 6-digit code on EVERY normal login. Off by default now that
-        // accounts are email-verified at registration. Admins always get 2FA.
+        // Force the 6-digit login code on EVERY verified login, for every user,
+        // regardless of their own setting. Off by default: since v1.9.7 the
+        // login code is an opt-in per-user setting (users.two_factor_enabled,
+        // default false) toggled from Profile → PATCH /api/me/preferences.
         'force_login_2fa'                    => (bool) env('BALLPICKER_FORCE_LOGIN_2FA', false),
+
+        // Registration must carry password_confirmation. Off by default for one
+        // release: the app build in the stores before v1.9.7 does not send the
+        // field, and a backend deploy always lands before the store build. The
+        // rule is still enforced whenever the field IS sent (new builds always
+        // send it). Flip on once the v1.9.7 build is the minimum.
+        'require_password_confirmation'      => filter_var(env('BALLPICKER_REQUIRE_PASSWORD_CONFIRMATION', false), FILTER_VALIDATE_BOOL),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Preferred language
+    |--------------------------------------------------------------------------
+    | Allow-list for users.preferred_language (register + PATCH /me/preferences).
+    | Stored per user and exposed as the notification locale (HasLocalePreference)
+    | so translated emails can follow later; email copy is English for now.
+    */
+    'languages'        => ['nl', 'en', 'fr', 'de', 'es'],
+    'default_language' => env('BALLPICKER_DEFAULT_LANGUAGE', 'en'),
 
     /*
     |--------------------------------------------------------------------------

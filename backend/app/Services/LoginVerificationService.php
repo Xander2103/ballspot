@@ -5,12 +5,16 @@ namespace App\Services;
 use App\Models\LoginVerificationCode;
 use App\Models\User;
 use App\Notifications\LoginVerificationCodeNotification;
+use App\Support\AppLog;
+use App\Support\AuthError;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Email two-factor login: issue, verify, and resend one-time login codes.
+ * Optional email two-factor login: issue, verify, and resend one-time login
+ * codes. Only used when the user opted in (users.two_factor_enabled) or the
+ * global force_login_2fa flag is on — see AuthController::login.
  *
  * Security posture:
  *  - Only a HASH of the 6-digit code is stored; the plain code lives only in
@@ -18,12 +22,14 @@ use Illuminate\Validation\ValidationException;
  *  - Codes expire (config) and are attempt-limited (config); a code that hits
  *    the attempt cap is locked and cannot be used even with the right value.
  *  - Issuing a new code purges the user's older pending codes.
- *  - Verify/resend failures return a single generic message so nothing about a
- *    code's exact state (or a user's existence) is leaked.
+ *  - Failures name their category (wrong / expired / locked / session) — the
+ *    verification_id is an unguessable UUID that only the client who just
+ *    passed the password check holds, so this leaks nothing to outsiders.
+ *  - Logged as login.2fa_failed {reason} / login.2fa_completed — never the code.
  */
 class LoginVerificationService
 {
-    /** Deliberately generic — do not distinguish wrong / expired / consumed / locked. */
+    /** Kept for callers/tests that reference the historical generic text. */
     public const GENERIC_FAILURE = 'Invalid or expired verification code.';
 
     /**
@@ -55,21 +61,28 @@ class LoginVerificationService
     }
 
     /**
-     * Verify a submitted code. Returns the User on success, throws a generic
-     * ValidationException on any failure (increments attempts on wrong code).
+     * Verify a submitted code. Returns the User on success, throws a friendly
+     * 422 (AuthError shape, `code` + `reason`) on any failure — incrementing
+     * attempts on a wrong code.
      */
     public function verify(string $verificationId, string $code): User
     {
         $max    = $this->maxAttempts();
         $record = LoginVerificationCode::where('verification_id', $verificationId)->first();
 
-        if (!$record || !$record->isUsable($max)) {
-            throw $this->genericFailure();
+        if (!$record || $record->isConsumed()) {
+            $this->fail(null, 'session_invalid', AuthError::TWO_FACTOR_SESSION_INVALID);
+        }
+        if ($record->isLocked($max)) {
+            $this->fail($record, 'locked', AuthError::TWO_FACTOR_LOCKED);
+        }
+        if ($record->isExpired()) {
+            $this->fail($record, 'expired', AuthError::TWO_FACTOR_CODE_EXPIRED);
         }
 
         if (!Hash::check($code, $record->code_hash)) {
             $record->increment('attempts');
-            throw $this->genericFailure();
+            $this->fail($record, 'wrong_code', AuthError::TWO_FACTOR_CODE_INVALID);
         }
 
         // Success — consume this code and revoke any other pending codes.
@@ -78,6 +91,8 @@ class LoginVerificationService
             ->where('id', '!=', $record->id)
             ->whereNull('consumed_at')
             ->delete();
+
+        AppLog::event('login.2fa_completed', ['user_id' => $record->user_id]);
 
         return $record->user;
     }
@@ -133,9 +148,17 @@ class LoginVerificationService
         return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     }
 
-    private function genericFailure(): ValidationException
+    private function fail(?LoginVerificationCode $record, string $reason, string $errorCode): never
     {
-        return ValidationException::withMessages(['code' => [self::GENERIC_FAILURE]]);
+        AppLog::warn('login.2fa_failed', [
+            'user_id'  => $record?->user_id,
+            'reason'   => $reason,
+            'attempts' => $record ? (int) $record->fresh()->attempts : null,
+        ]);
+
+        // Field-bound to `code` so existing clients that read errors.code[0]
+        // still get the friendly sentence.
+        AuthError::throw($errorCode, 422, 'code', ['reason' => $reason]);
     }
 
     private function expiryMinutes(): int

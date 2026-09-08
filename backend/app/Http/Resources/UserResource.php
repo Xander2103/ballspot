@@ -21,6 +21,10 @@ class UserResource extends JsonResource
                 || !config('ballspot.auth.require_email_verification', true)),
             // Preferences — only meaningful for the authenticated user themselves.
             'selected_theme' => $this->when($isSelf, $this->selected_theme),
+            // nl|en|fr|de|es — stored per user, used as the notification locale.
+            'preferred_language' => $this->when($isSelf, fn () => $this->preferredLocale()),
+            // Optional email login code. Default false; toggled via /me/preferences.
+            'two_factor_enabled' => $this->when($isSelf, fn () => (bool) $this->two_factor_enabled),
             'avatar_url'     => $this->avatarUrl(),
             'preferred_sport' => $this->when(
                 $isSelf,

@@ -72,7 +72,7 @@ class AccountReRegistrationTest extends TestCase
         $this->assertNull($fresh->email_verified_at);
         $this->assertFalse(Hash::check('password123', $fresh->password));
         $this->assertDatabaseMissing('personal_access_tokens', ['tokenable_id' => $user->id]);
-        $this->assertNotEmpty($this->logged('account.deleted'));
+        $this->assertNotEmpty($this->logged('account.delete.completed'));
     }
 
     public function test_the_revoked_token_no_longer_authenticates(): void
@@ -158,7 +158,7 @@ class AccountReRegistrationTest extends TestCase
             ->assertJsonPath('message', 'We could not delete your account right now. Please try again in a moment or contact support.');
         $this->assertStringNotContainsString('disk on fire', $res->getContent());
 
-        $failed = $this->logged('account.delete_failed');
+        $failed = $this->logged('account.delete.failed');
         $this->assertNotEmpty($failed);
         $this->assertSame('error', strtolower($failed[0]->level->getName()));
         $this->assertSame($user->id, $failed[0]->context['user_id']);
@@ -186,6 +186,6 @@ class AccountReRegistrationTest extends TestCase
         $this->assertSame('comeback@example.com', $fresh->email);
         $this->assertSame('comeback', $fresh->username);
         $this->assertNull($fresh->anonymized_at);
-        $this->assertNotEmpty($this->logged('account.delete_failed'));
+        $this->assertNotEmpty($this->logged('account.delete.failed'));
     }
 }

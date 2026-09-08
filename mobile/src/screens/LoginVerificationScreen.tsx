@@ -10,6 +10,7 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { getApiErrorMessage } from '../utils/apiError';
+import { mapAuthError } from '../utils/authErrors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LoginVerification'>;
 
@@ -55,9 +56,16 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
       const target = await completeLogin(token, setTheme);
       navigation.reset({ index: 0, routes: [{ name: target }] });
     } catch (e: unknown) {
-      setError(getApiErrorMessage(e, 'Invalid or expired verification code.'));
+      // wrong / expired / locked / session gone — each gets its own sentence.
+      const info = mapAuthError(e, 'Invalid or expired verification code.');
+      setError(info.message);
       setCode('');
       setVerifying(false);
+      if (info.code === 'two_factor_locked') {
+        setCooldown(0); // the fix is a resend — do not make them wait for it
+      } else if (info.code === 'two_factor_code_expired' || info.code === 'two_factor_session_invalid') {
+        setTimeout(() => navigation.goBack(), 1500); // must log in again
+      }
     }
   }
 

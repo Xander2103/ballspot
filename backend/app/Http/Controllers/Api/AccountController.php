@@ -18,7 +18,7 @@ class AccountController extends Controller
      * Anonymizes the account (see AccountDeletionService). Always answers with
      * JSON the app can act on: `deleted: true` + a message on success, or a
      * friendly, retryable 500 on failure — never a raw exception message. The
-     * failure is logged as `account.delete_failed` (user id + exception class,
+     * failure is logged as `account.delete.failed` (user id + exception class,
      * no personal data) so it shows up on /admin/diagnostics.
      */
     public function delete(Request $request, AccountDeletionService $deletion): JsonResponse
@@ -29,7 +29,7 @@ class AccountController extends Controller
         try {
             $deletion->delete($user);
         } catch (\Throwable $e) {
-            AppLog::error('account.delete_failed', [
+            AppLog::error('account.delete.failed', [
                 'user_id'   => $id,
                 'exception' => class_basename($e),
             ]);
@@ -41,7 +41,7 @@ class AccountController extends Controller
             ], 500);
         }
 
-        AppLog::event('account.deleted', ['user_id' => $id]);
+        AppLog::event('account.delete.completed', ['user_id' => $id]);
         // Kept for existing dashboards/greps; same event, historical name.
         AppLog::event('account.anonymized', ['user_id' => $id]);
 
