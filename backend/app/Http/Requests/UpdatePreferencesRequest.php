@@ -42,10 +42,10 @@ class UpdatePreferencesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'preferred_sport_id.exists' => 'This sport is not available yet.',
-            'selected_theme.in'         => 'That theme is not available.',
-            'preferred_language.in'     => 'Please choose a supported language.',
-            'two_factor_enabled.boolean' => 'Two-factor login must be on or off.',
+            'preferred_sport_id.exists' => __('messages.preferences.sport_unavailable'),
+            'selected_theme.in'         => __('messages.preferences.theme_unavailable'),
+            'preferred_language.in'     => __('messages.auth.language_unsupported'),
+            'two_factor_enabled.boolean' => __('messages.preferences.two_factor_boolean'),
         ];
     }
 }

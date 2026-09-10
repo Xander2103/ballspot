@@ -1,5 +1,5 @@
 @extends('public.layout')
-@section('title', $ok ? 'Password updated' : ($state === 'failed' ? 'Please try again' : 'Reset link expired'))
+@section('title', $ok ? __('web.result.ok_title') : ($state === 'failed' ? __('web.result.failed_title') : __('web.result.expired_title')))
 
 @section('content')
 <style>
@@ -11,29 +11,29 @@
 
 @if($ok)
     <div class="status-icon">✅</div>
-    <h1>Password updated</h1>
-    <p class="page-meta">Your BallPicker password has been changed and every other session has been signed out.</p>
+    <h1>{{ __('web.result.ok_heading') }}</h1>
+    <p class="page-meta">{{ __('web.result.ok_intro') }}</p>
     <div class="callout">
-        <p>Open the BallPicker app and log in with your new password.</p>
+        <p>{{ __('web.result.ok_callout') }}</p>
     </div>
 @elseif($state === 'failed')
     <div class="status-icon">⚠️</div>
-    <h1>Please try again</h1>
+    <h1>{{ __('web.result.failed_heading') }}</h1>
     <p class="page-meta">{{ $message }}</p>
     <div class="callout">
-        <p>Nothing was changed: your current password still works and this reset link is still valid.</p>
+        <p>{{ __('web.result.failed_callout') }}</p>
     </div>
     @if($retryUrl)
-        <a class="btn btn-primary" href="{{ $retryUrl }}">Try again</a>
+        <a class="btn btn-primary" href="{{ $retryUrl }}">{{ __('web.result.try_again') }}</a>
     @endif
-    <a class="btn btn-secondary" href="{{ route('password.request') }}">Request a new link</a>
+    <a class="btn btn-secondary" href="{{ route('password.request', ['lang' => app()->getLocale()]) }}">{{ __('web.result.request_new') }}</a>
 @else
     <div class="status-icon">⏰</div>
-    <h1>This link no longer works</h1>
+    <h1>{{ __('web.result.expired_heading') }}</h1>
     <p class="page-meta">{{ $message }}</p>
     <div class="callout">
-        <p>Reset links are valid for a limited time and can only be used once. Request a new one and use the newest email.</p>
+        <p>{{ __('web.result.expired_callout') }}</p>
     </div>
-    <a class="btn btn-primary" href="{{ route('password.request') }}">Request a new link</a>
+    <a class="btn btn-primary" href="{{ route('password.request', ['lang' => app()->getLocale()]) }}">{{ __('web.result.request_new') }}</a>
 @endif
 @endsection

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import type { Badge } from '../types/badge';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 interface Props {
   badges: Badge[];
@@ -27,6 +28,7 @@ function rarityColor(rarity: string): string {
  * gets a distinct, premium treatment.
  */
 export function NewBadgesCard({ badges }: Props) {
+  const { t } = useI18n();
   if (!badges || badges.length === 0) return null;
 
   // Highest rarity present drives the card accent / headline.
@@ -38,8 +40,8 @@ export function NewBadgesCard({ badges }: Props) {
   const accent = rarityColor(topRarity);
 
   const title = isLegendary
-    ? '🏆 Legendary badge unlocked!'
-    : `🎉 New badge${badges.length > 1 ? 's' : ''} unlocked!`;
+    ? t('game.badges.legendaryUnlocked')
+    : t('game.badges.newUnlocked', { count: badges.length });
 
   return (
     <View style={[styles.card, { borderColor: accent + '80' }]}>

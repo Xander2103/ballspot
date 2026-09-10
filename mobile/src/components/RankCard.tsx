@@ -4,6 +4,7 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { getRankVisualStyle } from '../theme/rankVisuals';
+import { useI18n } from '../i18n';
 import type { PlayerRank } from '../types/auth';
 
 function fmt(n: number): string {
@@ -17,6 +18,7 @@ function fmt(n: number): string {
  */
 export function RankCard({ rank }: { rank: PlayerRank }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
   const pct = rank.is_max_rank ? 100 : Math.max(0, Math.min(100, rank.progress_to_next_rank_pct));
 
@@ -29,9 +31,11 @@ export function RankCard({ rank }: { rank: PlayerRank }) {
         <View style={{ flex: 1 }}>
           <Text style={styles.rankName}>
             {rank.name}
-            <Text style={styles.level}>{rank.is_max_rank ? '  ·  Max level' : `  ·  Level ${rank.level}`}</Text>
+            <Text style={styles.level}>
+              {rank.is_max_rank ? t('profile.rankCard.maxLevel') : t('profile.rankCard.level', { level: rank.level })}
+            </Text>
           </Text>
-          <Text style={styles.xp}>{fmt(rank.total_xp)} XP</Text>
+          <Text style={styles.xp}>{t('profile.rankCard.xp', { xp: fmt(rank.total_xp) })}</Text>
         </View>
       </View>
 
@@ -41,8 +45,8 @@ export function RankCard({ rank }: { rank: PlayerRank }) {
 
       <Text style={styles.footer}>
         {rank.is_max_rank
-          ? 'No next rank — you reached the top.'
-          : `${fmt(rank.xp_to_next_rank ?? 0)} XP to ${rank.next_rank_name} · ${pct}%`}
+          ? t('profile.rankCard.maxReached')
+          : t('profile.rankCard.toNext', { xp: fmt(rank.xp_to_next_rank ?? 0), rank: rank.next_rank_name, pct })}
       </Text>
     </View>
   );

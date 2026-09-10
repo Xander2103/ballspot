@@ -1,12 +1,12 @@
 import {
-  AUTH_ERROR_MESSAGES,
+  authErrorMessage,
   classifyResetError,
   getAuthErrorMessage,
   isKnownAuthCode,
   mapAuthError,
   validatePasswordPair,
 } from '../authErrors';
-import { SERVER_ERROR_MESSAGE } from '../apiError';
+import { serverErrorMessage } from '../apiError';
 
 describe('mapAuthError', () => {
   it('maps a known top-level code to friendly copy and the field', () => {
@@ -21,8 +21,8 @@ describe('mapAuthError', () => {
       'Registration failed',
     );
     expect(info.code).toBe('email_taken');
-    expect(info.message).toBe(AUTH_ERROR_MESSAGES.email_taken);
-    expect(info.fieldErrors.email).toBe(AUTH_ERROR_MESSAGES.email_taken);
+    expect(info.message).toBe(authErrorMessage('email_taken'));
+    expect(info.fieldErrors.email).toBe(authErrorMessage('email_taken'));
     expect(info.fieldCodes.email).toBe('email_taken');
   });
 
@@ -37,9 +37,9 @@ describe('mapAuthError', () => {
       'f',
     );
     expect(info.fieldErrors).toEqual({
-      email: AUTH_ERROR_MESSAGES.email_taken,
-      username: AUTH_ERROR_MESSAGES.username_taken,
-      password: AUTH_ERROR_MESSAGES.password_mismatch,
+      email: authErrorMessage('email_taken'),
+      username: authErrorMessage('username_taken'),
+      password: authErrorMessage('password_mismatch'),
     });
   });
 
@@ -55,19 +55,19 @@ describe('mapAuthError', () => {
 
   it('maps login and 2FA codes', () => {
     expect(getAuthErrorMessage({ status: 422, code: 'invalid_credentials', errors: { email: ['Invalid email or password.'] } }, 'f'))
-      .toBe(AUTH_ERROR_MESSAGES.invalid_credentials);
+      .toBe(authErrorMessage('invalid_credentials'));
     expect(getAuthErrorMessage({ status: 422, code: 'two_factor_code_invalid', reason: 'wrong_code' }, 'f'))
-      .toBe(AUTH_ERROR_MESSAGES.two_factor_code_invalid);
-    expect(getAuthErrorMessage({ status: 422, code: 'two_factor_code_expired' }, 'f')).toBe(AUTH_ERROR_MESSAGES.two_factor_code_expired);
-    expect(getAuthErrorMessage({ status: 422, code: 'two_factor_locked' }, 'f')).toBe(AUTH_ERROR_MESSAGES.two_factor_locked);
-    expect(getAuthErrorMessage({ status: 422, code: 'verification_code_expired' }, 'f')).toBe(AUTH_ERROR_MESSAGES.verification_code_expired);
-    expect(getAuthErrorMessage({ status: 422, code: 'verification_locked' }, 'f')).toBe(AUTH_ERROR_MESSAGES.verification_locked);
+      .toBe(authErrorMessage('two_factor_code_invalid'));
+    expect(getAuthErrorMessage({ status: 422, code: 'two_factor_code_expired' }, 'f')).toBe(authErrorMessage('two_factor_code_expired'));
+    expect(getAuthErrorMessage({ status: 422, code: 'two_factor_locked' }, 'f')).toBe(authErrorMessage('two_factor_locked'));
+    expect(getAuthErrorMessage({ status: 422, code: 'verification_code_expired' }, 'f')).toBe(authErrorMessage('verification_code_expired'));
+    expect(getAuthErrorMessage({ status: 422, code: 'verification_locked' }, 'f')).toBe(authErrorMessage('verification_locked'));
   });
 
   it('keeps real 500s generic and never shows unknown codes raw', () => {
-    expect(getAuthErrorMessage({ status: 500, message: 'Server Error', code: 'something_new' }, 'f')).toBe(SERVER_ERROR_MESSAGE);
+    expect(getAuthErrorMessage({ status: 500, message: 'Server Error', code: 'something_new' }, 'f')).toBe(serverErrorMessage());
     expect(getAuthErrorMessage({ status: 500, code: 'reset_failed', message: 'We could not reset your password right now. Please try again in a moment.' }, 'f'))
-      .toBe(AUTH_ERROR_MESSAGES.reset_failed);
+      .toBe(authErrorMessage('reset_failed'));
     expect(getAuthErrorMessage(new TypeError('Network request failed'), 'f')).toMatch(/connection/i);
     expect(getAuthErrorMessage({ status: 422, message: 'SQLSTATE[23000] at /app.php:1' }, 'fallback text')).toBe('fallback text');
   });
@@ -92,9 +92,9 @@ describe('classifyResetError', () => {
 
 describe('validatePasswordPair', () => {
   it('requires 8+ chars and a matching confirmation', () => {
-    expect(validatePasswordPair('', '')).toEqual({ password: 'Password is required' });
-    expect(validatePasswordPair('short', 'short')).toEqual({ password: 'Password must be at least 8 characters' });
-    expect(validatePasswordPair('longenough', '')).toEqual({ password_confirmation: 'Please confirm your password' });
+    expect(validatePasswordPair('', '')).toEqual({ password: 'Password is required.' });
+    expect(validatePasswordPair('short', 'short')).toEqual({ password: 'Password must be at least 8 characters.' });
+    expect(validatePasswordPair('longenough', '')).toEqual({ password_confirmation: 'Please confirm your password.' });
     expect(validatePasswordPair('longenough', 'different1')).toEqual({ password_confirmation: 'Passwords do not match.' });
     expect(validatePasswordPair('longenough', 'longenough')).toEqual({});
   });

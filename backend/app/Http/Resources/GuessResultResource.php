@@ -8,6 +8,7 @@ class GuessResultResource extends JsonResource
     public function toArray($request): array
     {
         $challenge = $this->round->challenge;
+        $challenge->loadMissing('sport');
 
         // Rank / percentile insight within this round (players who have guessed it).
         $roundId    = $this->league_round_id;
@@ -31,6 +32,14 @@ class GuessResultResource extends JsonResource
             'rank' => $rank,
             'total_players' => $total,
             'better_than_percentage' => $betterThan,
+            // Marker object on the result screen (the challenge's sport).
+            'sport'            => $challenge->sport ? [
+                'slug'          => $challenge->sport->slug,
+                'name'          => $challenge->sport->name,
+                'emoji'         => $challenge->sport->emoji,
+                'object_name'   => $challenge->sport->object_name,
+                'primary_color' => $challenge->sport->primary_color,
+            ] : null,
         ];
     }
 }

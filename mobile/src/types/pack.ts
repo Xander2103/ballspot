@@ -29,7 +29,7 @@ export interface PackChallengeSummary {
   title: string;
   difficulty: string;
   hidden_image_url: string | null;
-  sport: { slug: string; name: string; emoji: string } | null;
+  sport: { slug: string; name: string; emoji: string; object_name?: string | null } | null;
   category: { name: string; slug: string } | null;
 }
 
@@ -112,6 +112,8 @@ export interface PackGuessResult {
     ball_x_ratio: number;
     ball_y_ratio: number;
     reveal_image_url: string | null;
+    /** The challenge's sport (marker object on the result screen). */
+    sport?: { slug: string; name: string; emoji: string; object_name?: string | null } | null;
   };
   progress: PackAttemptState;
   next_challenge: PackChallengeSummary | null;

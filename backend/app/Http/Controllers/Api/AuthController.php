@@ -131,8 +131,8 @@ class AuthController extends Controller
                 'user'                        => new UserResource($user),
                 'token'                       => $token,
                 'message'                     => $codeSent
-                    ? 'Please verify your email address to continue. We sent you a new code.'
-                    : 'Please verify your email address to continue. Enter the code we emailed you, or request a new one.',
+                    ? __('messages.auth.verify_email_new_code')
+                    : __('messages.auth.verify_email_existing_code'),
             ]);
         }
 
@@ -172,7 +172,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Logged out']);
+        return response()->json(['message' => __('messages.auth.logged_out')]);
     }
 
     public function me(Request $request)

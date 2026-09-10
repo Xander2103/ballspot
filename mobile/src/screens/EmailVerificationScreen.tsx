@@ -11,6 +11,7 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { getApiErrorMessage } from '../utils/apiError';
+import { useI18n } from '../i18n';
 import {
   buildVerifyPayload,
   classifyVerificationError,
@@ -36,6 +37,7 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
   const { email: routeEmail, codeSent } = route.params ?? {};
   const { theme, setTheme } = useTheme();
   const styles = createStyles(theme);
+  const { t } = useI18n();
 
   const [code, setCode] = useState('');
   const [targetEmail, setTargetEmail] = useState<string | null>(routeEmail ?? null);
@@ -44,7 +46,7 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
   const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(
-    codeSent === false ? 'We could not send a new email just now. Enter the code you already received, or tap "Resend code".' : '',
+    codeSent === false ? t('auth.emailVerification.notSent') : '',
   );
   // No cooldown when the server told us nothing was sent — the user needs the
   // resend button right away.
@@ -53,8 +55,8 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
   }, []);
 
   // Source of truth for "which account am I verifying": the token, not the
@@ -83,7 +85,7 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
       .catch((e: unknown) => {
         if (cancelled) return;
         if ((e as { status?: number })?.status === 401) {
-          setError('Your session has expired. Please log in again to continue verifying.');
+          setError(t('errors.verification.sessionExpired'));
         }
         // Any other failure: keep the route email; the verify call still works.
       });
@@ -106,7 +108,7 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
     if (verifying || mismatch) return;
     const payload = buildVerifyPayload(code, targetEmail);
     if (!payload) {
-      setError('Enter the 6-digit code.');
+      setError(t('errors.validation.codeRequired'));
       return;
     }
     setVerifying(true);
@@ -155,11 +157,11 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
     } catch (e: unknown) {
       const status = (e as { status?: number })?.status;
       if (status === 401) {
-        setError('Your session has expired. Please log in again to continue verifying.');
+        setError(t('errors.verification.sessionExpired'));
         setTimeout(goToLogin, 1500);
         return;
       }
-      setError(getApiErrorMessage(e, 'Could not resend the code. Please try again in a moment.'));
+      setError(getApiErrorMessage(e, t('auth.verification.resendFailed')));
     } finally {
       setResending(false);
     }
@@ -167,9 +169,9 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.title}>Check your email</Text>
+      <Text style={styles.title}>{t('auth.verification.checkEmail')}</Text>
       <Text style={styles.subtitle}>
-        We sent a 6-digit verification code{targetEmail ? ` to ${targetEmail}` : ''}. Enter it to activate your account.
+        {targetEmail ? t('auth.emailVerification.subtitleTo', { email: targetEmail }) : t('auth.emailVerification.subtitle')}
       </Text>
 
       <TextInput
@@ -192,10 +194,10 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
       {mismatch ? (
-        <AppButton title="Log in again" onPress={goToLogin} style={styles.verifyBtn} />
+        <AppButton title={t('auth.emailVerification.loginAgain')} onPress={goToLogin} style={styles.verifyBtn} />
       ) : (
         <AppButton
-          title="Verify email"
+          title={t('auth.emailVerification.verify')}
           onPress={handleVerify}
           loading={verifying}
           disabled={code.length !== 6 || verifying}
@@ -205,14 +207,14 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
 
       <Pressable onPress={handleResend} disabled={cooldown > 0 || resending || mismatch} hitSlop={8} style={styles.resend}>
         <Text style={[styles.resendText, (cooldown > 0 || resending || mismatch) && styles.resendDisabled]}>
-          {cooldown > 0 ? `Resend code in ${cooldown}s` : resending ? 'Sending…' : 'Resend code'}
+          {cooldown > 0 ? t('auth.verification.resendIn', { seconds: cooldown }) : resending ? t('common.states.sending') : t('auth.verification.resend')}
         </Text>
       </Pressable>
 
-      <Text style={styles.hint}>Didn't get it? Check your spam folder. Codes stay valid for an hour, and older codes keep working after a resend.</Text>
+      <Text style={styles.hint}>{t('auth.emailVerification.hint')}</Text>
 
       <Pressable onPress={goToLogin} hitSlop={8} style={styles.back}>
-        <Text style={styles.backText}>Back to login</Text>
+        <Text style={styles.backText}>{t('auth.backToLogin')}</Text>
       </Pressable>
     </Screen>
   );

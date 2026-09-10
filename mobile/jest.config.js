@@ -4,7 +4,7 @@
  */
 module.exports = {
   testEnvironment: 'node',
-  roots: ['<rootDir>/src/utils'],
+  roots: ['<rootDir>/src/utils', '<rootDir>/src/i18n'],
   transform: {
     '^.+\\.ts$': ['ts-jest', { tsconfig: { jsx: 'react-jsx' } }],
   },

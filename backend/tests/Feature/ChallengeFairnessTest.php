@@ -239,18 +239,39 @@ class ChallengeFairnessTest extends TestCase
         }
     }
 
-    public function test_tournament_rejects_start_when_not_enough_unique_eligible_challenges(): void
+    public function test_tournament_rejects_create_when_not_enough_unique_eligible_challenges(): void
     {
         $sport = $this->sport();
         $this->challenge($sport, 'One');
         $this->challenge($sport, 'Two');
         [$user, $headers] = $this->auth();
 
+        $this->postJson('/api/leagues', ['name' => 'Cup', 'duration_days' => 7], $headers)
+            ->assertStatus(422)
+            ->assertJsonPath('code', 'TOURNAMENTS_TEMPORARILY_UNAVAILABLE')
+            ->assertJsonPath('required', 7)
+            ->assertJsonPath('available', 2);
+        $this->assertSame(0, League::count(), 'no lobby without enough photos');
+    }
+
+    public function test_tournament_rejects_start_when_not_enough_unique_eligible_challenges(): void
+    {
+        $sport  = $this->sport();
+        $photos = [];
+        for ($i = 1; $i <= 7; $i++) {
+            $photos[] = $this->challenge($sport, "P{$i}");
+        }
+        [$user, $headers] = $this->auth();
+
         $id = $this->createLeague($headers, 7);
+        // Five photos became Dailies after the lobby opened: 2 eligible < 7.
+        foreach (array_slice($photos, 0, 5) as $i => $photo) {
+            DailyChallenge::create(['challenge_id' => $photo->id, 'challenge_date' => '2026-01-0' . ($i + 1), 'status' => 'archived']);
+        }
         $res = $this->postJson("/api/leagues/{$id}/start", [], $headers);
 
         $res->assertStatus(422)
-            ->assertJsonPath('message', 'Not enough unused tournament challenges available. Add more tournament photos first.');
+            ->assertJsonPath('code', 'TOURNAMENTS_TEMPORARILY_UNAVAILABLE');
         $this->assertSame(0, LeagueRound::where('league_id', $id)->count(), 'no partial rounds');
         $this->assertSame('lobby', League::find($id)->status);
     }
@@ -262,11 +283,12 @@ class ChallengeFairnessTest extends TestCase
         DailyChallenge::create(['challenge_id' => $c->id, 'challenge_date' => '2026-01-01', 'status' => 'archived']);
         [$user, $headers] = $this->auth();
 
-        $id = $this->createLeague($headers, 7);
-
-        $this->postJson("/api/leagues/{$id}/start", [], $headers)
+        // Daily-used photos never count: the lobby cannot even be created.
+        $this->postJson('/api/leagues', ['name' => 'Cup', 'duration_days' => 7], $headers)
             ->assertStatus(422)
-            ->assertJsonPath('message', LeagueService::NOT_ENOUGH_CHALLENGES_MESSAGE);
+            ->assertJsonPath('code', 'TOURNAMENTS_TEMPORARILY_UNAVAILABLE')
+            ->assertJsonPath('available', 0);
+        $this->assertSame(0, League::count());
     }
 
     public function test_tournament_ignores_daily_and_pack_pool_challenges(): void
@@ -296,8 +318,10 @@ class ChallengeFairnessTest extends TestCase
         try {
             app(LeagueService::class)->start($league, $owner->id);
             $this->fail('expected 422');
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) {
-            $this->assertSame(422, $e->getStatusCode());
+        } catch (\Illuminate\Http\Exceptions\HttpResponseException $e) {
+            // Structured "temporarily unavailable" body, never a bare 422.
+            $this->assertSame(422, $e->getResponse()->getStatusCode());
+            $this->assertSame('TOURNAMENTS_TEMPORARILY_UNAVAILABLE', $e->getResponse()->getData(true)['code']);
         }
 
         $this->assertSame(0, LeagueRound::count());

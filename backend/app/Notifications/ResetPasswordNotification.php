@@ -38,15 +38,19 @@ class ResetPasswordNotification extends Notification
         $base = config('ballspot.password_reset_url')
             ?: rtrim(config('ballspot.frontend_url'), '/') . '/reset-password';
         $glue = str_contains($base, '?') ? '&' : '?';
-        $url  = "{$base}{$glue}token={$this->token}&email={$email}";
+        // lang= lets the web fallback page render in the recipient's language
+        // (the app ignores it — it already knows the account's preference).
+        $lang = \App\Support\Locale::normalize($notifiable->preferredLocale()) ?? \App\Support\Locale::default();
+        $url  = "{$base}{$glue}token={$this->token}&email={$email}&lang={$lang}";
 
+        // Rendered under the recipient's preferred_language (HasLocalePreference).
         return (new MailMessage)
-            ->subject("Reset your {$appName} password")
-            ->greeting('Reset your password')
-            ->line("You are receiving this email because we received a password reset request for your {$appName} account.")
-            ->action('Reset Password', $url)
-            ->line('If you did not request a password reset, no further action is required. You can safely ignore this email.')
-            ->line('This password reset link will expire soon.')
-            ->salutation("Regards,\n{$appName}");
+            ->subject(__('emails.reset.subject', ['app' => $appName]))
+            ->greeting(__('emails.reset.greeting'))
+            ->line(__('emails.reset.intro', ['app' => $appName]))
+            ->action(__('emails.reset.action'), $url)
+            ->line(__('emails.reset.ignore'))
+            ->line(__('emails.reset.expires'))
+            ->salutation(__('emails.reset.regards') . ",\n{$appName}");
     }
 }

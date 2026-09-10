@@ -225,13 +225,13 @@ class EmailVerificationService
 
         if ($recent && $recent->code_sent_at->diffInSeconds(now()) < $this->cooldownSeconds()) {
             throw ValidationException::withMessages([
-                'email' => ['Please wait a moment before requesting another code.'],
+                'email' => [__('messages.auth.resend_cooldown')],
             ]);
         }
 
         if (!$this->send($user, $ip, $userAgent, force: true)) {
             throw ValidationException::withMessages([
-                'email' => ['We could not send the email right now. Please try again in a moment.'],
+                'email' => [__('messages.auth.resend_failed')],
             ]);
         }
     }

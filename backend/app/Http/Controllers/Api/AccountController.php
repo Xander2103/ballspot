@@ -37,7 +37,7 @@ class AccountController extends Controller
 
             return response()->json([
                 'deleted' => false,
-                'message' => self::DELETE_FAILED_MESSAGE,
+                'message' => __('messages.account.delete_failed'),
             ], 500);
         }
 
@@ -47,7 +47,7 @@ class AccountController extends Controller
 
         return response()->json([
             'deleted' => true,
-            'message' => 'Your account has been deleted.',
+            'message' => __('messages.account.deleted'),
         ]);
     }
 }

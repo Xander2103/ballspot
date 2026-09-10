@@ -39,10 +39,9 @@ class User extends Authenticatable implements MustVerifyEmail, HasLocalePreferen
 
     /**
      * Notification locale (HasLocalePreference): the user's stored language.
-     * Every notification/email sent to this user is rendered under that locale.
-     * There are no translated strings yet, so the copy stays English — but the
-     * preference is already in place for when translations land. Values are
-     * validated against config('ballspot.languages') on write.
+     * Every notification/email sent to this user is rendered under that locale
+     * (lang/<locale>/emails.php). Values are validated against
+     * config('ballspot.languages') on write; unknown values fall back safely.
      */
     public function preferredLocale(): ?string
     {

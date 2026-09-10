@@ -12,7 +12,8 @@ import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { PackCompletionSummary } from '../types/pack';
 import { getApiErrorMessage } from '../utils/apiError';
-import { completionHeadline, challengeCountLabel, formatAverage, formatPct } from '../utils/packCompletion';
+import { completionHeadline, formatAverage, formatPct } from '../utils/packCompletion';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackComplete'>;
 
@@ -25,6 +26,7 @@ export function PackCompleteScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
   const { slug, packName, completion: initial } = route.params;
   const { theme } = useTheme();
+  const { t, locale } = useI18n();
   const styles = createStyles(theme);
 
   const [summary, setSummary] = useState<PackCompletionSummary | null>(initial ?? null);
@@ -39,14 +41,14 @@ export function PackCompleteScreen({ route, navigation }: Props) {
       if (res.completion) {
         setSummary(res.completion);
       } else {
-        setError('This pack has not been completed yet.');
+        setError(t('packs.complete.notCompleted'));
       }
     } catch (e: unknown) {
-      setError(getApiErrorMessage(e, 'Could not load your pack results.'));
+      setError(getApiErrorMessage(e, t('packs.complete.loadError')));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     if (!initial) load();
@@ -61,11 +63,11 @@ export function PackCompleteScreen({ route, navigation }: Props) {
       <Screen padding>
         <EmptyState
           icon="📦"
-          title="No results yet"
-          message={error || 'Play the pack to see your results here.'}
+          title={t('packs.complete.noResultsTitle')}
+          message={error || t('packs.complete.noResultsMessage')}
           actions={[
-            { label: 'Retry', onPress: load },
-            { label: 'Back to Packs', onPress: () => goPacks(navigation) },
+            { label: t('common.buttons.retry'), onPress: load },
+            { label: t('packs.complete.backToPacks'), onPress: () => goPacks(navigation) },
           ]}
         />
       </Screen>
@@ -78,33 +80,33 @@ export function PackCompleteScreen({ route, navigation }: Props) {
     <Screen scroll padding>
       <View style={styles.hero}>
         <Text style={styles.heroEmoji}>{summary.is_perfect ? '💎' : '🎉'}</Text>
-        <Text style={styles.heroTitle}>{completionHeadline(summary)}</Text>
+        <Text style={styles.heroTitle}>{completionHeadline(summary, locale)}</Text>
         <Text style={styles.heroSub}>{summary.pack?.name ?? packName}</Text>
       </View>
 
       <View style={styles.scoreCard}>
         <Text style={styles.scoreValue}>{summary.total_score}</Text>
-        <Text style={styles.scoreLabel}>of {summary.max_score} points · {formatPct(summary.average_pct)}</Text>
+        <Text style={styles.scoreLabel}>{t('packs.complete.scoreOf', { max: summary.max_score, pct: formatPct(summary.average_pct) })}</Text>
       </View>
 
       <View style={styles.statsGrid}>
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{formatAverage(summary.average_score)}</Text>
-          <Text style={styles.statLabel}>Average score</Text>
+          <Text style={styles.statLabel}>{t('packs.complete.averageScore')}</Text>
         </View>
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{summary.best_guess?.score ?? '–'}</Text>
           <Text style={styles.statLabel} numberOfLines={2}>
-            Best guess{summary.best_guess?.title ? ` · ${summary.best_guess.title}` : ''}
+            {summary.best_guess?.title ? t('packs.complete.bestGuessWithTitle', { title: summary.best_guess.title }) : t('packs.complete.bestGuess')}
           </Text>
         </View>
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{summary.completed_count}/{summary.total_challenges}</Text>
-          <Text style={styles.statLabel}>{challengeCountLabel(summary.total_challenges)} completed</Text>
+          <Text style={styles.statLabel}>{t('packs.complete.challengesCompleted', { count: summary.total_challenges })}</Text>
         </View>
         <View style={styles.statCell}>
           <Text style={styles.statValue}>{summary.completion_xp > 0 ? `+${summary.completion_xp}` : '–'}</Text>
-          <Text style={styles.statLabel}>Completion XP</Text>
+          <Text style={styles.statLabel}>{t('packs.complete.completionXp')}</Text>
         </View>
       </View>
 
@@ -114,22 +116,22 @@ export function PackCompleteScreen({ route, navigation }: Props) {
           <View style={styles.trophyText}>
             <Text style={styles.trophyName}>{trophy.name}</Text>
             <Text style={styles.trophySub}>
-              {trophy.earned ? 'Trophy earned — see it in your Trophy Room.' : 'Pack trophy'}
+              {trophy.earned ? t('packs.complete.trophyEarned') : t('packs.complete.packTrophy')}
             </Text>
           </View>
         </View>
       ) : null}
 
       <Text style={styles.note}>
-        Completed packs can't be replayed — you already know where every ball is. New packs appear in the Packs list.
+        {t('packs.complete.noReplayNote')}
       </Text>
 
       <View style={styles.footer}>
         {trophy?.earned ? (
-          <AppButton title="View Trophy Room" onPress={() => navigation.navigate('TrophyRoom')} />
+          <AppButton title={t('packs.complete.viewTrophyRoom')} onPress={() => navigation.navigate('TrophyRoom')} />
         ) : null}
-        <AppButton title="Back to Packs" onPress={() => goPacks(navigation)} variant={trophy?.earned ? 'secondary' : 'primary'} />
-        <AppButton title="Home" onPress={() => goHome(navigation)} variant="secondary" />
+        <AppButton title={t('packs.complete.backToPacks')} onPress={() => goPacks(navigation)} variant={trophy?.earned ? 'secondary' : 'primary'} />
+        <AppButton title={t('common.buttons.home')} onPress={() => goHome(navigation)} variant="secondary" />
       </View>
     </Screen>
   );

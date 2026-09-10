@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 interface Props {
   rank: number;
@@ -14,25 +15,27 @@ interface Props {
  * "Closer than 82% of players" + "#3 of 128".
  */
 export function RankInsight({ rank, totalPlayers, betterThanPercentage }: Props) {
+  const { t } = useI18n();
+
   if (totalPlayers <= 1) {
     return (
       <View style={styles.box}>
-        <Text style={styles.headline}>🎉 You're the first to play today!</Text>
-        <Text style={styles.sub}>Come back tomorrow to climb the ranks.</Text>
+        <Text style={styles.headline}>{t('game.insight.firstToday')}</Text>
+        <Text style={styles.sub}>{t('game.insight.comeBack')}</Text>
       </View>
     );
   }
 
   const headline =
     betterThanPercentage >= 50
-      ? `🎯 Closer than ${betterThanPercentage}% of players`
-      : `You beat ${betterThanPercentage}% of players`;
+      ? t('game.insight.closerThan', { pct: betterThanPercentage })
+      : t('game.insight.beat', { pct: betterThanPercentage });
 
   return (
     <View style={styles.box}>
       <Text style={styles.headline}>{headline}</Text>
       <Text style={styles.sub}>
-        #{rank.toLocaleString()} of {totalPlayers.toLocaleString()}
+        {t('game.insight.rankOf', { rank: rank.toLocaleString(), total: totalPlayers.toLocaleString() })}
       </Text>
     </View>
   );

@@ -182,13 +182,16 @@ class TournamentCooldownTest extends TestCase
 
     public function test_start_returns_422_when_eligible_pool_smaller_than_duration(): void
     {
-        $this->challenges($this->sport(), 6);
+        $sport = $this->sport();
+        $ids   = $this->challenges($sport, 7);
         [$user, $headers] = $this->auth();
 
         $id = $this->postJson('/api/leagues', ['name' => 'Cup', 'duration_days' => 7], $headers)->assertCreated()->json('data.id');
+        // One photo became a Daily after the lobby opened: 6 eligible < 7.
+        DailyChallenge::create(['challenge_id' => $ids[0], 'challenge_date' => '2026-02-01', 'status' => 'archived']);
         $this->postJson("/api/leagues/{$id}/start", [], $headers)
             ->assertStatus(422)
-            ->assertJsonPath('message', LeagueService::NOT_ENOUGH_CHALLENGES_MESSAGE);
+            ->assertJsonPath('code', 'TOURNAMENTS_TEMPORARILY_UNAVAILABLE');
 
         $this->assertSame(0, LeagueRound::count());
         $this->assertSame('lobby', League::find($id)->status);
@@ -411,12 +414,16 @@ class TournamentCooldownTest extends TestCase
         }
         $daily = $this->challenge($sport, 'Daily')->id;
         DailyChallenge::create(['challenge_id' => $daily, 'challenge_date' => '2026-01-01', 'status' => 'archived']);
+        // A seventh photo so the lobby can be created; it becomes a Daily
+        // afterwards, leaving 3 fresh + 3 seen = 6 eligible < 7.
+        $seventh = $this->challenge($sport, 'Seventh')->id;
         [$owner, $headers] = $this->auth($owner);
 
         $id = $this->postJson('/api/leagues', ['name' => 'Cup', 'duration_days' => 7], $headers)->assertCreated()->json('data.id');
+        DailyChallenge::create(['challenge_id' => $seventh, 'challenge_date' => '2026-01-02', 'status' => 'archived']);
         $this->postJson("/api/leagues/{$id}/start", [], $headers)
             ->assertStatus(422)
-            ->assertJsonPath('message', LeagueService::NOT_ENOUGH_CHALLENGES_MESSAGE);
+            ->assertJsonPath('code', 'TOURNAMENTS_TEMPORARILY_UNAVAILABLE');
         $this->assertSame(0, LeagueRound::where('league_id', $id)->count());
 
         // One more eligible (even a seen one) tips it over: starts fine.

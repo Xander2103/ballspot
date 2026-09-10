@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, StyleProp, ViewStyle } from 'react-na
 import { LeaderboardEntry } from '../types/guess';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 interface Props {
   entries: LeaderboardEntry[];
@@ -23,30 +24,32 @@ function getRankEmoji(rank: number) {
 }
 
 function EntryRow({ item }: { item: LeaderboardEntry }) {
+  const { t } = useI18n();
   return (
     <View style={[styles.row, item.is_current_user && styles.rowHighlight]}>
       <Text style={styles.rank}>{getRankEmoji(item.rank)}</Text>
       <View style={styles.info}>
         <Text style={[styles.name, item.is_current_user && styles.nameHighlight]}>
-          {item.name}{item.is_current_user ? ' (you)' : ''}
+          {item.name}{item.is_current_user ? ` ${t('game.leaderboard.youSuffix')}` : ''}
         </Text>
         <Text style={styles.username}>@{item.username}</Text>
       </View>
       <View style={styles.scoreBox}>
         <Text style={[styles.score, item.is_current_user && styles.scoreHighlight]}>{item.total_score}</Text>
-        <Text style={styles.guesses}>avg {item.avg_score} · {item.guesses_count} rounds</Text>
+        <Text style={styles.guesses}>{t('game.leaderboard.rowStats', { avg: item.avg_score, count: item.guesses_count })}</Text>
       </View>
     </View>
   );
 }
 
 export function LeaderboardList({ entries, style }: Props) {
+  const { t } = useI18n();
   if (entries.length === 0) {
     return (
       <View style={styles.emptyWrap}>
         <Text style={styles.emptyIcon}>🏆</Text>
-        <Text style={styles.emptyTitle}>No scores yet</Text>
-        <Text style={styles.emptyText}>Play some rounds to see the leaderboard!</Text>
+        <Text style={styles.emptyTitle}>{t('game.leaderboard.emptyTitle')}</Text>
+        <Text style={styles.emptyText}>{t('game.leaderboard.emptyText')}</Text>
       </View>
     );
   }

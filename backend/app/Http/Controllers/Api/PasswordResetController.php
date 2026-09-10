@@ -25,7 +25,7 @@ class PasswordResetController extends Controller
         $this->flow->request((string) $request->input('email'), 'api');
 
         return response()->json([
-            'message' => 'If an account exists for that email, a password reset link has been sent.',
+            'message' => __('messages.auth.reset_link_sent'),
         ]);
     }
 
@@ -49,7 +49,7 @@ class PasswordResetController extends Controller
         );
 
         return match ($outcome) {
-            PasswordResetFlow::COMPLETED     => response()->json(['message' => 'Your password has been reset. Please log in.']),
+            PasswordResetFlow::COMPLETED     => response()->json(['message' => __('messages.auth.password_reset_done')]),
             PasswordResetFlow::EXPIRED_TOKEN => AuthError::response(AuthError::RESET_TOKEN_EXPIRED, 422, null, ['reason' => 'expired']),
             PasswordResetFlow::FAILED        => AuthError::response(AuthError::RESET_FAILED, 500, null, ['reason' => 'failed']),
             // Unknown account and wrong token share one answer — no enumeration.

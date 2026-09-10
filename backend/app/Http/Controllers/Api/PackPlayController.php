@@ -36,7 +36,7 @@ class PackPlayController extends Controller
             $completed = $this->play->latestCompleted($request->user(), $pack->id);
 
             return response()->json([
-                'message'    => PackPlayService::ALREADY_COMPLETED_MESSAGE,
+                'message'    => __('messages.packs.already_completed'),
                 'attempt'    => $completed ? $this->play->attemptState($completed) : null,
                 'challenge'  => null,
                 'completion' => $completed ? $this->play->completionSummary($completed) : null,
@@ -100,7 +100,7 @@ class PackPlayController extends Controller
             $attempt->refresh();
 
             return response()->json([
-                'message'        => PackPlayService::ALREADY_COMPLETED_MESSAGE,
+                'message'        => __('messages.packs.already_completed'),
                 'pack_completed' => true,
                 'progress'       => $this->play->attemptState($attempt),
                 'completion'     => $this->play->completionSummary($attempt),
@@ -110,6 +110,7 @@ class PackPlayController extends Controller
         /** @var Challenge $challenge */
         $challenge = $r['challenge'];
         $guess     = $r['guess'];
+        $challenge->loadMissing('sport');
 
         return response()->json([
             'result' => [
@@ -121,6 +122,15 @@ class PackPlayController extends Controller
                 'ball_x_ratio'     => (float) $challenge->ball_x_ratio,
                 'ball_y_ratio'     => (float) $challenge->ball_y_ratio,
                 'reveal_image_url' => $challenge->original_image_path ? asset('storage/' . $challenge->original_image_path) : null,
+                // Marker object on the result screen (the CHALLENGE's sport —
+                // a Mixed Sports pack has no single sport).
+                'sport'            => $challenge->sport ? [
+                    'slug'          => $challenge->sport->slug,
+                    'name'          => $challenge->sport->name,
+                    'emoji'         => $challenge->sport->emoji,
+                    'object_name'   => $challenge->sport->object_name,
+                    'primary_color' => $challenge->sport->primary_color,
+                ] : null,
             ],
             'progress'          => $this->play->attemptState($r['attempt']),
             'next_challenge'    => $r['completed'] ? null : $this->play->challengePayload($this->play->currentChallenge($r['attempt'])),

@@ -456,9 +456,10 @@ class PackPlayService
             // SECURITY: never expose ball_x_ratio / ball_y_ratio here.
             'hidden_image_url' => $challenge->hidden_image_path ? asset('storage/' . $challenge->hidden_image_path) : null,
             'sport'            => $challenge->sport ? [
-                'slug'  => $challenge->sport->slug,
-                'name'  => $challenge->sport->name,
-                'emoji' => $challenge->sport->emoji,
+                'slug'        => $challenge->sport->slug,
+                'name'        => $challenge->sport->name,
+                'emoji'       => $challenge->sport->emoji,
+                'object_name' => $challenge->sport->object_name,
             ] : null,
             'category'         => $challenge->category ? ['name' => $challenge->category->name, 'slug' => $challenge->category->slug] : null,
         ];

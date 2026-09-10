@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ app()->getLocale() }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -105,9 +105,9 @@
     <div class="header-inner">
         <a class="logo" href="/">BallPicker</a>
         <nav>
-            <a href="/privacy">Privacy</a>
-            <a href="/terms">Terms</a>
-            <a href="/support">Support</a>
+            <a href="/privacy">{{ __('web.nav.privacy') }}</a>
+            <a href="/terms">{{ __('web.nav.terms') }}</a>
+            <a href="/support">{{ __('web.nav.support') }}</a>
         </nav>
     </div>
 </header>
@@ -117,8 +117,8 @@
 </main>
 
 <footer>
-    <p>&copy; {{ date('Y') }} BallPicker &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/support">Support</a></p>
-    <p>BallPicker is created by Van Malder Studio.</p>
+    <p>&copy; {{ date('Y') }} BallPicker &nbsp;·&nbsp; <a href="/privacy">{{ __('web.nav.privacy') }}</a> &nbsp;·&nbsp; <a href="/terms">{{ __('web.nav.terms') }}</a> &nbsp;·&nbsp; <a href="/support">{{ __('web.nav.support') }}</a></p>
+    <p>{{ __('web.footer.made_by') }}</p>
 </footer>
 </body>
 </html>

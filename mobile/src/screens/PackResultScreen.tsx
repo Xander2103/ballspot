@@ -11,6 +11,7 @@ import { useTheme } from '../theme/useTheme';
 import { goPacks, useHardwareBack } from '../app/navigationActions';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackResult'>;
 
@@ -19,7 +20,10 @@ const pct = (n: number) => `${Math.round((Number.isFinite(n) ? n : 0) * 100)}%`;
 export function PackResultScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
   const { slug, packName, result, imageUrl } = route.params;
+  // The challenge's sport decides the marker (never the pack's).
+  const sportSlug = result.result.sport?.slug ?? route.params.sportSlug ?? null;
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -41,8 +45,8 @@ export function PackResultScreen({ route, navigation }: Props) {
         {/* Score */}
         <View style={styles.scoreCard}>
           <Text style={styles.scoreValue}>{r.score}</Text>
-          <Text style={styles.scoreLabel}>points</Text>
-          {xpGained > 0 ? <Text style={styles.xp}>+{xpGained} XP</Text> : null}
+          <Text style={styles.scoreLabel}>{t('common.labels.points')}</Text>
+          {xpGained > 0 ? <Text style={styles.xp}>{t('packs.result.xpGained', { xp: xpGained })}</Text> : null}
         </View>
 
         {/* Reveal image with markers */}
@@ -51,26 +55,26 @@ export function PackResultScreen({ route, navigation }: Props) {
             <Pressable
               onPress={() => setFullscreen(true)}
               accessibilityRole="button"
-              accessibilityLabel="Open image fullscreen"
+              accessibilityLabel={t('packs.result.openFullscreen')}
             >
               <View pointerEvents="none">
-                <ImageGuessPicker imageUri={imageUrl} markers={markers} interactive={false} />
+                <ImageGuessPicker imageUri={imageUrl} markers={markers} interactive={false} sportSlug={sportSlug} />
               </View>
             </Pressable>
             <FullscreenButton onPress={() => setFullscreen(true)} />
             <View style={styles.legendRow}>
-              <Text style={styles.legend}>🔵 Your guess {pct(r.guessed_x)}, {pct(r.guessed_y)}</Text>
-              <Text style={styles.legend}>🎯 Actual {pct(r.ball_x_ratio)}, {pct(r.ball_y_ratio)}</Text>
+              <Text style={styles.legend}>{t('packs.result.yourGuess', { x: pct(r.guessed_x), y: pct(r.guessed_y) })}</Text>
+              <Text style={styles.legend}>{t('packs.result.actual', { x: pct(r.ball_x_ratio), y: pct(r.ball_y_ratio) })}</Text>
             </View>
           </View>
         ) : (
-          <View style={styles.noImage}><Text style={styles.noImageText}>Image unavailable</Text></View>
+          <View style={styles.noImage}><Text style={styles.noImageText}>{t('packs.result.imageUnavailable')}</Text></View>
         )}
 
         {/* New badges */}
         {badges.length > 0 ? (
           <View style={styles.badgeCard}>
-            <Text style={styles.badgeHeader}>New badge{badges.length > 1 ? 's' : ''} unlocked!</Text>
+            <Text style={styles.badgeHeader}>{t('packs.result.newBadges', { count: badges.length })}</Text>
             {badges.map((b) => (
               <Text key={b.code} style={styles.badgeRow}>{b.icon} {b.name}</Text>
             ))}
@@ -81,21 +85,21 @@ export function PackResultScreen({ route, navigation }: Props) {
         {completed ? (
           <View style={styles.completeCard}>
             <Text style={styles.completeEmoji}>🎉</Text>
-            <Text style={styles.completeTitle}>Pack completed!</Text>
+            <Text style={styles.completeTitle}>{t('packs.result.packCompleted')}</Text>
             <Text style={styles.completeSub}>{packName}</Text>
             <View style={styles.completeStats}>
-              <Text style={styles.completeStat}>Total score: {result.final_score ?? progress.total_score}</Text>
-              {result.completion_xp ? <Text style={styles.completeStat}>Completion bonus: +{result.completion_xp} XP</Text> : null}
-              <Text style={styles.completeStat}>{progress.total_challenges} challenges</Text>
+              <Text style={styles.completeStat}>{t('packs.result.totalScore', { score: result.final_score ?? progress.total_score })}</Text>
+              {result.completion_xp ? <Text style={styles.completeStat}>{t('packs.result.completionBonus', { xp: result.completion_xp })}</Text> : null}
+              <Text style={styles.completeStat}>{t('packs.result.challengeCount', { count: progress.total_challenges })}</Text>
               {result.already_completed ? (
-                <Text style={styles.completeStat}>This guess was already counted — nothing was scored twice.</Text>
+                <Text style={styles.completeStat}>{t('packs.result.alreadyCounted')}</Text>
               ) : null}
             </View>
           </View>
         ) : (
           <View style={styles.progressCard}>
             <Text style={styles.progressText}>
-              {progress.completed_count} / {progress.total_challenges} completed
+              {t('packs.result.progress', { done: progress.completed_count, total: progress.total_challenges })}
             </Text>
           </View>
         )}
@@ -106,20 +110,20 @@ export function PackResultScreen({ route, navigation }: Props) {
         {completed ? (
           <>
             <AppButton
-              title="View pack results"
+              title={t('packs.result.viewPackResults')}
               onPress={() => navigation.replace('PackComplete', { slug, packName, completion: result.completion ?? null })}
             />
-            <AppButton title="Back to Packs" onPress={() => goPacks(navigation)} variant="secondary" />
+            <AppButton title={t('packs.result.backToPacks')} onPress={() => goPacks(navigation)} variant="secondary" />
           </>
         ) : (
           <>
-            <AppButton title="Next challenge" onPress={() => navigation.replace('PackGuess', { slug, packName })} />
-            <AppButton title="Leave pack" onPress={() => navigation.navigate('PackDetail', { slug, name: packName })} variant="secondary" />
+            <AppButton title={t('packs.result.nextChallenge')} onPress={() => navigation.replace('PackGuess', { slug, packName })} />
+            <AppButton title={t('packs.result.leavePack')} onPress={() => navigation.navigate('PackDetail', { slug, name: packName })} variant="secondary" />
           </>
         )}
       </View>
 
-      <FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} onClose={() => setFullscreen(false)} />
+      <FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} onClose={() => setFullscreen(false)} sportSlug={sportSlug} />
     </Screen>
   );
 }

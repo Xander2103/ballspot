@@ -1,9 +1,13 @@
 import { LeaderboardEntry } from '../types/guess';
+import { translate as t } from '../i18n/core';
 
 /**
  * Pure rivalry-status helpers for the tournament detail screen. Both return
  * null when the data cannot support a safe statement — callers hide the text
  * instead of crashing (old tournaments may have partial data).
+ *
+ * Copy lives under `tournaments.rivalry.*`; the i18n core is pure TS so this
+ * stays usable from the plain ts-jest runner.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -19,11 +23,11 @@ function toScore(value: unknown): number | null {
 }
 
 function points(n: number): string {
-  return `${n} point${n === 1 ? '' : 's'}`;
+  return t('tournaments.rivalry.points', { count: n });
 }
 
 function displayName(e: LeaderboardEntry): string {
-  return e.name || e.username || 'A player';
+  return e.name || e.username || t('tournaments.rivalry.aPlayer');
 }
 
 export function rivalryLine(entries: LeaderboardEntry[] | null | undefined): string | null {
@@ -41,16 +45,22 @@ export function rivalryLine(entries: LeaderboardEntry[] | null | undefined): str
 
   if (me && me.user_id === leader.user_id) {
     const margin = leaderScore - secondScore;
-    return margin === 0 ? "It's currently tied." : `You are leading by ${points(margin)}`;
+    return margin === 0
+      ? t('tournaments.rivalry.tied')
+      : t('tournaments.rivalry.leading', { points: points(margin) });
   }
   if (me) {
     const myScore = toScore(me.total_score);
     if (myScore === null) return null;
     const deficit = leaderScore - myScore;
-    return deficit === 0 ? "It's currently tied." : `You are ${points(deficit)} behind ${displayName(leader)}`;
+    return deficit === 0
+      ? t('tournaments.rivalry.tied')
+      : t('tournaments.rivalry.behind', { points: points(deficit), name: displayName(leader) });
   }
   const margin = leaderScore - secondScore;
-  return margin === 0 ? "It's currently tied." : `${displayName(leader)} leads by ${points(margin)}`;
+  return margin === 0
+    ? t('tournaments.rivalry.tied')
+    : t('tournaments.rivalry.leaderLeads', { name: displayName(leader), points: points(margin) });
 }
 
 export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new Date()): string | null {
@@ -58,5 +68,5 @@ export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new
   const end = new Date(endsAt);
   if (Number.isNaN(end.getTime())) return null;
   const days = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / DAY_MS));
-  return `${days} day${days === 1 ? '' : 's'} left`;
+  return t('tournaments.rivalry.daysLeft', { count: days });
 }

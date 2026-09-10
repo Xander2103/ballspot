@@ -1,0 +1,36 @@
+/** Navigation titles (stack headers + bottom tabs). */
+export const nav = {
+  tabs: {
+    play: 'Play',
+    tournaments: 'Tournaments',
+    friends: 'Friends',
+    profile: 'Profile',
+  },
+  titles: {
+    verifyLogin: 'Verify Login',
+    verifyEmail: 'Verify Email',
+    createAccount: 'Create Account',
+    forgotPassword: 'Forgot Password',
+    resetPassword: 'Reset Password',
+    chooseSport: 'Choose Sport',
+    packs: 'Challenge Packs',
+    packResult: 'Pack Result',
+    packCompleted: 'Pack Completed',
+    allRanks: 'All Ranks',
+    trophyRoom: 'Trophy Room',
+    createTournament: 'Create Tournament',
+    joinTournament: 'Join Tournament',
+    makeYourGuess: 'Make Your Guess',
+    roundResult: 'Round Result',
+    dailyChallenge: 'Daily Ball Challenge',
+    dailyResult: 'Daily Result',
+    weeklyLeaderboard: 'Weekly Leaderboard',
+    leaderboard: 'Leaderboard',
+    scanFriendCode: 'Scan friend code',
+  },
+  backTo: 'Back to {{label}}',
+  exit: {
+    home: 'Home',
+    packs: 'Packs',
+  },
+};

@@ -8,8 +8,10 @@ import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { rarityColor } from '../theme/rarity';
+import { useI18n } from '../i18n';
 
 type Styles = ReturnType<typeof createStyles>;
+type Translate = ReturnType<typeof useI18n>['t'];
 
 function placementMedal(placement: number): string {
   if (placement === 1) return '🏆';
@@ -18,26 +20,38 @@ function placementMedal(placement: number): string {
   return `#${placement}`;
 }
 
-function placementLabel(placement: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
-  const v = placement % 100;
-  return `${placement}${s[(v - 20) % 10] ?? s[v] ?? s[0]} place`;
+/** "1st" / "2nd" / "3rd" / "4th" … — each suffix form is its own key so translators can rewrite it. */
+function ordinal(t: Translate, n: number): string {
+  const v = n % 100;
+  const form =
+    v >= 11 && v <= 13 ? 'other'
+      : n % 10 === 1 ? 'one'
+        : n % 10 === 2 ? 'two'
+          : n % 10 === 3 ? 'few'
+            : 'other';
+  return t(`profile.trophyRoom.ordinal.${form}`, { n });
+}
+
+function placementLabel(t: Translate, placement: number): string {
+  return t('profile.trophyRoom.place', { ordinal: ordinal(t, placement) });
 }
 
 function FinishRow({ finish, styles }: { finish: TournamentFinish; styles: Styles }) {
+  const { t } = useI18n();
   const date = finish.completed_at ? new Date(finish.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
   const parts = [
-    typeof finish.total_players === 'number' ? `${finish.total_players} players` : null,
-    typeof finish.total_score === 'number' ? `${finish.total_score.toLocaleString('en-US')} pts` : null,
+    typeof finish.total_players === 'number' ? t('profile.units.players', { count: finish.total_players }) : null,
+    typeof finish.total_score === 'number' ? t('profile.units.pts', { score: finish.total_score.toLocaleString('en-US') }) : null,
     date,
   ].filter(Boolean);
+  const place = placementLabel(t, finish.placement);
 
   return (
     <View style={styles.finishRow}>
       <Text style={styles.finishMedal}>{placementMedal(finish.placement)}</Text>
       <View style={styles.finishInfo}>
         <Text style={styles.finishTitle} numberOfLines={1}>
-          {placementLabel(finish.placement)}{finish.league ? ` — ${finish.league.name}` : ''}
+          {finish.league ? t('profile.trophyRoom.placeWithName', { place, name: finish.league.name }) : place}
         </Text>
         {parts.length > 0 ? <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text> : null}
       </View>
@@ -56,6 +70,7 @@ function BadgeCell({
   styles: Styles;
   onPress: () => void;
 }) {
+  const { t } = useI18n();
   const earned = badge.earned;
   const color = rarityColor(theme, badge.rarity);
 
@@ -64,7 +79,10 @@ function BadgeCell({
       style={[styles.cell, earned ? { borderColor: color + '80' } : styles.cellLocked]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${badge.name}, ${earned ? 'earned' : 'locked'}`}
+      accessibilityLabel={t('profile.trophyRoom.badgeA11y', {
+        name: badge.name,
+        state: t(earned ? 'profile.trophyRoom.stateEarned' : 'profile.trophyRoom.stateLocked'),
+      })}
     >
       <Text style={[styles.icon, !earned && styles.iconLocked]}>{earned ? badge.icon : '🔒'}</Text>
       <Text style={[styles.badgeName, !earned && styles.textLocked]} numberOfLines={2}>
@@ -76,7 +94,7 @@ function BadgeCell({
       {earned ? (
         <Text style={[styles.rarity, { color }]}>{badge.rarity}</Text>
       ) : (
-        <Text style={styles.rarityLocked}>Locked</Text>
+        <Text style={styles.rarityLocked}>{t('profile.trophyRoom.locked')}</Text>
       )}
     </Pressable>
   );
@@ -89,6 +107,7 @@ function BadgeCell({
  */
 export function TrophyRoom() {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   const [badges, setBadges] = useState<EarnedBadge[] | null>(null);
@@ -140,10 +159,10 @@ export function TrophyRoom() {
   return (
     <View style={styles.wrap}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Trophy Room</Text>
+        <Text style={styles.sectionTitle}>{t('profile.trophyRoom.title')}</Text>
         {badges ? (
           <Text style={styles.count}>
-            {counts.earned} / {counts.total} earned
+            {t('profile.trophyRoom.earnedCount', { earned: counts.earned, total: counts.total })}
           </Text>
         ) : null}
       </View>
@@ -151,7 +170,7 @@ export function TrophyRoom() {
       {loading ? (
         <ActivityIndicator color={theme.primary} style={styles.loader} />
       ) : error || !badges ? (
-        <Text style={styles.errorText}>Could not load badges.</Text>
+        <Text style={styles.errorText}>{t('profile.trophyRoom.loadError')}</Text>
       ) : (
         <View style={styles.grid}>
           {badges.map((b) => (
@@ -163,9 +182,9 @@ export function TrophyRoom() {
       {/* Tournament trophies (final placements) */}
       {!loading && !error ? (
         <View style={styles.finishesWrap}>
-          <Text style={styles.subHeader}>Tournament trophies</Text>
+          <Text style={styles.subHeader}>{t('profile.trophyRoom.tournamentTrophies')}</Text>
           {finishes.length === 0 ? (
-            <Text style={styles.emptyFinishes}>No tournament trophies yet.</Text>
+            <Text style={styles.emptyFinishes}>{t('profile.trophyRoom.noTournamentTrophies')}</Text>
           ) : (
             finishes.map((f) => <FinishRow key={f.id} finish={f} styles={styles} />)
           )}
@@ -175,9 +194,9 @@ export function TrophyRoom() {
       {/* Pack trophies (completed challenge packs) */}
       {!loading && !error ? (
         <View style={styles.finishesWrap}>
-          <Text style={styles.subHeader}>Pack trophies</Text>
+          <Text style={styles.subHeader}>{t('profile.trophyRoom.packTrophies')}</Text>
           {packCompletions.length === 0 ? (
-            <Text style={styles.emptyFinishes}>No completed packs yet.</Text>
+            <Text style={styles.emptyFinishes}>{t('profile.trophyRoom.noPackTrophies')}</Text>
           ) : (
             packCompletions.map((p) => <PackCompletionRow key={p.id} completion={p} styles={styles} />)
           )}
@@ -188,9 +207,9 @@ export function TrophyRoom() {
           The live leaderboard position is never shown here as a trophy. */}
       {!loading && !error ? (
         <View style={styles.finishesWrap}>
-          <Text style={styles.subHeader}>Competition trophies</Text>
+          <Text style={styles.subHeader}>{t('profile.trophyRoom.competitionTrophies')}</Text>
           {competitionFinishes.length === 0 ? (
-            <Text style={styles.emptyFinishes}>No competition trophies yet.</Text>
+            <Text style={styles.emptyFinishes}>{t('profile.trophyRoom.noCompetitionTrophies')}</Text>
           ) : (
             competitionFinishes.map((f) => <CompetitionFinishRow key={f.id} finish={f} styles={styles} />)
           )}
@@ -216,10 +235,10 @@ export function TrophyRoom() {
                 </Text>
                 <Text style={styles.modalStatus}>
                   {selected.earned && selected.earned_at
-                    ? `Earned ${new Date(selected.earned_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                    ? t('profile.trophyRoom.earnedOn', { date: new Date(selected.earned_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) })
                     : selected.earned
-                      ? 'Earned'
-                      : 'Not earned yet'}
+                      ? t('profile.trophyRoom.earned')
+                      : t('profile.trophyRoom.notEarned')}
                 </Text>
               </>
             ) : null}
@@ -231,12 +250,15 @@ export function TrophyRoom() {
 }
 
 function CompetitionFinishRow({ finish, styles }: { finish: CompetitionFinish; styles: Styles }) {
-  const competitionName = finish.period_type === 'weekly' ? 'Weekly Competition' : 'Monthly Competition';
+  const { t } = useI18n();
+  const competitionName = finish.period_type === 'weekly'
+    ? t('profile.trophyRoom.weeklyCompetition')
+    : t('profile.trophyRoom.monthlyCompetition');
   const parts = [
     finish.period_label || null,
-    typeof finish.total_players === 'number' ? `${finish.total_players} players` : null,
-    typeof finish.total_score === 'number' ? `${finish.total_score.toLocaleString('en-US')} pts` : null,
-    finish.xp_awarded > 0 ? `+${finish.xp_awarded.toLocaleString('en-US')} XP` : null,
+    typeof finish.total_players === 'number' ? t('profile.units.players', { count: finish.total_players }) : null,
+    typeof finish.total_score === 'number' ? t('profile.units.pts', { score: finish.total_score.toLocaleString('en-US') }) : null,
+    finish.xp_awarded > 0 ? t('profile.units.xpAwarded', { xp: finish.xp_awarded.toLocaleString('en-US') }) : null,
   ].filter(Boolean);
 
   return (
@@ -244,7 +266,7 @@ function CompetitionFinishRow({ finish, styles }: { finish: CompetitionFinish; s
       <Text style={styles.finishMedal}>{placementMedal(finish.placement)}</Text>
       <View style={styles.finishInfo}>
         <Text style={styles.finishTitle} numberOfLines={1}>
-          {placementLabel(finish.placement)} — {competitionName}
+          {t('profile.trophyRoom.placeWithName', { place: placementLabel(t, finish.placement), name: competitionName })}
         </Text>
         {parts.length > 0 ? <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text> : null}
       </View>
@@ -253,12 +275,13 @@ function CompetitionFinishRow({ finish, styles }: { finish: CompetitionFinish; s
 }
 
 function PackCompletionRow({ completion, styles }: { completion: PackCompletion; styles: Styles }) {
+  const { t } = useI18n();
   const date = completion.completed_at
     ? new Date(completion.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
   const parts = [
-    `${completion.challenge_count} challenge${completion.challenge_count === 1 ? '' : 's'}`,
-    `${completion.total_score.toLocaleString('en-US')} pts`,
+    t('profile.units.challenges', { count: completion.challenge_count }),
+    t('profile.units.pts', { score: completion.total_score.toLocaleString('en-US') }),
     date,
   ].filter(Boolean);
 
@@ -267,7 +290,7 @@ function PackCompletionRow({ completion, styles }: { completion: PackCompletion;
       <Text style={styles.finishMedal}>{completion.is_perfect ? '💎' : '📦'}</Text>
       <View style={styles.finishInfo}>
         <Text style={styles.finishTitle} numberOfLines={1}>
-          {completion.pack?.name ?? 'Challenge pack'}{completion.is_perfect ? ' — Perfect!' : ''}
+          {completion.pack?.name ?? t('profile.trophyRoom.packFallback')}{completion.is_perfect ? t('profile.trophyRoom.perfect') : ''}
         </Text>
         <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text>
       </View>

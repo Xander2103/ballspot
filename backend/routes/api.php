@@ -113,6 +113,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/pack-attempts/{attempt}/guess', [PackPlayController::class, 'guess'])->middleware('throttle:gameplay');
         Route::get('/me/pack-completions',   [ProfileController::class, 'packCompletions']);
 
+        // Availability check for the create screen — stays above /leagues/{league}.
+        Route::get('/tournaments/availability',       [LeagueController::class, 'availability']);
         Route::get('/leagues',                        [LeagueController::class, 'index']);
         Route::post('/leagues',                       [LeagueController::class, 'store']);
         Route::post('/leagues/join',                  [LeagueController::class, 'join']);

@@ -21,8 +21,11 @@ class LeagueTest extends TestCase
     public function test_user_can_create_league(): void
     {
         $sport = Sport::create(['name' => 'Football', 'slug' => 'football']);
-        Challenge::create(['sport_id' => $sport->id, 'title' => 'Test', 'hidden_image_path' => 'x.jpg',
-            'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5, 'difficulty' => 'easy', 'status' => 'active']);
+        // A 7-day tournament needs 7 unique eligible photos to be created.
+        for ($i = 1; $i <= 7; $i++) {
+            Challenge::create(['sport_id' => $sport->id, 'title' => "Test {$i}", 'hidden_image_path' => "x{$i}.jpg",
+                'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5, 'difficulty' => 'easy', 'status' => 'active']);
+        }
 
         [$user, $headers] = $this->actingAsUser();
         $response = $this->postJson('/api/leagues', [

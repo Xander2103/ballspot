@@ -21,6 +21,7 @@ import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
 import { User } from '../types/auth';
 import { TodayResponse, DailyStats } from '../types/daily';
+import { useI18n } from '../i18n';
 
 // Horizontal BallPicker brand header (wordmark). Rendered as the Home hero.
 const brandHeader = require('../../assets/BallPickerHeader.png');
@@ -30,8 +31,10 @@ type Props = MainTabScreenProps<'Play'>;
 // Persisted flag so we ask for notification permission at most once (non-spammy).
 const NOTIF_PROMPT_SEEN = 'notif_prompt_seen';
 
-function todayDateFormatted(): string {
-  return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+function todayDateFormatted(locale: string): string {
+  // English keeps the day-first (en-GB) format the screen has always used.
+  const dateLocale = locale === 'en' ? 'en-GB' : locale;
+  return new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function DailyCard({
@@ -42,19 +45,22 @@ function DailyCard({
   navigation: Props['navigation'];
   styles: Styles;
 }) {
+  const { t, locale } = useI18n();
+
   if (!today?.has_daily) {
     const sportName = today?.sport?.name;
     const isOtherSport = sportName && today?.sport?.slug !== 'football';
+    const emoji = today?.sport?.emoji ?? '⚽';
     return (
       <View style={styles.dailyCard}>
         <Text style={styles.dailyCardTitle}>
-          {today?.sport?.emoji ?? '⚽'} Daily {sportName ?? 'Ball'} Challenge
+          {sportName ? t('home.daily.titleForSport', { emoji, sport: sportName }) : t('home.daily.title', { emoji })}
         </Text>
-        <Text style={styles.dailyCardDate}>{todayDateFormatted()}</Text>
+        <Text style={styles.dailyCardDate}>{todayDateFormatted(locale)}</Text>
         <Text style={styles.dailyCardEmpty}>
           {isOtherSport
-            ? `No ${sportName} daily today — try Football, or the next one lands tomorrow.`
-            : 'No challenge today. The next daily lands tomorrow.'}
+            ? t('home.daily.noneForSport', { sport: sportName })
+            : t('home.daily.noneToday')}
         </Text>
       </View>
     );
@@ -64,16 +70,16 @@ function DailyCard({
   // Monthly progress ("Day 4 of 31") from the backend; absent on older servers.
   const monthIndex = today.daily_challenge?.daily_month_index;
   const monthTotal = today.daily_challenge?.daily_month_total;
-  const monthProgress = monthIndex && monthTotal ? ` · Day ${monthIndex} of ${monthTotal}` : '';
+  const monthProgress = monthIndex && monthTotal ? ` · ${t('home.daily.dayOf', { index: monthIndex, total: monthTotal })}` : '';
 
   if (today.already_played) {
     return (
       <View style={styles.dailyCard}>
-        <Text style={styles.dailyCardTitle}>{emoji} Daily Ball Challenge</Text>
-        <Text style={styles.dailyCardDate}>{todayDateFormatted()}{monthProgress}</Text>
-        {!!stats?.current_streak && <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>}
+        <Text style={styles.dailyCardTitle}>{t('home.daily.title', { emoji })}</Text>
+        <Text style={styles.dailyCardDate}>{todayDateFormatted(locale)}{monthProgress}</Text>
+        {!!stats?.current_streak && <Text style={styles.dailyStreak}>{t('daily.streak', { count: stats.current_streak })}</Text>}
         <AppButton
-          title="View Today's Result"
+          title={t('home.daily.viewResult')}
           onPress={() => navigation.navigate('DailyResult', { dailyChallengeId: today.daily_challenge!.id })}
           variant="secondary"
           style={styles.dailyBtn}
@@ -84,17 +90,17 @@ function DailyCard({
 
   return (
     <View style={styles.dailyCard}>
-      <Text style={styles.dailyCardTitle}>{emoji} Daily Ball Challenge</Text>
-      <Text style={styles.dailyCardDate}>{todayDateFormatted()}{monthProgress}</Text>
+      <Text style={styles.dailyCardTitle}>{t('home.daily.title', { emoji })}</Text>
+      <Text style={styles.dailyCardDate}>{todayDateFormatted(locale)}{monthProgress}</Text>
       {today.daily_challenge?.challenge && (
         <Text style={styles.dailyChallengeInfo}>
           {today.daily_challenge.challenge.category ? `${today.daily_challenge.challenge.category.name} · ` : ''}
           {today.daily_challenge.challenge.difficulty}
         </Text>
       )}
-      {!!stats?.current_streak && <Text style={styles.dailyStreak}>🔥 {stats.current_streak} day streak</Text>}
+      {!!stats?.current_streak && <Text style={styles.dailyStreak}>{t('daily.streak', { count: stats.current_streak })}</Text>}
       <AppButton
-        title="Play Daily Challenge"
+        title={t('home.daily.play')}
         onPress={() => navigation.navigate('DailyChallenge', { dailyChallengeId: today.daily_challenge!.id })}
         style={styles.dailyBtn}
       />
@@ -104,6 +110,7 @@ function DailyCard({
 
 export function HomeScreen({ navigation }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   // Tournaments render in their own tab now; Home still fetches them silently
@@ -214,11 +221,11 @@ export function HomeScreen({ navigation }: Props) {
           style={styles.brandImage}
           resizeMode="contain"
           accessibilityRole="image"
-          accessibilityLabel="BallPicker"
+          accessibilityLabel={t('common.appName')}
         />
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
-            <Text style={styles.greeting}>Hey, {user?.name || '…'}</Text>
+            <Text style={styles.greeting}>{t('home.greeting', { name: user?.name || '…' })}</Text>
             <Text style={styles.sub}>@{user?.username || '…'}</Text>
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
@@ -237,14 +244,14 @@ export function HomeScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('SportSelection', { mode: 'change', currentSportId: sport?.id ?? null })}
         >
           <Text style={styles.sportChipText}>
-            {sport ? `${sport.emoji} ${sport.name}` : '🎯 Pick a sport'}
+            {sport ? `${sport.emoji} ${sport.name}` : t('home.sportChip.pick')}
           </Text>
-          <Text style={styles.sportChipAction}>Change sport ›</Text>
+          <Text style={styles.sportChipAction}>{t('home.sportChip.change')}</Text>
         </TouchableOpacity>
 
         {dailyLoading ? (
           <View style={[styles.dailyCard, styles.dailyCardLoading]}>
-            <Text style={styles.dailyCardLoadingText}>Loading daily challenge…</Text>
+            <Text style={styles.dailyCardLoadingText}>{t('home.daily.loading')}</Text>
           </View>
         ) : (
           <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} styles={styles} />
@@ -256,10 +263,10 @@ export function HomeScreen({ navigation }: Props) {
           <View style={styles.dailyFallback}>
             <EmptyState
               compact
-              message="No daily yet. Play a pack or join a tournament while you wait."
+              message={t('home.fallback.message')}
               actions={[
-                { label: 'Play packs', onPress: () => navigation.navigate('Packs') },
-                { label: 'View tournaments', onPress: () => navigation.navigate('Tournaments') },
+                { label: t('home.fallback.playPacks'), onPress: () => navigation.navigate('Packs') },
+                { label: t('home.fallback.viewTournaments'), onPress: () => navigation.navigate('Tournaments') },
               ]}
             />
           </View>
@@ -273,8 +280,8 @@ export function HomeScreen({ navigation }: Props) {
         >
           <Text style={styles.packsEmoji}>📦</Text>
           <View style={styles.packsText}>
-            <Text style={styles.packsTitle}>Challenge Packs</Text>
-            <Text style={styles.packsSubtitle}>Play themed sets of challenges.</Text>
+            <Text style={styles.packsTitle}>{t('home.packs.title')}</Text>
+            <Text style={styles.packsSubtitle}>{t('home.packs.subtitle')}</Text>
           </View>
           <Text style={styles.packsChevron}>›</Text>
         </TouchableOpacity>
@@ -282,10 +289,10 @@ export function HomeScreen({ navigation }: Props) {
 
       <ConfirmModal
         visible={notifPromptVisible}
-        title="Stay in the game"
-        message="Get a reminder when your Daily Challenge is ready or when a tournament needs your guess."
-        confirmLabel="Enable notifications"
-        cancelLabel="Not now"
+        title={t('home.notifPrompt.title')}
+        message={t('home.notifPrompt.message')}
+        confirmLabel={t('home.notifPrompt.confirm')}
+        cancelLabel={t('home.notifPrompt.cancel')}
         onConfirm={handleEnableNotifications}
         onCancel={handleDismissNotifications}
         loading={notifPromptLoading}

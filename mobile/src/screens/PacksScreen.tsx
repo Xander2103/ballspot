@@ -8,11 +8,13 @@ import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { ChallengePackSummary } from '../types/pack';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Packs'>;
 
 export function PacksScreen({ navigation }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   const [packs, setPacks] = useState<ChallengePackSummary[]>([]);
@@ -26,11 +28,11 @@ export function PacksScreen({ navigation }: Props) {
       const res = await packApi.list();
       setPacks(res.data ?? []);
     } catch {
-      setError('Could not load packs. Pull to retry.');
+      setError(t('packs.list.loadError'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -52,16 +54,16 @@ export function PacksScreen({ navigation }: Props) {
         refreshing={loading}
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={styles.title}>Challenge Packs</Text>
-            <Text style={styles.subtitle}>Play themed sets of challenges.</Text>
+            <Text style={styles.title}>{t('packs.list.title')}</Text>
+            <Text style={styles.subtitle}>{t('packs.list.subtitle')}</Text>
           </View>
         }
-        renderItem={({ item }) => <PackCard pack={item} styles={styles} theme={theme}
+        renderItem={({ item }) => <PackCard pack={item} styles={styles} theme={theme} t={t}
           onPress={() => navigation.navigate('PackDetail', { slug: item.slug, name: item.name })} />}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyEmoji}>📦</Text>
-            <Text style={styles.emptyText}>{error || 'No packs available yet.'}</Text>
+            <Text style={styles.emptyText}>{error || t('packs.list.empty')}</Text>
           </View>
         }
       />
@@ -69,9 +71,11 @@ export function PacksScreen({ navigation }: Props) {
   );
 }
 
+type Translate = ReturnType<typeof useI18n>['t'];
+
 function PackCard({
-  pack, styles, theme, onPress,
-}: { pack: ChallengePackSummary; styles: Styles; theme: ThemeTokens; onPress: () => void }) {
+  pack, styles, theme, t, onPress,
+}: { pack: ChallengePackSummary; styles: Styles; theme: ThemeTokens; t: Translate; onPress: () => void }) {
   const accent = pack.sport?.primary_color ?? theme.primary;
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
@@ -81,19 +85,19 @@ function PackCard({
         ) : (
           <Text style={styles.coverEmoji}>{pack.sport?.emoji ?? '⚽'}</Text>
         )}
-        {pack.is_featured ? <View style={[styles.featured, { backgroundColor: accent }]}><Text style={styles.featuredText}>★ Featured</Text></View> : null}
+        {pack.is_featured ? <View style={[styles.featured, { backgroundColor: accent }]}><Text style={styles.featuredText}>{t('packs.list.featured')}</Text></View> : null}
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.cardTitle} numberOfLines={1}>{pack.name}</Text>
         {pack.description ? <Text style={styles.cardDesc} numberOfLines={2}>{pack.description}</Text> : null}
         <View style={styles.metaRow}>
-          <Text style={styles.metaChip}>{pack.sport?.name ?? 'All sports'}</Text>
-          <Text style={styles.metaChip}>{pack.challenge_count} {pack.challenge_count === 1 ? 'challenge' : 'challenges'}</Text>
+          <Text style={styles.metaChip}>{pack.sport?.name ?? t('packs.meta.allSports')}</Text>
+          <Text style={styles.metaChip}>{t('packs.meta.challenges', { count: pack.challenge_count })}</Text>
           {pack.difficulty ? <Text style={styles.metaChip}>{cap(pack.difficulty)}</Text> : null}
           {pack.progress?.status === 'completed'
-            ? <Text style={[styles.metaChip, styles.completedChip]}>✓ Completed</Text>
+            ? <Text style={[styles.metaChip, styles.completedChip]}>{t('packs.meta.completed')}</Text>
             : pack.progress?.status === 'active'
-              ? <Text style={[styles.metaChip, styles.activeChip]}>In progress · {pack.progress.completed_count}/{pack.progress.total_challenges}</Text>
+              ? <Text style={[styles.metaChip, styles.activeChip]}>{t('packs.meta.inProgressCount', { done: pack.progress.completed_count, total: pack.progress.total_challenges })}</Text>
               : null}
         </View>
       </View>

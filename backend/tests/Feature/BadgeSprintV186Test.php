@@ -128,10 +128,13 @@ class BadgeSprintV186Test extends TestCase
     public function test_host_starter_awarded_on_tournament_creation(): void
     {
         $sport = Sport::firstOrCreate(['slug' => 'football'], ['name' => 'Football']);
-        Challenge::create([
-            'sport_id' => $sport->id, 'title' => 'Seed', 'hidden_image_path' => 'x.jpg',
-            'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5, 'difficulty' => 'easy', 'status' => 'active',
-        ]);
+        // A 7-day tournament needs 7 eligible photos to be created.
+        for ($i = 1; $i <= 7; $i++) {
+            \App\Models\Challenge::create([
+                'sport_id' => $sport->id, 'title' => "Seed {$i}", 'hidden_image_path' => "seed-{$i}.jpg",
+                'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5, 'difficulty' => 'easy', 'status' => 'active',
+            ]);
+        }
 
         $user = User::factory()->create();
 

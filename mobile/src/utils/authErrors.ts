@@ -1,39 +1,26 @@
 /**
  * Friendly copy for the account/auth error CODES the backend returns
- * (backend/app/Support/AuthError.php). Add a code there, add it here.
+ * (backend/app/Support/AuthError.php). Add a code there, add it to
+ * src/i18n/locales/en/errors.ts (auth.*) and every other language.
  *
  * The backend answers known failures as
  *   { message, code, errors?: { field: [msg] }, codes?: { field: code }, reason? }
- * Real 500s stay generic (getApiErrorMessage → SERVER_ERROR_MESSAGE). Nothing
- * here ever surfaces raw server text for a known code — the copy below wins.
+ * Real 500s stay generic (getApiErrorMessage → server error copy). Nothing
+ * here ever surfaces raw server text for a known code — the translated copy
+ * for the CODE wins, in the app's active language.
  */
 
 import { getApiErrorMessage } from './apiError';
+import { translate } from '../i18n/core';
+import { en } from '../i18n/locales/en';
 
-export const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  // Registration
-  email_taken: 'An account with this email already exists. Please log in or reset your password.',
-  username_taken: 'This username is already taken.',
-  password_mismatch: 'Passwords do not match.',
-  // Login
-  invalid_credentials: 'Invalid email or password.',
-  account_deleted: 'This account has been deleted. You can create a new account with the same email.',
-  // Login 2FA
-  two_factor_required: 'We sent a verification code to your email.',
-  two_factor_code_invalid: 'That code is not correct. Check the newest email and try again.',
-  two_factor_code_expired: 'This code has expired. Please log in again to get a new one.',
-  two_factor_locked: 'Too many incorrect attempts. Tap "Resend code" to get a new one.',
-  two_factor_session_invalid: 'This login session has expired. Please log in again.',
-  // Email verification (registration)
-  verification_code_invalid: 'That code is not correct. Check the newest email and try again.',
-  verification_code_expired: 'This code has expired. Tap "Resend code" to get a new one.',
-  verification_locked: 'Too many incorrect attempts. Tap "Resend code" to get a new one.',
-  verification_no_code: 'No code is active for this account. Tap "Resend code" to get a new one.',
-  // Password reset
-  reset_token_invalid: 'This reset link is invalid. Request a new one and use the newest email.',
-  reset_token_expired: 'This reset link has expired. Request a new one and use the newest email.',
-  reset_failed: 'We could not reset your password right now. Please try again in a moment.',
-};
+/** The codes we have copy for (English is the source of truth). */
+export const AUTH_ERROR_CODES: readonly string[] = Object.keys(en.errors.auth);
+
+/** Translated sentence for a known code, in the active language. */
+export function authErrorMessage(code: string): string {
+  return translate(`errors.auth.${code}`);
+}
 
 export interface AuthErrorInfo {
   /** Stable code, when the backend sent one we know. */
@@ -69,7 +56,7 @@ function firstString(v: unknown): string {
 
 /** True when `code` is one we have copy for. */
 export function isKnownAuthCode(code: unknown): code is string {
-  return typeof code === 'string' && Object.prototype.hasOwnProperty.call(AUTH_ERROR_MESSAGES, code);
+  return typeof code === 'string' && AUTH_ERROR_CODES.includes(code);
 }
 
 /**
@@ -87,7 +74,7 @@ export function mapAuthError(e: unknown, fallback: string): AuthErrorInfo {
   }
   for (const [field, messages] of Object.entries(asRecord(err.errors))) {
     const code = fieldCodes[field];
-    const friendly = isKnownAuthCode(code) ? AUTH_ERROR_MESSAGES[code] : '';
+    const friendly = isKnownAuthCode(code) ? authErrorMessage(code) : '';
     const text = friendly || firstString(messages);
     if (text) fieldErrors[field] = text;
   }
@@ -95,7 +82,7 @@ export function mapAuthError(e: unknown, fallback: string): AuthErrorInfo {
   const code = isKnownAuthCode(err.code) ? err.code : null;
   let message: string;
   if (code) {
-    message = AUTH_ERROR_MESSAGES[code];
+    message = authErrorMessage(code);
   } else {
     const firstField = Object.values(fieldErrors)[0];
     message = firstField || getApiErrorMessage(e, fallback);
@@ -120,14 +107,14 @@ export function classifyResetError(e: unknown): ResetLinkProblem {
   return null;
 }
 
-/** Validate the two password fields the way the backend does. */
+/** Validate the two password fields the way the backend does (translated). */
 export function validatePasswordPair(password: string, confirmation: string): { password?: string; password_confirmation?: string } {
   const out: { password?: string; password_confirmation?: string } = {};
-  if (!password) out.password = 'Password is required';
-  else if (password.length < 8) out.password = 'Password must be at least 8 characters';
+  if (!password) out.password = translate('errors.validation.passwordRequired');
+  else if (password.length < 8) out.password = translate('errors.validation.passwordMin');
   if (!out.password) {
-    if (!confirmation) out.password_confirmation = 'Please confirm your password';
-    else if (confirmation !== password) out.password_confirmation = AUTH_ERROR_MESSAGES.password_mismatch;
+    if (!confirmation) out.password_confirmation = translate('errors.validation.passwordConfirmRequired');
+    else if (confirmation !== password) out.password_confirmation = authErrorMessage('password_mismatch');
   }
   return out;
 }

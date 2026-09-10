@@ -12,11 +12,13 @@ import { tokenStorage } from '../storage/tokenStorage';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { getAuthErrorMessage } from '../utils/authErrors';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
   const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,7 +28,7 @@ export function LoginScreen({ navigation }: Props) {
     if (loading) return; // guard against double-submit (button + keyboard "go")
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setError('Please enter your email and password.');
+      setError(t('auth.login.missingFields'));
       return;
     }
     setLoading(true);
@@ -57,7 +59,7 @@ export function LoginScreen({ navigation }: Props) {
     } catch (e: unknown) {
       // invalid_credentials is the only expected failure (friendly copy via
       // its code); everything else (offline, 429, 5xx) is one clean sentence.
-      setError(getAuthErrorMessage(e, 'Login failed. Please check your details and try again.'));
+      setError(getAuthErrorMessage(e, t('auth.login.failed')));
     } finally {
       setLoading(false);
     }
@@ -67,11 +69,11 @@ export function LoginScreen({ navigation }: Props) {
     <Screen scroll padding>
       <View style={styles.header}>
         <Text style={[styles.logo, { color: theme.primary }]}>⚽ BallPicker</Text>
-        <Text style={[styles.tagline, { color: theme.textSecondary }]}>Find the ball. Beat your friends.</Text>
+        <Text style={[styles.tagline, { color: theme.textSecondary }]}>{t('auth.login.tagline')}</Text>
       </View>
       {error ? <Text style={[styles.formError, { color: theme.danger }]}>{error}</Text> : null}
       <AppInput
-        label="Email"
+        label={t('common.labels.email')}
         value={email}
         onChangeText={(t) => { setEmail(t); setError(''); }}
         keyboardType="email-address"
@@ -81,7 +83,7 @@ export function LoginScreen({ navigation }: Props) {
         returnKeyType="next"
       />
       <AppInput
-        label="Password"
+        label={t('common.labels.password')}
         value={password}
         onChangeText={(t) => { setPassword(t); setError(''); }}
         secureTextEntry
@@ -90,11 +92,11 @@ export function LoginScreen({ navigation }: Props) {
         returnKeyType="go"
         onSubmitEditing={handleLogin}
       />
-      <AppButton title="Login" onPress={handleLogin} loading={loading} style={styles.btn} />
+      <AppButton title={t('auth.login.submit')} onPress={handleLogin} loading={loading} style={styles.btn} />
       <Pressable onPress={() => navigation.navigate('ForgotPassword')} style={styles.forgot} hitSlop={8}>
-        <Text style={[styles.forgotText, { color: theme.accent }]}>Forgot password?</Text>
+        <Text style={[styles.forgotText, { color: theme.accent }]}>{t('auth.login.forgot')}</Text>
       </Pressable>
-      <AppButton title="Create Account" onPress={() => navigation.navigate('Register')} variant="secondary" disabled={loading} />
+      <AppButton title={t('auth.register.title')} onPress={() => navigation.navigate('Register')} variant="secondary" disabled={loading} />
     </Screen>
   );
 }

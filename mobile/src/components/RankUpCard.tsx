@@ -4,6 +4,7 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { RankUp } from '../types/auth';
+import { useI18n } from '../i18n';
 
 /**
  * Premium rank-up moment shown on result screens when a guess pushed the player
@@ -11,6 +12,7 @@ import type { RankUp } from '../types/auth';
  */
 export function RankUpCard({ rankUp }: { rankUp: RankUp }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   return (
@@ -18,9 +20,9 @@ export function RankUpCard({ rankUp }: { rankUp: RankUp }) {
       <View style={styles.badge}>
         <Text style={styles.badgeText}>{rankUp.new_level}</Text>
       </View>
-      <Text style={styles.kicker}>RANK UP!</Text>
-      <Text style={styles.title}>You reached {rankUp.to_rank}</Text>
-      <Text style={styles.sub}>Level {rankUp.new_level} · from {rankUp.from_rank}</Text>
+      <Text style={styles.kicker}>{t('game.rankUp.kicker')}</Text>
+      <Text style={styles.title}>{t('game.rankUp.reached', { rank: rankUp.to_rank })}</Text>
+      <Text style={styles.sub}>{t('game.rankUp.sub', { level: rankUp.new_level, from: rankUp.from_rank })}</Text>
     </View>
   );
 }

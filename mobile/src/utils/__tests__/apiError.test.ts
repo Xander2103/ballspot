@@ -1,9 +1,9 @@
 import {
   getApiErrorMessage,
   isNetworkError,
-  NETWORK_ERROR_MESSAGE,
-  SERVER_ERROR_MESSAGE,
-  UNAUTHORIZED_MESSAGE,
+  networkErrorMessage,
+  serverErrorMessage,
+  unauthorizedMessage,
 } from '../apiError';
 
 describe('getApiErrorMessage', () => {
@@ -29,8 +29,8 @@ describe('getApiErrorMessage', () => {
   });
 
   it('hides "Server Error" and any 5xx behind a friendly sentence', () => {
-    expect(getApiErrorMessage({ status: 500, message: 'Server Error' }, fallback)).toBe(SERVER_ERROR_MESSAGE);
-    expect(getApiErrorMessage({ status: 503, message: 'Service Unavailable' }, fallback)).toBe(SERVER_ERROR_MESSAGE);
+    expect(getApiErrorMessage({ status: 500, message: 'Server Error' }, fallback)).toBe(serverErrorMessage());
+    expect(getApiErrorMessage({ status: 503, message: 'Service Unavailable' }, fallback)).toBe(serverErrorMessage());
   });
 
   it('never surfaces exception dumps or stack traces', () => {
@@ -41,14 +41,14 @@ describe('getApiErrorMessage', () => {
   });
 
   it('maps fetch network failures to a connection message', () => {
-    expect(getApiErrorMessage(new TypeError('Network request failed'), fallback)).toBe(NETWORK_ERROR_MESSAGE);
-    expect(getApiErrorMessage({ message: 'Failed to fetch' }, fallback)).toBe(NETWORK_ERROR_MESSAGE);
+    expect(getApiErrorMessage(new TypeError('Network request failed'), fallback)).toBe(networkErrorMessage());
+    expect(getApiErrorMessage({ message: 'Failed to fetch' }, fallback)).toBe(networkErrorMessage());
     expect(isNetworkError(new TypeError('x'))).toBe(true);
     expect(isNetworkError({ status: 422, message: 'nope' })).toBe(false);
   });
 
   it('maps 401 to a session-expired message', () => {
-    expect(getApiErrorMessage({ status: 401, message: 'Unauthenticated.' }, fallback)).toBe(UNAUTHORIZED_MESSAGE);
+    expect(getApiErrorMessage({ status: 401, message: 'Unauthenticated.' }, fallback)).toBe(unauthorizedMessage());
   });
 
   it('keeps the existing 429 message from the client', () => {

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Linking, TouchableOpacity, Alert, Switch } from 'react-native';
 import { getApiErrorMessage } from '../utils/apiError';
+import { getAuthErrorMessage } from '../utils/authErrors';
+import { useI18n } from '../i18n';
 import * as ImagePicker from 'expo-image-picker';
 import { CommonActions } from '@react-navigation/native';
 import { MainTabScreenProps } from '../app/MainTabs';
@@ -37,6 +39,7 @@ type Props = MainTabScreenProps<'Profile'>;
 
 export function ProfileScreen({ navigation }: Props) {
   const { theme, themeName, setTheme } = useTheme();
+  const { t, locale, setLocale } = useI18n();
   const styles = createStyles(theme);
 
   const [user, setUser] = useState<User | null>(null);
@@ -88,7 +91,7 @@ export function ProfileScreen({ navigation }: Props) {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        setAvatarError('Photo permission is needed to choose an avatar.');
+        setAvatarError(t('profile.screen.photoPermission'));
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -103,7 +106,7 @@ export function ProfileScreen({ navigation }: Props) {
       const { avatar_url } = await avatarApi.upload(result.assets[0].uri);
       setUser((u) => (u ? { ...u, avatar_url } : u));
     } catch (e: any) {
-      setAvatarError(e?.message || 'Could not update your photo. Please try again.');
+      setAvatarError(e?.message || t('profile.screen.photoError'));
     } finally {
       setUploadingAvatar(false);
     }
@@ -113,11 +116,17 @@ export function ProfileScreen({ navigation }: Props) {
     if (savingLanguage || !user || user.preferred_language === code) return;
     setAccountError('');
     setSavingLanguage(code);
+    // Optimistic: switch the whole app right away so the picker feels
+    // instant; revert to the previous locale if the server rejects it.
+    const previousLocale = locale;
+    setLocale(code);
     try {
       const res = await preferencesApi.update({ preferred_language: code });
       setUser((u) => (u ? { ...u, preferred_language: res.preferred_language } : u));
+      setLocale(res.preferred_language);
     } catch (e: unknown) {
-      setAccountError(getApiErrorMessage(e, 'Could not save your language. Please try again.'));
+      setLocale(previousLocale);
+      setAccountError(getApiErrorMessage(e, t('profile.account.languageError')));
     } finally {
       setSavingLanguage(null);
     }
@@ -134,7 +143,7 @@ export function ProfileScreen({ navigation }: Props) {
       setUser((u) => (u ? { ...u, two_factor_enabled: res.two_factor_enabled } : u));
     } catch (e: unknown) {
       setUser((u) => (u ? { ...u, two_factor_enabled: previous } : u)); // revert
-      setAccountError(getApiErrorMessage(e, 'Could not update two-factor login. Please try again.'));
+      setAccountError(getApiErrorMessage(e, t('profile.security.twoFactorError')));
     } finally {
       setSavingTwoFactor(false);
     }
@@ -166,9 +175,9 @@ export function ProfileScreen({ navigation }: Props) {
       // The account is gone server-side; make that unmistakable before the
       // app returns to the public login screen.
       Alert.alert(
-        'Account deleted',
-        'Your account has been deleted and your personal details removed. You can create a new account with the same email at any time.',
-        [{ text: 'OK', onPress: leave }],
+        t('profile.delete.doneTitle'),
+        t('profile.delete.doneMessage'),
+        [{ text: t('common.buttons.ok'), onPress: leave }],
         { cancelable: false },
       );
       setTimeout(leave, 4000); // never strand the user if the alert is dismissed silently (web)
@@ -182,7 +191,8 @@ export function ProfileScreen({ navigation }: Props) {
         leave();
         return;
       }
-      setDeleteError(getApiErrorMessage(e, 'We could not delete your account right now. Please try again in a moment or contact support.'));
+      // Code-aware: e.g. `admin_account_protected` renders its translated copy.
+      setDeleteError(getAuthErrorMessage(e, t('profile.delete.error')));
       setDeleting(false);
     }
   }
@@ -201,16 +211,17 @@ export function ProfileScreen({ navigation }: Props) {
     return (
       <Screen padding>
         <EmptyState
-          title="Couldn't load your profile"
-          message="Check your connection and try again."
-          actions={[{ label: 'Retry', onPress: () => { setLoading(true); loadProfile().finally(() => setLoading(false)); } }]}
+          title={t('profile.screen.loadErrorTitle')}
+          message={t('common.states.checkConnection')}
+          actions={[{ label: t('common.buttons.retry'), onPress: () => { setLoading(true); loadProfile().finally(() => setLoading(false)); } }]}
         />
       </Screen>
     );
   }
 
   const sport = user?.preferred_sport ?? null;
-  const activeThemeLabel = THEME_META.find((m) => m.name === themeName)?.label;
+  // Theme slugs are stable; their display copy lives under profile.themes.<slug>.
+  const activeThemeLabel = THEME_META.some((m) => m.name === themeName) ? t(`profile.themes.${themeName}.label`) : undefined;
   const retryProfile = () => { loadProfile(); };
   const currentLanguage: LanguageCode = isLanguageCode(user?.preferred_language) ? user.preferred_language : DEFAULT_LANGUAGE;
   const twoFactorOn = user?.two_factor_enabled === true;
@@ -223,7 +234,7 @@ export function ProfileScreen({ navigation }: Props) {
         <TouchableOpacity onPress={handleChangePhoto} disabled={uploadingAvatar} style={styles.changePhoto} activeOpacity={0.7}>
           {uploadingAvatar
             ? <ActivityIndicator color={theme.primary} size="small" />
-            : <Text style={styles.changePhotoText}>Change photo</Text>}
+            : <Text style={styles.changePhotoText}>{t('profile.screen.changePhoto')}</Text>}
         </TouchableOpacity>
       </View>
       {avatarError ? <Text style={styles.inlineError}>{avatarError}</Text> : null}
@@ -236,8 +247,8 @@ export function ProfileScreen({ navigation }: Props) {
         <View style={styles.retryCard}>
           <EmptyState
             compact
-            message="Couldn't load your rank and stats."
-            actions={[{ label: 'Retry', onPress: retryProfile }]}
+            message={t('profile.screen.statsError')}
+            actions={[{ label: t('common.buttons.retry'), onPress: retryProfile }]}
           />
         </View>
       ) : null}
@@ -250,8 +261,8 @@ export function ProfileScreen({ navigation }: Props) {
         <View style={styles.entryLeft}>
           <Text style={styles.entryIcon}>🏅</Text>
           <View style={styles.entryTextWrap}>
-            <Text style={styles.entryTitle}>View all ranks</Text>
-            <Text style={styles.entrySubtitle}>Every rank, your progress and your recent XP.</Text>
+            <Text style={styles.entryTitle}>{t('profile.screen.viewAllRanks')}</Text>
+            <Text style={styles.entrySubtitle}>{t('profile.screen.viewAllRanksSubtitle')}</Text>
           </View>
         </View>
         <Text style={styles.entryAction}>›</Text>
@@ -266,29 +277,29 @@ export function ProfileScreen({ navigation }: Props) {
         <View style={styles.entryLeft}>
           <Text style={styles.entryIcon}>🏆</Text>
           <View style={styles.entryTextWrap}>
-            <Text style={styles.entryTitle}>Trophy Room</Text>
-            <Text style={styles.entrySubtitle}>Badges, achievements and top finishes.</Text>
+            <Text style={styles.entryTitle}>{t('profile.screen.trophyRoom')}</Text>
+            <Text style={styles.entrySubtitle}>{t('profile.screen.trophyRoomSubtitle')}</Text>
           </View>
         </View>
         <Text style={styles.entryAction}>›</Text>
       </TouchableOpacity>
 
       {/* Collapsed-by-default detail sections keep the page short. */}
-      <CollapsibleSection title="History" summary={history.length > 0 ? `${history.length} finished` : undefined}>
+      <CollapsibleSection title={t('profile.screen.history')} summary={history.length > 0 ? t('profile.screen.historySummary', { count: history.length }) : undefined}>
         {history.length > 0 ? (
           <ProfileHistoryCard finishes={history} flat />
         ) : historyFailed ? (
           <EmptyState
             compact
-            message="Couldn't load your history."
-            actions={[{ label: 'Retry', onPress: retryProfile }]}
+            message={t('profile.screen.historyError')}
+            actions={[{ label: t('common.buttons.retry'), onPress: retryProfile }]}
           />
         ) : (
-          <EmptyState compact message="No finished tournaments yet." />
+          <EmptyState compact message={t('profile.screen.historyEmpty')} />
         )}
       </CollapsibleSection>
 
-      <CollapsibleSection title="Your sport" summary={sport ? `${sport.emoji} ${sport.name}` : undefined}>
+      <CollapsibleSection title={t('profile.screen.yourSport')} summary={sport ? `${sport.emoji} ${sport.name}` : undefined}>
         <TouchableOpacity
           style={styles.sportRow}
           activeOpacity={0.8}
@@ -296,13 +307,13 @@ export function ProfileScreen({ navigation }: Props) {
         >
           <View style={styles.entryLeft}>
             <Text style={styles.sportEmoji}>{sport?.emoji ?? '🎯'}</Text>
-            <Text style={styles.sportLabel}>{sport?.name ?? 'Not chosen yet'}</Text>
+            <Text style={styles.sportLabel}>{sport?.name ?? t('profile.screen.sportNotChosen')}</Text>
           </View>
-          <Text style={styles.sportAction}>Change sport ›</Text>
+          <Text style={styles.sportAction}>{t('profile.screen.changeSport')}</Text>
         </TouchableOpacity>
       </CollapsibleSection>
 
-      <CollapsibleSection title="App theme" summary={activeThemeLabel}>
+      <CollapsibleSection title={t('profile.screen.appTheme')} summary={activeThemeLabel}>
         <View style={styles.themeGrid}>
           {THEME_META.map((meta) => {
             const active = meta.name === themeName;
@@ -318,9 +329,9 @@ export function ProfileScreen({ navigation }: Props) {
                     <View key={i} style={[styles.swatch, { backgroundColor: c }]} />
                   ))}
                 </View>
-                <Text style={styles.themeLabel}>{meta.label}</Text>
-                <Text style={styles.themeDesc}>{meta.description}</Text>
-                {active ? <Text style={styles.themeActive}>Active</Text> : null}
+                <Text style={styles.themeLabel}>{t(`profile.themes.${meta.name}.label`)}</Text>
+                <Text style={styles.themeDesc}>{t(`profile.themes.${meta.name}.description`)}</Text>
+                {active ? <Text style={styles.themeActive}>{t('profile.screen.themeActive')}</Text> : null}
               </TouchableOpacity>
             );
           })}
@@ -329,62 +340,63 @@ export function ProfileScreen({ navigation }: Props) {
 
       {stats ? (
         <>
-          <CollapsibleSection title="Stats">
+          <CollapsibleSection title={t('profile.screen.stats')}>
             <StatList
               items={[
-                { label: 'Tournaments', value: stats.tournaments_count },
-                { label: 'Completed', value: stats.completed_tournaments_count },
-                { label: 'Guesses', value: stats.guesses_count },
-                { label: 'Total score', value: stats.total_score, highlight: true },
-                { label: 'Average score', value: stats.average_score },
+                { label: t('profile.stats.tournaments'), value: stats.tournaments_count },
+                { label: t('profile.stats.completed'), value: stats.completed_tournaments_count },
+                { label: t('profile.stats.guesses'), value: stats.guesses_count },
+                { label: t('profile.stats.totalScore'), value: stats.total_score, highlight: true },
+                { label: t('profile.stats.averageScore'), value: stats.average_score },
               ]}
             />
           </CollapsibleSection>
 
           <CollapsibleSection
-            title="Daily challenge stats"
-            summary={stats.current_daily_streak > 0 ? `🔥 ${stats.current_daily_streak} day streak` : undefined}
+            title={t('profile.screen.dailyStats')}
+            summary={stats.current_daily_streak > 0 ? t('profile.screen.streakSummary', { days: stats.current_daily_streak }) : undefined}
           >
             <StatList
               items={[
                 {
-                  label: 'Current streak',
-                  value: `${stats.current_daily_streak} ${stats.current_daily_streak === 1 ? 'day' : 'days'}`,
-                  detail: `best ${stats.best_daily_streak}`,
+                  label: t('profile.stats.currentStreak'),
+                  value: t('common.time.days', { count: stats.current_daily_streak }),
+                  detail: t('profile.stats.bestDetail', { best: stats.best_daily_streak }),
                 },
-                { label: 'Played', value: stats.daily_challenges_played },
-                { label: 'Average score', value: stats.average_daily_score },
-                { label: 'Best score', value: stats.best_daily_score, highlight: true },
+                { label: t('profile.stats.played'), value: stats.daily_challenges_played },
+                { label: t('profile.stats.averageScore'), value: stats.average_daily_score },
+                { label: t('profile.stats.bestScore'), value: stats.best_daily_score, highlight: true },
               ]}
             />
           </CollapsibleSection>
         </>
       ) : null}
 
-      <CollapsibleSection title="Notifications">
+      <CollapsibleSection title={t('profile.screen.notifications')}>
         <NotificationSettingsCard flat />
       </CollapsibleSection>
 
       <CollapsibleSection
-        title="Account & security"
-        summary={`${languageLabel(currentLanguage)} · 2FA ${twoFactorOn ? 'on' : 'off'}`}
+        title={t('profile.account.title')}
+        summary={t('profile.account.summary', {
+          language: languageLabel(currentLanguage),
+          state: t(twoFactorOn ? 'common.labels.on' : 'common.labels.off'),
+        })}
       >
         <LanguagePicker
-          label="Preferred language"
+          label={t('common.language.preferred')}
           value={currentLanguage}
           onChange={handleLanguageChange}
           disabled={!!savingLanguage}
           savingCode={savingLanguage}
         />
-        <Text style={styles.settingHint}>Used for emails and, soon, app text.</Text>
+        <Text style={styles.settingHint}>{t('profile.account.languageHint')}</Text>
 
         <View style={styles.toggleRow}>
           <View style={styles.toggleTextWrap}>
-            <Text style={styles.toggleLabel}>Two-factor login</Text>
+            <Text style={styles.toggleLabel}>{t('profile.security.twoFactorLabel')}</Text>
             <Text style={styles.toggleHint}>
-              {twoFactorOn
-                ? 'Each login asks for a 6-digit code we email you.'
-                : 'Off: email and password sign you straight in.'}
+              {twoFactorOn ? t('profile.security.twoFactorOnHint') : t('profile.security.twoFactorOffHint')}
             </Text>
           </View>
           <Switch
@@ -393,21 +405,21 @@ export function ProfileScreen({ navigation }: Props) {
             disabled={savingTwoFactor}
             trackColor={{ true: theme.primary, false: theme.border }}
             thumbColor="#ffffff"
-            accessibilityLabel="Two-factor login"
+            accessibilityLabel={t('profile.security.twoFactorLabel')}
           />
         </View>
         {accountError ? <Text style={styles.inlineError}>{accountError}</Text> : null}
       </CollapsibleSection>
 
-      <AppButton title="Logout" onPress={handleLogout} variant="secondary" style={styles.logoutBtn} />
+      <AppButton title={t('common.buttons.logout')} onPress={handleLogout} variant="secondary" style={styles.logoutBtn} />
 
       {/* Info / legal footer — plain links, not fake settings. */}
       <View style={styles.footerLinks}>
-        <FooterLink styles={styles} label="Privacy Policy" url={`${WEB_BASE}/privacy`} />
+        <FooterLink styles={styles} label={t('common.legal.privacy')} url={`${WEB_BASE}/privacy`} />
         <Text style={styles.footerDot}>·</Text>
-        <FooterLink styles={styles} label="Terms of Service" url={`${WEB_BASE}/terms`} />
+        <FooterLink styles={styles} label={t('common.legal.terms')} url={`${WEB_BASE}/terms`} />
         <Text style={styles.footerDot}>·</Text>
-        <FooterLink styles={styles} label="Support" url={`${WEB_BASE}/support`} />
+        <FooterLink styles={styles} label={t('common.legal.support')} url={`${WEB_BASE}/support`} />
       </View>
 
       {/* Destructive action — deliberately small and out of the way; the
@@ -418,20 +430,20 @@ export function ProfileScreen({ navigation }: Props) {
         activeOpacity={0.7}
         hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}
         accessibilityRole="button"
-        accessibilityLabel="Delete account"
+        accessibilityLabel={t('profile.screen.deleteAccount')}
       >
-        <Text style={styles.deleteLinkText}>Delete account</Text>
+        <Text style={styles.deleteLinkText}>{t('profile.screen.deleteAccount')}</Text>
       </TouchableOpacity>
 
-      <Text style={styles.versionText}>v{APP_VERSION}</Text>
-      <Text style={styles.creditText}>BallPicker is created by Van Malder Studio.</Text>
+      <Text style={styles.versionText}>{t('profile.screen.version', { version: APP_VERSION })}</Text>
+      <Text style={styles.creditText}>{t('profile.screen.credit')}</Text>
 
       <ConfirmModal
         visible={showDeleteModal}
-        title="Delete account?"
-        message="This will remove your account access and anonymize your profile. This action cannot be undone."
-        confirmLabel="Delete account"
-        cancelLabel="Cancel"
+        title={t('profile.delete.title')}
+        message={t('profile.delete.message')}
+        confirmLabel={t('profile.delete.confirm')}
+        cancelLabel={t('common.buttons.cancel')}
         onConfirm={handleDeleteAccount}
         onCancel={() => { setShowDeleteModal(false); setDeleteError(''); }}
         loading={deleting}

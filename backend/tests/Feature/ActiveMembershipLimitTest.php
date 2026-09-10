@@ -104,7 +104,12 @@ class ActiveMembershipLimitTest extends TestCase
 
     public function test_hosted_tournament_counts_toward_membership_limit(): void
     {
-        $this->sport();
+        $sport = $this->sport();
+        // Creating a 7-day tournament requires 7 eligible photos.
+        for ($i = 1; $i <= 7; $i++) {
+            \App\Models\Challenge::create(['sport_id' => $sport->id, 'title' => "H{$i}", 'hidden_image_path' => "h{$i}.jpg",
+                'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5, 'difficulty' => 'easy', 'status' => 'active']);
+        }
         $owner = User::factory()->create();
         [$me, $headers] = $this->actingAsUser();
 

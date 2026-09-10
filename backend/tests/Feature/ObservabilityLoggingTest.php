@@ -274,6 +274,9 @@ class ObservabilityLoggingTest extends TestCase
     {
         $this->seed(BadgeSeeder::class);
         $this->sport();
+        for ($i = 1; $i <= 7; $i++) {
+            $this->challenge("pool{$i}"); // enough photos for a 7-day tournament
+        }
         $host   = $this->verifiedUser();
         $joiner = $this->verifiedUser();
 
@@ -302,19 +305,24 @@ class ObservabilityLoggingTest extends TestCase
         $host  = $this->verifiedUser();
         $h     = $this->headers($host);
 
+        // Seven eligible photos so the lobby can be created…
+        $photos = [];
+        for ($i = 0; $i < 7; $i++) {
+            $photos[] = $this->challenge("t{$i}");
+        }
         $leagueId = $this->postJson('/api/leagues', ['name' => 'Cup', 'duration_days' => 7], $h)->assertCreated()->json('data.id');
 
-        // Only 3 tournament-eligible photos for a 7-day tournament.
-        for ($i = 0; $i < 3; $i++) {
-            $this->challenge("t{$i}");
+        // …then four of them become Dailies: only 3 eligible for a 7-day tournament.
+        foreach (array_slice($photos, 0, 4) as $i => $photo) {
+            \App\Models\DailyChallenge::create(['challenge_id' => $photo->id, 'challenge_date' => '2026-01-0' . ($i + 1), 'status' => 'archived']);
         }
-        $this->postJson("/api/leagues/{$leagueId}/start", [], $h)->assertStatus(422);
+        $this->postJson("/api/leagues/{$leagueId}/start", [], $h)->assertStatus(422)->assertJsonPath('code', 'TOURNAMENTS_TEMPORARILY_UNAVAILABLE');
         $this->assertLogged('tournament.start_failed', [
             'league_id' => $leagueId, 'reason' => 'not_enough_challenges', 'sport_id' => $sport->id,
             'requested_count' => 7, 'eligible_count' => 3,
         ], 'warning');
 
-        for ($i = 3; $i < 7; $i++) {
+        for ($i = 7; $i < 11; $i++) {
             $this->challenge("t{$i}");
         }
         $this->postJson("/api/leagues/{$leagueId}/start", [], $h)->assertOk();

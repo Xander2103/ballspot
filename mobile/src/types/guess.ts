@@ -11,6 +11,8 @@ export interface GuessResult {
   rank?: number;
   total_players?: number;
   better_than_percentage?: number;
+  /** The challenge's sport (marker object on the result screen). */
+  sport?: { slug: string; name: string; emoji: string; object_name?: string | null } | null;
 }
 
 /** Present (once) on the guess that finishes a tournament. */

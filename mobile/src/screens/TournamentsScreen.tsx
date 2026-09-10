@@ -10,10 +10,15 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
+import { useI18n } from '../i18n';
 
 type Props = MainTabScreenProps<'Tournaments'>;
 
-const STATUS_LABEL: Record<string, string> = { lobby: 'LOBBY', active: 'ACTIVE', completed: 'DONE' };
+const STATUS_LABEL_KEY: Record<string, string> = {
+  lobby: 'tournaments.status.lobby',
+  active: 'tournaments.status.active',
+  completed: 'tournaments.status.completed',
+};
 
 function TournamentCard({
   item, onPress, onDelete, onHide, styles, theme,
@@ -26,11 +31,13 @@ function TournamentCard({
   styles: Styles;
   theme: ThemeTokens;
 }) {
+  const { t } = useI18n();
   const STATUS_COLOR: Record<string, string> = {
     lobby: theme.warning, active: theme.primary, completed: theme.textMuted,
   };
   const statusColor = STATUS_COLOR[item.status] ?? theme.textMuted;
-  const statusLabel = STATUS_LABEL[item.status] ?? item.status.toUpperCase();
+  const statusLabelKey = STATUS_LABEL_KEY[item.status];
+  const statusLabel = statusLabelKey ? t(statusLabelKey) : item.status.toUpperCase();
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
@@ -47,15 +54,18 @@ function TournamentCard({
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.hideBtn}
             accessibilityRole="button"
-            accessibilityLabel={`Remove ${item.name} from your list`}
+            accessibilityLabel={t('tournaments.list.card.removeFromList', { name: item.name })}
           >
             <Text style={styles.hideBtnText}>✕</Text>
           </TouchableOpacity>
         ) : null}
       </View>
       <Text style={styles.cardMeta}>
-        {item.sport?.name ? `${item.sport.name} · ` : ''}Code: {item.join_code} · {item.members_count} players
-        {item.rounds_count > 0 ? ` · ${item.completed_rounds_count}/${item.rounds_count} rounds` : ''}
+        {item.sport?.name ? `${item.sport.name} · ` : ''}
+        {t('tournaments.code', { code: item.join_code })} · {t('tournaments.players', { count: item.members_count })}
+        {item.rounds_count > 0
+          ? ` · ${t('tournaments.list.card.rounds', { completed: item.completed_rounds_count, total: item.rounds_count })}`
+          : ''}
       </Text>
       {item.is_owner && (item.status === 'lobby' || item.status === 'active') && onDelete ? (
         <TouchableOpacity
@@ -63,7 +73,7 @@ function TournamentCard({
           onPress={(e) => { e.stopPropagation(); onDelete(); }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.deleteBtnText}>Delete</Text>
+          <Text style={styles.deleteBtnText}>{t('tournaments.list.card.delete')}</Text>
         </TouchableOpacity>
       ) : null}
     </TouchableOpacity>
@@ -72,6 +82,7 @@ function TournamentCard({
 
 export function TournamentsScreen({ navigation }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   const [leagues, setLeagues] = useState<League[]>([]);
@@ -83,6 +94,8 @@ export function TournamentsScreen({ navigation }: Props) {
   const [hideTarget, setHideTarget] = useState<League | null>(null);
   const [hiding, setHiding] = useState(false);
   const [hideError, setHideError] = useState('');
+  // false = pool too small right now (create disabled + info card); null/true = normal.
+  const [tournamentsAvailable, setTournamentsAvailable] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -95,6 +108,8 @@ export function TournamentsScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
+    // Separate, best effort: a failed probe never hides the list or the button.
+    leagueApi.availability().then((a) => setTournamentsAvailable(a.available)).catch(() => setTournamentsAvailable(null));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -111,7 +126,7 @@ export function TournamentsScreen({ navigation }: Props) {
       setLeagues((prev) => prev.filter((l) => l.id !== id));
       setCancelTarget(null);
     } catch {
-      setCancelError('Could not delete the tournament. Please try again.');
+      setCancelError(t('tournaments.list.deleteModal.error'));
     } finally {
       setCancelling(false);
     }
@@ -128,7 +143,7 @@ export function TournamentsScreen({ navigation }: Props) {
       setLeagues((prev) => prev.filter((l) => l.id !== id));
       setHideTarget(null);
     } catch {
-      setHideError('Could not remove the tournament. Please try again.');
+      setHideError(t('tournaments.list.hideModal.error'));
     } finally {
       setHiding(false);
     }
@@ -141,8 +156,8 @@ export function TournamentsScreen({ navigation }: Props) {
   // that happens to be empty reads as "nothing here yet" rather than silently
   // vanishing. With nothing at all, ListEmptyComponent covers the whole screen.
   const sections = active.length + completed.length === 0 ? [] : [
-    { title: 'Your Tournaments', data: active, emptyText: 'No lobby or active tournaments right now.' },
-    { title: 'Completed', data: completed, emptyText: 'No completed tournaments yet.' },
+    { title: t('tournaments.list.sections.yours'), data: active, emptyText: t('tournaments.list.empty.yours') },
+    { title: t('tournaments.list.sections.completed'), data: completed, emptyText: t('tournaments.list.empty.completed') },
   ];
 
   if (loading) {
@@ -152,6 +167,8 @@ export function TournamentsScreen({ navigation }: Props) {
       </View>
     );
   }
+
+  const cancelIsLobby = cancelTarget?.status === 'lobby';
 
   return (
     <Screen padding={false}>
@@ -175,9 +192,18 @@ export function TournamentsScreen({ navigation }: Props) {
         )}
         contentContainerStyle={styles.list}
         ListHeaderComponent={
+          <View>
+          {tournamentsAvailable === false ? (
+            <View style={styles.unavailableCard} accessibilityRole="alert">
+              <Text style={styles.unavailableTitle}>{t('tournaments.unavailable.title')}</Text>
+              <Text style={styles.unavailableBody}>{t('tournaments.unavailable.body')}</Text>
+              <Text style={styles.unavailableHint}>{t('tournaments.unavailable.hint')}</Text>
+            </View>
+          ) : null}
           <View style={styles.actions}>
-            <AppButton title="+ Create" onPress={() => navigation.navigate('CreateLeague')} style={styles.actionBtn} />
-            <AppButton title="Join" onPress={() => navigation.navigate('JoinLeague')} variant="secondary" style={styles.actionBtn} />
+            <AppButton title={t('tournaments.list.create')} onPress={() => navigation.navigate('CreateLeague')} style={styles.actionBtn} disabled={tournamentsAvailable === false} />
+            <AppButton title={t('tournaments.list.join')} onPress={() => navigation.navigate('JoinLeague')} variant="secondary" style={styles.actionBtn} />
+          </View>
           </View>
         }
         renderSectionFooter={({ section }) =>
@@ -188,15 +214,15 @@ export function TournamentsScreen({ navigation }: Props) {
         ListEmptyComponent={
           loadFailed ? (
             <EmptyState
-              title="Couldn't load your tournaments"
-              message="Check your connection and try again."
-              actions={[{ label: 'Retry', onPress: () => { setLoading(true); load(); } }]}
+              title={t('tournaments.list.loadFailed.title')}
+              message={t('common.states.checkConnection')}
+              actions={[{ label: t('common.buttons.retry'), onPress: () => { setLoading(true); load(); } }]}
             />
           ) : (
             <EmptyState
               icon="⚽"
-              title="No tournaments yet"
-              message="Create one or join with a code."
+              title={t('tournaments.list.empty.title')}
+              message={t('tournaments.list.empty.message')}
             />
           )
         }
@@ -205,12 +231,12 @@ export function TournamentsScreen({ navigation }: Props) {
 
       <ConfirmModal
         visible={!!cancelTarget}
-        title={cancelTarget?.status === 'lobby' ? 'Delete lobby?' : 'Delete tournament?'}
-        message={cancelTarget?.status === 'lobby'
-          ? 'This lobby has not started yet. Are you sure you want to delete it?'
-          : 'This will remove the tournament from your active list. Players will no longer be able to continue it.'}
-        confirmLabel={cancelTarget?.status === 'lobby' ? 'Delete lobby' : 'Delete tournament'}
-        cancelLabel={cancelTarget?.status === 'lobby' ? 'Keep lobby' : 'Cancel'}
+        title={cancelIsLobby ? t('tournaments.list.deleteModal.lobbyTitle') : t('tournaments.list.deleteModal.tournamentTitle')}
+        message={cancelIsLobby
+          ? t('tournaments.list.deleteModal.lobbyMessage')
+          : t('tournaments.list.deleteModal.tournamentMessage')}
+        confirmLabel={cancelIsLobby ? t('tournaments.list.deleteModal.lobbyConfirm') : t('tournaments.list.deleteModal.tournamentConfirm')}
+        cancelLabel={cancelIsLobby ? t('tournaments.list.deleteModal.keepLobby') : t('common.buttons.cancel')}
         onConfirm={handleCancel}
         onCancel={() => { setCancelTarget(null); setCancelError(''); }}
         loading={cancelling}
@@ -220,10 +246,10 @@ export function TournamentsScreen({ navigation }: Props) {
 
       <ConfirmModal
         visible={!!hideTarget}
-        title="Remove tournament?"
-        message="This will remove it from your list. Your result/history will stay saved."
-        confirmLabel="Remove"
-        cancelLabel="Cancel"
+        title={t('tournaments.list.hideModal.title')}
+        message={t('tournaments.list.hideModal.message')}
+        confirmLabel={t('tournaments.list.hideModal.confirm')}
+        cancelLabel={t('common.buttons.cancel')}
         onConfirm={handleHide}
         onCancel={() => { setHideTarget(null); setHideError(''); }}
         loading={hiding}
@@ -241,6 +267,13 @@ function createStyles(theme: ThemeTokens) {
     loadingWrap: { flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' },
     list: { padding: spacing.md, paddingBottom: spacing.xl, flexGrow: 1 },
     actions: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+    unavailableCard: {
+      backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border,
+      padding: spacing.md, marginBottom: spacing.md,
+    },
+    unavailableTitle: { fontSize: 15, fontWeight: '700', color: theme.text, marginBottom: 2 },
+    unavailableBody: { fontSize: 13, color: theme.textSecondary, lineHeight: 19 },
+    unavailableHint: { fontSize: 12, color: theme.textMuted, marginTop: spacing.xs },
     actionBtn: { flex: 1, marginBottom: 0 },
     sectionHeader: { paddingBottom: spacing.xs, paddingTop: spacing.sm },
     sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase' },

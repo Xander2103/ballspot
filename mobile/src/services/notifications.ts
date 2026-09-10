@@ -1,19 +1,26 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { notificationsApi, type NotificationSettings } from '../api/notificationsApi';
+import { translate } from '../i18n/core';
 
 export type PermissionStatus = 'granted' | 'denied' | 'undetermined' | 'unsupported';
 
-const COPY = {
-  daily: {
-    title: 'Daily Ball Challenge',
-    body: 'Your challenge is waiting. Make your guess before the day ends.',
-  },
-  tournament: {
-    title: 'Tournament waiting',
-    body: 'Your friends are waiting for your next guess.',
-  },
-};
+/**
+ * Reminder copy is resolved at schedule time (not module load) so a reminder
+ * scheduled after a language change is delivered in the app's language.
+ */
+function reminderCopy() {
+  return {
+    daily: {
+      title: translate('notifications.reminders.dailyTitle'),
+      body: translate('notifications.reminders.dailyBody'),
+    },
+    tournament: {
+      title: translate('notifications.reminders.tournamentTitle'),
+      body: translate('notifications.reminders.tournamentBody'),
+    },
+  };
+}
 
 let handlerConfigured = false;
 
@@ -134,6 +141,7 @@ async function syncSchedules(state: ScheduleState): Promise<void> {
 
   const { hour, minute } = parseReminderTime(state.settings.reminder_time);
   const daily = { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute } as const;
+  const copy = reminderCopy();
 
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
@@ -142,11 +150,11 @@ async function syncSchedules(state: ScheduleState): Promise<void> {
     // schedule the local daily reminder too — the user would be notified twice.
     const serverOwnsDaily = state.settings.daily_reminder_push_active === true;
     if (state.settings.daily_reminder_enabled && !state.dailyCompleted && !serverOwnsDaily) {
-      await Notifications.scheduleNotificationAsync({ content: COPY.daily, trigger: daily });
+      await Notifications.scheduleNotificationAsync({ content: copy.daily, trigger: daily });
     }
 
     if (state.settings.tournament_reminder_enabled && state.hasPendingTournament) {
-      await Notifications.scheduleNotificationAsync({ content: COPY.tournament, trigger: daily });
+      await Notifications.scheduleNotificationAsync({ content: copy.tournament, trigger: daily });
     }
   } catch {
     // Scheduling unavailable on this platform/build — degrade silently.

@@ -9,8 +9,8 @@ import { completeLogin } from '../app/authFlow';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import { getApiErrorMessage } from '../utils/apiError';
 import { mapAuthError } from '../utils/authErrors';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LoginVerification'>;
 
@@ -20,6 +20,7 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
   const { verificationId, email } = route.params;
   const { theme, setTheme } = useTheme();
   const styles = createStyles(theme);
+  const { t } = useI18n();
 
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -32,8 +33,8 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
 
   // Autofocus the code field.
   useEffect(() => {
-    const t = setTimeout(() => inputRef.current?.focus(), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
   }, []);
 
   // Resend cooldown ticker.
@@ -45,7 +46,7 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
 
   async function handleVerify() {
     if (code.length !== 6) {
-      setError('Enter the 6-digit code.');
+      setError(t('errors.validation.codeRequired'));
       return;
     }
     setVerifying(true);
@@ -57,7 +58,7 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
       navigation.reset({ index: 0, routes: [{ name: target }] });
     } catch (e: unknown) {
       // wrong / expired / locked / session gone — each gets its own sentence.
-      const info = mapAuthError(e, 'Invalid or expired verification code.');
+      const info = mapAuthError(e, t('errors.verification.invalidOrExpired'));
       setError(info.message);
       setCode('');
       setVerifying(false);
@@ -76,13 +77,13 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
     setNotice('');
     try {
       await authApi.resendLoginCode({ verification_id: verificationId });
-      setNotice('A new code has been sent to your email.');
+      setNotice(t('auth.loginVerification.resent'));
       setCooldown(RESEND_COOLDOWN);
     } catch (e: unknown) {
       // Expired/invalid session → the user must start over.
-      const msg = getApiErrorMessage(e, 'Could not resend the code. Please try again in a moment.');
-      setError(msg);
-      if (/login again/i.test(msg)) {
+      const info = mapAuthError(e, t('auth.verification.resendFailed'));
+      setError(info.message);
+      if (info.code === 'two_factor_session_invalid' || info.code === 'two_factor_code_expired' || /login again/i.test(info.message)) {
         setTimeout(() => navigation.goBack(), 1200);
       }
     } finally {
@@ -92,9 +93,9 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.title}>Check your email</Text>
+      <Text style={styles.title}>{t('auth.verification.checkEmail')}</Text>
       <Text style={styles.subtitle}>
-        Enter the 6-digit code we sent{email ? ` to ${email}` : ' you'}.
+        {email ? t('auth.loginVerification.subtitleTo', { email }) : t('auth.loginVerification.subtitle')}
       </Text>
 
       <TextInput
@@ -116,7 +117,7 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
       <AppButton
-        title="Verify and continue"
+        title={t('auth.loginVerification.verify')}
         onPress={handleVerify}
         loading={verifying}
         disabled={code.length !== 6 || verifying}
@@ -125,12 +126,12 @@ export function LoginVerificationScreen({ route, navigation }: Props) {
 
       <Pressable onPress={handleResend} disabled={cooldown > 0 || resending} hitSlop={8} style={styles.resend}>
         <Text style={[styles.resendText, (cooldown > 0 || resending) && styles.resendDisabled]}>
-          {cooldown > 0 ? `Resend code in ${cooldown}s` : resending ? 'Sending…' : 'Resend code'}
+          {cooldown > 0 ? t('auth.verification.resendIn', { seconds: cooldown }) : resending ? t('common.states.sending') : t('auth.verification.resend')}
         </Text>
       </Pressable>
 
       <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.back}>
-        <Text style={styles.backText}>Back to login</Text>
+        <Text style={styles.backText}>{t('auth.backToLogin')}</Text>
       </Pressable>
     </Screen>
   );

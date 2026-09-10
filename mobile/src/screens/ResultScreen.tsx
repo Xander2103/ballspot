@@ -17,15 +17,17 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { GuessResult } from '../types/guess';
 import { CurrentRoundResponse } from '../types/challenge';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
-function getScoreRating(score: number): string {
-  if (score >= 90) return 'Perfect spot!';
-  if (score >= 70) return 'Very close!';
-  if (score >= 40) return 'Not bad';
-  if (score >= 1) return 'Far away';
-  return 'Missed!';
+/** Translation key for the score headline (resolved with t() in the component). */
+function getScoreRatingKey(score: number): string {
+  if (score >= 90) return 'game.result.rating.perfect';
+  if (score >= 70) return 'game.result.rating.veryClose';
+  if (score >= 40) return 'game.result.rating.notBad';
+  if (score >= 1) return 'game.result.rating.farAway';
+  return 'game.result.rating.missed';
 }
 
 function getScoreColor(score: number): string {
@@ -35,17 +37,20 @@ function getScoreColor(score: number): string {
   return colors.error;
 }
 
-function getDistanceFeedback(distance: number): string {
+/** Translation key for the distance feedback, or '' when the distance is unusable. */
+function getDistanceFeedbackKey(distance: number): string {
   if (!Number.isFinite(distance)) return '';
-  if (distance <= 0.03) return 'Right on it!';
-  if (distance <= 0.10) return 'Very close';
-  if (distance <= 0.25) return 'A bit off';
-  return 'Way off';
+  if (distance <= 0.03) return 'game.result.distance.rightOnIt';
+  if (distance <= 0.10) return 'game.result.distance.veryClose';
+  if (distance <= 0.25) return 'game.result.distance.bitOff';
+  return 'game.result.distance.wayOff';
 }
 
 export function ResultScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { roundId, leagueId, imageUrl, leagueName, categoryName, challengeTitle, newBadges, rankProgress, rankUp, tournamentCompletion } = route.params;
+  const routeSportSlug = route.params.sportSlug ?? null;
+  const { t } = useI18n();
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [nextRound, setNextRound] = useState<CurrentRoundResponse | null>(null);
@@ -88,18 +93,18 @@ export function ResultScreen({ route, navigation }: Props) {
       <Screen padding>
         <Text style={{ color: colors.text }}>
           {loadError === 'network'
-            ? 'Could not load this result. Check your connection.'
-            : 'No result found for this round.'}
+            ? t('game.result.loadNetworkError')
+            : t('game.result.notFound')}
         </Text>
         {loadError === 'network' ? (
           <AppButton
-            title="Try again"
+            title={t('common.buttons.tryAgain')}
             onPress={() => setReloadKey((k) => k + 1)}
             style={{ marginTop: spacing.lg }}
           />
         ) : null}
         <AppButton
-          title="Back Home"
+          title={t('game.buttons.backHome')}
           onPress={() => goHome(navigation)}
           variant={loadError === 'network' ? 'secondary' : 'primary'}
           style={{ marginTop: spacing.sm }}
@@ -109,8 +114,9 @@ export function ResultScreen({ route, navigation }: Props) {
   }
 
   const scoreColor = getScoreColor(result.score);
-  const rating = getScoreRating(result.score);
-  const distanceFeedback = getDistanceFeedback(result.distance);
+  const rating = t(getScoreRatingKey(result.score));
+  const distanceFeedbackKey = getDistanceFeedbackKey(result.distance);
+  const distanceFeedback = distanceFeedbackKey ? t(distanceFeedbackKey) : '';
   const displayImageUrl = result.reveal_image_url ?? imageUrl;
   const isRevealImage = !!result.reveal_image_url;
 
@@ -126,12 +132,12 @@ export function ResultScreen({ route, navigation }: Props) {
         {categoryName ? (
           <Text style={styles.categoryLabel}>{categoryName}</Text>
         ) : null}
-        <Text style={styles.scoreLabel}>Your Score</Text>
+        <Text style={styles.scoreLabel}>{t('game.result.yourScore')}</Text>
         <Text style={[styles.score, { color: scoreColor }]}>{result.score}</Text>
         <Text style={styles.rating}>{rating}</Text>
         <View style={styles.distanceRow}>
           <Text style={styles.distanceValue}>
-            {Number.isFinite(result.distance) ? `${(result.distance * 100).toFixed(1)}% away` : '—'}
+            {Number.isFinite(result.distance) ? t('game.result.away', { percent: (result.distance * 100).toFixed(1) }) : '—'}
           </Text>
           {distanceFeedback ? (
             <Text style={styles.distanceFeedback}> · {distanceFeedback}</Text>
@@ -150,10 +156,11 @@ export function ResultScreen({ route, navigation }: Props) {
           ballXRatio={result.ball_x_ratio}
           ballYRatio={result.ball_y_ratio}
           title={challengeTitle ?? null}
+          sportSlug={result.sport?.slug ?? routeSportSlug}
         />
       ) : (
         <View style={styles.noImage}>
-          <Text style={styles.noImageText}>Image unavailable</Text>
+          <Text style={styles.noImageText}>{t('game.image.unavailable')}</Text>
         </View>
       )}
 
@@ -180,11 +187,11 @@ export function ResultScreen({ route, navigation }: Props) {
           nextRound?.reason !== 'daily_limit_reached';
 
         const doneMessage = nextRound?.reason === 'daily_limit_reached'
-          ? "You're done for today — come back tomorrow."
+          ? t('game.result.doneForToday')
           : nextRound?.completed
-            ? "You've completed all rounds!"
+            ? t('game.result.completedAll')
             : nextRound !== null
-              ? "No more rounds available right now."
+              ? t('game.result.noMoreRounds')
               : null;
 
         return (
@@ -194,13 +201,13 @@ export function ResultScreen({ route, navigation }: Props) {
             ) : null}
             {hasNextRound ? (
               <AppButton
-                title="Play Next Round"
+                title={t('game.buttons.playNextRound')}
                 onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
                 style={styles.nextBtn}
               />
             ) : null}
             <AppButton
-              title="Back to Tournament"
+              title={t('game.buttons.backToTournament')}
               onPress={() => navigation.navigate('LeagueDetail', { leagueId, leagueName })}
               variant={hasNextRound ? 'secondary' : 'primary'}
               style={hasNextRound ? undefined : styles.nextBtn}

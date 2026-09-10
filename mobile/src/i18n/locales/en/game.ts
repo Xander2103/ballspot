@@ -1,0 +1,138 @@
+/**
+ * Shared guessing / result UI: image picker + fullscreen viewer, tournament
+ * round guess & result screens, rank/badge feedback cards, leaderboard list.
+ * (Rivalry lines live under tournaments.rivalry.)
+ */
+export const game = {
+  buttons: {
+    backHome: 'Back Home',
+    submitGuess: 'Submit Guess',
+    playNextRound: 'Play Next Round',
+    backToTournament: 'Back to Tournament',
+  },
+  alerts: {
+    errorTitle: 'Error',
+  },
+  /** The object being searched for, per sport (guess marker legend). */
+  sportObject: {
+    football: 'football',
+    basketball: 'basketball',
+    tennis: 'tennis ball',
+    padel: 'padel ball',
+    golf: 'golf ball',
+    hockey: 'puck',
+    baseball: 'baseball',
+    volleyball: 'volleyball',
+    american_football: 'american football',
+    cricket: 'cricket ball',
+    table_tennis: 'ping pong ball',
+  },
+  image: {
+    unavailable: 'Image unavailable',
+    viewFullscreen: '⛶  View fullscreen',
+    viewFullscreenA11y: 'View fullscreen',
+    openFullscreenA11y: 'Open image fullscreen',
+    closeFullscreenA11y: 'Close fullscreen image',
+    tapToPlace: 'Tap the image to place your guess',
+    tapToAdjust: 'Tap again to adjust your guess',
+  },
+  guess: {
+    instruction: 'Tap the image to place the missing ball.',
+    lockBeforeSubmit: 'Tap the image to lock your guess before submitting.',
+    locked: 'Guess locked at {{x}}%, {{y}}%',
+    submitError: 'Failed to submit guess. Please try again.',
+    round: 'Round {{number}}',
+    roundOf: 'Round {{number}} of {{total}}',
+    lastRound: 'Last round!',
+    bonusRound: 'Bonus round',
+    moreRounds_one: '{{count}} more round after this',
+    moreRounds_other: '{{count}} more rounds after this',
+    todayPlayed: 'Today: {{played}}/{{total}} played',
+    lastRoundToday: 'Last round available today',
+    roundsLeftToday_one: '{{count}} round left today',
+    roundsLeftToday_other: '{{count}} rounds left today',
+    alerts: {
+      invalidRound: 'Invalid round — missing league or round ID.',
+      unavailableTitle: 'Round unavailable',
+      unavailable: 'This round is no longer available. It may already be played.',
+      connectionTitle: 'Connection problem',
+      connection: 'Could not load this round. Check your connection and try again.',
+    },
+  },
+  result: {
+    yourScore: 'Your Score',
+    away: '{{percent}}% away',
+    rating: {
+      perfect: 'Perfect spot!',
+      veryClose: 'Very close!',
+      notBad: 'Not bad',
+      farAway: 'Far away',
+      missed: 'Missed!',
+    },
+    distance: {
+      rightOnIt: 'Right on it!',
+      veryClose: 'Very close',
+      bitOff: 'A bit off',
+      wayOff: 'Way off',
+    },
+    revealHint: 'Reveal photo — the real ball is visible in the image',
+    legend: {
+      yourGuess: 'Your guess',
+      ballPosition: 'Ball position',
+      revealHint: 'Your ghost ball shows your guess. The real ball is visible in the photo.',
+      approxHint: 'The marker shows the approximate ball position.',
+    },
+    loadNetworkError: 'Could not load this result. Check your connection.',
+    notFound: 'No result found for this round.',
+    doneForToday: "You're done for today — come back tomorrow.",
+    completedAll: "You've completed all rounds!",
+    noMoreRounds: 'No more rounds available right now.',
+  },
+  badges: {
+    legendaryUnlocked: '🏆 Legendary badge unlocked!',
+    newUnlocked_one: '🎉 New badge unlocked!',
+    newUnlocked_other: '🎉 New badges unlocked!',
+  },
+  rankUp: {
+    kicker: 'RANK UP!',
+    reached: 'You reached {{rank}}',
+    sub: 'Level {{level}} · from {{from}}',
+  },
+  rankProgress: {
+    xpGained: '+{{xp}} XP',
+    maxLevel: '{{rank}} · Max level',
+    progress: '{{rank}} progress: {{pct}}%',
+  },
+  insight: {
+    firstToday: "🎉 You're the first to play today!",
+    comeBack: 'Come back tomorrow to climb the ranks.',
+    closerThan: '🎯 Closer than {{pct}}% of players',
+    beat: 'You beat {{pct}}% of players',
+    rankOf: '#{{rank}} of {{total}}',
+  },
+  tournamentComplete: {
+    kicker: 'Tournament complete',
+    finished: 'You finished {{placement}} of {{total}}',
+    winner: 'Tournament winner!',
+    podium: 'Podium finish',
+    ordinal: {
+      st: 'st',
+      nd: 'nd',
+      rd: 'rd',
+      th: 'th',
+    },
+  },
+  position: {
+    label: 'Your position',
+    playToJoin: 'Play to get on the board!',
+    of: 'of {{total}}',
+    betterThan: 'Better than {{pct}}% of players',
+    ptsThisWeek: '{{score}} pts this week',
+  },
+  leaderboard: {
+    youSuffix: '(you)',
+    rowStats: 'avg {{avg}} · {{count}} rounds',
+    emptyTitle: 'No scores yet',
+    emptyText: 'Play some rounds to see the leaderboard!',
+  },
+};

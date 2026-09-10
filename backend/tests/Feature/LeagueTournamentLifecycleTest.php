@@ -96,14 +96,15 @@ class LeagueTournamentLifecycleTest extends TestCase
         Sport::firstOrCreate(['slug' => 'football'], ['name' => 'Football']);
         // No challenges
 
-        $createRes = $this->withToken($token)->postJson('/api/leagues', [
+        // With no eligible photos the lobby is refused up front, with the
+        // structured "temporarily unavailable" body (never a bare 422).
+        $this->withToken($token)->postJson('/api/leagues', [
             'name' => 'Test', 'duration_days' => 7, 'rounds_per_day' => 1,
-        ]);
-        $leagueId = $createRes->json('data.id');
-
-        $res = $this->withToken($token)->postJson("/api/leagues/{$leagueId}/start");
-        $res->assertStatus(422);
-        $res->assertJsonPath('message', 'No active Football challenges available. Add challenges in admin.');
+        ])->assertStatus(422)
+          ->assertJsonPath('code', 'TOURNAMENTS_TEMPORARILY_UNAVAILABLE')
+          ->assertJsonPath('reason', 'INSUFFICIENT_TOURNAMENT_CHALLENGES')
+          ->assertJsonPath('available', 0);
+        $this->assertSame(0, \App\Models\League::count());
     }
 
     public function test_users_can_join_lobby_tournament(): void

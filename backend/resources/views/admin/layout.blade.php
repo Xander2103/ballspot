@@ -48,6 +48,8 @@
            href="/admin/settings">Settings</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/diagnostics*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/diagnostics">Diagnostics</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/media-export*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/media-export">Media Export</a>
         <span class="text-secondary small ms-auto me-3">{{ config('ballspot.version', 'v1') }}</span>
         <form action="{{ route('admin.logout') }}" method="POST" class="mb-0">
             @csrf

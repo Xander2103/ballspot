@@ -5,6 +5,8 @@ export interface SportSummary {
   name: string;
   emoji: string;
   primary_color: string;
+  /** "ball", "puck", … (admin-configured). */
+  object_name?: string | null;
 }
 
 export interface ChallengeTag {
@@ -55,6 +57,8 @@ export interface DailyGuessResult {
   better_than_percentage: number;
   // Optional: badges newly unlocked by this guess (see gamification).
   new_badges?: Badge[];
+  /** The challenge's sport (marker object on the result screen). */
+  sport?: SportSummary | null;
 }
 
 export interface WeeklyLeaderboardEntry {

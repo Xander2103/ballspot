@@ -1,6 +1,7 @@
 import { authApi } from '../api/authApi';
 import { tokenStorage } from '../storage/tokenStorage';
 import { isThemeName, ThemeName } from '../theme/themes';
+import { setLocale } from '../i18n/core';
 
 type ApplyTheme = (name: ThemeName, opts?: { sync?: boolean }) => void;
 
@@ -15,6 +16,9 @@ export async function applyProfileAndRoute(applyTheme: ApplyTheme): Promise<'Hom
     if (me.selected_theme && isThemeName(me.selected_theme)) {
       applyTheme(me.selected_theme, { sync: false });
     }
+    // The account's language wins over the device/register choice (fallback
+    // order rule 1). Unsupported values are ignored by setLocale.
+    setLocale(me.preferred_language);
     return me.preferred_sport ? 'Home' : 'SportSelection';
   } catch {
     return 'Home';

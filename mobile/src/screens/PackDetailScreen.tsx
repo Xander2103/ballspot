@@ -12,12 +12,14 @@ import { isPackAlreadyCompleted } from '../types/pack';
 import type { ChallengePackDetail, PackAttemptState, PackCompletionSummary } from '../types/pack';
 import { getApiErrorMessage } from '../utils/apiError';
 import { formatPct } from '../utils/packCompletion';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackDetail'>;
 
 export function PackDetailScreen({ route, navigation }: Props) {
   const { slug } = route.params;
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   const [pack, setPack] = useState<ChallengePackDetail | null>(null);
@@ -39,11 +41,11 @@ export function PackDetailScreen({ route, navigation }: Props) {
       setAttempt(attemptRes.attempt);
       setCompletion(attemptRes.completion ?? null);
     } catch (e: unknown) {
-      setError(getApiErrorMessage(e, 'Could not load this pack.'));
+      setError(getApiErrorMessage(e, t('packs.detail.loadError')));
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => { load(); }, [load]);
   // Refresh progress when returning from a play session.
@@ -69,7 +71,7 @@ export function PackDetailScreen({ route, navigation }: Props) {
         navigation.navigate('PackComplete', { slug, packName, completion: e.completion ?? completion });
         return;
       }
-      setError(getApiErrorMessage(e, 'Could not start this pack.'));
+      setError(getApiErrorMessage(e, t('packs.detail.startError')));
     } finally {
       setStarting(false);
     }
@@ -83,8 +85,8 @@ export function PackDetailScreen({ route, navigation }: Props) {
     return (
       <Screen padding>
         <View style={styles.center}>
-          <Text style={styles.emptyText}>{error || 'Pack not found.'}</Text>
-          <AppButton title="Retry" onPress={load} variant="secondary" style={styles.cta} />
+          <Text style={styles.emptyText}>{error || t('packs.detail.notFound')}</Text>
+          <AppButton title={t('common.buttons.retry')} onPress={load} variant="secondary" style={styles.cta} />
         </View>
       </Screen>
     );
@@ -111,34 +113,35 @@ export function PackDetailScreen({ route, navigation }: Props) {
         <Text style={styles.title}>{pack.name}</Text>
         {pack.description ? <Text style={styles.desc}>{pack.description}</Text> : null}
         <View style={styles.metaRow}>
-          <Text style={styles.metaChip}>{pack.sport?.name ?? 'All sports'}</Text>
-          <Text style={styles.metaChip}>{count} {count === 1 ? 'challenge' : 'challenges'}</Text>
+          <Text style={styles.metaChip}>{pack.sport?.name ?? t('packs.meta.allSports')}</Text>
+          <Text style={styles.metaChip}>{t('packs.meta.challenges', { count })}</Text>
           {pack.difficulty ? <Text style={styles.metaChip}>{cap(pack.difficulty)}</Text> : null}
-          {isCompleted ? <Text style={[styles.metaChip, styles.completedChip]}>✓ Completed</Text> : null}
-          {isActive ? <Text style={[styles.metaChip, styles.activeChip]}>In progress</Text> : null}
+          {isCompleted ? <Text style={[styles.metaChip, styles.completedChip]}>{t('packs.meta.completed')}</Text> : null}
+          {isActive ? <Text style={[styles.metaChip, styles.activeChip]}>{t('packs.meta.inProgress')}</Text> : null}
         </View>
 
         {isCompleted ? (
           // Completed packs are not replayable (the photos are known). The
           // player gets their results instead of a "Play again".
           <View style={styles.completedCard}>
-            <Text style={styles.completedTitle}>You completed this pack</Text>
+            <Text style={styles.completedTitle}>{t('packs.detail.completedTitle')}</Text>
             <Text style={styles.completedSub}>
               {completion
-                ? `${completion.total_score} / ${completion.max_score} points · ${formatPct(completion.average_pct)}${completion.trophy?.earned ? ` · ${completion.trophy.icon} trophy earned` : ''}`
-                : `${attempt!.total_score} points`}
+                ? t('packs.detail.completedSummary', { score: completion.total_score, max: completion.max_score, pct: formatPct(completion.average_pct) })
+                  + (completion.trophy?.earned ? t('packs.detail.trophyEarnedSuffix', { icon: completion.trophy.icon }) : '')
+                : t('packs.detail.pointsOnly', { score: attempt!.total_score })}
             </Text>
-            <AppButton title="View results" onPress={() => showResults(pack.name)} style={styles.cta} />
+            <AppButton title={t('packs.detail.viewResults')} onPress={() => showResults(pack.name)} style={styles.cta} />
           </View>
         ) : playable ? (
           <AppButton
-            title={isActive ? `Continue (${attempt!.completed_count}/${attempt!.total_challenges})` : 'Start Pack'}
+            title={isActive ? t('packs.detail.continue', { done: attempt!.completed_count, total: attempt!.total_challenges }) : t('packs.detail.start')}
             onPress={() => handlePlay(pack.name)}
             loading={starting}
             style={styles.cta}
           />
         ) : (
-          <Text style={styles.note}>This pack has no ready challenges yet. Check back soon.</Text>
+          <Text style={styles.note}>{t('packs.detail.noChallenges')}</Text>
         )}
         {error ? <Text style={styles.errorInline}>{error}</Text> : null}
       </View>

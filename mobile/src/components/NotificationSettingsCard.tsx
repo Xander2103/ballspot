@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Switch, TextInput, ActivityIndicator, Touchable
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { useI18n, t as translate } from '../i18n';
 import { notifications, isValidReminderTime, type PermissionStatus } from '../services/notifications';
 import { refreshRemindersFromServer } from '../services/reminderScheduler';
 import {
@@ -16,14 +17,16 @@ type ToggleKey =
   | 'tournament_reminder_enabled'
   | 'admin_notifications_enabled';
 
-const TOGGLES: { key: ToggleKey; label: string; hint: string }[] = [
-  { key: 'daily_reminder_enabled', label: 'Daily Challenge reminders', hint: 'A nudge when your daily is still waiting.' },
-  { key: 'tournament_reminder_enabled', label: 'Tournament reminders', hint: 'When a tournament needs your guess.' },
-  { key: 'admin_notifications_enabled', label: 'Announcements', hint: 'Occasional news from the BallPicker team.' },
+/** Labels resolve via t() inside the component (locale-aware). */
+const TOGGLES: { key: ToggleKey; labelKey: string; hintKey: string }[] = [
+  { key: 'daily_reminder_enabled', labelKey: 'notifications.settings.daily.label', hintKey: 'notifications.settings.daily.hint' },
+  { key: 'tournament_reminder_enabled', labelKey: 'notifications.settings.tournament.label', hintKey: 'notifications.settings.tournament.hint' },
+  { key: 'admin_notifications_enabled', labelKey: 'notifications.settings.announcements.label', hintKey: 'notifications.settings.announcements.hint' },
 ];
 
 export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = {}) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
   const cardStyle = [styles.card, flat && styles.flat];
 
@@ -46,7 +49,9 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
       setTimeInput(data.reminder_time || '19:00');
       setPerm(status);
     } catch {
-      setError('Could not load notification settings.');
+      // Module-level translate: keeps `load` stable so a language change
+      // does not re-fetch the settings.
+      setError(translate('notifications.settings.loadError'));
     } finally {
       setLoading(false);
     }
@@ -68,7 +73,7 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
       await refreshRemindersFromServer();
     } catch {
       setSettings(previous); // revert
-      setError('Could not save. Please try again.');
+      setError(translate('notifications.settings.saveError'));
     } finally {
       setSavingKey(null);
     }
@@ -86,7 +91,7 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
   function commitTime() {
     const value = timeInput.trim();
     if (!isValidReminderTime(value)) {
-      setTimeError('Enter a time as HH:mm (e.g. 19:00).');
+      setTimeError(t('notifications.settings.timeInvalid'));
       return;
     }
     setTimeError('');
@@ -106,8 +111,8 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
   if (!settings) {
     return (
       <View style={cardStyle}>
-        <Text style={styles.errorText}>{error || 'Notification settings unavailable.'}</Text>
-        <TouchableOpacity onPress={load}><Text style={styles.retry}>Retry</Text></TouchableOpacity>
+        <Text style={styles.errorText}>{error || t('notifications.settings.unavailable')}</Text>
+        <TouchableOpacity onPress={load}><Text style={styles.retry}>{t('common.buttons.retry')}</Text></TouchableOpacity>
       </View>
     );
   }
@@ -116,16 +121,16 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
     <View style={cardStyle}>
       <PermissionBanner styles={styles} perm={perm} onEnable={enablePermission} />
 
-      {TOGGLES.map((t, i) => (
-        <View key={t.key} style={[styles.row, i > 0 && styles.rowBorder]}>
+      {TOGGLES.map((toggle, i) => (
+        <View key={toggle.key} style={[styles.row, i > 0 && styles.rowBorder]}>
           <View style={styles.rowText}>
-            <Text style={styles.rowLabel}>{t.label}</Text>
-            <Text style={styles.rowHint}>{t.hint}</Text>
+            <Text style={styles.rowLabel}>{t(toggle.labelKey)}</Text>
+            <Text style={styles.rowHint}>{t(toggle.hintKey)}</Text>
           </View>
           <Switch
-            value={settings[t.key]}
-            disabled={savingKey === t.key}
-            onValueChange={(v) => persist({ [t.key]: v } as NotificationSettingsUpdate, t.key)}
+            value={settings[toggle.key]}
+            disabled={savingKey === toggle.key}
+            onValueChange={(v) => persist({ [toggle.key]: v } as NotificationSettingsUpdate, toggle.key)}
             trackColor={{ true: theme.primary, false: theme.border }}
             thumbColor={theme.surface}
           />
@@ -134,8 +139,8 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
 
       <View style={[styles.row, styles.rowBorder]}>
         <View style={styles.rowText}>
-          <Text style={styles.rowLabel}>Reminder time</Text>
-          <Text style={styles.rowHint}>When daily / tournament reminders arrive.</Text>
+          <Text style={styles.rowLabel}>{t('notifications.settings.reminderTime')}</Text>
+          <Text style={styles.rowHint}>{t('notifications.settings.reminderTimeHint')}</Text>
         </View>
         <TextInput
           style={styles.timeInput}
@@ -159,19 +164,20 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
 function PermissionBanner({
   styles, perm, onEnable,
 }: { styles: Styles; perm: PermissionStatus; onEnable: () => void }) {
+  const { t } = useI18n();
   if (perm === 'granted') {
-    return <Text style={styles.statusOk}>● Notifications enabled</Text>;
+    return <Text style={styles.statusOk}>{t('notifications.settings.enabled')}</Text>;
   }
   if (perm === 'unsupported') {
-    return <Text style={styles.statusMuted}>Reminders are delivered in the mobile app. Your preferences here still sync to your phone.</Text>;
+    return <Text style={styles.statusMuted}>{t('notifications.settings.unsupported')}</Text>;
   }
   if (perm === 'denied') {
-    return <Text style={styles.statusWarn}>Notifications are blocked in your device settings. Enable them there to receive reminders.</Text>;
+    return <Text style={styles.statusWarn}>{t('notifications.settings.denied')}</Text>;
   }
   // undetermined
   return (
     <TouchableOpacity style={styles.enableBtn} onPress={onEnable} activeOpacity={0.85}>
-      <Text style={styles.enableBtnText}>Enable notifications</Text>
+      <Text style={styles.enableBtnText}>{t('notifications.settings.enable')}</Text>
     </TouchableOpacity>
   );
 }

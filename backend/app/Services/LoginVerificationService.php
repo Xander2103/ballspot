@@ -107,14 +107,14 @@ class LoginVerificationService
 
         if (!$record || $record->isConsumed() || $record->isExpired()) {
             throw ValidationException::withMessages([
-                'verification_id' => ['Please login again.'],
+                'verification_id' => [__('messages.auth.login_again')],
             ]);
         }
 
         $cooldown = $this->resendCooldownSeconds();
         if ($record->code_sent_at->diffInSeconds(now()) < $cooldown) {
             throw ValidationException::withMessages([
-                'verification_id' => ['Please wait a moment before requesting another code.'],
+                'verification_id' => [__('messages.auth.resend_cooldown')],
             ]);
         }
 

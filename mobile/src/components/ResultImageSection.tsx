@@ -5,6 +5,8 @@ import { FullscreenImageViewer } from './FullscreenImageViewer';
 import { FullscreenButton } from './FullscreenButton';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
+import { getSportObjectIcon, getSportObjectMarkerStyle } from '../utils/sportObject';
 
 interface Props {
   imageUri: string;
@@ -16,6 +18,8 @@ interface Props {
   ballYRatio: number;
   /** Shown under the legend — safe here, the answer is already revealed. */
   title?: string | null;
+  /** Slug of the challenge's sport — marker + legend object (default football). */
+  sportSlug?: string | null;
 }
 
 function pct(ratio: number): string {
@@ -29,25 +33,26 @@ function pct(ratio: number): string {
  */
 export function ResultImageSection({
   imageUri, markers, isRevealImage,
-  guessXRatio, guessYRatio, ballXRatio, ballYRatio, title,
+  guessXRatio, guessYRatio, ballXRatio, ballYRatio, title, sportSlug,
 }: Props) {
+  const { t } = useI18n();
   const [fullscreen, setFullscreen] = useState(false);
 
   return (
     <View>
       {isRevealImage ? (
         <View style={styles.revealHint}>
-          <Text style={styles.revealHintText}>Reveal photo — the real ball is visible in the image</Text>
+          <Text style={styles.revealHintText}>{t('game.result.revealHint')}</Text>
         </View>
       ) : null}
 
       <Pressable
         onPress={() => setFullscreen(true)}
         accessibilityRole="button"
-        accessibilityLabel="Open image fullscreen"
+        accessibilityLabel={t('game.image.openFullscreenA11y')}
       >
         <View pointerEvents="none">
-          <ImageGuessPicker imageUri={imageUri} interactive={false} markers={markers} />
+          <ImageGuessPicker imageUri={imageUri} interactive={false} markers={markers} sportSlug={sportSlug} />
         </View>
       </Pressable>
 
@@ -56,10 +61,10 @@ export function ResultImageSection({
       <View style={styles.legend}>
         <View style={styles.legendRow}>
           <View style={styles.legendGhostIcon}>
-            <Text style={styles.legendGhostEmoji}>⚽</Text>
+            <Text style={[styles.legendGhostEmoji, getSportObjectMarkerStyle(sportSlug)]}>{getSportObjectIcon(sportSlug)}</Text>
           </View>
           <View>
-            <Text style={styles.legendTitle}>Your guess</Text>
+            <Text style={styles.legendTitle}>{t('game.result.legend.yourGuess')}</Text>
             <Text style={styles.legendCoord}>{pct(guessXRatio)}, {pct(guessYRatio)}</Text>
           </View>
         </View>
@@ -67,14 +72,14 @@ export function ResultImageSection({
         <View style={styles.legendRow}>
           {isRevealImage ? <View style={styles.legendGlowIcon} /> : <View style={styles.legendDefaultIcon} />}
           <View>
-            <Text style={styles.legendTitle}>Ball position</Text>
+            <Text style={styles.legendTitle}>{t('game.result.legend.ballPosition')}</Text>
             <Text style={styles.legendCoord}>{pct(ballXRatio)}, {pct(ballYRatio)}</Text>
           </View>
         </View>
         {isRevealImage ? (
-          <Text style={styles.legendHint}>Your ghost ball shows your guess. The real ball is visible in the photo.</Text>
+          <Text style={styles.legendHint}>{t('game.result.legend.revealHint')}</Text>
         ) : (
-          <Text style={styles.legendHint}>The marker shows the approximate ball position.</Text>
+          <Text style={styles.legendHint}>{t('game.result.legend.approxHint')}</Text>
         )}
         {title ? <Text style={styles.challengeTitle}>{title}</Text> : null}
       </View>

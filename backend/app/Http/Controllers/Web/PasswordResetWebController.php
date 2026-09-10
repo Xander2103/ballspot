@@ -46,10 +46,10 @@ class PasswordResetWebController extends Controller
         );
 
         [$status, $state, $message] = match ($outcome) {
-            PasswordResetFlow::COMPLETED     => [200, 'ok', 'Password updated'],
+            PasswordResetFlow::COMPLETED     => [200, 'ok', __('web.result.ok_title')],
             PasswordResetFlow::EXPIRED_TOKEN => [422, 'expired', AuthError::message(AuthError::RESET_TOKEN_EXPIRED)],
             PasswordResetFlow::FAILED        => [500, 'failed', AuthError::message(AuthError::RESET_FAILED)],
-            default                          => [422, 'invalid', PasswordResetFlow::INVALID_LINK_MESSAGE],
+            default                          => [422, 'invalid', __('messages.auth.reset_link_invalid')],
         };
 
         $view = view('public.reset-password-result', [
@@ -58,7 +58,7 @@ class PasswordResetWebController extends Controller
             'message' => $message,
             // A transient failure leaves the link valid: offer the form again.
             'retryUrl' => $state === 'failed'
-                ? route('password.reset', ['token' => $request->input('token'), 'email' => $request->input('email')])
+                ? route('password.reset', ['token' => $request->input('token'), 'email' => $request->input('email'), 'lang' => app()->getLocale()])
                 : null,
         ]);
 

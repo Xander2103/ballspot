@@ -72,6 +72,11 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     // Read-only operational status (queue, daily, content pool, storage, log
     // counts). Never runs shell commands, never shows secrets.
     Route::get('diagnostics', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'index'])->name('admin.diagnostics.index');
+
+    // Media export: filter challenge images, download one ZIP with manifests.
+    // Read-only; the ZIP is a temp file deleted after the download.
+    Route::get('media-export', [\App\Http\Controllers\Admin\MediaExportController::class, 'index'])->name('admin.media-export.index');
+    Route::post('media-export/download', [\App\Http\Controllers\Admin\MediaExportController::class, 'download'])->name('admin.media-export.download');
     // Pre-launch tool: the ONLY mutating diagnostics route. POST + CSRF +
     // admin + confirmation PIN + acknowledgement; backup before delete.
     Route::post('diagnostics/clear-daily-history', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'clearDailyHistory'])

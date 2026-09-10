@@ -4,10 +4,12 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { RankProgress } from '../types/auth';
+import { useI18n } from '../i18n';
 
 /** Small "+XP earned / rank progress" card shown after a guess. */
 export function RankProgressCard({ progress }: { progress: RankProgress }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
   const { rank } = progress;
   const pct = rank.is_max_rank ? 100 : Math.max(0, Math.min(100, rank.progress_to_next_rank_pct));
@@ -15,9 +17,11 @@ export function RankProgressCard({ progress }: { progress: RankProgress }) {
   return (
     <View style={styles.card}>
       <View style={styles.row}>
-        <Text style={styles.xp}>+{progress.xp_gained.toLocaleString('en-US')} XP</Text>
+        <Text style={styles.xp}>{t('game.rankProgress.xpGained', { xp: progress.xp_gained.toLocaleString('en-US') })}</Text>
         <Text style={styles.rank}>
-          {rank.name}{rank.is_max_rank ? ' · Max level' : ` progress: ${pct}%`}
+          {rank.is_max_rank
+            ? t('game.rankProgress.maxLevel', { rank: rank.name })
+            : t('game.rankProgress.progress', { rank: rank.name, pct })}
         </Text>
       </View>
       <View style={styles.track}>

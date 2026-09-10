@@ -300,6 +300,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Admin media export
+    |--------------------------------------------------------------------------
+    | Hard cap on files per ZIP so one click cannot tie up the web worker or
+    | fill the disk. The admin page shows the count and refuses above it.
+    */
+    'media_export' => [
+        'max_files' => (int) env('BALLPICKER_MEDIA_EXPORT_MAX_FILES', 500),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Avatar uploads
     |--------------------------------------------------------------------------
     | Profile photos are stored on the public disk. SVG is intentionally
@@ -344,6 +355,11 @@ return [
         // Old tournaments with other durations keep working; only creation is
         // restricted.
         'allowed_duration_days' => [7, 14, 30],
+
+        // Copy shown when the eligible photo pool cannot fill a tournament
+        // (lang messages.tournaments.temporarily_unavailable*). 'soon' or
+        // 'next_month' — one switch, never hardcoded per screen.
+        'unavailable_copy' => env('BALLSPOT_TOURNAMENT_UNAVAILABLE_COPY', 'soon'),
 
         // DEFAULT soft cooldown for reusing a photo in a new tournament: photos
         // any member guessed within this many days are avoided when enough

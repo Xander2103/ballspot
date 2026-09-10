@@ -95,6 +95,7 @@ class DailyChallengeController extends Controller
                 'slug'          => $dc->challenge->sport->slug,
                 'name'          => $dc->challenge->sport->name,
                 'emoji'         => $dc->challenge->sport->emoji,
+                'object_name'   => $dc->challenge->sport->object_name,
                 'primary_color' => $dc->challenge->sport->primary_color,
             ] : null,
             'tags'             => $dc->challenge->tags->map(fn($t) => [
@@ -143,7 +144,7 @@ class DailyChallengeController extends Controller
     public function guess(Request $request, DailyChallenge $dailyChallenge): JsonResponse
     {
         if ($dailyChallenge->status !== 'active') {
-            return response()->json(['message' => 'This daily challenge is not active.'], 422);
+            return response()->json(['message' => __('messages.daily.not_active')], 422);
         }
 
         // The date gate lives on the read path (`today()` scopes by date) but
@@ -153,7 +154,7 @@ class DailyChallengeController extends Controller
         // of challenge_dates played, not when they were played) and hands them
         // the monthly competition, which sums guesses by challenge_date.
         if (!$dailyChallenge->challenge_date->isToday()) {
-            return response()->json(['message' => 'This daily challenge is not available today.'], 422);
+            return response()->json(['message' => __('messages.daily.not_today')], 422);
         }
 
         $data = $request->validate([
@@ -164,7 +165,7 @@ class DailyChallengeController extends Controller
         $userId = $request->user()->id;
 
         if ($dailyChallenge->guesses()->where('user_id', $userId)->exists()) {
-            return response()->json(['message' => 'You have already played today\'s challenge.'], 422);
+            return response()->json(['message' => __('messages.daily.already_played')], 422);
         }
 
         $challenge = $dailyChallenge->challenge;
@@ -227,7 +228,7 @@ class DailyChallengeController extends Controller
         $guess = $dailyChallenge->guesses()->where('user_id', $request->user()->id)->first();
 
         if (!$guess) {
-            return response()->json(['message' => 'No guess found for this challenge.'], 404);
+            return response()->json(['message' => __('messages.daily.no_guess')], 404);
         }
 
         $challenge = $dailyChallenge->challenge;
@@ -347,6 +348,8 @@ class DailyChallengeController extends Controller
 
     private function buildGuessResult(DailyChallengeGuess $guess, Challenge $challenge, DailyChallenge $dailyChallenge): array
     {
+        $challenge->loadMissing('sport');
+
         return array_merge([
             'id'               => $guess->id,
             'score'            => $guess->score,
@@ -358,6 +361,14 @@ class DailyChallengeController extends Controller
             'reveal_image_url' => $challenge->original_image_path
                 ? asset('storage/' . $challenge->original_image_path)
                 : null,
+            // Marker object on the result screen (the challenge's sport).
+            'sport'            => $challenge->sport ? [
+                'slug'          => $challenge->sport->slug,
+                'name'          => $challenge->sport->name,
+                'emoji'         => $challenge->sport->emoji,
+                'object_name'   => $challenge->sport->object_name,
+                'primary_color' => $challenge->sport->primary_color,
+            ] : null,
         ], $this->buildRankMeta($dailyChallenge, $guess));
     }
 

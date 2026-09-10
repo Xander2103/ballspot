@@ -146,7 +146,7 @@ class PasswordResetTest extends TestCase
         $mail = (new ResetPasswordNotification('sample-token-123'))->toMail($user);
 
         $this->assertSame(
-            'http://localhost:8081/reset-password?token=sample-token-123&email=reset%40example.com',
+            'http://localhost:8081/reset-password?token=sample-token-123&email=reset%40example.com&lang=en',
             $mail->actionUrl
         );
         $this->assertStringContainsString('token=sample-token-123', $mail->actionUrl);
@@ -164,7 +164,7 @@ class PasswordResetTest extends TestCase
         $mail = (new ResetPasswordNotification('tok'))->toMail($user);
 
         $this->assertSame(
-            'https://ballpicker.app/reset?token=tok&email=reset%40example.com',
+            'https://ballpicker.app/reset?token=tok&email=reset%40example.com&lang=en',
             $mail->actionUrl
         );
     }

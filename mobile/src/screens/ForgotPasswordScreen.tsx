@@ -9,10 +9,12 @@ import { authApi } from '../api/authApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { getApiErrorMessage, isNetworkError } from '../utils/apiError';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForgotPassword'>;
 
 export function ForgotPasswordScreen({ navigation }: Props) {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -22,7 +24,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
     if (loading) return;
     const trimmed = email.trim();
     if (!trimmed) {
-      setError('Please enter your email address.');
+      setError(t('auth.forgotPassword.emailRequired'));
       return;
     }
     setLoading(true);
@@ -36,7 +38,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
     } catch (e: unknown) {
       const status = (e as { status?: number })?.status;
       if (isNetworkError(e) || status === 429 || status === 422 || (status ?? 0) >= 500) {
-        setError(getApiErrorMessage(e, 'We could not send the reset email right now. Please try again.'));
+        setError(getApiErrorMessage(e, t('auth.forgotPassword.failed')));
       } else {
         setSent(true);
       }
@@ -50,22 +52,21 @@ export function ForgotPasswordScreen({ navigation }: Props) {
       <Screen scroll padding>
         <View style={styles.confirmBox}>
           <Text style={styles.confirmIcon}>📧</Text>
-          <Text style={styles.title}>Check your email</Text>
+          <Text style={styles.title}>{t('auth.verification.checkEmail')}</Text>
           <Text style={styles.body}>
-            If an account exists for{'\n'}
+            {t('auth.forgotPassword.sentPrefix')}{'\n'}
             <Text style={styles.email}>{email.trim()}</Text>,{'\n'}
-            we've sent a link to reset your password.
+            {t('auth.forgotPassword.sentSuffix')}
           </Text>
           <Text style={styles.hint}>
-            Open the link on any device to choose a new password, or copy the link and paste it on the next screen.
-            The link expires after a while — if it stops working, request a new one here.
+            {t('auth.forgotPassword.sentHint')}
           </Text>
           <AppButton
-            title="I have the link"
+            title={t('auth.forgotPassword.haveLink')}
             onPress={() => navigation.navigate('ResetPassword', { email: email.trim() })}
             style={styles.btn}
           />
-          <AppButton title="Back to login" variant="secondary" onPress={() => navigation.navigate('Login')} />
+          <AppButton title={t('auth.backToLogin')} variant="secondary" onPress={() => navigation.navigate('Login')} />
         </View>
       </Screen>
     );
@@ -73,13 +74,13 @@ export function ForgotPasswordScreen({ navigation }: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.title}>Forgot password?</Text>
+      <Text style={styles.title}>{t('auth.forgotPassword.title')}</Text>
       <Text style={styles.body}>
-        Enter the email for your account and we'll send you a link to reset your password.
+        {t('auth.forgotPassword.intro')}
       </Text>
       {error ? <Text style={styles.formError}>{error}</Text> : null}
       <AppInput
-        label="Email"
+        label={t('common.labels.email')}
         value={email}
         onChangeText={(t) => { setEmail(t); setError(''); }}
         keyboardType="email-address"
@@ -88,8 +89,8 @@ export function ForgotPasswordScreen({ navigation }: Props) {
         returnKeyType="send"
         onSubmitEditing={handleSubmit}
       />
-      <AppButton title="Send reset link" onPress={handleSubmit} loading={loading} style={styles.btn} />
-      <AppButton title="Back to login" variant="secondary" onPress={() => navigation.goBack()} disabled={loading} />
+      <AppButton title={t('auth.forgotPassword.submit')} onPress={handleSubmit} loading={loading} style={styles.btn} />
+      <AppButton title={t('auth.backToLogin')} variant="secondary" onPress={() => navigation.goBack()} disabled={loading} />
     </Screen>
   );
 }

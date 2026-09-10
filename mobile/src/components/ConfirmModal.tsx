@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-n
 import { AppButton } from './AppButton';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 interface Props {
   visible: boolean;
@@ -23,14 +24,17 @@ export function ConfirmModal({
   visible,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   onConfirm,
   onCancel,
   destructive = false,
   loading = false,
   errorText,
 }: Props) {
+  const { t } = useI18n();
+  const confirmText = confirmLabel ?? t('common.buttons.confirm');
+  const cancelText = cancelLabel ?? t('common.buttons.cancel');
   // Never dismiss the dialog while the confirm action is running.
   const dismiss = loading ? () => {} : onCancel;
   return (
@@ -44,14 +48,14 @@ export function ConfirmModal({
               {errorText ? <Text style={styles.error}>{errorText}</Text> : null}
               <View style={styles.buttons}>
                 <AppButton
-                  title={cancelLabel}
+                  title={cancelText}
                   onPress={onCancel}
                   variant="secondary"
                   disabled={loading}
                   style={styles.btn}
                 />
                 <AppButton
-                  title={confirmLabel}
+                  title={confirmText}
                   onPress={onConfirm}
                   variant={destructive ? 'danger' : 'primary'}
                   loading={loading}

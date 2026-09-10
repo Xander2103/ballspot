@@ -3,6 +3,7 @@ import { Pressable, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/useTheme';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 interface Props {
   onPress: () => void;
@@ -19,6 +20,7 @@ interface Props {
 /** The single "View fullscreen" button. Used by every image surface. */
 export function FullscreenButton({ onPress, variant = 'themed', compact = false }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const surface = variant === 'static' ? colors.surface : theme.surface;
   const border  = variant === 'static' ? colors.border  : theme.border;
   const accent  = variant === 'static' ? colors.primary : theme.primary;
@@ -32,10 +34,10 @@ export function FullscreenButton({ onPress, variant = 'themed', compact = false 
         { backgroundColor: surface, borderColor: border },
       ]}
       accessibilityRole="button"
-      accessibilityLabel="View fullscreen"
+      accessibilityLabel={t('game.image.viewFullscreenA11y')}
     >
       <Text style={[styles.text, compact && styles.textCompact, { color: accent }]}>
-        ⛶  View fullscreen
+        {t('game.image.viewFullscreen')}
       </Text>
     </Pressable>
   );

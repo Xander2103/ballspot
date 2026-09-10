@@ -40,6 +40,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Baseline security headers on every response.
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+
+        // Language for every translated string (validation, AuthError copy,
+        // web reset pages). Emails follow the recipient's own preference.
+        $middleware->api(prepend: [\App\Http\Middleware\SetLocale::class]);
+        $middleware->web(append: [\App\Http\Middleware\SetLocale::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         // Clean, consistent 429 JSON for the app (never an HTML error page).
@@ -48,7 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 $retryAfter = (int) ($e->getHeaders()['Retry-After'] ?? 60);
 
                 return response()->json([
-                    'message'     => "Too many requests. Please try again in {$retryAfter} seconds.",
+                    'message'     => __('messages.rate_limited', ['seconds' => $retryAfter]),
                     'retry_after' => $retryAfter,
                 ], 429, $e->getHeaders());
             }

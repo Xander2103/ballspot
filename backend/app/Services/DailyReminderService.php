@@ -76,12 +76,15 @@ class DailyReminderService
                     ->update(['last_daily_reminder_date' => $today]);
 
                 $messages = [];
+                $app = (string) config('ballspot.app_name', 'BallPicker');
                 foreach ($due as $setting) {
+                    // Copy in the recipient's own language (HasLocalePreference).
+                    $locale = $setting->user->preferredLocale();
                     foreach ($setting->user->pushTokens as $pushToken) {
                         $messages[] = [
                             'to'    => $pushToken->token,
-                            'title' => 'Daily Challenge',
-                            'body'  => "Today's BallPicker daily is still waiting for you ⚽",
+                            'title' => __('messages.push.daily_reminder_title', [], $locale),
+                            'body'  => __('messages.push.daily_reminder_body', ['app' => $app], $locale),
                             'sound' => 'default',
                         ];
                     }

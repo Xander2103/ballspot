@@ -46,6 +46,15 @@ class LeagueService
 
         $sport = $this->resolveSport($data, $userId);
 
+        // Never open a lobby that can never start: the pool must already hold
+        // enough unique tournament-eligible photos for this length.
+        $check = app(TournamentAvailabilityService::class)->check($sport, (int) $data['duration_days'], 1);
+        if (!$check['available']) {
+            TournamentAvailabilityService::throw($check['required'], $check['available_challenges'], [
+                'user_id' => $userId, 'sport_id' => (int) $sport->id, 'stage' => 'create',
+            ]);
+        }
+
         $league = League::create([
             'name'           => $data['name'],
             'join_code'      => $this->generateJoinCode(),
@@ -98,7 +107,10 @@ class LeagueService
         return Sport::where('slug', 'football')->firstOrFail();
     }
 
-    /** Shown (422) when a tournament cannot be filled with unique eligible photos. */
+    /**
+     * Legacy admin-facing sentence. The API now answers with the structured
+     * TournamentAvailabilityService body instead (friendly copy + code).
+     */
     public const NOT_ENOUGH_CHALLENGES_MESSAGE =
         'Not enough unused tournament challenges available. Add more tournament photos first.';
 
@@ -206,7 +218,9 @@ class LeagueService
                 'requested_count' => $total,
                 'eligible_count'  => $challenges->count(),
             ]);
-            abort(422, self::NOT_ENOUGH_CHALLENGES_MESSAGE);
+            TournamentAvailabilityService::throw($total, $challenges->count(), [
+                'league_id' => $league->id, 'user_id' => $userId, 'sport_id' => (int) $league->sport_id, 'stage' => 'start',
+            ]);
         }
 
         foreach ($challenges as $i => $challenge) {

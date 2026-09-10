@@ -45,7 +45,10 @@ final class AuthError
     public const RESET_TOKEN_EXPIRED = 'reset_token_expired';
     public const RESET_FAILED        = 'reset_failed';
 
-    /** Friendly copy per code — the single source of truth for API messages. */
+    /**
+     * English copy per code — kept as the last-resort fallback. The rendered
+     * sentence comes from lang/<locale>/auth_codes.php (see message()).
+     */
     public const MESSAGES = [
         self::EMAIL_TAKEN        => 'An account with this email already exists. Please log in or reset your password.',
         self::USERNAME_TAKEN     => 'This username is already taken.',
@@ -67,9 +70,15 @@ final class AuthError
         self::RESET_FAILED        => 'We could not reset your password right now. Please try again in a moment.',
     ];
 
+    /** Translated sentence for a code in the current app locale. */
     public static function message(string $code): string
     {
-        return self::MESSAGES[$code] ?? 'Something went wrong. Please try again.';
+        $key = 'auth_codes.' . $code;
+        if (\Illuminate\Support\Facades\Lang::has($key)) {
+            return __($key);
+        }
+
+        return self::MESSAGES[$code] ?? __('auth_codes.unknown');
     }
 
     /**

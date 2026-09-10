@@ -3,11 +3,16 @@ import { View, Text, StyleSheet } from 'react-native';
 import type { TournamentCompletion } from '../types/guess';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n, type TranslateParams } from '../i18n';
 
-function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
+type Translate = (key: string, params?: TranslateParams) => string;
+
+/** "1st", "2nd", "3rd", "4th", "11th", "21st" … with a translatable suffix. */
+function ordinal(t: Translate, n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'] as const;
   const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+  const suffix = s[(v - 20) % 10] ?? s[v] ?? s[0];
+  return n + t(`game.tournamentComplete.ordinal.${suffix}`);
 }
 
 function medal(placement: number): string {
@@ -22,6 +27,7 @@ function medal(placement: number): string {
  * finished the tournament. Placement + XP; podium finishes feel special.
  */
 export function TournamentCompletionCard({ completion }: { completion: TournamentCompletion }) {
+  const { t } = useI18n();
   if (!completion?.is_completed) return null;
 
   const { placement, total_players, xp_awarded } = completion;
@@ -29,21 +35,21 @@ export function TournamentCompletionCard({ completion }: { completion: Tournamen
   const accent = placement === 1 ? colors.warning : isPodium ? colors.accent : colors.textSecondary;
 
   const subtitle = placement === 1
-    ? 'Tournament winner!'
+    ? t('game.tournamentComplete.winner')
     : isPodium
-      ? 'Podium finish'
-      : 'Tournament complete';
+      ? t('game.tournamentComplete.podium')
+      : t('game.tournamentComplete.kicker');
 
   return (
     <View style={[styles.card, { borderColor: accent + '80' }]}>
-      <Text style={styles.kicker}>Tournament complete</Text>
+      <Text style={styles.kicker}>{t('game.tournamentComplete.kicker')}</Text>
       <Text style={styles.medal}>{medal(placement)}</Text>
       <Text style={[styles.placement, { color: accent }]}>
-        You finished {ordinal(placement)} of {total_players}
+        {t('game.tournamentComplete.finished', { placement: ordinal(t, placement), total: total_players })}
       </Text>
       <Text style={styles.subtitle}>{subtitle}</Text>
       {xp_awarded > 0 ? (
-        <Text style={styles.xp}>+{xp_awarded.toLocaleString('en-US')} XP</Text>
+        <Text style={styles.xp}>{t('game.rankProgress.xpGained', { xp: xp_awarded.toLocaleString('en-US') })}</Text>
       ) : null}
     </View>
   );

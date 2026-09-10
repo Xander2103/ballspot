@@ -10,6 +10,8 @@ export interface Challenge {
   difficulty: 'easy' | 'medium' | 'hard';
   hidden_image_url: string;
   category: ChallengeCategory | null;
+  /** The challenge's own sport (drives the guess marker). Older backends omit it. */
+  sport?: { slug: string; name: string; emoji: string; object_name?: string | null; primary_color?: string | null } | null;
 }
 
 export interface LeagueRound {

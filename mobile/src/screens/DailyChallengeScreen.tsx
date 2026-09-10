@@ -14,6 +14,7 @@ import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { DailyChallengeEntry } from '../types/daily';
 import { getApiErrorMessage } from '../utils/apiError';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyChallenge'>;
 
@@ -27,6 +28,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { dailyChallengeId } = route.params;
   const { theme } = useTheme();
+  const { t, locale } = useI18n();
   const styles = createStyles(theme);
 
   const [challenge, setChallenge] = useState<DailyChallengeEntry | null>(null);
@@ -50,8 +52,8 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         }
 
         if (!res.has_daily || !res.daily_challenge) {
-          Alert.alert('No Challenge', 'No daily challenge is available today.', [
-            { text: 'OK', onPress: () => goHome(navigation) },
+          Alert.alert(t('daily.challenge.noChallengeTitle'), t('daily.challenge.noChallengeMessage'), [
+            { text: t('common.buttons.ok'), onPress: () => goHome(navigation) },
           ]);
           setLoading(false);
           return;
@@ -62,8 +64,8 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
       })
       .catch(() => {
         if (!cancelled) {
-          Alert.alert('Error', 'Failed to load daily challenge.', [
-            { text: 'OK', onPress: () => goHome(navigation) },
+          Alert.alert(t('game.alerts.errorTitle'), t('daily.challenge.loadError'), [
+            { text: t('common.buttons.ok'), onPress: () => goHome(navigation) },
           ]);
           setLoading(false);
         }
@@ -82,7 +84,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   async function handleSubmit() {
     if (guessX === null || guessY === null) return;
     if (!Number.isFinite(guessX) || !Number.isFinite(guessY)) {
-      setSubmitError('Tap the image to lock your guess before submitting.');
+      setSubmitError(t('game.guess.lockBeforeSubmit'));
       return;
     }
     setSubmitting(true);
@@ -101,7 +103,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         navigation.replace('DailyResult', { dailyChallengeId });
         return;
       }
-      setSubmitError(getApiErrorMessage(e, 'Failed to submit guess. Please try again.'));
+      setSubmitError(getApiErrorMessage(e, t('game.guess.submitError')));
       setSubmitting(false);
     }
   }
@@ -121,15 +123,16 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   const categoryName = challenge.challenge.category?.name ?? null;
   const imageUrl = challenge.challenge.hidden_image_url;
 
-  const todayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  // English keeps the en-US format the screen has always used.
+  const todayLabel = new Date().toLocaleDateString(locale === 'en' ? 'en-US' : locale, { weekday: 'long', month: 'long', day: 'numeric' });
   // Monthly progress ("Daily 4/31") from the backend; absent on older servers.
   const monthProgress = challenge.daily_month_index && challenge.daily_month_total
-    ? ` · Daily ${challenge.daily_month_index}/${challenge.daily_month_total}`
+    ? ` · ${t('daily.challenge.monthProgress', { index: challenge.daily_month_index, total: challenge.daily_month_total })}`
     : '';
 
   const guessLabel = hasGuess
-    ? `Guess locked at ${Math.round(guessX! * 100)}%, ${Math.round(guessY! * 100)}%`
-    : 'Tap the image to place your guess';
+    ? t('game.guess.locked', { x: Math.round(guessX! * 100), y: Math.round(guessY! * 100) })
+    : t('game.image.tapToPlace');
 
   return (
     // scroll: a portrait image (height = width / aspect) can overflow small
@@ -156,12 +159,12 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
             </View>
           </View>
         </View>
-        <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
+        <Text style={styles.instruction}>{t('game.guess.instruction')}</Text>
         {challenge.challenge.tags && challenge.challenge.tags.length > 0 ? (
           <View style={styles.tagRow}>
-            {challenge.challenge.tags.slice(0, 4).map((t) => (
-              <View key={t.slug} style={styles.tagChip}>
-                <Text style={styles.tagText}>#{t.name}</Text>
+            {challenge.challenge.tags.slice(0, 4).map((tag) => (
+              <View key={tag.slug} style={styles.tagChip}>
+                <Text style={styles.tagText}>#{tag.name}</Text>
               </View>
             ))}
           </View>
@@ -175,12 +178,13 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
             onGuess={handleGuess}
             interactive
             selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+            sportSlug={challenge.challenge.sport?.slug}
           />
           <FullscreenButton onPress={() => setFullscreen(true)} compact />
         </View>
       ) : (
         <View style={styles.noImage}>
-          <Text style={styles.noImageText}>Image unavailable</Text>
+          <Text style={styles.noImageText}>{t('game.image.unavailable')}</Text>
         </View>
       )}
 
@@ -191,7 +195,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
           </Text>
         </View>
         {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
-        <AppButton title="Submit Guess" onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
+        <AppButton title={t('game.buttons.submitGuess')} onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
       </View>
 
       <FullscreenImageViewer
@@ -201,6 +205,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         selectable
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
         onSelectPoint={handleGuess}
+        sportSlug={challenge.challenge.sport?.slug}
       />
     </Screen>
   );

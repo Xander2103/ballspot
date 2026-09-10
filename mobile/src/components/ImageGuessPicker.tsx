@@ -1,6 +1,8 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { View, Image, StyleSheet, Pressable, Text, LayoutChangeEvent } from 'react-native';
 import { colors } from '../theme/colors';
+import { useI18n } from '../i18n';
+import { getSportObjectIcon, getSportObjectMarkerStyle } from '../utils/sportObject';
 
 const GHOST_SIZE = 42;
 const GLOW_SIZE  = 60;
@@ -13,6 +15,8 @@ export interface Marker {
   x_ratio: number;
   y_ratio: number;
   type: MarkerType;
+  /** Overrides the picker-level sport for this marker (rarely needed). */
+  sportSlug?: string | null;
 }
 
 interface Props {
@@ -27,9 +31,15 @@ interface Props {
    * behavior.
    */
   selectedPoint?: { x: number; y: number } | null;
+  /**
+   * Slug of the CHALLENGE's sport (never the pack's/tournament's) — picks the
+   * object drawn in the ghost marker. Missing/unknown → football.
+   */
+  sportSlug?: string | null;
 }
 
-export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true, selectedPoint }: Props) {
+export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true, selectedPoint, sportSlug }: Props) {
+  const { t } = useI18n();
   const containerRef = useRef<View>(null);
   const [dims, setDims]               = useState({ width: 0, height: 0 });
   const [aspect, setAspect]           = useState<number>(FALLBACK_ASPECT);
@@ -106,7 +116,11 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
         pointerEvents="none"
         style={[styles.markerBase, markerStyle, { width: size, height: size, borderRadius: half, left, top }]}
       >
-        {m.type === 'ghost-ball' && <Text style={styles.ghostEmoji}>⚽</Text>}
+        {m.type === 'ghost-ball' && (
+          <Text style={[styles.ghostEmoji, getSportObjectMarkerStyle(m.sportSlug ?? sportSlug)]}>
+            {getSportObjectIcon(m.sportSlug ?? sportSlug)}
+          </Text>
+        )}
       </View>
     );
   }
@@ -120,7 +134,7 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
         {failed ? (
           <View style={styles.failed}>
-            <Text style={styles.failedText}>Image unavailable</Text>
+            <Text style={styles.failedText}>{t('game.image.unavailable')}</Text>
           </View>
         ) : (
           <Image

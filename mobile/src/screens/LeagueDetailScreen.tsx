@@ -11,14 +11,17 @@ import { roundApi } from '../api/roundApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { getApiErrorMessage } from '../utils/apiError';
+import { isTournamentsUnavailable } from '../utils/tournamentErrors';
 import { League, LobbyMember } from '../types/league';
 import { LeaderboardEntry } from '../types/guess';
 import { rivalryLine, daysLeftLabel } from '../utils/rivalry';
+import { useI18n, t as translate } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
 export function LeagueDetailScreen({ route, navigation }: Props) {
   const { leagueId, leagueName } = route.params;
+  const { t } = useI18n();
   const [league, setLeague] = useState<League | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [hasRound, setHasRound] = useState(false);
@@ -35,7 +38,9 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
 
   const load = useCallback(async () => {
     if (!leagueId) {
-      Alert.alert('Error', 'Invalid league — no ID was passed to this screen.');
+      // Module-level `translate` keeps `load` independent of the hook `t`, so a
+      // language change does not re-create the callback and refetch.
+      Alert.alert(translate('tournaments.alerts.error'), translate('tournaments.detail.errors.invalidLeague'));
       setLoading(false);
       return;
     }
@@ -67,7 +72,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         setLoading(false);
         return;
       }
-      Alert.alert('Error', 'Failed to load tournament');
+      Alert.alert(translate('tournaments.alerts.error'), translate('tournaments.detail.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -90,7 +95,12 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
       setShowStartConfirm(false);
       await load();
     } catch (e: unknown) {
-      Alert.alert('Could not start tournament', getApiErrorMessage(e, 'Failed to start tournament. Please try again.'));
+      setShowStartConfirm(false);
+      if (isTournamentsUnavailable(e)) {
+        Alert.alert(t('tournaments.unavailable.title'), t('tournaments.unavailable.body'));
+      } else {
+        Alert.alert(t('tournaments.detail.errors.startTitle'), getApiErrorMessage(e, t('tournaments.detail.errors.startFailed')));
+      }
     } finally {
       setStarting(false);
     }
@@ -110,6 +120,8 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
     }
   }
 
+  // rivalryLine/daysLeftLabel translate via the i18n core; useI18n() above
+  // re-renders this screen on a language change so they follow along.
   const rivalry = league?.status === 'active' ? rivalryLine(leaderboard) : null;
   const daysLeft = league?.status === 'active' ? daysLeftLabel(league?.ends_at) : null;
 
@@ -126,12 +138,12 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
       <Screen padding>
         <View style={styles.removedBox}>
           <Text style={styles.removedIcon}>🚫</Text>
-          <Text style={styles.removedTitle}>You were removed</Text>
+          <Text style={styles.removedTitle}>{t('tournaments.detail.removed.title')}</Text>
           <Text style={styles.removedText}>
-            You have been removed from this tournament.
+            {t('tournaments.detail.removed.message')}
           </Text>
           <AppButton
-            title="Back to Home"
+            title={t('tournaments.detail.removed.backHome')}
             onPress={() => navigation.navigate('Home')}
             style={{ marginTop: spacing.lg }}
           />
@@ -144,8 +156,8 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
     <Screen scroll padding={false}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.code}>Code: {league?.join_code || '…'}</Text>
-        <Text style={styles.meta}>{league?.members_count ?? 0} players</Text>
+        <Text style={styles.code}>{t('tournaments.code', { code: league?.join_code || '…' })}</Text>
+        <Text style={styles.meta}>{t('tournaments.players', { count: league?.members_count ?? 0 })}</Text>
       </View>
 
       {/* Status-aware body */}
@@ -153,15 +165,18 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         <View style={styles.section}>
           <View style={styles.lobbyBox}>
             <Text style={styles.lobbyIcon}>⏳</Text>
-            <Text style={styles.lobbyTitle}>Waiting in Lobby</Text>
+            <Text style={styles.lobbyTitle}>{t('tournaments.detail.lobby.title')}</Text>
             <Text style={styles.lobbyDesc}>
-              {league.members_count} player{league.members_count !== 1 ? 's' : ''} joined · {league.duration_days * league.rounds_per_day} rounds total
+              {t('tournaments.detail.lobby.summary', {
+                players: t('tournaments.players', { count: league.members_count }),
+                count: league.duration_days * league.rounds_per_day,
+              })}
             </Text>
           </View>
 
           <View style={styles.membersSection}>
             <Text style={styles.membersSectionTitle}>
-              Players in Lobby ({league.members_count})
+              {t('tournaments.detail.lobby.playersTitle', { count: league.members_count })}
             </Text>
             {(league.members ?? []).map(member => (
               <View key={member.id} style={styles.memberRow}>
@@ -187,14 +202,14 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
 
           {league.is_owner ? (
             <AppButton
-              title="Start Tournament"
+              title={t('tournaments.detail.lobby.start')}
               onPress={() => setShowStartConfirm(true)}
               loading={starting}
               style={styles.startBtn}
             />
           ) : (
             <View style={styles.waitingBox}>
-              <Text style={styles.waitingText}>Waiting for the owner to start…</Text>
+              <Text style={styles.waitingText}>{t('tournaments.detail.lobby.waitingForOwner')}</Text>
             </View>
           )}
         </View>
@@ -210,23 +225,23 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
           )}
           {dailyLimitReached ? (
             <View style={styles.doneBox}>
-              <Text style={styles.doneText}>✓ You've played all rounds for today</Text>
-              <Text style={styles.doneSubText}>Come back tomorrow for more rounds.</Text>
+              <Text style={styles.doneText}>{t('tournaments.detail.active.playedAllToday')}</Text>
+              <Text style={styles.doneSubText}>{t('tournaments.detail.active.comeBackTomorrow')}</Text>
             </View>
           ) : hasRound && roundId ? (
             <AppButton
-              title="▶ Play Current Round"
+              title={t('tournaments.detail.active.playRound')}
               onPress={() => navigation.navigate('Guess', { leagueId, roundId, leagueName })}
               style={styles.playBtn}
             />
           ) : (
             <View style={styles.doneBox}>
-              <Text style={styles.doneText}>✓ All rounds completed for now</Text>
+              <Text style={styles.doneText}>{t('tournaments.detail.active.allDoneForNow')}</Text>
             </View>
           )}
           {dailyContext && dailyContext.roundsPerDay > 1 && (
             <Text style={styles.dailyProgress}>
-              Today: {dailyContext.playedToday}/{dailyContext.roundsPerDay} rounds played
+              {t('tournaments.detail.active.todayProgress', { played: dailyContext.playedToday, total: dailyContext.roundsPerDay })}
             </Text>
           )}
           {progress && (
@@ -235,12 +250,12 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
                 <View style={[styles.progressBarFill, { width: `${progress.pct}%` }]} />
               </View>
               <Text style={styles.progressText}>
-                {progress.completed}/{progress.total} rounds completed ({progress.pct}%)
+                {t('tournaments.detail.active.progress', { completed: progress.completed, total: progress.total, pct: progress.pct })}
               </Text>
             </View>
           )}
           <AppButton
-            title="Full Leaderboard"
+            title={t('tournaments.detail.fullLeaderboard')}
             onPress={() => navigation.navigate('Leaderboard', { leagueId, leagueName })}
             variant="secondary"
           />
@@ -251,11 +266,11 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         <View style={styles.section}>
           <View style={styles.completedBox}>
             <Text style={styles.completedIcon}>🏆</Text>
-            <Text style={styles.completedTitle}>Tournament Finished</Text>
-            <Text style={styles.completedDesc}>All rounds played. Check the final standings below.</Text>
+            <Text style={styles.completedTitle}>{t('tournaments.detail.completed.title')}</Text>
+            <Text style={styles.completedDesc}>{t('tournaments.detail.completed.message')}</Text>
           </View>
           <AppButton
-            title="Full Leaderboard"
+            title={t('tournaments.detail.fullLeaderboard')}
             onPress={() => navigation.navigate('Leaderboard', { leagueId, leagueName })}
             variant="secondary"
           />
@@ -265,7 +280,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
       {league?.status === 'cancelled' && (
         <View style={styles.section}>
           <View style={styles.cancelledBox}>
-            <Text style={styles.cancelledText}>This tournament was cancelled.</Text>
+            <Text style={styles.cancelledText}>{t('tournaments.detail.cancelled')}</Text>
           </View>
         </View>
       )}
@@ -273,17 +288,17 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
       {/* Leaderboard preview (always shown if active/completed) */}
       {(league?.status === 'active' || league?.status === 'completed') && (
         <>
-          <Text style={styles.sectionTitle}>Leaderboard Preview</Text>
+          <Text style={styles.sectionTitle}>{t('tournaments.detail.leaderboardPreview')}</Text>
           <LeaderboardList entries={leaderboard.slice(0, 3)} />
         </>
       )}
 
       <ConfirmModal
         visible={showStartConfirm}
-        title="Start Tournament?"
-        message={`This will generate ${league ? league.duration_days * league.rounds_per_day : 0} rounds and open play for all members. You cannot undo this.`}
-        confirmLabel="Start Now"
-        cancelLabel="Not Yet"
+        title={t('tournaments.detail.startModal.title')}
+        message={t('tournaments.detail.startModal.message', { rounds: league ? league.duration_days * league.rounds_per_day : 0 })}
+        confirmLabel={t('tournaments.detail.startModal.confirm')}
+        cancelLabel={t('tournaments.detail.startModal.cancel')}
         onConfirm={handleStart}
         onCancel={() => setShowStartConfirm(false)}
         loading={starting}
@@ -291,10 +306,10 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
 
       <ConfirmModal
         visible={!!removeTarget}
-        title="Remove player?"
-        message="This player will be removed from the lobby."
-        confirmLabel="Remove"
-        cancelLabel="Cancel"
+        title={t('tournaments.detail.removeModal.title')}
+        message={t('tournaments.detail.removeModal.message')}
+        confirmLabel={t('tournaments.detail.removeModal.confirm')}
+        cancelLabel={t('common.buttons.cancel')}
         onConfirm={handleRemoveMember}
         onCancel={() => !removing && setRemoveTarget(null)}
         loading={removing}

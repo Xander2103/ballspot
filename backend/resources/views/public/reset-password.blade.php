@@ -1,5 +1,5 @@
 @extends('public.layout')
-@section('title', 'Reset password')
+@section('title', __('web.reset.title'))
 
 @section('content')
 <style>
@@ -15,48 +15,49 @@
     .muted { color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem; }
 </style>
 
-<h1>Reset your password</h1>
-<p class="page-meta">Choose a new password for your BallPicker account.</p>
+<h1>{{ __('web.reset.heading') }}</h1>
+<p class="page-meta">{{ __('web.reset.intro') }}</p>
 
 @if(!$token)
     <div class="callout">
-        <p>This page needs the link from your password reset email. If the link no longer works, request a new one below.</p>
+        <p>{{ __('web.reset.needs_link') }}</p>
     </div>
-    <a class="btn btn-primary" href="{{ route('password.request') }}">Request a new link</a>
+    <a class="btn btn-primary" href="{{ route('password.request', ['lang' => app()->getLocale()]) }}">{{ __('web.reset.request_new') }}</a>
 @else
     <div class="form-card">
         <form method="POST" action="{{ route('password.update') }}" autocomplete="off">
             @csrf
             <input type="hidden" name="token" value="{{ $token }}">
+            <input type="hidden" name="lang" value="{{ app()->getLocale() }}">
 
             <div class="field">
-                <label for="email">Email</label>
+                <label for="email">{{ __('web.reset.email') }}</label>
                 <input id="email" name="email" type="email" value="{{ old('email', $email) }}" autocomplete="username" required>
                 @error('email')<div class="field-error">{{ $message }}</div>@enderror
             </div>
 
             <div class="field">
-                <label for="password">New password (at least 8 characters)</label>
+                <label for="password">{{ __('web.reset.password') }}</label>
                 <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
                 @error('password')<div class="field-error">{{ $message }}</div>@enderror
             </div>
 
             <div class="field">
-                <label for="password_confirmation">Confirm new password</label>
+                <label for="password_confirmation">{{ __('web.reset.password_confirm') }}</label>
                 <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="8" required>
             </div>
 
             @error('token')<div class="field-error">{{ $message }}</div>@enderror
 
-            <button class="btn btn-primary" type="submit">Set new password</button>
+            <button class="btn btn-primary" type="submit">{{ __('web.reset.submit') }}</button>
         </form>
     </div>
 
     @if($deepLink)
-        <a class="btn btn-secondary" href="{{ $deepLink }}">Open in the BallPicker app instead</a>
-        <p class="muted">Only works on a phone with BallPicker installed. Otherwise just use the form above — after saving, open the app and log in with your new password.</p>
+        <a class="btn btn-secondary" href="{{ $deepLink }}">{{ __('web.reset.open_in_app') }}</a>
+        <p class="muted">{{ __('web.reset.open_in_app_hint') }}</p>
     @endif
 
-    <p class="muted">Link not working? <a class="inline-link" href="{{ route('password.request') }}">Request a new link</a>.</p>
+    <p class="muted">{{ __('web.reset.link_not_working') }} <a class="inline-link" href="{{ route('password.request', ['lang' => app()->getLocale()]) }}">{{ __('web.reset.request_new') }}</a>.</p>
 @endif
 @endsection

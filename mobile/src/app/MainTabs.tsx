@@ -12,6 +12,7 @@ import { TournamentsScreen } from '../screens/TournamentsScreen';
 import { FriendsScreen } from '../screens/FriendsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import type { RootStackParamList } from './AppNavigator';
+import { useI18n } from '../i18n';
 
 export type MainTabParamList = {
   Play: undefined;
@@ -42,6 +43,7 @@ function Tabs() {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { incomingCount } = useFriendRequests();
+  const { t } = useI18n();
 
   // Give labels breathing room: a slightly taller bar plus explicit padding so
   // the 11pt labels are never clipped by the home-indicator inset on iPhone.
@@ -69,18 +71,18 @@ function Tabs() {
       <Tab.Screen
         name="Play"
         component={HomeScreen}
-        options={{ headerShown: false, tabBarIcon: icon('play') }}
+        options={{ title: t('nav.tabs.play'), headerShown: false, tabBarIcon: icon('play') }}
       />
       <Tab.Screen
         name="Tournaments"
         component={TournamentsScreen}
-        options={{ title: 'Tournaments', tabBarIcon: icon('tournaments') }}
+        options={{ title: t('nav.tabs.tournaments'), tabBarIcon: icon('tournaments') }}
       />
       <Tab.Screen
         name="Friends"
         component={FriendsScreen}
         options={{
-          title: 'Friends',
+          title: t('nav.tabs.friends'),
           tabBarIcon: icon('friends'),
           tabBarBadge: incomingCount > 0 ? formatBadgeCount(incomingCount) : undefined,
           tabBarBadgeStyle: {
@@ -95,7 +97,7 @@ function Tabs() {
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: 'Profile', tabBarIcon: icon('profile') }}
+        options={{ title: t('nav.tabs.profile'), tabBarIcon: icon('profile') }}
       />
     </Tab.Navigator>
   );

@@ -32,7 +32,7 @@ class EmailVerificationController extends Controller
 
         $code = EmailVerificationService::normalizeCode($request->input('code'));
         if ($code === null) {
-            throw ValidationException::withMessages(['code' => ['Enter the 6-digit code from your email.']]);
+            throw ValidationException::withMessages(['code' => [__('messages.auth.verification_code_required')]]);
         }
 
         $hint = $request->input('email');
@@ -40,7 +40,7 @@ class EmailVerificationController extends Controller
             $this->service->logFailure($user, 'session_mismatch');
 
             return response()->json([
-                'message' => self::SESSION_MISMATCH_MESSAGE,
+                'message' => __('messages.auth.verification_session_mismatch'),
                 'reason'  => 'session_mismatch',
             ], 409);
         }
@@ -50,7 +50,7 @@ class EmailVerificationController extends Controller
         return response()->json([
             'email_verified' => true,
             'user'           => new UserResource($user->fresh()),
-            'message'        => 'Your email has been verified.',
+            'message'        => __('messages.auth.email_verified'),
         ]);
     }
 
@@ -79,7 +79,7 @@ class EmailVerificationController extends Controller
         if ($user->hasVerifiedEmail()) {
             return response()->json([
                 'email_verified' => true,
-                'message'        => 'Your email is already verified.',
+                'message'        => __('messages.auth.email_already_verified'),
             ]);
         }
 
@@ -88,7 +88,7 @@ class EmailVerificationController extends Controller
         return response()->json([
             'email_verified' => false,
             'email'          => $user->email,
-            'message'        => 'A new verification code has been sent to your email.',
+            'message'        => __('messages.auth.verification_code_resent'),
         ]);
     }
 }

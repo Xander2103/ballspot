@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 interface Props {
   rank: number | null;
@@ -15,25 +16,27 @@ interface Props {
  * of leaderboard screens.
  */
 export function YourPositionCard({ rank, totalPlayers, betterThanPercentage, score }: Props) {
+  const { t } = useI18n();
+
   if (!rank) {
     return (
       <View style={styles.card}>
-        <Text style={styles.label}>Your position</Text>
-        <Text style={styles.subtle}>Play to get on the board!</Text>
+        <Text style={styles.label}>{t('game.position.label')}</Text>
+        <Text style={styles.subtle}>{t('game.position.playToJoin')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.label}>Your position</Text>
+      <Text style={styles.label}>{t('game.position.label')}</Text>
       <Text style={styles.rank}>
-        #{rank.toLocaleString()} <Text style={styles.of}>of {totalPlayers.toLocaleString()}</Text>
+        #{rank.toLocaleString()} <Text style={styles.of}>{t('game.position.of', { total: totalPlayers.toLocaleString() })}</Text>
       </Text>
       {typeof betterThanPercentage === 'number' && totalPlayers > 1 ? (
-        <Text style={styles.better}>Better than {betterThanPercentage}% of players</Text>
+        <Text style={styles.better}>{t('game.position.betterThan', { pct: betterThanPercentage })}</Text>
       ) : null}
-      {typeof score === 'number' ? <Text style={styles.subtle}>{score.toLocaleString()} pts this week</Text> : null}
+      {typeof score === 'number' ? <Text style={styles.subtle}>{t('game.position.ptsThisWeek', { score: score.toLocaleString() })}</Text> : null}
     </View>
   );
 }

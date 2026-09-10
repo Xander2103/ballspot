@@ -32,11 +32,12 @@ class EmailVerificationCodeNotification extends Notification
     {
         $app = config('ballspot.app_name');
 
+        // Rendered under the recipient's preferred_language (HasLocalePreference).
         return (new MailMessage)
-            ->subject('Verify your ' . $app . ' email')
-            ->greeting('Welcome to ' . $app . '!')
-            ->line('Your email verification code is: ' . $this->code)
-            ->line('This code expires in ' . $this->expiryMinutes . ' minutes.')
-            ->line('If you did not create an account, you can ignore this email.');
+            ->subject(__('emails.verify.subject', ['app' => $app]))
+            ->greeting(__('emails.verify.greeting', ['app' => $app]))
+            ->line(__('emails.verify.code', ['code' => $this->code]))
+            ->line(__('emails.verify.expires', ['minutes' => $this->expiryMinutes]))
+            ->line(__('emails.verify.ignore'));
     }
 }

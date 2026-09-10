@@ -49,7 +49,7 @@ class LoginVerificationController extends Controller
         );
 
         return response()->json([
-            'message' => 'If your login is still pending, a new code has been sent to your email.',
+            'message' => __('messages.auth.login_code_resent'),
         ]);
     }
 }

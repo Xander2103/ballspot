@@ -8,6 +8,7 @@ import { AppButton } from '../components/AppButton';
 import { LanguagePicker } from '../components/LanguagePicker';
 import { authApi } from '../api/authApi';
 import { configApi, DEFAULT_APP_CONFIG } from '../api/configApi';
+import { useI18n, rememberConfigDefault } from '../i18n';
 import { tokenStorage } from '../storage/tokenStorage';
 import { applyProfileAndRoute } from '../app/authFlow';
 import { signOut } from '../app/signOut';
@@ -39,6 +40,7 @@ const KNOWN_FIELDS: (keyof FieldErrors)[] = [
 
 export function RegisterScreen({ navigation }: Props) {
   const { setTheme } = useTheme();
+  const { t, setLocale } = useI18n();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -68,6 +70,7 @@ export function RegisterScreen({ navigation }: Props) {
         if (cancelled) return;
         setBetaGate(!!cfg.beta_gate);
         if (cfg.minimum_age) setMinimumAge(cfg.minimum_age);
+        rememberConfigDefault(cfg.default_language);
       })
       .catch(() => { /* keep defaults: gate hidden, the server still validates */ });
     return () => { cancelled = true; };
@@ -83,10 +86,10 @@ export function RegisterScreen({ navigation }: Props) {
     setFormError('');
 
     const errors: FieldErrors = { ...validatePasswordPair(password, confirm) };
-    if (!name.trim()) errors.name = 'Full name is required';
-    if (!username.trim()) errors.username = 'Username is required';
-    if (!email.trim()) errors.email = 'Email is required';
-    if (betaGate && !betaCode.trim()) errors.beta_code = 'A beta code is required during closed testing';
+    if (!name.trim()) errors.name = t('auth.register.validation.fullNameRequired');
+    if (!username.trim()) errors.username = t('errors.validation.usernameRequired');
+    if (!email.trim()) errors.email = t('errors.validation.emailRequired');
+    if (betaGate && !betaCode.trim()) errors.beta_code = t('auth.register.validation.betaCodeRequired');
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -94,7 +97,7 @@ export function RegisterScreen({ navigation }: Props) {
     }
 
     if (!agreed) {
-      setFormError('Please confirm your age and agree to the Terms and Privacy Policy to create an account.');
+      setFormError(t('auth.register.consentRequired'));
       return;
     }
 
@@ -136,7 +139,7 @@ export function RegisterScreen({ navigation }: Props) {
       // Known account errors (email taken, username taken, passwords do not
       // match, …) land on their field with friendly copy; anything else is
       // one clean sentence — never raw backend text.
-      const info = mapAuthError(e, 'Registration failed. Please try again.');
+      const info = mapAuthError(e, t('auth.register.failed'));
       const apiErrors: FieldErrors = {};
       const other: string[] = [];
       for (const [field, text] of Object.entries(info.fieldErrors)) {
@@ -162,10 +165,10 @@ export function RegisterScreen({ navigation }: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.title}>Create Account</Text>
+      <Text style={styles.title}>{t('auth.register.title')}</Text>
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
       <AppInput
-        label="Full Name"
+        label={t('auth.register.fields.fullName')}
         value={name}
         onChangeText={(t) => { setName(t); clearField('name'); }}
         autoCapitalize="words"
@@ -176,7 +179,7 @@ export function RegisterScreen({ navigation }: Props) {
       />
       <AppInput
         ref={usernameRef}
-        label="Username"
+        label={t('common.labels.username')}
         value={username}
         onChangeText={(t) => { setUsername(t); clearField('username'); }}
         autoCapitalize="none"
@@ -188,7 +191,7 @@ export function RegisterScreen({ navigation }: Props) {
       />
       <AppInput
         ref={emailRef}
-        label="Email"
+        label={t('common.labels.email')}
         value={email}
         onChangeText={(t) => { setEmail(t); clearField('email'); }}
         keyboardType="email-address"
@@ -201,7 +204,7 @@ export function RegisterScreen({ navigation }: Props) {
       />
       <AppInput
         ref={passwordRef}
-        label="Password (at least 8 characters)"
+        label={t('auth.register.fields.password')}
         value={password}
         onChangeText={(t) => { setPassword(t); clearField('password'); clearField('password_confirmation'); }}
         secureTextEntry
@@ -214,7 +217,7 @@ export function RegisterScreen({ navigation }: Props) {
       />
       <AppInput
         ref={confirmRef}
-        label="Confirm password"
+        label={t('auth.register.fields.confirmPassword')}
         value={confirm}
         onChangeText={(t) => { setConfirm(t); clearField('password_confirmation'); }}
         secureTextEntry
@@ -226,7 +229,7 @@ export function RegisterScreen({ navigation }: Props) {
       />
       {betaGate ? (
         <AppInput
-          label="Beta code"
+          label={t('auth.register.fields.betaCode')}
           value={betaCode}
           onChangeText={(t) => { setBetaCode(t); clearField('beta_code'); }}
           autoCapitalize="characters"
@@ -238,9 +241,9 @@ export function RegisterScreen({ navigation }: Props) {
       ) : null}
 
       <LanguagePicker
-        label="Preferred language"
+        label={t('common.language.preferred')}
         value={language}
-        onChange={(code) => { setLanguage(code); clearField('preferred_language'); }}
+        onChange={(code) => { setLanguage(code); setLocale(code); clearField('preferred_language'); }}
         disabled={loading}
       />
       {fieldErrors.preferred_language ? <Text style={styles.fieldError}>{fieldErrors.preferred_language}</Text> : null}
@@ -256,21 +259,21 @@ export function RegisterScreen({ navigation }: Props) {
           {agreed ? <Text style={styles.checkboxMark}>✓</Text> : null}
         </View>
         <Text style={styles.consentText}>
-          I am at least {minimumAge} years old, I agree to the{' '}
+          {t('auth.register.consent.ageAndTerms', { age: minimumAge })}{' '}
           <Text style={styles.link} onPress={() => Linking.openURL(`${WEB_BASE}/terms`)}>
-            Terms
+            {t('common.legal.termsShort')}
           </Text>{' '}
-          and have read the{' '}
+          {t('auth.register.consent.andRead')}{' '}
           <Text style={styles.link} onPress={() => Linking.openURL(`${WEB_BASE}/privacy`)}>
-            Privacy Policy
+            {t('common.legal.privacy')}
           </Text>
           .
         </Text>
       </Pressable>
 
-      <AppButton title="Create Account" onPress={handleRegister} loading={loading} disabled={!agreed} />
+      <AppButton title={t('auth.register.title')} onPress={handleRegister} loading={loading} disabled={!agreed} />
       <Pressable onPress={() => navigation.navigate('Login')} style={styles.loginLink} hitSlop={8} disabled={loading}>
-        <Text style={styles.loginLinkText}>Already have an account? Log in</Text>
+        <Text style={styles.loginLinkText}>{t('auth.register.haveAccount')}</Text>
       </Pressable>
     </Screen>
   );

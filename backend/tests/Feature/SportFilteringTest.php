@@ -107,6 +107,9 @@ class SportFilteringTest extends TestCase
     {
         $football = $this->sport('football', 'Football');
         $tennis   = $this->sport('tennis', 'Tennis');
+        for ($i = 1; $i <= 7; $i++) {
+            $this->challenge($tennis, "Tennis {$i}"); // a 7-day tournament needs 7 photos
+        }
         $user = User::factory()->create();
 
         $res = $this->withToken($this->auth($user))->postJson('/api/leagues', [
@@ -121,6 +124,9 @@ class SportFilteringTest extends TestCase
     {
         $football = $this->sport('football', 'Football');
         $tennis   = $this->sport('tennis', 'Tennis');
+        for ($i = 1; $i <= 7; $i++) {
+            $this->challenge($tennis, "Tennis {$i}"); // a 7-day tournament needs 7 photos
+        }
         $user = User::factory()->create(['preferred_sport_id' => $tennis->id]);
 
         $res = $this->withToken($this->auth($user))->postJson('/api/leagues', [
@@ -134,6 +140,9 @@ class SportFilteringTest extends TestCase
     public function test_tournament_defaults_to_football_without_preference(): void
     {
         $football = $this->sport('football', 'Football');
+        for ($i = 1; $i <= 7; $i++) {
+            $this->challenge($football, "Football {$i}"); // a 7-day tournament needs 7 photos
+        }
         $user = User::factory()->create();
 
         $res = $this->withToken($this->auth($user))->postJson('/api/leagues', [

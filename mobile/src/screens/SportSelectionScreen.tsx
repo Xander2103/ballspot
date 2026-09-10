@@ -8,11 +8,13 @@ import { sportApi } from '../api/sportApi';
 import { preferencesApi } from '../api/preferencesApi';
 import type { Sport } from '../types/sport';
 import type { RootStackParamList } from '../app/AppNavigator';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SportSelection'>;
 
 export function SportSelectionScreen({ route, navigation }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const mode = route.params?.mode ?? 'onboarding';
   const currentId = route.params?.currentSportId ?? null;
 
@@ -29,7 +31,7 @@ export function SportSelectionScreen({ route, navigation }: Props) {
         if (active) setSports(list);
       })
       .catch(() => {
-        if (active) setError('Could not load sports. Please try again.');
+        if (active) setError(t('home.sportSelection.loadError'));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -43,7 +45,7 @@ export function SportSelectionScreen({ route, navigation }: Props) {
     if (savingId) return;
     // Coming soon: visible but not selectable — show a fun message instead.
     if (!sport.is_playable) {
-      setError(`${sport.name} is coming soon.`);
+      setError(t('home.sportSelection.comingSoonError', { sport: sport.name }));
       return;
     }
     setSavingId(sport.id);
@@ -56,16 +58,16 @@ export function SportSelectionScreen({ route, navigation }: Props) {
         navigation.goBack();
       }
     } catch (e: any) {
-      setError(e?.message ?? 'Could not save your choice. Please try again.');
+      setError(e?.message ?? t('home.sportSelection.saveError'));
       setSavingId(null);
     }
   }
 
   return (
     <Screen scroll>
-      <Text style={[styles.title, { color: theme.text }]}>Pick your sport</Text>
+      <Text style={[styles.title, { color: theme.text }]}>{t('home.sportSelection.title')}</Text>
       <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-        Choose what you want to play first. You can change this later in your profile.
+        {t('home.sportSelection.subtitle')}
       </Text>
 
       {error && <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>}
@@ -100,12 +102,12 @@ export function SportSelectionScreen({ route, navigation }: Props) {
                     <Text style={[styles.sportName, { color: theme.text }]}>{sport.name}</Text>
                     {comingSoon ? (
                       <View style={[styles.soonBadge, { backgroundColor: sport.primary_color + '2e', borderColor: sport.primary_color }]}>
-                        <Text style={[styles.soonBadgeText, { color: sport.primary_color }]}>SOON</Text>
+                        <Text style={[styles.soonBadgeText, { color: sport.primary_color }]}>{t('home.sportSelection.soonBadge')}</Text>
                       </View>
                     ) : null}
                   </View>
                   <Text style={[styles.sportLabel, { color: theme.textMuted }]}>
-                    {comingSoon ? 'Coming soon' : (sport.tagline ?? `Guess the ${sport.object_name}`)}
+                    {comingSoon ? t('home.sportSelection.comingSoon') : (sport.tagline ?? t('home.sportSelection.guessThe', { object: sport.object_name }))}
                   </Text>
                 </View>
                 {savingId === sport.id ? (

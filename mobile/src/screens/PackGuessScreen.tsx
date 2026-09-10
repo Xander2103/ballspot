@@ -15,6 +15,7 @@ import { spacing } from '../theme/spacing';
 import { isPackAlreadyCompleted } from '../types/pack';
 import type { PackAttemptState, PackChallengeSummary, PackCompletionSummary } from '../types/pack';
 import { getApiErrorMessage } from '../utils/apiError';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackGuess'>;
 
@@ -22,6 +23,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
   const { slug, packName } = route.params;
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   const [attempt, setAttempt] = useState<PackAttemptState | null>(null);
@@ -63,7 +65,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
           showCompletion(e.completion);
           return;
         }
-        setError(getApiErrorMessage(e, 'Could not start this pack.'));
+        setError(getApiErrorMessage(e, t('packs.guess.startError')));
         setLoading(false);
       });
     return () => { cancelled = true; };
@@ -83,7 +85,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
     if (submitting) return;
     if (guessX === null || guessY === null || !attempt || !challenge) return;
     if (!Number.isFinite(guessX) || !Number.isFinite(guessY)) {
-      setError('Tap the image to lock your guess before submitting.');
+      setError(t('packs.guess.lockFirst'));
       return;
     }
     setSubmitting(true);
@@ -93,6 +95,8 @@ export function PackGuessScreen({ route, navigation }: Props) {
       navigation.replace('PackResult', {
         slug, packName, result,
         imageUrl: result.result.reveal_image_url ?? challenge.hidden_image_url,
+        // The CHALLENGE's sport, not the pack's: a Mixed Sports pack has none.
+        sportSlug: result.result.sport?.slug ?? challenge.sport?.slug ?? null,
       });
     } catch (e: unknown) {
       if (isPackAlreadyCompleted(e)) {
@@ -101,7 +105,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
         showCompletion(e.completion);
         return;
       }
-      setError(getApiErrorMessage(e, 'Failed to submit guess. Please try again.'));
+      setError(getApiErrorMessage(e, t('packs.guess.submitError')));
       setSubmitting(false);
     }
   }
@@ -115,7 +119,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
       <Screen>
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
-          <AppButton title="Back" onPress={() => navigation.replace('PackDetail', { slug, name: packName })} variant="secondary" style={{ marginTop: spacing.md }} />
+          <AppButton title={t('common.buttons.back')} onPress={() => navigation.replace('PackDetail', { slug, name: packName })} variant="secondary" style={{ marginTop: spacing.md }} />
         </View>
       </Screen>
     );
@@ -133,8 +137,8 @@ export function PackGuessScreen({ route, navigation }: Props) {
     // phones; without scrolling the Submit footer becomes unreachable.
     <Screen scroll padding={false}>
       <View style={styles.infoCard}>
-        <Text style={styles.progressLabel}>Challenge {step} / {total}{isFinal ? ' · final' : ''}</Text>
-        <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
+        <Text style={styles.progressLabel}>{t(isFinal ? 'packs.guess.progressFinal' : 'packs.guess.progress', { step, total })}</Text>
+        <Text style={styles.instruction}>{t('packs.guess.instruction')}</Text>
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${total > 0 ? (attempt.completed_count / total) * 100 : 0}%` }]} />
         </View>
@@ -147,22 +151,23 @@ export function PackGuessScreen({ route, navigation }: Props) {
             onGuess={handleGuess}
             interactive
             selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+            sportSlug={challenge.sport?.slug}
           />
           <FullscreenButton onPress={() => setFullscreen(true)} compact />
         </View>
       ) : (
-        <View style={styles.noImage}><Text style={styles.noImageText}>Image unavailable</Text></View>
+        <View style={styles.noImage}><Text style={styles.noImageText}>{t('packs.guess.imageUnavailable')}</Text></View>
       )}
 
       <View style={styles.footer}>
         <View style={styles.guessStatus}>
           <Text style={[styles.guessLabel, hasGuess && styles.guessLabelActive]}>
-            {hasGuess ? `✓ Guess locked at ${Math.round(guessX! * 100)}%, ${Math.round(guessY! * 100)}%` : 'Tap the image to place your guess'}
+            {hasGuess ? t('packs.guess.locked', { x: Math.round(guessX! * 100), y: Math.round(guessY! * 100) }) : t('packs.guess.tapToPlace')}
           </Text>
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <AppButton
-          title={isFinal ? 'Submit final guess' : 'Submit Guess'}
+          title={isFinal ? t('packs.guess.submitFinal') : t('packs.guess.submit')}
           onPress={handleSubmit}
           loading={submitting}
           disabled={!hasGuess || submitting}
@@ -176,6 +181,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
         selectable
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
         onSelectPoint={handleGuess}
+        sportSlug={challenge.sport?.slug}
       />
     </Screen>
   );

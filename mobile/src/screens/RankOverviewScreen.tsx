@@ -10,6 +10,7 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { getRankVisualStyle } from '../theme/rankVisuals';
+import { useI18n } from '../i18n';
 import type { PlayerRank, XpEvent } from '../types/auth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RankOverview'>;
@@ -26,6 +27,7 @@ type Status = 'completed' | 'current' | 'future';
  */
 export function RankOverviewScreen(_props: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   const [ranks, setRanks] = useState<RankThreshold[] | null>(null);
@@ -64,7 +66,7 @@ export function RankOverviewScreen(_props: Props) {
   if (error || !ranks) {
     return (
       <Screen padding>
-        <Text style={styles.errorText}>Could not load ranks. Please try again.</Text>
+        <Text style={styles.errorText}>{t('profile.ranks.loadError')}</Text>
       </Screen>
     );
   }
@@ -75,11 +77,11 @@ export function RankOverviewScreen(_props: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.heading}>Rank ladder</Text>
+      <Text style={styles.heading}>{t('profile.ranks.heading')}</Text>
       <Text style={styles.subheading}>
         {myRank
-          ? `You have ${fmt(totalXp)} XP — every rank and the XP needed to reach it.`
-          : 'Every rank and the XP needed to reach it.'}
+          ? t('profile.ranks.subheadingWithXp', { xp: fmt(totalXp) })
+          : t('profile.ranks.subheading')}
       </Text>
 
       <View style={styles.list}>
@@ -109,20 +111,20 @@ export function RankOverviewScreen(_props: Props) {
               <View style={styles.rowMain}>
                 <Text style={styles.rankName} numberOfLines={1}>
                   {rank.name}
-                  <Text style={styles.levelLabel}>{`  ·  Level ${rank.level}`}</Text>
+                  <Text style={styles.levelLabel}>{t('profile.ranks.levelLabel', { level: rank.level })}</Text>
                 </Text>
-                <Text style={styles.minXp}>{fmt(rank.min_xp)} XP</Text>
+                <Text style={styles.minXp}>{t('profile.ranks.minXp', { xp: fmt(rank.min_xp) })}</Text>
               </View>
 
               <View style={styles.statusWrap}>
-                {isMax ? <Text style={styles.maxTag}>Max rank</Text> : null}
+                {isMax ? <Text style={styles.maxTag}>{t('profile.ranks.maxRank')}</Text> : null}
                 {status === 'current' ? (
-                  <Text style={[styles.statusPill, styles.statusCurrent]}>Current rank</Text>
+                  <Text style={[styles.statusPill, styles.statusCurrent]}>{t('profile.ranks.current')}</Text>
                 ) : status === 'completed' ? (
-                  <Text style={[styles.statusPill, styles.statusDone]}>Completed</Text>
+                  <Text style={[styles.statusPill, styles.statusDone]}>{t('profile.ranks.completed')}</Text>
                 ) : (
                   <Text style={[styles.statusPill, styles.statusFuture]}>
-                    {xpNeeded > 0 ? `${fmt(xpNeeded)} XP needed` : 'Reached'}
+                    {xpNeeded > 0 ? t('profile.ranks.xpNeeded', { xp: fmt(xpNeeded) }) : t('profile.ranks.reached')}
                   </Text>
                 )}
               </View>
@@ -134,7 +136,7 @@ export function RankOverviewScreen(_props: Props) {
       {/* The XP that feeds the ladder — compact, right where progression lives. */}
       {xpEvents.length > 0 ? (
         <>
-          <Text style={styles.xpLabel}>Recent XP</Text>
+          <Text style={styles.xpLabel}>{t('profile.ranks.recentXp')}</Text>
           <RecentXpCard events={xpEvents} />
         </>
       ) : null}

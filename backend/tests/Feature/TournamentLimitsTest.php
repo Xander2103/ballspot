@@ -58,6 +58,13 @@ class TournamentLimitsTest extends TestCase
     public function test_archived_and_cancelled_tournaments_do_not_count(): void
     {
         $sport = $this->sport();
+        // A 7-day tournament needs 7 eligible photos to be created.
+        for ($i = 1; $i <= 7; $i++) {
+            \App\Models\Challenge::create([
+                'sport_id' => $sport->id, 'title' => "Pool {$i}", 'hidden_image_path' => "pool-{$i}.jpg",
+                'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5, 'difficulty' => 'easy', 'status' => 'active',
+            ]);
+        }
         [$user, $headers] = $this->actingAsUser();
 
         // These should NOT count against the host limit.
@@ -75,6 +82,13 @@ class TournamentLimitsTest extends TestCase
     public function test_can_host_again_after_cancelling(): void
     {
         $sport = $this->sport();
+        // A 7-day tournament needs 7 eligible photos to be created.
+        for ($i = 1; $i <= 7; $i++) {
+            \App\Models\Challenge::create([
+                'sport_id' => $sport->id, 'title' => "Pool {$i}", 'hidden_image_path' => "pool-{$i}.jpg",
+                'ball_x_ratio' => 0.5, 'ball_y_ratio' => 0.5, 'difficulty' => 'easy', 'status' => 'active',
+            ]);
+        }
         [$user, $headers] = $this->actingAsUser();
 
         $firstId = $this->postJson('/api/leagues', [

@@ -108,13 +108,13 @@ class FriendController extends Controller
         }
 
         if (!$target) {
-            return response()->json(['message' => 'No player found with that friend code.'], 404);
+            return response()->json(['message' => __('messages.friends.code_not_found')], 404);
         }
         if ((int) $target->id === (int) $me->id) {
-            return response()->json(['message' => 'You cannot add yourself as a friend.'], 422);
+            return response()->json(['message' => __('messages.friends.self')], 422);
         }
         if ($me->isFriendsWith($target)) {
-            return response()->json(['message' => 'You are already friends with this player.'], 422);
+            return response()->json(['message' => __('messages.friends.already_friends')], 422);
         }
 
         $existing = FriendRequest::where('status', FriendRequest::STATUS_PENDING)
@@ -125,7 +125,7 @@ class FriendController extends Controller
             ->exists();
 
         if ($existing) {
-            return response()->json(['message' => 'There is already a pending request with this player.'], 422);
+            return response()->json(['message' => __('messages.friends.pending_exists')], 422);
         }
 
         // A rejection must stick for a while. Without this the duplicate guard
@@ -140,7 +140,7 @@ class FriendController extends Controller
 
         if ($rejected) {
             return response()->json([
-                'message' => 'This player declined your request. You can try again later.',
+                'message' => __('messages.friends.declined'),
             ], 422);
         }
 
@@ -160,10 +160,10 @@ class FriendController extends Controller
         $me = $request->user();
 
         if ((int) $friendRequest->recipient_id !== (int) $me->id) {
-            return response()->json(['message' => 'This request is not addressed to you.'], 403);
+            return response()->json(['message' => __('messages.friends.not_addressed')], 403);
         }
         if (!$friendRequest->isPending()) {
-            return response()->json(['message' => 'This request is no longer pending.'], 422);
+            return response()->json(['message' => __('messages.friends.not_pending')], 422);
         }
 
         $requester = $friendRequest->requester;
@@ -186,15 +186,15 @@ class FriendController extends Controller
     public function reject(Request $request, FriendRequest $friendRequest): JsonResponse
     {
         if ((int) $friendRequest->recipient_id !== (int) $request->user()->id) {
-            return response()->json(['message' => 'This request is not addressed to you.'], 403);
+            return response()->json(['message' => __('messages.friends.not_addressed')], 403);
         }
         if (!$friendRequest->isPending()) {
-            return response()->json(['message' => 'This request is no longer pending.'], 422);
+            return response()->json(['message' => __('messages.friends.not_pending')], 422);
         }
 
         $friendRequest->update(['status' => FriendRequest::STATUS_REJECTED]);
 
-        return response()->json(['message' => 'Request rejected.']);
+        return response()->json(['message' => __('messages.friends.rejected')]);
     }
 
     // DELETE /api/friends/{user}
@@ -208,7 +208,7 @@ class FriendController extends Controller
         })->delete();
 
         if ($deleted === 0) {
-            return response()->json(['message' => 'You are not friends with this player.'], 404);
+            return response()->json(['message' => __('messages.friends.not_friends')], 404);
         }
 
         return response()->noContent();

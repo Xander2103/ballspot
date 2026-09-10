@@ -12,6 +12,7 @@ import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { rarityColor } from '../theme/rarity';
 import { getRankVisualStyle } from '../theme/rankVisuals';
+import { useI18n } from '../i18n';
 import type { PublicProfile } from '../types/friend';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FriendProfile'>;
@@ -19,6 +20,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'FriendProfile'>;
 export function FriendProfileScreen({ route, navigation }: Props) {
   const { userId } = route.params;
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
@@ -47,7 +49,7 @@ export function FriendProfileScreen({ route, navigation }: Props) {
       setConfirmRemove(false);
       navigation.goBack();
     } catch {
-      setRemoveError('Could not remove this friend. Please try again.');
+      setRemoveError(t('friends.remove.error'));
       setRemoving(false);
     }
   }
@@ -60,10 +62,10 @@ export function FriendProfileScreen({ route, navigation }: Props) {
     return (
       <Screen padding>
         <Text style={styles.body}>
-          {loadFailed ? 'Could not load this profile. Check your connection.' : 'Profile not found.'}
+          {loadFailed ? t('friends.profile.loadError') : t('friends.profile.notFound')}
         </Text>
         {loadFailed ? (
-          <AppButton title="Try again" onPress={() => { setLoading(true); load(); }} style={{ marginTop: spacing.lg }} />
+          <AppButton title={t('common.buttons.tryAgain')} onPress={() => { setLoading(true); load(); }} style={{ marginTop: spacing.lg }} />
         ) : null}
       </Screen>
     );
@@ -83,12 +85,12 @@ export function FriendProfileScreen({ route, navigation }: Props) {
 
       <View style={[styles.rankCard, getRankVisualStyle(profile.rank?.level, theme)]}>
         <Text style={styles.rankName}>{profile.rank.name}</Text>
-        <Text style={styles.rankMeta}>Level {profile.rank.level} · {profile.total_xp} XP</Text>
+        <Text style={styles.rankMeta}>{t('friends.profile.rankMeta', { level: profile.rank.level, xp: profile.total_xp })}</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Trophies</Text>
+      <Text style={styles.sectionTitle}>{t('friends.profile.trophies')}</Text>
       {trophies.length === 0 ? (
-        <Text style={styles.trophyEmpty}>No trophies yet.</Text>
+        <Text style={styles.trophyEmpty}>{t('friends.profile.noTrophies')}</Text>
       ) : (
         <View style={styles.trophyGrid}>
           {trophies.map((b) => (
@@ -106,28 +108,28 @@ export function FriendProfileScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Stats</Text>
+      <Text style={styles.sectionTitle}>{t('friends.profile.stats')}</Text>
       <View style={styles.grid}>
-        <Stat styles={styles} label="Tournaments" value={s.tournaments_played} />
-        <Stat styles={styles} label="Completed" value={s.tournaments_completed} />
-        <Stat styles={styles} label="Guesses" value={s.guesses_count} />
-        <Stat styles={styles} label="Total score" value={s.total_score} />
-        <Stat styles={styles} label="Avg score" value={s.average_score} />
-        <Stat styles={styles} label="Dailies played" value={s.daily_challenges_played} />
-        <Stat styles={styles} label="Best daily" value={s.best_daily_score} />
-        <Stat styles={styles} label="Badges" value={`${profile.badges.earned_count}/${profile.badges.total_count}`} />
+        <Stat styles={styles} label={t('profile.stats.tournaments')} value={s.tournaments_played} />
+        <Stat styles={styles} label={t('profile.stats.completed')} value={s.tournaments_completed} />
+        <Stat styles={styles} label={t('profile.stats.guesses')} value={s.guesses_count} />
+        <Stat styles={styles} label={t('profile.stats.totalScore')} value={s.total_score} />
+        <Stat styles={styles} label={t('friends.profile.avgScore')} value={s.average_score} />
+        <Stat styles={styles} label={t('friends.profile.dailiesPlayed')} value={s.daily_challenges_played} />
+        <Stat styles={styles} label={t('friends.profile.bestDaily')} value={s.best_daily_score} />
+        <Stat styles={styles} label={t('friends.profile.badges')} value={`${profile.badges.earned_count}/${profile.badges.total_count}`} />
       </View>
 
       {profile.is_friend ? (
-        <AppButton title="Remove friend" onPress={() => setConfirmRemove(true)} variant="danger" />
+        <AppButton title={t('friends.remove.button')} onPress={() => setConfirmRemove(true)} variant="danger" />
       ) : null}
 
       <ConfirmModal
         visible={confirmRemove}
-        title="Remove friend?"
-        message={`${profile.name} will be removed from your friends list. You can add each other again later.`}
-        confirmLabel="Remove"
-        cancelLabel="Cancel"
+        title={t('friends.remove.title')}
+        message={t('friends.remove.message', { name: profile.name })}
+        confirmLabel={t('friends.remove.confirm')}
+        cancelLabel={t('common.buttons.cancel')}
         onConfirm={handleRemove}
         onCancel={() => { setConfirmRemove(false); setRemoveError(''); }}
         loading={removing}

@@ -10,11 +10,15 @@ use App\Models\Guess;
 use App\Models\League;
 use App\Models\User;
 use App\Services\LeagueService;
+use App\Services\TournamentAvailabilityService;
 use Illuminate\Http\Request;
 
 class LeagueController extends Controller
 {
-    public function __construct(private LeagueService $leagueService) {}
+    public function __construct(
+        private LeagueService $leagueService,
+        private TournamentAvailabilityService $availability,
+    ) {}
 
     public function index(Request $request)
     {
@@ -40,16 +44,50 @@ class LeagueController extends Controller
         $userId = $request->user()->id;
 
         if (!$league->members()->where('user_id', $userId)->exists()) {
-            return response()->json(['message' => 'Not a member of this league'], 403);
+            return response()->json(['message' => __('messages.tournaments.not_member')], 403);
         }
         if ($league->status !== 'completed') {
-            return response()->json(['message' => 'Only finished tournaments can be removed from your list.'], 422);
+            return response()->json(['message' => __('messages.tournaments.hide_only_finished')], 422);
         }
 
         // Idempotent: hiding an already-hidden tournament is a no-op success.
         $league->members()->updateExistingPivot($userId, ['hidden_at' => now()]);
 
         return response()->noContent();
+    }
+
+    /**
+     * GET /tournaments/availability?sport=<slug>&duration_days=7
+     *
+     * Can a tournament of this length be created right now? Lets the app
+     * disable "Create tournament" before the user fills in the form. Sport
+     * resolves like create: explicit slug → the user's preferred sport →
+     * football. Counts only (no content, no ids).
+     */
+    public function availability(Request $request)
+    {
+        $days = (int) $request->query('duration_days', min((array) config('ballspot.tournaments.allowed_duration_days', [7])));
+        if (!in_array($days, (array) config('ballspot.tournaments.allowed_duration_days', [7, 14, 30]), true)) {
+            $days = (int) min((array) config('ballspot.tournaments.allowed_duration_days', [7]));
+        }
+
+        $sport = null;
+        if ($slug = $request->query('sport')) {
+            $sport = \App\Models\Sport::where('slug', (string) $slug)->where('status', \App\Models\Sport::STATUS_ACTIVE)->first();
+        }
+        if (!$sport && $request->user()->preferred_sport_id) {
+            $sport = \App\Models\Sport::where('id', $request->user()->preferred_sport_id)->where('status', \App\Models\Sport::STATUS_ACTIVE)->first();
+        }
+        $sport ??= \App\Models\Sport::where('slug', 'football')->first();
+
+        if (!$sport) {
+            return response()->json([
+                'available' => false, 'required' => $days, 'available_challenges' => 0,
+                'message' => TournamentAvailabilityService::message(), 'sport' => null, 'duration_days' => $days,
+            ]);
+        }
+
+        return response()->json($this->availability->check($sport, $days, 1) + ['duration_days' => $days]);
     }
 
     public function store(CreateLeagueRequest $request)
@@ -72,7 +110,7 @@ class LeagueController extends Controller
     public function show(Request $request, League $league)
     {
         if (!$league->members()->where('user_id', $request->user()->id)->exists()) {
-            return response()->json(['message' => 'Not a member of this league'], 403);
+            return response()->json(['message' => __('messages.tournaments.not_member')], 403);
         }
         return new LeagueResource($league->load('members', 'sport'));
     }
@@ -82,43 +120,27 @@ class LeagueController extends Controller
         $userId = $request->user()->id;
 
         if (!$league->members()->where('user_id', $userId)->exists()) {
-            return response()->json(['message' => 'Not a member of this league'], 403);
+            return response()->json(['message' => __('messages.tournaments.not_member')], 403);
         }
         if ((int) $league->owner_user_id !== (int) $userId) {
-            return response()->json(['message' => 'Only the owner can start this tournament.'], 403);
+            return response()->json(['message' => __('messages.tournaments.owner_only_start')], 403);
         }
         if ($league->status !== 'lobby') {
-            return response()->json(['message' => 'Tournament can only be started from lobby status.'], 422);
-        }
-
-        $sport = $league->sport;
-        $hasChallenges = Challenge::where('status', 'active')
-            ->where('sport_id', $sport->id)
-            ->exists();
-
-        $needed = $league->duration_days * $league->rounds_per_day;
-
-        if (!$hasChallenges) {
-            \App\Support\AppLog::warn('tournament.start_failed', [
-                'league_id' => $league->id, 'user_id' => $userId, 'reason' => 'no_active_challenges',
-                'sport_id' => (int) $sport->id, 'requested_count' => $needed, 'eligible_count' => 0,
-            ]);
-            return response()->json(
-                ['message' => "No active {$sport->name} challenges available. Add challenges in admin."],
-                422
-            );
+            return response()->json(['message' => __('messages.tournaments.start_from_lobby')], 422);
         }
 
         // v1.8.9 fairness: needs duration_days * rounds_per_day UNIQUE
-        // tournament-eligible photos (never Daily-used). Same check as the
-        // service, surfaced here so the API returns a plain 422 JSON body.
-        $eligible = $this->leagueService->eligibleTournamentChallenges((int) $sport->id)->count();
-        if ($eligible < $needed) {
+        // tournament-eligible photos (never Daily-used). Answered with the
+        // structured "temporarily unavailable" body — never a bare 422 — so
+        // the app can show friendly copy. The service repeats the check
+        // inside the transaction (cooldown-aware selection) as the last word.
+        $check = $this->availability->check($league->sport, (int) $league->duration_days, (int) $league->rounds_per_day);
+        if (!$check['available']) {
             \App\Support\AppLog::warn('tournament.start_failed', [
                 'league_id' => $league->id, 'user_id' => $userId, 'reason' => 'not_enough_challenges',
-                'sport_id' => (int) $sport->id, 'requested_count' => $needed, 'eligible_count' => $eligible,
+                'sport_id' => (int) $league->sport_id, 'requested_count' => $check['required'], 'eligible_count' => $check['available_challenges'],
             ]);
-            return response()->json(['message' => LeagueService::NOT_ENOUGH_CHALLENGES_MESSAGE], 422);
+            return TournamentAvailabilityService::response($check['required'], $check['available_challenges']);
         }
 
         $league = $this->leagueService->start($league, $userId);
@@ -130,10 +152,10 @@ class LeagueController extends Controller
         $userId = $request->user()->id;
 
         if (!$league->members()->where('user_id', $userId)->exists()) {
-            return response()->json(['message' => 'Not a member of this league'], 403);
+            return response()->json(['message' => __('messages.tournaments.not_member')], 403);
         }
         if ((int) $league->owner_user_id !== (int) $userId) {
-            return response()->json(['message' => 'Only the owner can cancel this tournament.'], 403);
+            return response()->json(['message' => __('messages.tournaments.owner_only_cancel')], 403);
         }
 
         $this->leagueService->cancel($league, $userId);
@@ -145,16 +167,16 @@ class LeagueController extends Controller
         $requesterId = $request->user()->id;
 
         if (!$league->members()->where('user_id', $requesterId)->exists()) {
-            return response()->json(['message' => 'Not a member of this league'], 403);
+            return response()->json(['message' => __('messages.tournaments.not_member')], 403);
         }
         if ((int) $league->owner_user_id !== (int) $requesterId) {
-            return response()->json(['message' => 'Only the owner can remove players.'], 403);
+            return response()->json(['message' => __('messages.tournaments.owner_only_remove')], 403);
         }
         if ($league->status !== 'lobby') {
-            return response()->json(['message' => 'Players can only be removed while the tournament is in lobby.'], 422);
+            return response()->json(['message' => __('messages.tournaments.remove_in_lobby')], 422);
         }
         if ((int) $user->id === (int) $league->owner_user_id) {
-            return response()->json(['message' => 'The owner cannot be removed.'], 422);
+            return response()->json(['message' => __('messages.tournaments.owner_not_removable')], 422);
         }
 
         $league->members()->detach($user->id);
@@ -165,7 +187,7 @@ class LeagueController extends Controller
     {
         $userId = $request->user()->id;
         if (!$league->members()->where('user_id', $userId)->exists()) {
-            return response()->json(['message' => 'Not a member of this league'], 403);
+            return response()->json(['message' => __('messages.tournaments.not_member')], 403);
         }
 
         $totalRounds = $league->rounds()->where('status', 'open')->count();
@@ -195,7 +217,7 @@ class LeagueController extends Controller
                 'has_current_round'=> false,
                 'completed'        => false,
                 'reason'           => 'daily_limit_reached',
-                'message'          => 'You have played all rounds available for today.',
+                'message'          => __('messages.tournaments.daily_limit'),
                 'next_available_at'=> null,
                 'progress'         => $progress,
                 'rounds_per_day'   => $league->rounds_per_day,
@@ -208,7 +230,7 @@ class LeagueController extends Controller
             ->where('status', 'open')
             ->whereDoesntHave('guesses', fn($q) => $q->where('user_id', $userId))
             ->orderBy('round_number')
-            ->with('challenge.category')
+            ->with(['challenge.category', 'challenge.sport'])
             ->first();
 
         if (!$round) {

@@ -32,11 +32,12 @@ class LoginVerificationCodeNotification extends Notification
     {
         $app = config('ballspot.app_name');
 
+        // Rendered under the recipient's preferred_language (HasLocalePreference).
         return (new MailMessage)
-            ->subject('Your ' . $app . ' login code')
-            ->greeting('Verify your login')
-            ->line('Your login code is: ' . $this->code)
-            ->line('This code expires in ' . $this->expiryMinutes . ' minutes.')
-            ->line('If this was not you, you can ignore this email.');
+            ->subject(__('emails.login_code.subject', ['app' => $app]))
+            ->greeting(__('emails.login_code.greeting'))
+            ->line(__('emails.login_code.code', ['code' => $this->code]))
+            ->line(__('emails.login_code.expires', ['minutes' => $this->expiryMinutes]))
+            ->line(__('emails.login_code.ignore'));
     }
 }

@@ -8,6 +8,7 @@ import { AppButton } from '../components/AppButton';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ScanFriendCode'>;
 
@@ -19,6 +20,7 @@ function parseFriendCode(raw: string): string | null {
 
 export function ScanFriendCodeScreen({ navigation }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
   const [permission, requestPermission] = useCameraPermissions();
   const [error, setError] = useState('');
@@ -29,7 +31,7 @@ export function ScanFriendCodeScreen({ navigation }: Props) {
   if (!permission) {
     return (
       <Screen padding>
-        <Text style={styles.body}>Preparing the camera…</Text>
+        <Text style={styles.body}>{t('friends.scan.preparing')}</Text>
       </Screen>
     );
   }
@@ -37,17 +39,15 @@ export function ScanFriendCodeScreen({ navigation }: Props) {
   if (!permission.granted) {
     return (
       <Screen padding>
-        <Text style={styles.title}>Camera access needed</Text>
+        <Text style={styles.title}>{t('friends.scan.permissionTitle')}</Text>
         <Text style={styles.body}>
-          {permission.canAskAgain
-            ? 'BallPicker needs your camera to scan a friend’s QR code. Nothing is recorded or uploaded.'
-            : 'Camera access is turned off for BallPicker. Enable it in your device settings, or type the friend code manually instead.'}
+          {permission.canAskAgain ? t('friends.scan.permissionAsk') : t('friends.scan.permissionDenied')}
         </Text>
         {permission.canAskAgain ? (
-          <AppButton title="Allow camera" onPress={requestPermission} style={{ marginTop: spacing.lg }} />
+          <AppButton title={t('friends.scan.allowCamera')} onPress={requestPermission} style={{ marginTop: spacing.lg }} />
         ) : null}
         <AppButton
-          title="Enter code manually"
+          title={t('friends.scan.enterManually')}
           onPress={() => navigation.navigate('Home', { screen: 'Friends' })}
           variant="secondary"
           style={{ marginTop: spacing.sm }}
@@ -66,7 +66,7 @@ export function ScanFriendCodeScreen({ navigation }: Props) {
           if (handled.current) return;
           const code = parseFriendCode(String(data ?? ''));
           if (!code) {
-            setError('That QR code is not a BallPicker friend code.');
+            setError(t('friends.scan.invalidCode'));
             return;
           }
           handled.current = true;
@@ -74,7 +74,7 @@ export function ScanFriendCodeScreen({ navigation }: Props) {
         }}
       />
       <View style={styles.overlay}>
-        <Text style={styles.overlayText}>Point the camera at a BallPicker friend QR code.</Text>
+        <Text style={styles.overlayText}>{t('friends.scan.hint')}</Text>
         {error ? <Text style={styles.overlayError}>{error}</Text> : null}
       </View>
     </View>

@@ -10,12 +10,11 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { parseResetInput, looksLikeResetLink } from '../utils/resetLink';
 import { classifyResetError, mapAuthError, validatePasswordPair } from '../utils/authErrors';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ResetPassword'>;
 
 type FieldErrors = { email?: string; token?: string; password?: string; password_confirmation?: string };
-
-const INVALID_LINK = 'This reset link is invalid or has expired. Request a new one and use the newest email.';
 
 /**
  * Reached three ways: from "Forgot password" (user pastes the link), from the
@@ -24,6 +23,7 @@ const INVALID_LINK = 'This reset link is invalid or has expired. Request a new o
  * token from the email link — pasting the whole link is fine, we extract it.
  */
 export function ResetPasswordScreen({ navigation, route }: Props) {
+  const { t } = useI18n();
   const [email, setEmail] = useState(route.params?.email ?? '');
   const [linkInput, setLinkInput] = useState(route.params?.token ?? '');
   const [password, setPassword] = useState('');
@@ -60,8 +60,8 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
     const resolvedEmail = (email.trim() || parsed?.email || '').trim();
 
     const next: FieldErrors = { ...validatePasswordPair(password, confirm) };
-    if (!resolvedEmail) next.email = 'Email is required';
-    if (!parsed) next.token = 'Paste the reset link (or the code from it) from your email';
+    if (!resolvedEmail) next.email = t('errors.validation.emailRequired');
+    if (!parsed) next.token = t('auth.resetPassword.validation.linkRequired');
     if (Object.keys(next).length > 0) { setErrors(next); return; }
 
     setLoading(true);
@@ -78,7 +78,7 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
       // right sentence; field validation → on the field; a transient server
       // failure (reset_failed, nothing changed) → friendly retry text.
       const problem = classifyResetError(e);
-      const info = mapAuthError(e, INVALID_LINK);
+      const info = mapAuthError(e, t('auth.resetPassword.invalidLink'));
       if (problem) {
         setExpiredReason(problem);
         setState('expired');
@@ -102,11 +102,11 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
       <Screen scroll padding>
         <View style={styles.centerBox}>
           <Text style={styles.bigIcon}>✅</Text>
-          <Text style={[styles.title, styles.centerText]}>Password updated</Text>
+          <Text style={[styles.title, styles.centerText]}>{t('auth.resetPassword.done.title')}</Text>
           <Text style={[styles.body, styles.centerText]}>
-            Your password has been changed and every other session has been signed out. Log in with your new password.
+            {t('auth.resetPassword.done.body')}
           </Text>
-          <AppButton title="Go to login" onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })} />
+          <AppButton title={t('auth.resetPassword.goToLogin')} onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })} />
         </View>
       </Screen>
     );
@@ -118,16 +118,16 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
         <View style={styles.centerBox}>
           <Text style={styles.bigIcon}>⏰</Text>
           <Text style={[styles.title, styles.centerText]}>
-            {expiredReason === 'expired' ? 'This link has expired' : 'This link no longer works'}
+            {expiredReason === 'expired' ? t('auth.resetPassword.expired.titleExpired') : t('auth.resetPassword.expired.titleInvalid')}
           </Text>
           <Text style={[styles.body, styles.centerText]}>
             {expiredReason === 'expired'
-              ? 'Reset links are valid for a limited time. Request a new link and use the newest email.'
-              : 'Reset links can only be used once and must match the email they were sent to. Request a new link and use the newest email.'}
+              ? t('auth.resetPassword.expired.bodyExpired')
+              : t('auth.resetPassword.expired.bodyInvalid')}
           </Text>
-          <AppButton title="Request a new link" onPress={() => navigation.navigate('ForgotPassword')} style={styles.btn} />
-          <AppButton title="Try again" variant="secondary" onPress={() => { setState('form'); setLinkInput(''); }} style={styles.btn} />
-          <AppButton title="Back to login" variant="secondary" onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })} />
+          <AppButton title={t('auth.resetPassword.requestNewLink')} onPress={() => navigation.navigate('ForgotPassword')} style={styles.btn} />
+          <AppButton title={t('common.buttons.tryAgain')} variant="secondary" onPress={() => { setState('form'); setLinkInput(''); }} style={styles.btn} />
+          <AppButton title={t('auth.backToLogin')} variant="secondary" onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })} />
         </View>
       </Screen>
     );
@@ -135,13 +135,13 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.title}>Reset password</Text>
+      <Text style={styles.title}>{t('auth.resetPassword.title')}</Text>
       <Text style={styles.body}>
-        Paste the reset link from your email below (the code inside it works too), then choose a new password.
+        {t('auth.resetPassword.intro')}
       </Text>
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
       <AppInput
-        label="Email"
+        label={t('common.labels.email')}
         value={email}
         onChangeText={(t) => { setEmail(t); setErrors((p) => ({ ...p, email: undefined })); }}
         keyboardType="email-address"
@@ -150,7 +150,7 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
         error={errors.email}
       />
       <AppInput
-        label="Reset link or code"
+        label={t('auth.resetPassword.fields.link')}
         value={linkInput}
         onChangeText={handleLinkChange}
         autoCapitalize="none"
@@ -159,7 +159,7 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
         error={errors.token}
       />
       <AppInput
-        label="New password (at least 8 characters)"
+        label={t('auth.resetPassword.fields.newPassword')}
         value={password}
         onChangeText={(t) => { setPassword(t); setErrors((p) => ({ ...p, password: undefined })); }}
         secureTextEntry
@@ -168,7 +168,7 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
         error={errors.password}
       />
       <AppInput
-        label="Confirm new password"
+        label={t('auth.resetPassword.fields.confirmNewPassword')}
         value={confirm}
         onChangeText={(t) => { setConfirm(t); setErrors((p) => ({ ...p, password_confirmation: undefined })); }}
         error={errors.password_confirmation}
@@ -178,9 +178,9 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
         returnKeyType="done"
         onSubmitEditing={handleSubmit}
       />
-      <AppButton title="Set new password" onPress={handleSubmit} loading={loading} style={styles.btn} />
-      <AppButton title="Request a new link" variant="secondary" onPress={() => navigation.navigate('ForgotPassword')} style={styles.btn} disabled={loading} />
-      <AppButton title="Back to login" variant="secondary" onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })} disabled={loading} />
+      <AppButton title={t('auth.resetPassword.submit')} onPress={handleSubmit} loading={loading} style={styles.btn} />
+      <AppButton title={t('auth.resetPassword.requestNewLink')} variant="secondary" onPress={() => navigation.navigate('ForgotPassword')} style={styles.btn} disabled={loading} />
+      <AppButton title={t('auth.backToLogin')} variant="secondary" onPress={() => navigation.reset({ index: 0, routes: [{ name: 'Login' }] })} disabled={loading} />
     </Screen>
   );
 }

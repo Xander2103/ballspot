@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 import type { TournamentFinish } from '../types/badge';
 
 interface Props {
@@ -27,20 +28,21 @@ function formatDate(iso: string | null): string {
  */
 export function ProfileHistoryCard({ finishes, flat = false }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
 
   return (
     <View style={[styles.card, flat && styles.flat]}>
       {finishes.map((f, i) => (
         <View key={f.id} style={[styles.row, i > 0 && styles.rowDivider]}>
-          <Text style={styles.medal}>{MEDAL[f.placement] ?? `#${f.placement}`}</Text>
+          <Text style={styles.medal}>{MEDAL[f.placement] ?? t('profile.history.placement', { placement: f.placement })}</Text>
           <View style={styles.text}>
-            <Text style={styles.name} numberOfLines={1}>{f.league?.name ?? 'Tournament'}</Text>
+            <Text style={styles.name} numberOfLines={1}>{f.league?.name ?? t('profile.history.fallbackName')}</Text>
             <Text style={styles.meta}>
-              {`#${f.placement}`}
-              {f.total_players ? ` of ${f.total_players}` : ''}
-              {` · ${f.total_score} pts`}
-              {f.rounds_played ? ` · ${f.rounds_played} rounds` : ''}
+              {t('profile.history.placement', { placement: f.placement })}
+              {f.total_players ? t('profile.history.of', { total: f.total_players }) : ''}
+              {t('profile.history.pts', { score: f.total_score })}
+              {f.rounds_played ? t('profile.history.rounds', { count: f.rounds_played }) : ''}
             </Text>
           </View>
           <Text style={styles.date}>{formatDate(f.completed_at)}</Text>

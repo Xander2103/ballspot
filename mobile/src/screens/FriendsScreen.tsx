@@ -15,12 +15,14 @@ import { friendsApi } from '../api/friendsApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 import type { FriendRequestItem, FriendSuggestion, FriendSummary } from '../types/friend';
 
 type Props = MainTabScreenProps<'Friends'>;
 
 export function FriendsScreen({ navigation, route }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
   const { setIncomingCount } = useFriendRequests();
 
@@ -99,11 +101,11 @@ export function FriendsScreen({ navigation, route }: Props) {
     try {
       await friendsApi.sendRequest(value);
       setInput('');
-      setAddNotice('Friend request sent.');
+      setAddNotice(t('friends.list.requestSentNotice'));
       await load();
     } catch (e: unknown) {
       const err = e as { message?: string };
-      setAddError(err?.message ?? 'Could not send that friend request.');
+      setAddError(err?.message ?? t('friends.list.sendError'));
     } finally {
       setAdding(false);
     }
@@ -113,7 +115,7 @@ export function FriendsScreen({ navigation, route }: Props) {
     setBusyId(item.id);
     setAddError('');
     try { await friendsApi.accept(item.id); await load(); }
-    catch { setAddError('Could not accept that request.'); }
+    catch { setAddError(t('friends.list.acceptError')); }
     finally { setBusyId(null); }
   }
 
@@ -121,7 +123,7 @@ export function FriendsScreen({ navigation, route }: Props) {
     setBusyId(item.id);
     setAddError('');
     try { await friendsApi.reject(item.id); await load(); }
-    catch { setAddError('Could not reject that request.'); }
+    catch { setAddError(t('friends.list.rejectError')); }
     finally { setBusyId(null); }
   }
 
@@ -148,7 +150,7 @@ export function FriendsScreen({ navigation, route }: Props) {
       setFriends((prev) => prev.filter((f) => f.id !== removeTarget.id));
       setRemoveTarget(null);
     } catch {
-      setRemoveError('Could not remove this friend. Please try again.');
+      setRemoveError(t('friends.remove.error'));
     } finally {
       setRemoving(false);
     }
@@ -162,9 +164,9 @@ export function FriendsScreen({ navigation, route }: Props) {
     return (
       <Screen padding>
         <EmptyState
-          title="Couldn't load your friends"
-          message="Check your connection and try again."
-          actions={[{ label: 'Retry', onPress: () => { setLoading(true); load(); } }]}
+          title={t('friends.list.loadErrorTitle')}
+          message={t('common.states.checkConnection')}
+          actions={[{ label: t('common.buttons.retry'), onPress: () => { setLoading(true); load(); } }]}
         />
       </Screen>
     );
@@ -182,7 +184,7 @@ export function FriendsScreen({ navigation, route }: Props) {
   return (
     <Screen scroll padding>
       {/* My friend code + QR — compact block, always visible. */}
-      <Text style={styles.sectionTitle}>Your friend code</Text>
+      <Text style={styles.sectionTitle}>{t('friends.list.codeTitle')}</Text>
       <View style={styles.codeCard}>
         <Text style={styles.code}>{code ?? '········'}</Text>
         {code ? (
@@ -190,9 +192,9 @@ export function FriendsScreen({ navigation, route }: Props) {
             <QRCode value={code} size={120} color="#000000" backgroundColor="#ffffff" />
           </View>
         ) : null}
-        <Text style={styles.codeHint}>Share this code (or the QR) so other players can add you.</Text>
+        <Text style={styles.codeHint}>{t('friends.list.codeHint')}</Text>
         <AppButton
-          title={copied ? 'Copied!' : 'Copy friend code'}
+          title={copied ? t('common.buttons.copied') : t('friends.list.copyCode')}
           onPress={handleCopy}
           variant="secondary"
           disabled={!code}
@@ -201,24 +203,24 @@ export function FriendsScreen({ navigation, route }: Props) {
 
       {/* Friend list — expanded by default, searchable. */}
       <CollapsibleSection
-        title="Your friends"
+        title={t('friends.list.yourFriends')}
         summary={`${friends.length}`}
         initiallyExpanded
       >
         {friends.length === 0 ? (
-          <EmptyState compact message="No friends yet. Share your code above to get started." />
+          <EmptyState compact message={t('friends.list.empty')} />
         ) : (
           <>
             <AppInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Search by name or username"
+              placeholder={t('friends.list.searchPlaceholder')}
               autoCapitalize="none"
               autoCorrect={false}
-              accessibilityLabel="Search your friends"
+              accessibilityLabel={t('friends.list.searchA11y')}
             />
             {visibleFriends.length === 0 ? (
-              <EmptyState compact message="No friends match your search." />
+              <EmptyState compact message={t('friends.list.noMatch')} />
             ) : (
               visibleFriends.map((f, i) => (
                 <TouchableOpacity
@@ -230,7 +232,9 @@ export function FriendsScreen({ navigation, route }: Props) {
                   <Avatar uri={f.avatar_url} name={f.name} size={40} />
                   <View style={styles.rowText}>
                     <Text style={styles.rowName}>{f.name}</Text>
-                    <Text style={styles.rowSub}>@{f.username} · {f.rank_name} · {f.total_xp} XP</Text>
+                    <Text style={styles.rowSub}>
+                      {t('friends.list.friendMeta', { username: f.username, rank: f.rank_name, xp: f.total_xp })}
+                    </Text>
                   </View>
                   {/* stopPropagation: this sits inside the row's own TouchableOpacity,
                       so without it a Remove tap can also open the friend's profile. */}
@@ -239,9 +243,9 @@ export function FriendsScreen({ navigation, route }: Props) {
                     style={styles.actionBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${f.name} from your friends`}
+                    accessibilityLabel={t('friends.list.removeA11y', { name: f.name })}
                   >
-                    <Text style={styles.rejectText}>Remove</Text>
+                    <Text style={styles.rejectText}>{t('friends.list.remove')}</Text>
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))
@@ -252,25 +256,27 @@ export function FriendsScreen({ navigation, route }: Props) {
 
       {/* Incoming — auto-expanded and badged whenever something is pending. */}
       <CollapsibleSection
-        title="Incoming requests"
+        title={t('friends.list.incomingTitle')}
         badgeCount={incoming.length}
         initiallyExpanded={incoming.length > 0}
       >
         {incoming.length === 0 ? (
-          <EmptyState compact message="No incoming requests right now." />
+          <EmptyState compact message={t('friends.list.incomingEmpty')} />
         ) : (
           incoming.map((item, i) => (
             <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
               <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
               <View style={styles.rowText}>
                 <Text style={styles.rowName}>{item.user.name}</Text>
-                <Text style={styles.rowSub}>@{item.user.username} · {item.user.rank_name}</Text>
+                <Text style={styles.rowSub}>
+                  {t('friends.list.requestMeta', { username: item.user.username, rank: item.user.rank_name })}
+                </Text>
               </View>
               <TouchableOpacity onPress={() => handleAccept(item)} disabled={busyId === item.id} style={styles.actionBtn}>
-                <Text style={styles.acceptText}>Accept</Text>
+                <Text style={styles.acceptText}>{t('friends.list.accept')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleReject(item)} disabled={busyId === item.id} style={styles.actionBtn}>
-                <Text style={styles.rejectText}>Reject</Text>
+                <Text style={styles.rejectText}>{t('friends.list.reject')}</Text>
               </TouchableOpacity>
             </View>
           ))
@@ -278,16 +284,16 @@ export function FriendsScreen({ navigation, route }: Props) {
       </CollapsibleSection>
 
       {/* Outgoing — collapsed by default. */}
-      <CollapsibleSection title="Sent requests" summary={outgoing.length > 0 ? `${outgoing.length}` : undefined}>
+      <CollapsibleSection title={t('friends.list.sentTitle')} summary={outgoing.length > 0 ? `${outgoing.length}` : undefined}>
         {outgoing.length === 0 ? (
-          <EmptyState compact message="No pending sent requests." />
+          <EmptyState compact message={t('friends.list.sentEmpty')} />
         ) : (
           outgoing.map((item, i) => (
             <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
               <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
               <View style={styles.rowText}>
                 <Text style={styles.rowName}>{item.user.name}</Text>
-                <Text style={styles.rowSub}>@{item.user.username} · pending</Text>
+                <Text style={styles.rowSub}>{t('friends.list.pendingMeta', { username: item.user.username })}</Text>
               </View>
             </View>
           ))
@@ -296,11 +302,11 @@ export function FriendsScreen({ navigation, route }: Props) {
 
       {/* Suggested friends — safe public data only, small and dismissable. */}
       <CollapsibleSection
-        title="Suggested friends"
+        title={t('friends.list.suggestedTitle')}
         summary={suggestions.length > 0 ? `${suggestions.length}` : undefined}
       >
         {suggestions.length === 0 ? (
-          <EmptyState compact message="No suggestions right now — check back later." />
+          <EmptyState compact message={t('friends.list.suggestedEmpty')} />
         ) : (
           suggestions.map((s, i) => (
             <View key={s.id} style={[styles.row, i > 0 && styles.rowDivider]}>
@@ -308,20 +314,20 @@ export function FriendsScreen({ navigation, route }: Props) {
               <View style={styles.rowText}>
                 <Text style={styles.rowName} numberOfLines={1}>{s.name}</Text>
                 <Text style={styles.rowSub} numberOfLines={1}>
-                  {s.reason === 'same_tournament' ? 'Played in the same tournament' : 'Active player'}
+                  {s.reason === 'same_tournament' ? t('friends.list.reasonSameTournament') : t('friends.list.reasonActivePlayer')}
                 </Text>
               </View>
               {sentIds.has(s.id) ? (
-                <Text style={styles.notice}>Request sent</Text>
+                <Text style={styles.notice}>{t('friends.list.requestSent')}</Text>
               ) : (
                 <TouchableOpacity
                   onPress={() => handleSuggestAdd(s.id)}
                   disabled={suggestBusyId === s.id}
                   style={styles.actionBtn}
                   accessibilityRole="button"
-                  accessibilityLabel={`Send ${s.name} a friend request`}
+                  accessibilityLabel={t('friends.list.addA11y', { name: s.name })}
                 >
-                  <Text style={styles.acceptText}>Add</Text>
+                  <Text style={styles.acceptText}>{t('friends.list.add')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -330,9 +336,9 @@ export function FriendsScreen({ navigation, route }: Props) {
       </CollapsibleSection>
 
       {/* Add a friend — collapsed by default. */}
-      <CollapsibleSection title="Add a friend">
+      <CollapsibleSection title={t('friends.list.addTitle')}>
         <AppInput
-          label="Friend code"
+          label={t('friends.list.codeLabel')}
           value={input}
           onChangeText={(t) => setInput(t.toUpperCase())}
           autoCapitalize="characters"
@@ -342,9 +348,9 @@ export function FriendsScreen({ navigation, route }: Props) {
         />
         {addError ? <Text style={styles.error}>{addError}</Text> : null}
         {addNotice ? <Text style={styles.notice}>{addNotice}</Text> : null}
-        <AppButton title="Send request" onPress={handleAdd} loading={adding} disabled={!input.trim() || adding} />
+        <AppButton title={t('friends.list.sendRequest')} onPress={handleAdd} loading={adding} disabled={!input.trim() || adding} />
         <AppButton
-          title="Scan QR code"
+          title={t('friends.list.scanQr')}
           onPress={() => navigation.navigate('ScanFriendCode')}
           variant="secondary"
           style={{ marginTop: spacing.sm }}
@@ -353,10 +359,10 @@ export function FriendsScreen({ navigation, route }: Props) {
 
       <ConfirmModal
         visible={!!removeTarget}
-        title="Remove friend?"
-        message={`${removeTarget?.name ?? 'This player'} will be removed from your friends list. You can add each other again later.`}
-        confirmLabel="Remove"
-        cancelLabel="Cancel"
+        title={t('friends.remove.title')}
+        message={t('friends.remove.message', { name: removeTarget?.name ?? t('friends.remove.fallbackName') })}
+        confirmLabel={t('friends.remove.confirm')}
+        cancelLabel={t('common.buttons.cancel')}
         onConfirm={handleRemove}
         onCancel={() => { setRemoveTarget(null); setRemoveError(''); }}
         loading={removing}

@@ -1,4 +1,5 @@
 import { tokenStorage } from '../storage/tokenStorage';
+import { getLocale, translate } from '../i18n/core';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
 
@@ -13,6 +14,9 @@ async function request<T>(
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    // The backend localizes validation/auth messages from this header (the
+    // signed-in user's preferred_language wins server-side).
+    'Accept-Language': getLocale(),
     // Let the runtime set the multipart boundary itself for FormData uploads.
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as Record<string, string>),
@@ -42,7 +46,7 @@ async function request<T>(
       throw {
         status: 429,
         retry_after: retryAfter,
-        message: `Too many attempts. Try again in ${retryAfter} seconds.`,
+        message: translate('errors.rateLimited', { seconds: retryAfter }),
       };
     }
 

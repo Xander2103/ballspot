@@ -9,20 +9,22 @@ import { dailyApi } from '../api/dailyApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { WeeklyLeaderboardEntry, WeeklyLeaderboard } from '../types/daily';
+import { useI18n, type TranslateParams } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WeeklyLeaderboard'>;
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+type Translate = (key: string, params?: TranslateParams) => string;
 
 /** "2026-07-01","2026-07-31" -> "1 Jul – 31 Jul". Returns '' if unparseable. */
-function formatPeriodRange(start?: string, end?: string): string {
+function formatPeriodRange(t: Translate, start?: string, end?: string): string {
   const fmt = (d?: string): string | null => {
     if (!d) return null;
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
     if (!m) return null;
-    const month = MONTHS[Number(m[2]) - 1];
+    const monthIndex = Number(m[2]);
     const day = Number(m[3]);
-    if (!month || Number.isNaN(day)) return null;
+    if (monthIndex < 1 || monthIndex > 12 || Number.isNaN(day)) return null;
+    const month = t(`daily.leaderboard.months.m${monthIndex}`);
     return `${day} ${month}`;
   };
   const a = fmt(start);
@@ -39,6 +41,7 @@ function RankMedal({ rank }: { rank: number }): string {
 }
 
 function LeaderboardRow({ entry }: { entry: WeeklyLeaderboardEntry }) {
+  const { t } = useI18n();
   const isCurrentUser = entry.is_current_user;
   const rankDisplay = RankMedal({ rank: entry.rank });
   const displayName = entry.name || entry.username;
@@ -55,7 +58,7 @@ function LeaderboardRow({ entry }: { entry: WeeklyLeaderboardEntry }) {
           {displayName}
         </Text>
         {isCurrentUser && (
-          <Text style={styles.youLabel}>You</Text>
+          <Text style={styles.youLabel}>{t('common.labels.you')}</Text>
         )}
       </View>
       <View style={styles.scoreCell}>
@@ -63,7 +66,7 @@ function LeaderboardRow({ entry }: { entry: WeeklyLeaderboardEntry }) {
           {entry.total_score}
         </Text>
         <Text style={styles.subScore}>
-          {entry.challenges_played}x · avg {Math.round(entry.avg_score)}
+          {t('daily.leaderboard.rowStats', { played: entry.challenges_played, avg: Math.round(entry.avg_score) })}
         </Text>
       </View>
     </View>
@@ -71,6 +74,7 @@ function LeaderboardRow({ entry }: { entry: WeeklyLeaderboardEntry }) {
 }
 
 export function WeeklyLeaderboardScreen({ navigation }: Props) {
+  const { t } = useI18n();
   const [leaderboard, setLeaderboard] = useState<WeeklyLeaderboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -107,9 +111,9 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
   if (error || !leaderboard) {
     return (
       <Screen padding>
-        <Text style={styles.errorText}>Failed to load leaderboard.</Text>
+        <Text style={styles.errorText}>{t('daily.leaderboard.loadError')}</Text>
         <AppButton
-          title="Back Home"
+          title={t('game.buttons.backHome')}
           onPress={() => navigation.navigate('Home')}
           style={{ marginTop: spacing.lg }}
         />
@@ -120,10 +124,10 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
   const meta = leaderboard.meta;
   const hasRank = !!meta?.current_user_rank;
   const entries = leaderboard.data;
-  const periodLabel = leaderboard.period?.period_label ?? leaderboard.period_label ?? 'Leaderboard';
+  const periodLabel = leaderboard.period?.period_label ?? leaderboard.period_label ?? t('nav.titles.leaderboard');
   const rangeStart = leaderboard.period?.period_start ?? leaderboard.week_start;
   const rangeEnd = leaderboard.period?.period_end ?? leaderboard.week_end;
-  const periodRange = formatPeriodRange(rangeStart, rangeEnd);
+  const periodRange = formatPeriodRange(t, rangeStart, rangeEnd);
   const myIndex = entries.findIndex((e) => e.is_current_user);
 
   const scrollToTop = () => listRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -151,7 +155,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
         />
       ) : (
         <View style={styles.noRankCard}>
-          <Text style={styles.noRankText}>Play a round to enter the leaderboard.</Text>
+          <Text style={styles.noRankText}>{t('daily.leaderboard.playToEnter')}</Text>
         </View>
       )}
 
@@ -159,11 +163,11 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
       {entries.length > 0 ? (
         <View style={styles.actionsRow}>
           <Pressable onPress={scrollToTop} style={styles.actionBtn}>
-            <Text style={styles.actionText}>🏆 Top</Text>
+            <Text style={styles.actionText}>{t('daily.leaderboard.top')}</Text>
           </Pressable>
           {myIndex >= 0 ? (
             <Pressable onPress={scrollToMyRank} style={styles.actionBtn}>
-              <Text style={styles.actionText}>📍 My rank</Text>
+              <Text style={styles.actionText}>{t('daily.leaderboard.myRank')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -172,20 +176,20 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
       {/* Column headers */}
       <View style={styles.columnHeader}>
         <View style={styles.rankCell}>
-          <Text style={styles.colHeaderText}>Rank</Text>
+          <Text style={styles.colHeaderText}>{t('common.labels.rank')}</Text>
         </View>
         <View style={styles.nameCell}>
-          <Text style={styles.colHeaderText}>Player</Text>
+          <Text style={styles.colHeaderText}>{t('daily.leaderboard.columns.player')}</Text>
         </View>
         <View style={styles.scoreCell}>
-          <Text style={[styles.colHeaderText, styles.colHeaderRight]}>Score</Text>
+          <Text style={[styles.colHeaderText, styles.colHeaderRight]}>{t('common.labels.score')}</Text>
         </View>
       </View>
 
       {entries.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No scores on the board yet.</Text>
-          <Text style={styles.emptySubText}>Play today's challenge to get on the board!</Text>
+          <Text style={styles.emptyText}>{t('daily.leaderboard.empty')}</Text>
+          <Text style={styles.emptySubText}>{t('daily.leaderboard.emptyHint')}</Text>
         </View>
       ) : (
         <FlatList<WeeklyLeaderboardEntry>
@@ -208,7 +212,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
 
       <View style={styles.footer}>
         <AppButton
-          title="Back Home"
+          title={t('game.buttons.backHome')}
           onPress={() => navigation.navigate('Home')}
           variant="secondary"
         />

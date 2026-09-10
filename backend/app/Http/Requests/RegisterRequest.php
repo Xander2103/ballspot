@@ -44,7 +44,7 @@ class RegisterRequest extends FormRequest
         if ($beta = config('ballspot.beta_code')) {
             $rules['beta_code'] = ['required', 'string', function ($attribute, $value, $fail) use ($beta) {
                 if (!hash_equals(strtolower($beta), strtolower((string) $value))) {
-                    $fail('Invalid beta code.');
+                    $fail(__('messages.auth.beta_code_invalid'));
                 }
             }];
         }
@@ -105,14 +105,14 @@ class RegisterRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'beta_code.required'      => 'A beta code is required during closed testing.',
+            'beta_code.required'      => __('messages.auth.beta_code_required'),
             'email.unique'            => AuthError::message(AuthError::EMAIL_TAKEN),
             'username.unique'         => AuthError::message(AuthError::USERNAME_TAKEN),
             'password.confirmed'      => AuthError::message(AuthError::PASSWORD_MISMATCH),
-            'password.min'            => 'Password must be at least 8 characters.',
-            'preferred_language.in'   => 'Please choose a supported language.',
-            'terms_accepted.accepted' => 'You must accept the Terms of Service and Privacy Policy.',
-            'age_confirmed.accepted'  => 'You must confirm you meet the minimum age requirement.',
+            'password.min'            => __('messages.auth.password_min'),
+            'preferred_language.in'   => __('messages.auth.language_unsupported'),
+            'terms_accepted.accepted' => __('messages.auth.terms_required'),
+            'age_confirmed.accepted'  => __('messages.auth.age_required'),
         ];
     }
 }

@@ -9,16 +9,18 @@ import { leagueApi } from '../api/leagueApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { getApiErrorMessage } from '../utils/apiError';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JoinLeague'>;
 
 export function JoinLeagueScreen({ navigation }: Props) {
+  const { t } = useI18n();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function handleJoin() {
     const trimmed = code.trim().toUpperCase();
-    if (trimmed.length !== 6) { Alert.alert('Error', 'Join code must be 6 characters'); return; }
+    if (trimmed.length !== 6) { Alert.alert(t('tournaments.alerts.error'), t('tournaments.join.errors.codeLength')); return; }
     setLoading(true);
     try {
       const league = await leagueApi.join(trimmed);
@@ -26,10 +28,10 @@ export function JoinLeagueScreen({ navigation }: Props) {
     } catch (e: unknown) {
       const status = (e as { status?: number })?.status;
       Alert.alert(
-        'Could not join tournament',
+        t('tournaments.join.errors.title'),
         status === 404
-          ? 'No tournament found for that code. Check the code and try again.'
-          : getApiErrorMessage(e, 'Could not join this tournament. Please try again.'),
+          ? t('tournaments.join.errors.notFound')
+          : getApiErrorMessage(e, t('tournaments.join.errors.failed')),
       );
     } finally {
       setLoading(false);
@@ -38,18 +40,18 @@ export function JoinLeagueScreen({ navigation }: Props) {
 
   return (
     <Screen scroll padding>
-      <Text style={styles.title}>Join a League</Text>
-      <Text style={styles.sub}>Ask the league creator for their 6-character join code.</Text>
+      <Text style={styles.title}>{t('tournaments.join.title')}</Text>
+      <Text style={styles.sub}>{t('tournaments.join.subtitle')}</Text>
       <AppInput
-        label="Join Code"
+        label={t('tournaments.join.codeLabel')}
         value={code}
         onChangeText={setCode}
         autoCapitalize="characters"
         maxLength={6}
-        placeholder="ABC123"
+        placeholder={t('tournaments.join.codePlaceholder')}
         style={styles.codeInput}
       />
-      <AppButton title="Join League" onPress={handleJoin} loading={loading} />
+      <AppButton title={t('tournaments.join.submit')} onPress={handleJoin} loading={loading} />
     </Screen>
   );
 }

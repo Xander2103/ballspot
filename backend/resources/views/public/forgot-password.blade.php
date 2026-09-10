@@ -1,5 +1,5 @@
 @extends('public.layout')
-@section('title', 'Forgot password')
+@section('title', $sent ? __('web.forgot.sent_title') : __('web.forgot.title'))
 
 @section('content')
 <style>
@@ -16,24 +16,25 @@
 
 @if($sent)
     <div class="status-icon">📧</div>
-    <h1>Check your email</h1>
-    <p class="page-meta">If an account exists for that address, we've sent a link to reset your password.</p>
+    <h1>{{ __('web.forgot.sent_heading') }}</h1>
+    <p class="page-meta">{{ __('web.forgot.sent_intro') }}</p>
     <div class="callout">
-        <p>The link works for a limited time. If you don't see the email within a few minutes, check your spam folder or request another link.</p>
+        <p>{{ __('web.forgot.sent_callout') }}</p>
     </div>
-    <a class="btn btn-primary" href="{{ route('password.request') }}">Send another link</a>
+    <a class="btn btn-primary" href="{{ route('password.request', ['lang' => app()->getLocale()]) }}">{{ __('web.forgot.send_another') }}</a>
 @else
-    <h1>Forgot your password?</h1>
-    <p class="page-meta">Enter the email for your BallPicker account and we'll send you a reset link.</p>
+    <h1>{{ __('web.forgot.heading') }}</h1>
+    <p class="page-meta">{{ __('web.forgot.intro') }}</p>
     <div class="form-card">
         <form method="POST" action="{{ route('password.email') }}">
             @csrf
+            <input type="hidden" name="lang" value="{{ app()->getLocale() }}">
             <div class="field">
-                <label for="email">Email</label>
+                <label for="email">{{ __('web.forgot.email') }}</label>
                 <input id="email" name="email" type="email" value="{{ old('email') }}" autocomplete="email" required>
                 @error('email')<div class="field-error">{{ $message }}</div>@enderror
             </div>
-            <button class="btn btn-primary" type="submit">Send reset link</button>
+            <button class="btn btn-primary" type="submit">{{ __('web.forgot.submit') }}</button>
         </form>
     </div>
 @endif

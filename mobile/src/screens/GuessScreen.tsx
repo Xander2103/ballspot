@@ -13,6 +13,7 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { LeagueRound, CurrentRoundProgress } from '../types/challenge';
 import { getApiErrorMessage } from '../utils/apiError';
+import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Guess'>;
 
@@ -25,6 +26,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 export function GuessScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { leagueId, roundId, leagueName } = route.params;
+  const { t } = useI18n();
   const [round, setRound] = useState<LeagueRound | null>(null);
   const [progress, setProgress] = useState<CurrentRoundProgress | null>(null);
   const [dailyContext, setDailyContext] = useState<{ roundsPerDay: number; playedToday: number; remainingToday: number } | null>(null);
@@ -37,8 +39,8 @@ export function GuessScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     if (!leagueId || !roundId) {
-      Alert.alert('Error', 'Invalid round — missing league or round ID.', [
-        { text: 'OK', onPress: () => goHome(navigation) },
+      Alert.alert(t('game.alerts.errorTitle'), t('game.guess.alerts.invalidRound'), [
+        { text: t('common.buttons.ok'), onPress: () => goHome(navigation) },
       ]);
       setLoading(false);
       return;
@@ -54,8 +56,8 @@ export function GuessScreen({ route, navigation }: Props) {
         // matching id proves the round is still unplayed. No result probe is
         // needed (it could only ever 404) — a mismatch means the round moved on.
         if (!res.current_round || res.current_round.id !== roundId) {
-          Alert.alert('Round unavailable', 'This round is no longer available. It may already be played.', [
-            { text: 'OK', onPress: () => goHome(navigation) },
+          Alert.alert(t('game.guess.alerts.unavailableTitle'), t('game.guess.alerts.unavailable'), [
+            { text: t('common.buttons.ok'), onPress: () => goHome(navigation) },
           ]);
           setLoading(false);
           return;
@@ -72,8 +74,8 @@ export function GuessScreen({ route, navigation }: Props) {
       })
       .catch(() => {
         if (cancelled) return;
-        Alert.alert('Connection problem', 'Could not load this round. Check your connection and try again.', [
-          { text: 'OK', onPress: () => goHome(navigation) },
+        Alert.alert(t('game.guess.alerts.connectionTitle'), t('game.guess.alerts.connection'), [
+          { text: t('common.buttons.ok'), onPress: () => goHome(navigation) },
         ]);
         setLoading(false);
       });
@@ -92,7 +94,7 @@ export function GuessScreen({ route, navigation }: Props) {
   async function handleSubmit() {
     if (guessX === null || guessY === null) return;
     if (!Number.isFinite(guessX) || !Number.isFinite(guessY)) {
-      setSubmitError('Tap the image to lock your guess before submitting.');
+      setSubmitError(t('game.guess.lockBeforeSubmit'));
       return;
     }
     setSubmitting(true);
@@ -106,13 +108,14 @@ export function GuessScreen({ route, navigation }: Props) {
         leagueName,
         categoryName: round!.challenge.category?.name ?? null,
         challengeTitle: round!.challenge.title,
+        sportSlug: round!.challenge.sport?.slug ?? null,
         newBadges,
         rankProgress,
         rankUp,
         tournamentCompletion,
       });
     } catch (e: unknown) {
-      setSubmitError(getApiErrorMessage(e, 'Failed to submit guess. Please try again.'));
+      setSubmitError(getApiErrorMessage(e, t('game.guess.submitError')));
     } finally {
       setSubmitting(false);
     }
@@ -133,8 +136,16 @@ export function GuessScreen({ route, navigation }: Props) {
   const categoryName = round.challenge.category?.name ?? null;
 
   const guessLabel = hasGuess
-    ? `Guess locked at ${Math.round(guessX! * 100)}%, ${Math.round(guessY! * 100)}%`
-    : 'Tap the image to place your guess';
+    ? t('game.guess.locked', { x: Math.round(guessX! * 100), y: Math.round(guessY! * 100) })
+    : t('game.image.tapToPlace');
+
+  const roundContextSuffix = progress
+    ? progress.remaining === 1
+      ? t('game.guess.lastRound')
+      : progress.remaining === 0 && progress.total > 0
+        ? t('game.guess.bonusRound')
+        : t('game.guess.moreRounds', { count: progress.remaining - 1 })
+    : '';
 
   return (
     // scroll: a portrait image (height = width / aspect) can overflow small
@@ -143,7 +154,7 @@ export function GuessScreen({ route, navigation }: Props) {
       {/* Challenge info card */}
       <View style={styles.infoCard}>
         <View style={styles.infoRow}>
-          <Text style={styles.roundNum}>Round {round.round_number}</Text>
+          <Text style={styles.roundNum}>{t('game.guess.round', { number: round.round_number })}</Text>
           <View style={styles.badges}>
             {categoryName ? (
               <View style={styles.catBadge}>
@@ -159,21 +170,17 @@ export function GuessScreen({ route, navigation }: Props) {
         </View>
         {progress && (
           <Text style={styles.roundContext}>
-            Round {round.round_number} of {progress.total}
-            {progress.remaining === 1
-              ? '  ·  Last round!'
-              : progress.remaining === 0 && progress.total > 0
-                ? '  ·  Bonus round'
-                : `  ·  ${progress.remaining - 1} more round${progress.remaining - 1 !== 1 ? 's' : ''} after this`}
+            {t('game.guess.roundOf', { number: round.round_number, total: progress.total })}
+            {`  ·  ${roundContextSuffix}`}
           </Text>
         )}
         {dailyContext && dailyContext.roundsPerDay > 1 && (
           <Text style={styles.dailyContext}>
-            Today: {dailyContext.playedToday}/{dailyContext.roundsPerDay} played
-            {' · '}{dailyContext.remainingToday === 1 ? 'Last round available today' : `${dailyContext.remainingToday} rounds left today`}
+            {t('game.guess.todayPlayed', { played: dailyContext.playedToday, total: dailyContext.roundsPerDay })}
+            {' · '}{dailyContext.remainingToday === 1 ? t('game.guess.lastRoundToday') : t('game.guess.roundsLeftToday', { count: dailyContext.remainingToday })}
           </Text>
         )}
-        <Text style={styles.instruction}>Tap the image to place the missing ball.</Text>
+        <Text style={styles.instruction}>{t('game.guess.instruction')}</Text>
       </View>
 
       {/* Image card */}
@@ -184,12 +191,13 @@ export function GuessScreen({ route, navigation }: Props) {
             onGuess={handleGuess}
             interactive
             selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
+            sportSlug={round.challenge.sport?.slug}
           />
           <FullscreenButton onPress={() => setFullscreen(true)} variant="static" compact />
         </View>
       ) : (
         <View style={styles.noImage}>
-          <Text style={styles.noImageText}>Image unavailable</Text>
+          <Text style={styles.noImageText}>{t('game.image.unavailable')}</Text>
         </View>
       )}
 
@@ -202,7 +210,7 @@ export function GuessScreen({ route, navigation }: Props) {
         </View>
         {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
         <AppButton
-          title="Submit Guess"
+          title={t('game.buttons.submitGuess')}
           onPress={handleSubmit}
           loading={submitting}
           disabled={!hasGuess}
@@ -216,6 +224,7 @@ export function GuessScreen({ route, navigation }: Props) {
         selectable
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
         onSelectPoint={handleGuess}
+        sportSlug={round.challenge.sport?.slug}
       />
     </Screen>
   );

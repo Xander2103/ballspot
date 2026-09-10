@@ -6,7 +6,13 @@
  * like `{ message }` or `{ message, errors: { field: [msg] } }`. A 500 with
  * APP_DEBUG=false is `{ message: "Server Error" }` — technical noise we never
  * want on screen. Nothing here ever surfaces a stack trace or exception class.
+ *
+ * Generic copy (network / server / session) is translated in the app's active
+ * language via the i18n core; backend validation text is already localized
+ * server-side from the Accept-Language header the client sends.
  */
+
+import { translate } from '../i18n/core';
 
 export type ApiErrorLike = {
   status?: number;
@@ -15,13 +21,13 @@ export type ApiErrorLike = {
   retry_after?: number;
 };
 
-export const NETWORK_ERROR_MESSAGE =
-  'Could not reach BallPicker. Check your connection and try again.';
+export const NETWORK_ERROR_KEY = 'errors.network';
+export const SERVER_ERROR_KEY = 'errors.server';
+export const UNAUTHORIZED_KEY = 'errors.unauthorized';
 
-export const SERVER_ERROR_MESSAGE =
-  'Something went wrong on our side. Please try again in a moment.';
-
-export const UNAUTHORIZED_MESSAGE = 'Your session has expired. Please log in again.';
+export function networkErrorMessage(): string { return translate(NETWORK_ERROR_KEY); }
+export function serverErrorMessage(): string { return translate(SERVER_ERROR_KEY); }
+export function unauthorizedMessage(): string { return translate(UNAUTHORIZED_KEY); }
 
 /** Messages Laravel/fetch produce that mean nothing to a player. */
 const TECHNICAL_MESSAGES = [
@@ -69,7 +75,7 @@ export function isNetworkError(e: unknown): boolean {
  * @param fallback shown when the error carries no usable message
  */
 export function getApiErrorMessage(e: unknown, fallback: string): string {
-  if (isNetworkError(e)) return NETWORK_ERROR_MESSAGE;
+  if (isNetworkError(e)) return networkErrorMessage();
 
   const err = (e && typeof e === 'object' ? e : {}) as ApiErrorLike;
   const status = typeof err.status === 'number' ? err.status : undefined;
@@ -78,8 +84,8 @@ export function getApiErrorMessage(e: unknown, fallback: string): string {
   const validation = firstValidationError(err.errors);
   if (validation) return validation;
 
-  if (status === 401) return UNAUTHORIZED_MESSAGE;
-  if (status !== undefined && status >= 500) return SERVER_ERROR_MESSAGE;
+  if (status === 401) return unauthorizedMessage();
+  if (status !== undefined && status >= 500) return serverErrorMessage();
 
   const message = typeof err.message === 'string' ? err.message.trim() : '';
   if (message && !looksTechnical(message)) return message;

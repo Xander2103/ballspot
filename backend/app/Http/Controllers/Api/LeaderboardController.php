@@ -11,7 +11,7 @@ class LeaderboardController extends Controller
     public function index(Request $request, League $league)
     {
         if (!$league->members()->where('user_id', $request->user()->id)->exists()) {
-            return response()->json(['message' => 'Not a member of this league'], 403);
+            return response()->json(['message' => __('messages.tournaments.not_member')], 403);
         }
 
         $currentUserId = $request->user()->id;

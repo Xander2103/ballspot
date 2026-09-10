@@ -10,6 +10,8 @@ import {
   GestureResponderEvent,
 } from 'react-native';
 import { containRect, pointToRatios, ratiosToPoint } from '../utils/imageLayout';
+import { getSportObjectIcon, getSportObjectMarkerStyle } from '../utils/sportObject';
+import { useI18n } from '../i18n';
 
 const FALLBACK_ASPECT = 4 / 3;
 const MARKER_SIZE = 42;
@@ -25,6 +27,8 @@ interface Props {
   selectedPoint?: { x: number; y: number } | null;
   /** Called with 0..1 image ratios when the user taps the image (selectable). */
   onSelectPoint?: (xRatio: number, yRatio: number) => void;
+  /** Slug of the challenge's sport — picks the marker object (default football). */
+  sportSlug?: string | null;
 }
 
 /**
@@ -40,7 +44,9 @@ export function FullscreenImageViewer({
   selectable = false,
   selectedPoint = null,
   onSelectPoint,
+  sportSlug,
 }: Props) {
+  const { t } = useI18n();
   const { width, height } = useWindowDimensions();
   const [aspect, setAspect] = useState<number>(FALLBACK_ASPECT);
 
@@ -94,7 +100,7 @@ export function FullscreenImageViewer({
           onPress={canSelect ? handleImagePress : onClose}
           accessibilityRole={canSelect ? 'image' : 'button'}
           accessibilityLabel={
-            canSelect ? 'Tap the image to place your guess' : 'Close fullscreen image'
+            canSelect ? t('game.image.tapToPlace') : t('game.image.closeFullscreenA11y')
           }
         />
 
@@ -110,14 +116,14 @@ export function FullscreenImageViewer({
               { left: marker.x - MARKER_SIZE / 2, top: marker.y - MARKER_SIZE / 2 },
             ]}
           >
-            <Text style={styles.markerEmoji}>⚽</Text>
+            <Text style={[styles.markerEmoji, getSportObjectMarkerStyle(sportSlug)]}>{getSportObjectIcon(sportSlug)}</Text>
           </View>
         )}
 
         {canSelect && (
           <View style={styles.hintBar} pointerEvents="none">
             <Text style={styles.hintText}>
-              {selectedPoint ? 'Tap again to adjust your guess' : 'Tap the image to place your guess'}
+              {selectedPoint ? t('game.image.tapToAdjust') : t('game.image.tapToPlace')}
             </Text>
           </View>
         )}
@@ -127,7 +133,7 @@ export function FullscreenImageViewer({
           onPress={onClose}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('common.buttons.close')}
         >
           <Text style={styles.closeText}>✕</Text>
         </Pressable>

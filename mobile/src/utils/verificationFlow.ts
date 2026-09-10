@@ -10,6 +10,7 @@
  */
 
 import { getApiErrorMessage } from './apiError';
+import { translate } from '../i18n/core';
 
 // --- Auth state handover ---------------------------------------------------
 
@@ -34,12 +35,12 @@ export async function prepareForNewAccount(store: TokenStore, clearLocalState?: 
 /** Persist the freshly issued token, replacing any old one, and prove it stuck. */
 export async function adoptToken(store: TokenStore, token: string): Promise<void> {
   if (!token || typeof token !== 'string') {
-    throw new Error('Registration did not return a session token.');
+    throw new Error(translate('errors.verification.noToken'));
   }
   await store.save(token);
   const stored = await store.get();
   if (stored !== token) {
-    throw new Error('Could not store the session on this device.');
+    throw new Error(translate('errors.verification.storeFailed'));
   }
 }
 
@@ -96,12 +97,13 @@ export type VerificationFailure =
   | { kind: 'unauthorized'; message: string }
   | { kind: 'other'; message: string };
 
-const REASON_MESSAGES: Record<string, string> = {
-  wrong_code: 'That code is not correct. Check the newest email and try again.',
-  expired: 'This code has expired. Tap "Resend code" to get a new one.',
-  locked: 'Too many incorrect attempts. Tap "Resend code" to get a new one.',
-  no_code: 'No code is active for this account. Tap "Resend code" to get a new one.',
-  session_mismatch: 'This device is signed in to a different account than the one you are verifying. Please log in again with the account you just created.',
+/** Backend `reason` → translation key (copy lives in i18n, per language). */
+const REASON_KEYS: Record<string, string> = {
+  wrong_code: 'errors.auth.verification_code_invalid',
+  expired: 'errors.auth.verification_code_expired',
+  locked: 'errors.auth.verification_locked',
+  no_code: 'errors.auth.verification_no_code',
+  session_mismatch: 'errors.verification.sessionMismatch',
 };
 
 /** Map an API error to a specific, friendly failure. Never surfaces raw server text. */
@@ -110,15 +112,15 @@ export function classifyVerificationError(e: unknown): VerificationFailure {
   const reason = typeof err.reason === 'string' ? err.reason : null;
 
   if (err.status === 401) {
-    return { kind: 'unauthorized', message: 'Your session has expired. Please log in again to continue verifying.' };
+    return { kind: 'unauthorized', message: translate('errors.verification.sessionExpired') };
   }
   if (err.status === 409 || reason === 'session_mismatch') {
-    return { kind: 'session_mismatch', message: REASON_MESSAGES.session_mismatch };
+    return { kind: 'session_mismatch', message: translate(REASON_KEYS.session_mismatch) };
   }
-  if (reason && reason in REASON_MESSAGES) {
-    return { kind: reason as VerificationFailure['kind'], message: REASON_MESSAGES[reason] };
+  if (reason && reason in REASON_KEYS) {
+    return { kind: reason as VerificationFailure['kind'], message: translate(REASON_KEYS[reason]) };
   }
-  return { kind: 'other', message: getApiErrorMessage(e, 'Invalid or expired verification code.') };
+  return { kind: 'other', message: getApiErrorMessage(e, translate('errors.verification.invalidOrExpired')) };
 }
 
 /** After a successful verification: onboarding if no sport chosen yet, else Home. */
@@ -129,5 +131,5 @@ export function routeAfterVerification(me: { preferred_sport?: unknown } | null 
 /** The notice shown after a resend. Always names the account the code went to. */
 export function resendNotice(targetEmail: string | null): string {
   const to = (targetEmail ?? '').trim();
-  return `A new code has been sent${to ? ` to ${to}` : ' to your email'}. Codes from earlier emails still work too.`;
+  return to ? translate('errors.verification.resentTo', { email: to }) : translate('errors.verification.resent');
 }

@@ -39,6 +39,7 @@ import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { ScanFriendCodeScreen } from '../screens/ScanFriendCodeScreen';
 import { HeaderExitButton } from '../components/HeaderExitButton';
 import { goHome, goPacks } from './navigationActions';
+import { initLocale, useI18n } from '../i18n';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -54,7 +55,7 @@ export type RootStackParamList = {
   Packs: undefined;
   PackDetail: { slug: string; name: string };
   PackGuess: { slug: string; packName: string };
-  PackResult: { slug: string; packName: string; result: PackGuessResult; imageUrl: string | null };
+  PackResult: { slug: string; packName: string; result: PackGuessResult; imageUrl: string | null; sportSlug?: string | null };
   PackComplete: { slug: string; packName: string; completion?: PackCompletionSummary | null };
   RankOverview: undefined;
   TrophyRoom: undefined;
@@ -62,7 +63,7 @@ export type RootStackParamList = {
   JoinLeague: undefined;
   LeagueDetail: { leagueId: number; leagueName: string };
   Guess: { leagueId: number; roundId: number; leagueName: string };
-  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null; challengeTitle?: string | null; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null; tournamentCompletion?: TournamentCompletion };
+  Result: { roundId: number; leagueId: number; imageUrl: string; leagueName: string; categoryName?: string | null; challengeTitle?: string | null; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null; tournamentCompletion?: TournamentCompletion; sportSlug?: string | null };
   Leaderboard: { leagueId: number; leagueName: string };
   DailyChallenge: { dailyChallengeId: number };
   DailyResult: { dailyChallengeId: number; newBadges?: Badge[]; rankProgress?: RankProgress; rankUp?: RankUp | null };
@@ -107,17 +108,22 @@ type AppNavigatorProps = {
 
 export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
   const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
   const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
 
   useEffect(() => {
     (async () => {
       const token = await tokenStorage.get().catch(() => null);
       if (!token) {
+        // Signed out: stored choice → device language → backend default → en.
+        await initLocale(null).catch(() => {});
         setInitialRoute('Login');
         return;
       }
       try {
         const user = await authApi.me();
+        // The account's preferred_language wins (fallback order rule 1).
+        await initLocale(user.preferred_language).catch(() => {});
         // Apply the server-side theme without re-syncing it back.
         if (user.selected_theme && isThemeName(user.selected_theme)) {
           setTheme(user.selected_theme, { sync: false });
@@ -130,6 +136,7 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
           setInitialRoute(user.preferred_sport ? 'Home' : 'SportSelection');
         }
       } catch (e: any) {
+        await initLocale(null).catch(() => {});
         // 401 → stale token, send to Login. Any other error (offline) → let
         // the user in rather than locking them out.
         setInitialRoute(e?.status === 401 ? 'Login' : 'Home');
@@ -162,14 +169,14 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
     <NavigationContainer linking={linking}>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
         <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="LoginVerification" component={LoginVerificationScreen} options={{ title: 'Verify Login' }} />
-        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ title: 'Verify Email', headerLeft: () => null }} />
-        <Stack.Screen name="Register" component={RegisterScreen} options={{ title: 'Create Account' }} />
-        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: 'Forgot Password' }} />
-        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: 'Reset Password' }} />
+        <Stack.Screen name="LoginVerification" component={LoginVerificationScreen} options={{ title: t('nav.titles.verifyLogin') }} />
+        <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ title: t('nav.titles.verifyEmail'), headerLeft: () => null }} />
+        <Stack.Screen name="Register" component={RegisterScreen} options={{ title: t('nav.titles.createAccount') }} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ title: t('nav.titles.forgotPassword') }} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ title: t('nav.titles.resetPassword') }} />
         <Stack.Screen name="Home" component={MainTabs} options={{ headerShown: false }} />
-        <Stack.Screen name="SportSelection" component={SportSelectionScreen} options={{ title: 'Choose Sport' }} />
-        <Stack.Screen name="Packs" component={PacksScreen} options={{ title: 'Challenge Packs' }} />
+        <Stack.Screen name="SportSelection" component={SportSelectionScreen} options={{ title: t('nav.titles.chooseSport') }} />
+        <Stack.Screen name="Packs" component={PacksScreen} options={{ title: t('nav.titles.packs') }} />
         <Stack.Screen name="PackDetail" component={PackDetailScreen} options={({ route }) => ({ title: route.params.name })} />
         <Stack.Screen
           name="PackGuess"
@@ -178,52 +185,52 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
             title: route.params.packName,
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label="Packs" onPress={() => goPacks(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t('nav.exit.packs')} onPress={() => goPacks(navigation)} />,
           })}
         />
         <Stack.Screen
           name="PackResult"
           component={PackResultScreen}
           options={({ navigation }) => ({
-            title: 'Pack Result',
+            title: t('nav.titles.packResult'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label="Packs" onPress={() => goPacks(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t('nav.exit.packs')} onPress={() => goPacks(navigation)} />,
           })}
         />
         <Stack.Screen
           name="PackComplete"
           component={PackCompleteScreen}
           options={({ navigation }) => ({
-            title: 'Pack Completed',
+            title: t('nav.titles.packCompleted'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label="Packs" onPress={() => goPacks(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t('nav.exit.packs')} onPress={() => goPacks(navigation)} />,
           })}
         />
-        <Stack.Screen name="RankOverview" component={RankOverviewScreen} options={{ title: 'All Ranks' }} />
-        <Stack.Screen name="TrophyRoom" component={TrophyRoomScreen} options={{ title: 'Trophy Room' }} />
-        <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: 'Create Tournament' }} />
-        <Stack.Screen name="JoinLeague" component={JoinLeagueScreen} options={{ title: 'Join Tournament' }} />
+        <Stack.Screen name="RankOverview" component={RankOverviewScreen} options={{ title: t('nav.titles.allRanks') }} />
+        <Stack.Screen name="TrophyRoom" component={TrophyRoomScreen} options={{ title: t('nav.titles.trophyRoom') }} />
+        <Stack.Screen name="CreateLeague" component={CreateLeagueScreen} options={{ title: t('nav.titles.createTournament') }} />
+        <Stack.Screen name="JoinLeague" component={JoinLeagueScreen} options={{ title: t('nav.titles.joinTournament') }} />
         <Stack.Screen name="LeagueDetail" component={LeagueDetailScreen} options={({ route }) => ({ title: route.params.leagueName })} />
         <Stack.Screen
           name="Guess"
           component={GuessScreen}
           options={({ navigation }) => ({
-            title: 'Make Your Guess',
+            title: t('nav.titles.makeYourGuess'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t('nav.exit.home')} onPress={() => goHome(navigation)} />,
           })}
         />
         <Stack.Screen
           name="Result"
           component={ResultScreen}
           options={({ navigation }) => ({
-            title: 'Round Result',
+            title: t('nav.titles.roundResult'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t('nav.exit.home')} onPress={() => goHome(navigation)} />,
           })}
         />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} options={({ route }) => ({ title: route.params.leagueName })} />
@@ -231,25 +238,25 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
           name="DailyChallenge"
           component={DailyChallengeScreen}
           options={({ navigation }) => ({
-            title: 'Daily Ball Challenge',
+            title: t('nav.titles.dailyChallenge'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t('nav.exit.home')} onPress={() => goHome(navigation)} />,
           })}
         />
         <Stack.Screen
           name="DailyResult"
           component={DailyResultScreen}
           options={({ navigation }) => ({
-            title: 'Daily Result',
+            title: t('nav.titles.dailyResult'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label="Home" onPress={() => goHome(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t('nav.exit.home')} onPress={() => goHome(navigation)} />,
           })}
         />
-        <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: 'Weekly Leaderboard' }} />
+        <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: t('nav.titles.weeklyLeaderboard') }} />
         <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={({ route }) => ({ title: `@${route.params.username}` })} />
-        <Stack.Screen name="ScanFriendCode" component={ScanFriendCodeScreen} options={{ title: 'Scan friend code' }} />
+        <Stack.Screen name="ScanFriendCode" component={ScanFriendCodeScreen} options={{ title: t('nav.titles.scanFriendCode') }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

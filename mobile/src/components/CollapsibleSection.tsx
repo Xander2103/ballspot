@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UI
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
+import { useI18n } from '../i18n';
 
 // LayoutAnimation on old-architecture Android is opt-in.
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -30,6 +31,7 @@ export function formatBadgeCount(n: number): string {
  */
 export function CollapsibleSection({ title, summary, badgeCount, children, initiallyExpanded = false }: Props) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const styles = createStyles(theme);
   const [expanded, setExpanded] = useState(initiallyExpanded);
 
@@ -46,7 +48,7 @@ export function CollapsibleSection({ title, summary, badgeCount, children, initi
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={`${title} section`}
+        accessibilityLabel={t('profile.section.a11y', { title })}
       >
         <Text style={styles.title}>{title}</Text>
         <View style={styles.headerRight}>
