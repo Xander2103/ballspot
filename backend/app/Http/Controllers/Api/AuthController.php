@@ -82,8 +82,11 @@ class AuthController extends Controller
      *    force_login_2fa flag) -> requires_2fa and a login code is emailed; the
      *    token is only issued by /login/verify.
      * Invalid credentials return a single generic error (no user enumeration)
-     * and never trigger an email. Deleted (anonymized) accounts fall into the
-     * same generic path: their original email no longer matches any row.
+     * and never trigger an email. A deleted (anonymized) account answers the
+     * stable `account_deleted` code instead: its original email no longer
+     * matches any row, so this only fires for the synthetic deleted-{id}
+     * address — which already says "deleted" — and never reveals anything
+     * about a real account.
      */
     public function login(
         Request $request,
@@ -97,7 +100,12 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || $user->anonymized_at !== null || !Hash::check($request->password, $user->password)) {
+        if ($user && $user->anonymized_at !== null) {
+            AppLog::warn('auth.login_failed', ['reason' => 'anonymized_account', 'user_id' => $user->id]);
+            AuthError::throw(AuthError::ACCOUNT_DELETED, 403, 'email');
+        }
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
             // Burn comparable time when the account is unknown so response
             // timing does not reveal whether the email exists.
             if (!$user) {
@@ -105,7 +113,7 @@ class AuthController extends Controller
             }
             // Category only — never the email, never the password.
             AppLog::warn('auth.login_failed', [
-                'reason'  => !$user ? 'unknown_account' : ($user->anonymized_at ? 'anonymized_account' : 'wrong_password'),
+                'reason'  => !$user ? 'unknown_account' : 'wrong_password',
                 'user_id' => $user?->id,
             ]);
             AuthError::throw(AuthError::INVALID_CREDENTIALS, 422, 'email');

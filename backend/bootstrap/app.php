@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,6 +20,8 @@ return Application::configure(basePath: dirname(__DIR__))
             // Overrides the framework alias so the gate follows
             // ballspot.auth.require_email_verification (see the class).
             'verified' => \App\Http\Middleware\EnsureEmailIsVerifiedIfRequired::class,
+            // Rejects tokens of deleted (anonymized) accounts with a stable code.
+            'active' => \App\Http\Middleware\EnsureAccountIsActive::class,
         ]);
 
         // Trust the reverse proxy / load balancer so $request->ip() reflects the
@@ -47,6 +50,27 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [\App\Http\Middleware\SetLocale::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Every API 401 carries the stable `session_invalid` code so the app
+        // can drop its stored token instead of sitting on a dead session. For
+        // GET /api/me — the app's session check — the reason category is
+        // logged too (missing/unknown/expired token, or a token whose user is
+        // gone). Never the token itself.
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
+            if (!$request->is('api/*')) {
+                return null;
+            }
+
+            if ($request->is('api/me')) {
+                \App\Support\SessionDiagnostics::logMeFailure($request);
+            }
+
+            return \App\Support\AuthError::response(
+                \App\Support\AuthError::SESSION_INVALID,
+                401,
+                message: 'Unauthenticated.',
+            );
+        });
+
         // Clean, consistent 429 JSON for the app (never an HTML error page).
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if ($request->expectsJson() || $request->is('api/*')) {

@@ -40,7 +40,10 @@ Route::post('/login/resend-code',  [LoginVerificationController::class, 'resend'
 Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:forgot-password');
 Route::post('/reset-password',  [PasswordResetController::class, 'reset'])->middleware('throttle:reset-password');
 
-Route::middleware('auth:sanctum')->group(function () {
+// `active` (EnsureAccountIsActive) turns a token that still resolves to a
+// deleted/anonymized account into a stable 401 `account_deleted` — on every
+// authenticated route, so a stale session can never half-work.
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Available to any authenticated user, verified or not — these are exactly
     // what an unverified user needs to verify, inspect, or leave their account.
     Route::post('/logout',       [AuthController::class, 'logout']);

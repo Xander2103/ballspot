@@ -162,6 +162,7 @@ export const fr: Translations = {
       validation_failed: 'Vérifie les champs signalés.',
       invalid_credentials: 'E-mail ou mot de passe incorrect.',
       account_deleted: 'Ce compte a été supprimé. Tu peux créer un nouveau compte avec le même e-mail.',
+      session_invalid: 'Ta session a expiré. Reconnecte-toi.',
       two_factor_required: 'Nous avons envoyé un code de vérification à ton adresse e-mail.',
       two_factor_code_invalid: 'Ce code est incorrect. Vérifie le dernier e-mail reçu et réessaie.',
       two_factor_code_expired: 'Ce code a expiré. Reconnecte-toi pour en recevoir un nouveau.',
@@ -179,6 +180,10 @@ export const fr: Translations = {
     },
   },
   auth: {
+    session: {
+      title: 'BallPicker est injoignable',
+      message: 'Vérifie ta connexion et réessaie, ou déconnecte-toi et reconnecte-toi plus tard.',
+    },
     backToLogin: 'Retour à la connexion',
     login: {
       tagline: 'Trouve le ballon. Bats tes amis.',
@@ -267,6 +272,7 @@ export const fr: Translations = {
   },
   home: {
     greeting: 'Salut, {{name}}',
+    profileUnavailable: 'Impossible de charger ton profil.',
     sportChip: {
       pick: '🎯 Choisis un sport',
       change: 'Changer de sport ›',

@@ -29,6 +29,11 @@ final class AuthError
     // Login
     public const INVALID_CREDENTIALS = 'invalid_credentials';
     public const ACCOUNT_DELETED     = 'account_deleted';
+    // Session (any authenticated endpoint): token missing/unknown/expired, or
+    // its user no longer exists. The app clears its stored token on this code.
+    public const SESSION_INVALID     = 'session_invalid';
+    // Account deletion
+    public const ADMIN_ACCOUNT_PROTECTED = 'admin_account_protected';
     // Login 2FA (email code)
     public const TWO_FACTOR_REQUIRED     = 'two_factor_required';
     public const TWO_FACTOR_CODE_INVALID = 'two_factor_code_invalid';
@@ -56,7 +61,9 @@ final class AuthError
         self::VALIDATION_FAILED  => 'Please check the highlighted fields.',
         self::INVALID_CREDENTIALS => 'Invalid email or password.',
         self::ACCOUNT_DELETED     => 'This account has been deleted. You can create a new account with the same email.',
-        self::TWO_FACTOR_REQUIRED     => 'We sent a verification code to your email.',
+        self::SESSION_INVALID     => 'Your session has expired. Please log in again.',
+        self::ADMIN_ACCOUNT_PROTECTED => 'Admin accounts cannot be deleted from the app.',
+        self::TWO_FACTOR_REQUIRED    => 'We sent a verification code to your email.',
         self::TWO_FACTOR_CODE_INVALID => 'That code is not correct. Check the newest email and try again.',
         self::TWO_FACTOR_CODE_EXPIRED => 'This code has expired. Please log in again to get a new one.',
         self::TWO_FACTOR_LOCKED       => 'Too many incorrect attempts. Tap "Resend code" to get a new one.',

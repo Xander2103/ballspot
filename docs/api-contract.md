@@ -107,7 +107,11 @@ credentials there are **three** outcomes (all HTTP **200**). See
 { "user": { ... }, "token": "1|..." }
 
 // Response 422 — invalid credentials OR unknown email (generic, no email sent, no enumeration)
-{ "message": "Invalid credentials." }
+{ "message": "Invalid email or password.", "code": "invalid_credentials", "errors": { "email": ["..."] } }
+
+// Response 403 — the row is a deleted (anonymized) account (v1.9.10). Only reachable
+// through the synthetic deleted-{id}@ballspot.deleted address, so nothing is revealed.
+{ "message": "This account has been deleted. ...", "code": "account_deleted" }
 ```
 
 - **(a)** The returned token lets the app drive the verify screen; complete via
@@ -173,6 +177,15 @@ Cooldown-limited to 60s.
 ```
 
 ### GET /me  *(auth required; available even when unverified)*
+
+The app's session check (app start, Home, Profile). Failure bodies are stable
+(v1.9.10): every API 401 is `{ "message": "Unauthenticated.", "code":
+"session_invalid" }` (missing/unknown/expired token, or a token whose user is
+gone), and a token that still resolves to a deleted (anonymized) account is
+`401 { "code": "account_deleted" }` on **every** authenticated route — the
+surviving token is revoked on the spot. On either code the app clears its
+stored token and returns to Login; on offline / 5xx it stays and offers
+Retry + Logout.
 ```json
 // Response 200
 { "data": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com",
@@ -195,10 +208,15 @@ Anonymizes and deactivates the current user's account. All tokens are revoked im
 { "message": "Your account has been deleted." }
 
 // Response 401 — not authenticated
-{ "message": "Unauthenticated." }
+{ "message": "Unauthenticated.", "code": "session_invalid" }
+
+// Response 403 — admin accounts are managed from the panel, never deleted from the app (v1.9.10)
+{ "message": "Admin accounts cannot be deleted from the app.", "code": "admin_account_protected" }
 ```
 
 After this call the bearer token is invalid. The mobile app clears the stored token and navigates to Login.
+Deletion revokes every personal access token (`account.delete.tokens_revoked`), push tokens,
+email/login verification codes and password-reset rows for the account.
 
 ---
 

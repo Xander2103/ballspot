@@ -391,17 +391,37 @@ class SecurityRegressionTest extends TestCase
     // Account deletion / password reset must not leave privilege behind.
     // ---------------------------------------------------------------
 
-    public function test_deleting_an_admin_account_revokes_admin_and_verification(): void
+    public function test_an_admin_account_cannot_be_deleted_from_the_app(): void
     {
         $user = User::factory()->create(['is_admin' => true, 'email_verified_at' => now()]);
         $token = $user->createToken('test')->plainTextToken;
 
-        $this->withToken($token)->deleteJson('/api/account')->assertOk();
+        // Admin accounts are managed from the panel; the app answers a stable
+        // code and leaves the account (and its tokens) untouched.
+        $this->withToken($token)->deleteJson('/api/account')
+            ->assertStatus(403)
+            ->assertJsonPath('code', 'admin_account_protected');
+
+        $fresh = $user->fresh();
+        $this->assertTrue((bool) $fresh->is_admin);
+        $this->assertNull($fresh->anonymized_at);
+        $this->assertDatabaseHas('personal_access_tokens', ['tokenable_id' => $user->id]);
+    }
+
+    public function test_the_deletion_service_itself_still_revokes_admin_and_verification(): void
+    {
+        // Invariant for any other caller of the service (panel, console): a
+        // deleted account must never keep privilege behind.
+        $user = User::factory()->create(['is_admin' => true, 'email_verified_at' => now()]);
+        $user->createToken('test');
+
+        app(\App\Services\AccountDeletionService::class)->delete($user);
 
         $fresh = $user->fresh();
         $this->assertFalse((bool) $fresh->is_admin, 'a deleted account must not stay admin');
         $this->assertNull($fresh->email_verified_at);
         $this->assertNull($fresh->friend_code);
+        $this->assertDatabaseMissing('personal_access_tokens', ['tokenable_id' => $user->id]);
     }
 
     public function test_account_deletion_purges_web_sessions(): void

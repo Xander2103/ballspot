@@ -36,6 +36,7 @@ export const errors = {
     validation_failed: 'Please check the highlighted fields.',
     invalid_credentials: 'Invalid email or password.',
     account_deleted: 'This account has been deleted. You can create a new account with the same email.',
+    session_invalid: 'Your session has expired. Please log in again.',
     two_factor_required: 'We sent a verification code to your email.',
     two_factor_code_invalid: 'That code is not correct. Check the newest email and try again.',
     two_factor_code_expired: 'This code has expired. Please log in again to get a new one.',

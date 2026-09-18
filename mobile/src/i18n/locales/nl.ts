@@ -164,6 +164,7 @@ export const nl: Translations = {
       validation_failed: 'Controleer de gemarkeerde velden.',
       invalid_credentials: 'Ongeldig e-mailadres of wachtwoord.',
       account_deleted: 'Dit account is verwijderd. Je kunt een nieuw account aanmaken met hetzelfde e-mailadres.',
+      session_invalid: 'Je sessie is verlopen. Log opnieuw in.',
       two_factor_required: 'We hebben een verificatiecode naar je e-mail gestuurd.',
       two_factor_code_invalid: 'Die code klopt niet. Bekijk de nieuwste e-mail en probeer opnieuw.',
       two_factor_code_expired: 'Deze code is verlopen. Log opnieuw in om een nieuwe te krijgen.',
@@ -182,6 +183,10 @@ export const nl: Translations = {
   },
 
   auth: {
+    session: {
+      title: 'BallPicker is niet bereikbaar',
+      message: 'Controleer je verbinding en probeer opnieuw, of log uit en meld je later opnieuw aan.',
+    },
     backToLogin: 'Terug naar inloggen',
     login: {
       tagline: 'Vind de bal. Versla je vrienden.',
@@ -271,6 +276,7 @@ export const nl: Translations = {
 
   home: {
     greeting: 'Hey, {{name}}',
+    profileUnavailable: 'Je profiel kon niet geladen worden.',
     sportChip: {
       pick: '🎯 Kies een sport',
       change: 'Sport wijzigen ›',

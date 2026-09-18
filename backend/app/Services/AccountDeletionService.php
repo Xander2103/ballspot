@@ -9,6 +9,7 @@ use App\Models\LoginVerificationCode;
 use App\Models\NotificationSetting;
 use App\Models\PushToken;
 use App\Models\User;
+use App\Support\AppLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -38,7 +39,8 @@ class AccountDeletionService
 
         DB::transaction(function () use ($user, $id) {
             // Revoke all API tokens first so the current token is immediately invalid.
-            $user->tokens()->delete();
+            $revoked = $user->tokens()->delete();
+            AppLog::event('account.delete.tokens_revoked', ['user_id' => $id, 'count' => (int) $revoked]);
 
             // Device/notification data and pending verification codes: a
             // deleted account must not keep receiving pushes, and the code

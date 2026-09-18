@@ -1,6 +1,11 @@
 /** Login, registration, email/2FA verification and password-reset screens. */
 export const auth = {
   backToLogin: 'Back to login',
+  /** App-start session check could not reach the server (offline / 5xx). */
+  session: {
+    title: "Couldn't reach BallPicker",
+    message: 'Check your connection and try again, or log out and sign in later.',
+  },
   login: {
     tagline: 'Find the ball. Beat your friends.',
     missingFields: 'Please enter your email and password.',

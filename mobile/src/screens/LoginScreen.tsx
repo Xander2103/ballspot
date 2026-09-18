@@ -16,13 +16,18 @@ import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
-export function LoginScreen({ navigation }: Props) {
+export function LoginScreen({ navigation, route }: Props) {
   const { theme, setTheme } = useTheme();
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // A forced sign-out (dead token, deleted account) lands here with a reason
+  // so the user knows why they are looking at the login form again.
+  const reason = route.params?.reason;
+  const [error, setError] = useState(
+    reason === 'account_deleted' ? t('errors.auth.account_deleted') : reason === 'session_expired' ? t('errors.unauthorized') : ''
+  );
 
   async function handleLogin() {
     if (loading) return; // guard against double-submit (button + keyboard "go")

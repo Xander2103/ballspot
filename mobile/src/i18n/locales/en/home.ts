@@ -1,6 +1,8 @@
 /** Home screen (Play tab) + sport selection. */
 export const home = {
   greeting: 'Hey, {{name}}',
+  /** Header state when /me failed for a recoverable reason (offline / 5xx). */
+  profileUnavailable: "Couldn't load your profile.",
   sportChip: {
     pick: '🎯 Pick a sport',
     change: 'Change sport ›',

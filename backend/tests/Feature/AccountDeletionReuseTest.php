@@ -120,10 +120,12 @@ class AccountDeletionReuseTest extends TestCase
         $this->postJson('/api/login', ['email' => 'reusable@example.com', 'password' => 'password123'])
             ->assertStatus(422)->assertJsonPath('code', 'invalid_credentials');
 
-        // The anonymized identifier is unusable too: password is random and the
-        // row is flagged anonymized (defence in depth even if a hash leaked).
+        // The anonymized identifier is unusable too: the row is flagged
+        // anonymized and answers the stable account_deleted code before the
+        // (random) password is even checked — the app shows that copy and
+        // never treats the row as a live account.
         $this->postJson('/api/login', ['email' => $user->fresh()->email, 'password' => 'password123'])
-            ->assertStatus(422)->assertJsonPath('code', 'invalid_credentials');
+            ->assertStatus(403)->assertJsonPath('code', 'account_deleted')->assertJsonMissing(['token']);
 
         // Forgot-password is silent and sends nothing for a deleted account.
         \Illuminate\Support\Facades\Notification::fake();

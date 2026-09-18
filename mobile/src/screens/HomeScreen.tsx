@@ -2,7 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
 } from 'react-native';
+import { CommonActions } from '@react-navigation/native';
 import { MainTabScreenProps } from '../app/MainTabs';
+import { signOut } from '../app/signOut';
+import { homeIdentity, logoutLocally, ProfileLoadState } from '../utils/session';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { EmptyState } from '../components/EmptyState';
@@ -118,6 +121,10 @@ export function HomeScreen({ navigation }: Props) {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // /me on its own: 'failed' shows Retry + Logout in the header instead of a
+  // "Hey, …" placeholder. A dead session never reaches 'failed' — the API
+  // client raises it and the navigator resets the app to Login.
+  const [profileState, setProfileState] = useState<ProfileLoadState>('loading');
 
   const [todayDaily, setTodayDaily] = useState<TodayResponse | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
@@ -128,16 +135,18 @@ export function HomeScreen({ navigation }: Props) {
 
   const load = useCallback(async () => {
     let me: User | null = null;
-    try {
-      const [meRes, list] = await Promise.all([authApi.me(), leagueApi.list()]);
-      me = meRes;
-      setUser(meRes);
-      setLeagues(list);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
+    // allSettled, not all: a failing tournament list must not blank the
+    // greeting, and a failing profile must not hide the tournaments.
+    const [meRes, listRes] = await Promise.allSettled([authApi.me(), leagueApi.list()]);
+    if (meRes.status === 'fulfilled') {
+      me = meRes.value;
+      setUser(meRes.value);
+      setProfileState('ready');
+    } else {
+      setProfileState((prev) => (prev === 'ready' ? 'ready' : 'failed')); // keep a name we already have
     }
+    if (listRes.status === 'fulfilled') setLeagues(listRes.value);
+    setLoading(false);
 
     const [todayRes, statsRes] = await Promise.allSettled([
       dailyApi.today(me?.preferred_sport?.slug),
@@ -208,7 +217,24 @@ export function HomeScreen({ navigation }: Props) {
     setNotifPromptVisible(false);
   }
 
+  function retryProfile() {
+    setProfileState('loading');
+    load();
+  }
+
+  async function handleLogout() {
+    // Best-effort server calls, then the local wipe — never blocked by a dead
+    // network or a dead token (that is exactly when this button matters).
+    await logoutLocally({
+      unregisterPush: () => notifications.unregisterPushToken(),
+      apiLogout: () => authApi.logout(),
+      clearLocal: signOut,
+    });
+    navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
+  }
+
   const sport = user?.preferred_sport ?? null;
+  const identity = homeIdentity(profileState, user);
 
   return (
     <Screen padding={false}>
@@ -225,8 +251,30 @@ export function HomeScreen({ navigation }: Props) {
         />
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
-            <Text style={styles.greeting}>{t('home.greeting', { name: user?.name || '…' })}</Text>
-            <Text style={styles.sub}>@{user?.username || '…'}</Text>
+            {identity.kind === 'ready' ? (
+              <>
+                <Text style={styles.greeting}>{identity.greeting}</Text>
+                <Text style={styles.sub}>{identity.handle}</Text>
+              </>
+            ) : identity.kind === 'loading' ? (
+              <>
+                <Text style={styles.greeting}>{identity.label}</Text>
+                <Text style={styles.sub}> </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.sub}>{identity.message}</Text>
+                <View style={styles.identityActions}>
+                  <TouchableOpacity onPress={retryProfile} hitSlop={8} accessibilityRole="button">
+                    <Text style={styles.identityAction}>{identity.retryLabel}</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.identityDot}>·</Text>
+                  <TouchableOpacity onPress={handleLogout} hitSlop={8} accessibilityRole="button">
+                    <Text style={styles.identityAction}>{identity.logoutLabel}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
             <Avatar uri={user?.avatar_url} name={user?.name} size={42} />
@@ -326,6 +374,11 @@ function createStyles(theme: ThemeTokens) {
     topBarLeft: { flex: 1 },
     greeting: { fontSize: 18, fontWeight: '700', color: theme.text },
     sub: { fontSize: 13, color: theme.textSecondary },
+    // Failed-profile header row: same type scale as the handle line, links in
+    // the accent colour so it reads as part of the header, not an error card.
+    identityActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
+    identityAction: { fontSize: 13, fontWeight: '700', color: theme.accent },
+    identityDot: { fontSize: 13, color: theme.textMuted },
     scroll: { flex: 1 },
     content: { padding: spacing.md, paddingBottom: spacing.xl },
     dailyFallback: {

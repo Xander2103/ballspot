@@ -164,6 +164,7 @@ export const es: Translations = {
       validation_failed: 'Revisa los campos marcados.',
       invalid_credentials: 'Correo electrónico o contraseña incorrectos.',
       account_deleted: 'Esta cuenta ha sido eliminada. Puedes crear una cuenta nueva con el mismo correo.',
+      session_invalid: 'Tu sesión ha caducado. Inicia sesión de nuevo.',
       two_factor_required: 'Te hemos enviado un código de verificación a tu correo.',
       two_factor_code_invalid: 'Ese código no es correcto. Revisa el correo más reciente e inténtalo de nuevo.',
       two_factor_code_expired: 'Este código ha caducado. Inicia sesión de nuevo para recibir uno nuevo.',
@@ -182,6 +183,10 @@ export const es: Translations = {
   },
 
   auth: {
+    session: {
+      title: 'No se puede conectar con BallPicker',
+      message: 'Comprueba tu conexión e inténtalo de nuevo, o cierra sesión y vuelve a entrar más tarde.',
+    },
     backToLogin: 'Volver al inicio de sesión',
     login: {
       tagline: 'Encuentra el balón. Gana a tus amigos.',
@@ -271,6 +276,7 @@ export const es: Translations = {
 
   home: {
     greeting: 'Hola, {{name}}',
+    profileUnavailable: 'No se pudo cargar tu perfil.',
     sportChip: {
       pick: '🎯 Elige un deporte',
       change: 'Cambiar deporte ›',

@@ -1,5 +1,6 @@
 import { tokenStorage } from '../storage/tokenStorage';
 import { getLocale, translate } from '../i18n/core';
+import { emitSessionInvalid, isSessionInvalidResponse, sessionInvalidReasonFor } from '../utils/session';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
 
@@ -48,6 +49,14 @@ async function request<T>(
         retry_after: retryAfter,
         message: translate('errors.rateLimited', { seconds: retryAfter }),
       };
+    }
+
+    // A dead session (401, or the backend's account_deleted / session_invalid
+    // codes) on any authenticated call: tell the navigator, which clears the
+    // stored token and returns to Login with a clear message. The caller still
+    // gets its rejection so in-flight screens settle normally.
+    if (isSessionInvalidResponse(response.status, error, path, !!token)) {
+      emitSessionInvalid(sessionInvalidReasonFor(error));
     }
 
     throw { status: response.status, ...error };

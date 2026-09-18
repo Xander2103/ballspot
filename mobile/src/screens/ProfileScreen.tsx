@@ -23,6 +23,7 @@ import { isLanguageCode, languageLabel, LanguageCode, DEFAULT_LANGUAGE } from '.
 import { badgeApi } from '../api/badgeApi';
 import { avatarApi } from '../api/avatarApi';
 import { signOut } from '../app/signOut';
+import { classifySessionError, deleteAccountAndSignOut, logoutLocally, profileLoadFailureView, SessionFailureKind } from '../utils/session';
 import { notifications } from '../services/notifications';
 import { useTheme } from '../theme/useTheme';
 import { THEME_META, ThemeTokens } from '../theme/themes';
@@ -51,7 +52,10 @@ export function ProfileScreen({ navigation }: Props) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState('');
   const [history, setHistory] = useState<TournamentFinish[]>([]);
-  const [profileFailed, setProfileFailed] = useState(false);
+  // Why /me failed: 'recoverable' (offline / 5xx → Retry + Logout) or
+  // 'invalid' (dead session → Logout only; the navigator normally resets the
+  // app to Login before this is even seen).
+  const [profileFailure, setProfileFailure] = useState<SessionFailureKind | null>(null);
   const [statsFailed, setStatsFailed] = useState(false);
   const [historyFailed, setHistoryFailed] = useState(false);
   // Account settings (language / 2FA) — saved through /me/preferences and
@@ -74,7 +78,7 @@ export function ProfileScreen({ navigation }: Props) {
     if (statsRes.status === 'fulfilled') setStats(statsRes.value);
     if (finishRes.status === 'fulfilled') setHistory(finishRes.value.slice(0, 10));
 
-    setProfileFailed(meRes.status === 'rejected');
+    setProfileFailure(meRes.status === 'rejected' ? classifySessionError(meRes.reason, '/me') : null);
     setStatsFailed(statsRes.status === 'rejected');
     setHistoryFailed(finishRes.status === 'rejected');
   }, []);
@@ -152,10 +156,13 @@ export function ProfileScreen({ navigation }: Props) {
   async function handleLogout() {
     // Server-side first, while the auth token still works: stop pushes to
     // this device, then revoke the session. Both best-effort — a dead network
-    // must never trap the user in a signed-in state.
-    try { await notifications.unregisterPushToken(); } catch {}
-    try { await authApi.logout(); } catch {}
-    await signOut();
+    // or a dead token must never trap the user in a signed-in state; the
+    // local wipe always runs.
+    await logoutLocally({
+      unregisterPush: () => notifications.unregisterPushToken(),
+      apiLogout: () => authApi.logout(),
+      clearLocal: signOut,
+    });
     // CommonActions.reset bubbles past the tab navigator up to the root
     // stack, which is the navigator that owns the Login route.
     navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
@@ -166,11 +173,11 @@ export function ProfileScreen({ navigation }: Props) {
     setDeleting(true);
     setDeleteError('');
     const leave = () => navigation.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Login' }] }));
-    try {
-      // The server removes ALL push registrations on deletion, so only the
-      // local cleanup is needed here.
-      await authApi.deleteAccount();
-      await signOut();
+    // The server removes ALL push registrations on deletion, so only the
+    // local cleanup is needed here.
+    const result = await deleteAccountAndSignOut({ deleteAccount: () => authApi.deleteAccount(), clearLocal: signOut });
+
+    if (result.outcome === 'deleted') {
       setShowDeleteModal(false);
       // The account is gone server-side; make that unmistakable before the
       // app returns to the public login screen.
@@ -181,20 +188,18 @@ export function ProfileScreen({ navigation }: Props) {
         { cancelable: false },
       );
       setTimeout(leave, 4000); // never strand the user if the alert is dismissed silently (web)
-    } catch (e: unknown) {
-      const status = (e as { status?: number })?.status;
-      if (status === 401) {
-        // The session is already dead (token revoked) — nothing to delete
-        // with; sign out locally so the user is not stuck on a dead screen.
-        await signOut();
-        setShowDeleteModal(false);
-        leave();
-        return;
-      }
-      // Code-aware: e.g. `admin_account_protected` renders its translated copy.
-      setDeleteError(getAuthErrorMessage(e, t('profile.delete.error')));
-      setDeleting(false);
+      return;
     }
+    if (result.outcome === 'session_gone') {
+      // The session is already dead (token revoked) — nothing to delete
+      // with; local state is cleared so the user is not stuck on a dead screen.
+      setShowDeleteModal(false);
+      leave();
+      return;
+    }
+    // Code-aware: e.g. `admin_account_protected` renders its translated copy.
+    setDeleteError(getAuthErrorMessage(result.error, t('profile.delete.error')));
+    setDeleting(false);
   }
 
   if (loading) {
@@ -206,14 +211,20 @@ export function ProfileScreen({ navigation }: Props) {
   }
 
   // Only a failed /me leaves nothing to render; every other section degrades
-  // to its own small retry below.
-  if (profileFailed && !user) {
+  // to its own small retry below. Logout is always on offer here — this
+  // screen must never be a dead end.
+  if (profileFailure && !user) {
+    const view = profileLoadFailureView(profileFailure);
+    const onAction = {
+      retry: () => { setLoading(true); loadProfile().finally(() => setLoading(false)); },
+      logout: () => { handleLogout(); },
+    };
     return (
       <Screen padding>
         <EmptyState
-          title={t('profile.screen.loadErrorTitle')}
-          message={t('common.states.checkConnection')}
-          actions={[{ label: t('common.buttons.retry'), onPress: () => { setLoading(true); loadProfile().finally(() => setLoading(false)); } }]}
+          title={view.title}
+          message={view.message}
+          actions={view.actions.map((a) => ({ label: a.label, onPress: onAction[a.id] }))}
         />
       </Screen>
     );

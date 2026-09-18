@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Services\AccountDeletionService;
 use App\Support\AppLog;
+use App\Support\AuthError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,6 +26,14 @@ class AccountController extends Controller
     {
         $user = $request->user();
         $id   = $user->id;
+
+        // Admin accounts are managed from the admin panel, never from the app:
+        // anonymizing one would silently drop panel access for the operator.
+        if ($user->is_admin) {
+            AppLog::warn('account.delete.rejected_admin', ['user_id' => $id]);
+
+            return AuthError::response(AuthError::ADMIN_ACCOUNT_PROTECTED, 403);
+        }
 
         try {
             $deletion->delete($user);

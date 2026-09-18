@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer, NavigatorScreenParams, LinkingOptions } from '@react-navigation/native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { NavigationContainer, NavigatorScreenParams, LinkingOptions, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator } from 'react-native';
 import { useTheme } from '../theme/useTheme';
 import { isThemeName } from '../theme/themes';
 import { tokenStorage } from '../storage/tokenStorage';
 import { authApi } from '../api/authApi';
+import { bootstrapSession, routeForUser, logoutLocally, onSessionInvalid } from '../utils/session';
+import { signOut } from './signOut';
+import { EmptyState } from '../components/EmptyState';
 
 import type { Badge } from '../types/badge';
 import type { RankProgress, RankUp } from '../types/auth';
@@ -42,7 +45,8 @@ import { goHome, goPacks } from './navigationActions';
 import { initLocale, useI18n } from '../i18n';
 
 export type RootStackParamList = {
-  Login: undefined;
+  /** `reason` shows a one-line notice ("Your session has expired…") after a forced sign-out. */
+  Login: { reason?: 'session_expired' | 'account_deleted' } | undefined;
   LoginVerification: { verificationId: string; email?: string };
   EmailVerification: { email?: string; codeSent?: boolean } | undefined;
   Register: undefined;
@@ -73,6 +77,12 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+/**
+ * Module-level ref so a dead session detected by the API client (any screen,
+ * any request) can reset the whole app to Login without a navigation prop.
+ */
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://ballpicker.vanmalderstudio.be';
 
@@ -110,45 +120,74 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
   const { theme, setTheme } = useTheme();
   const { t } = useI18n();
   const [initialRoute, setInitialRoute] = useState<keyof RootStackParamList | null>(null);
+  const [initialParams, setInitialParams] = useState<RootStackParamList['Login']>(undefined);
+  // App-start /me failed for a recoverable reason (offline / 5xx): the stored
+  // token may well be fine, so offer Retry + Logout instead of guessing.
+  const [recoverable, setRecoverable] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      const token = await tokenStorage.get().catch(() => null);
-      if (!token) {
-        // Signed out: stored choice → device language → backend default → en.
-        await initLocale(null).catch(() => {});
-        setInitialRoute('Login');
-        return;
+  const resolveInitialRoute = useCallback(async () => {
+    setRecoverable(false);
+    const result = await bootstrapSession({
+      getToken: () => tokenStorage.get(),
+      fetchMe: () => authApi.me(),
+      clearLocal: signOut,
+    });
+
+    if (result.kind === 'ready') {
+      const { user } = result;
+      // The account's preferred_language wins (fallback order rule 1).
+      await initLocale(user.preferred_language).catch(() => {});
+      // Apply the server-side theme without re-syncing it back.
+      if (user.selected_theme && isThemeName(user.selected_theme)) {
+        setTheme(user.selected_theme, { sync: false });
       }
-      try {
-        const user = await authApi.me();
-        // The account's preferred_language wins (fallback order rule 1).
-        await initLocale(user.preferred_language).catch(() => {});
-        // Apply the server-side theme without re-syncing it back.
-        if (user.selected_theme && isThemeName(user.selected_theme)) {
-          setTheme(user.selected_theme, { sync: false });
-        }
-        // Unverified email → verify first; no preferred sport → onboarding;
-        // otherwise straight to Home.
-        if (user.email_verified === false) {
-          setInitialRoute('EmailVerification');
-        } else {
-          setInitialRoute(user.preferred_sport ? 'Home' : 'SportSelection');
-        }
-      } catch (e: any) {
-        await initLocale(null).catch(() => {});
-        // 401 → stale token, send to Login. Any other error (offline) → let
-        // the user in rather than locking them out.
-        setInitialRoute(e?.status === 401 ? 'Login' : 'Home');
+      setInitialRoute(routeForUser(user));
+      return;
+    }
+
+    // Signed out (no token, or a token the server rejected): stored choice →
+    // device language → backend default → en.
+    await initLocale(null).catch(() => {});
+    if (result.kind === 'signed_out') {
+      setInitialParams(result.reason === 'session_invalid' ? { reason: 'session_expired' } : undefined);
+      setInitialRoute('Login');
+      return;
+    }
+    setRecoverable(true);
+  }, [setTheme]);
+
+  useEffect(() => { resolveInitialRoute(); }, [resolveInitialRoute]);
+
+  // A dead session anywhere in the app (the API client saw a 401 or the
+  // account_deleted / session_invalid code): wipe local state and return to
+  // Login with a clear message. Never leaves the user in the tab app.
+  useEffect(() => onSessionInvalid((reason) => {
+    (async () => {
+      await signOut();
+      const params = { reason: reason === 'account_deleted' ? 'account_deleted' as const : 'session_expired' as const };
+      if (navigationRef.isReady()) {
+        navigationRef.reset({ index: 0, routes: [{ name: 'Login', params }] });
+      } else {
+        setRecoverable(false);
+        setInitialParams(params);
+        setInitialRoute('Login');
       }
     })();
-  }, []);
+  }), []);
 
   // Runs after the resolved route has committed, so the native splash hides
-  // over real UI rather than the spinner.
+  // over real UI rather than the spinner. The recoverable state counts too:
+  // it is real UI with real buttons.
   useEffect(() => {
-    if (initialRoute !== null) onReady?.();
-  }, [initialRoute, onReady]);
+    if (initialRoute !== null || recoverable) onReady?.();
+  }, [initialRoute, recoverable, onReady]);
+
+  async function handleStartupLogout() {
+    await logoutLocally({ apiLogout: () => authApi.logout(), clearLocal: signOut });
+    setRecoverable(false);
+    setInitialParams(undefined);
+    setInitialRoute('Login');
+  }
 
   const screenOptions = {
     headerStyle: { backgroundColor: theme.surface },
@@ -160,15 +199,27 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
   if (initialRoute === null) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={theme.primary} size="large" />
+        {recoverable ? (
+          <EmptyState
+            icon="📡"
+            title={t('auth.session.title')}
+            message={t('auth.session.message')}
+            actions={[
+              { label: t('common.buttons.retry'), onPress: () => { resolveInitialRoute(); } },
+              { label: t('common.buttons.logout'), onPress: () => { handleStartupLogout(); } },
+            ]}
+          />
+        ) : (
+          <ActivityIndicator color={theme.primary} size="large" />
+        )}
       </View>
     );
   }
 
   return (
-    <NavigationContainer linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
-        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Login" component={LoginScreen} initialParams={initialParams} options={{ headerShown: false }} />
         <Stack.Screen name="LoginVerification" component={LoginVerificationScreen} options={{ title: t('nav.titles.verifyLogin') }} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ title: t('nav.titles.verifyEmail'), headerLeft: () => null }} />
         <Stack.Screen name="Register" component={RegisterScreen} options={{ title: t('nav.titles.createAccount') }} />
