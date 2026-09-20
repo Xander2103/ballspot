@@ -17,6 +17,7 @@ return [
     'invalid_credentials' => 'Ongeldig e-mailadres of wachtwoord.',
     'account_deleted'     => 'Dit account is verwijderd. Je kunt een nieuw account aanmaken met hetzelfde e-mailadres.',
     'session_invalid'     => 'Je sessie is verlopen. Log opnieuw in.',
+    'profile_unavailable' => 'We konden je profiel nu niet laden. Probeer het zo meteen opnieuw.',
     'two_factor_required'     => 'We hebben een verificatiecode naar je e-mail gestuurd.',
     'two_factor_code_invalid' => 'Die code klopt niet. Bekijk de nieuwste e-mail en probeer opnieuw.',
     'two_factor_code_expired' => 'Deze code is verlopen. Log opnieuw in om een nieuwe te krijgen.',

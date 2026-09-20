@@ -14,6 +14,9 @@ import { Avatar } from '../components/Avatar';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
 import { dailyApi } from '../api/dailyApi';
+import { noticesApi } from '../api/noticesApi';
+import { resolveNotice, noticePalette } from '../utils/notice';
+import type { AppNotice } from '../types/notice';
 import { notificationsApi } from '../api/notificationsApi';
 import { notifications } from '../services/notifications';
 import { applyReminderState } from '../services/reminderScheduler';
@@ -24,7 +27,7 @@ import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
 import { User } from '../types/auth';
 import { TodayResponse, DailyStats } from '../types/daily';
-import { useI18n } from '../i18n';
+import { useI18n, getLocale } from '../i18n';
 
 // Horizontal BallPicker brand header (wordmark). Rendered as the Home hero.
 const brandHeader = require('../../assets/BallPickerHeader.png');
@@ -38,6 +41,28 @@ function todayDateFormatted(locale: string): string {
   // English keeps the day-first (en-GB) format the screen has always used.
   const dateLocale = locale === 'en' ? 'en-GB' : locale;
   return new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+/**
+ * Admin-managed notice, shown directly above the Daily card in the same card
+ * language (surface, radius, border). Renders nothing when there is none, so
+ * the layout below is byte-for-byte what it was before the feature.
+ */
+function NoticeCard({ notice, styles }: { notice: AppNotice | null; styles: Styles }) {
+  const { theme } = useTheme();
+  if (!notice) return null;
+  const palette = noticePalette(notice.type, theme);
+  return (
+    <View
+      style={[styles.noticeCard, { borderColor: palette.accent }]}
+      accessibilityRole="text"
+      accessibilityLabel={`${palette.a11yType}: ${notice.message}`}
+    >
+      <View style={[styles.noticeBar, { backgroundColor: palette.accent }]} />
+      <Text style={styles.noticeGlyph}>{palette.glyph}</Text>
+      <Text style={styles.noticeText}>{notice.message}</Text>
+    </View>
+  );
 }
 
 function DailyCard({
@@ -129,6 +154,8 @@ export function HomeScreen({ navigation }: Props) {
   const [todayDaily, setTodayDaily] = useState<TodayResponse | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyStats | null>(null);
   const [dailyLoading, setDailyLoading] = useState(true);
+  // Admin notice for the daily card. Optional: a failed fetch simply shows none.
+  const [notice, setNotice] = useState<AppNotice | null>(null);
 
   const [notifPromptVisible, setNotifPromptVisible] = useState(false);
   const [notifPromptLoading, setNotifPromptLoading] = useState(false);
@@ -148,12 +175,15 @@ export function HomeScreen({ navigation }: Props) {
     if (listRes.status === 'fulfilled') setLeagues(listRes.value);
     setLoading(false);
 
-    const [todayRes, statsRes] = await Promise.allSettled([
+    const [todayRes, statsRes, noticeRes] = await Promise.allSettled([
       dailyApi.today(me?.preferred_sport?.slug),
       dailyApi.stats(),
+      noticesApi.active('home_daily_card'),
     ]);
     if (todayRes.status === 'fulfilled') setTodayDaily(todayRes.value);
     if (statsRes.status === 'fulfilled') setDailyStats(statsRes.value);
+    // Null on failure too: the notice must never block Daily / Packs / Tournaments.
+    setNotice(noticeRes.status === 'fulfilled' ? resolveNotice(noticeRes.value, getLocale()) : null);
     setDailyLoading(false);
   }, []);
 
@@ -297,6 +327,10 @@ export function HomeScreen({ navigation }: Props) {
           <Text style={styles.sportChipAction}>{t('home.sportChip.change')}</Text>
         </TouchableOpacity>
 
+        {/* Admin notice ("Daily login starts tomorrow") — sits right above the
+            Daily card it talks about; absent entirely when there is none. */}
+        <NoticeCard notice={notice} styles={styles} />
+
         {dailyLoading ? (
           <View style={[styles.dailyCard, styles.dailyCardLoading]}>
             <Text style={styles.dailyCardLoadingText}>{t('home.daily.loading')}</Text>
@@ -406,6 +440,19 @@ function createStyles(theme: ThemeTokens) {
       backgroundColor: theme.surface, borderRadius: 16, padding: spacing.md,
       marginBottom: spacing.md, borderWidth: 1, borderColor: theme.border,
     },
+    // Same surface/radius/border family as dailyCard, one step quieter
+    // (smaller radius, tighter padding) so it reads as a note ON the daily
+    // card rather than a second card competing with it. The border colour
+    // and the thin leading bar carry the type (info / warning / success).
+    noticeCard: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.sm, overflow: 'hidden',
+      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
+      paddingVertical: spacing.sm, paddingRight: spacing.md, paddingLeft: spacing.md + 4,
+      marginBottom: spacing.sm,
+    },
+    noticeBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
+    noticeGlyph: { fontSize: 15 },
+    noticeText: { flex: 1, fontSize: 13, lineHeight: 18, color: theme.text, fontWeight: '600' },
     dailyCardLoading: { alignItems: 'center', paddingVertical: spacing.lg },
     dailyCardLoadingText: { color: theme.textMuted, fontSize: 13, fontStyle: 'italic' },
     dailyCardTitle: { fontSize: 14, fontWeight: '800', color: theme.primary, letterSpacing: 0.5, marginBottom: 2 },

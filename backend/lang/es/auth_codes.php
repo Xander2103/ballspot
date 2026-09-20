@@ -17,6 +17,7 @@ return [
     'invalid_credentials' => 'Correo electrónico o contraseña incorrectos.',
     'account_deleted'     => 'Esta cuenta ha sido eliminada. Puedes crear una cuenta nueva con el mismo correo.',
     'session_invalid'     => 'Tu sesión ha caducado. Inicia sesión de nuevo.',
+    'profile_unavailable' => 'No pudimos cargar tu perfil ahora mismo. Inténtalo de nuevo en un momento.',
     'two_factor_required'     => 'Te hemos enviado un código de verificación a tu correo.',
     'two_factor_code_invalid' => 'Ese código no es correcto. Revisa el correo más reciente e inténtalo de nuevo.',
     'two_factor_code_expired' => 'Este código ha caducado. Inicia sesión de nuevo para recibir uno nuevo.',

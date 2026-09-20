@@ -163,6 +163,7 @@ export const fr: Translations = {
       invalid_credentials: 'E-mail ou mot de passe incorrect.',
       account_deleted: 'Ce compte a été supprimé. Tu peux créer un nouveau compte avec le même e-mail.',
       session_invalid: 'Ta session a expiré. Reconnecte-toi.',
+      profile_unavailable: 'Impossible de charger ton profil pour le moment. Réessaie dans un instant.',
       two_factor_required: 'Nous avons envoyé un code de vérification à ton adresse e-mail.',
       two_factor_code_invalid: 'Ce code est incorrect. Vérifie le dernier e-mail reçu et réessaie.',
       two_factor_code_expired: 'Ce code a expiré. Reconnecte-toi pour en recevoir un nouveau.',

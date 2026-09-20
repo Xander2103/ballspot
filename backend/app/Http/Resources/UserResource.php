@@ -9,10 +9,13 @@ class UserResource extends JsonResource
     {
         $isSelf = $request->user()?->id === $this->id;
 
+        // Every optional field carries a safe default: a row from before a
+        // column existed (NULL theme/language/2FA) must still render a full
+        // profile — the app treats a missing field as a broken response.
         return [
             'id'             => $this->id,
-            'name'           => $this->name,
-            'username'       => $this->username,
+            'name'           => (string) ($this->name ?? ''),
+            'username'       => (string) ($this->username ?? ''),
             'email'          => $this->when($isSelf, $this->email),
             // When verification is switched off, every account counts as
             // verified — the app must never route a user to a code screen for
@@ -20,7 +23,7 @@ class UserResource extends JsonResource
             'email_verified' => $this->when($isSelf, fn () => $this->hasVerifiedEmail()
                 || !config('ballspot.auth.require_email_verification', true)),
             // Preferences — only meaningful for the authenticated user themselves.
-            'selected_theme' => $this->when($isSelf, $this->selected_theme),
+            'selected_theme' => $this->when($isSelf, fn () => $this->selected_theme ?: 'pitch_green'),
             // nl|en|fr|de|es — stored per user, used as the notification locale.
             'preferred_language' => $this->when($isSelf, fn () => $this->preferredLocale()),
             // Optional email login code. Default false; toggled via /me/preferences.

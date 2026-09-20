@@ -17,6 +17,7 @@ return [
     'invalid_credentials' => 'Ungültige E-Mail oder ungültiges Passwort.',
     'account_deleted'     => 'Dieses Konto wurde gelöscht. Du kannst mit derselben E-Mail ein neues Konto erstellen.',
     'session_invalid'     => 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.',
+    'profile_unavailable' => 'Wir konnten dein Profil gerade nicht laden. Bitte versuche es gleich noch einmal.',
     'two_factor_required'     => 'Wir haben einen Bestätigungscode an deine E-Mail gesendet.',
     'two_factor_code_invalid' => 'Dieser Code ist nicht korrekt. Prüfe die neueste E-Mail und versuche es erneut.',
     'two_factor_code_expired' => 'Dieser Code ist abgelaufen. Bitte melde dich erneut an, um einen neuen zu erhalten.',

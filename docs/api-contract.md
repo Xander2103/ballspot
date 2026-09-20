@@ -186,6 +186,19 @@ gone), and a token that still resolves to a deleted (anonymized) account is
 surviving token is revoked on the spot. On either code the app clears its
 stored token and returns to Login; on offline / 5xx it stays and offers
 Retry + Logout.
+
+Shape contract: every key below is always present for an active user; NULL
+optional columns render as safe defaults (`selected_theme` → `pitch_green`,
+`preferred_language` → `en`, `two_factor_enabled` → `false`, `avatar_url` /
+`preferred_sport` → `null`). A failure while building the profile answers
+`500 { "code": "profile_unavailable" }` (logged as `me.failed_exception`);
+`GET /profile/stats` answers the same code (logged as `profile.load_failed`).
+The app treats it as recoverable (Retry + Logout), never as a dead session.
+
+Ops note (Sep 2026): a PHP source file saved with a UTF-8 BOM prefixes EVERY
+response body of an un-cached deployment with `EF BB BF` — status 200, but
+the app's JSON parse fails and every screen reports a network error. Guarded
+by `SourceFileHygieneTest`; the app also strips a leading BOM defensively.
 ```json
 // Response 200
 { "data": { "id": 1, "name": "Xander", "username": "xander", "email": "x@example.com",
@@ -219,6 +232,26 @@ Deletion revokes every personal access token (`account.delete.tokens_revoked`), 
 email/login verification codes and password-reset rows for the account.
 
 ---
+
+### GET /notices/active  *(auth required; not gated by verified)*  *(new v1.9.11)*
+
+Admin-managed in-app notice (Admin → Notices), one per placement. Only
+`placement=home_daily_card` exists for now (the app shows it directly above the
+Daily Challenge card). The message comes back in the caller's language
+(preferred_language → Accept-Language → default), falling back to English and
+then to any language the admin filled in. `null` when the notice is disabled,
+outside its `starts_at`/`ends_at` window, or empty — never an error.
+
+```json
+// GET /api/notices/active?placement=home_daily_card
+// Response 200
+{ "notice": { "placement": "home_daily_card", "type": "warning", "message": "Daily login starts tomorrow" } }
+// Response 200 — nothing to show
+{ "notice": null }
+```
+
+`type` is `info | warning | success`. Admin-only fields (enabled, window, other
+languages) are never returned.
 
 ### GET /profile/stats  *(auth required)*
 Returns aggregate stats for the current user (tournaments + daily challenge stats).

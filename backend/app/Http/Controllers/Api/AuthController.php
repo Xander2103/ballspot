@@ -183,8 +183,29 @@ class AuthController extends Controller
         return response()->json(['message' => __('messages.auth.logged_out')]);
     }
 
+    /**
+     * GET /api/me — the app's profile source (app start, Home, Profile).
+     *
+     * The resource is rendered here, inside the try, so a failure while
+     * building it (a relation query, a missing column after a bad deploy)
+     * answers the stable `profile_unavailable` code instead of a raw 500 and
+     * is logged as `me.failed_exception` (user id + exception class only).
+     * The app keeps the session and offers Retry + Logout on that code.
+     */
     public function me(Request $request)
     {
-        return new UserResource($request->user());
+        $user = $request->user();
+
+        try {
+            return (new UserResource($user))->toResponse($request);
+        } catch (\Throwable $e) {
+            AppLog::error('me.failed_exception', [
+                'user_id'   => $user?->id,
+                'exception' => class_basename($e),
+            ]);
+            report($e);
+
+            return AuthError::response(AuthError::PROFILE_UNAVAILABLE, 500);
+        }
     }
 }

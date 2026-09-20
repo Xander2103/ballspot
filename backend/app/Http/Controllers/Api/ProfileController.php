@@ -116,10 +116,31 @@ class ProfileController extends Controller
         return response()->json(['data' => $completions]);
     }
 
+    /**
+     * GET /api/profile/stats. A failure here must not be a raw 500: the app
+     * shows its own "couldn't load your rank and stats" retry and the failure
+     * is logged as `profile.load_failed` (user id + exception class only).
+     */
     public function stats(Request $request)
     {
         $user = $request->user();
 
+        try {
+            return $this->buildStats($user);
+        } catch (\Throwable $e) {
+            \App\Support\AppLog::error('profile.load_failed', [
+                'user_id'   => $user?->id,
+                'section'   => 'stats',
+                'exception' => class_basename($e),
+            ]);
+            report($e);
+
+            return \App\Support\AuthError::response(\App\Support\AuthError::PROFILE_UNAVAILABLE, 500);
+        }
+    }
+
+    private function buildStats(\App\Models\User $user)
+    {
         $tournamentsCount = $user->leagues()->count();
         $completedCount   = $user->leagues()->where('status', 'completed')->count();
         $guessAgg         = Guess::where('user_id', $user->id)

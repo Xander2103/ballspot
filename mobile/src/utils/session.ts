@@ -21,6 +21,144 @@
 
 import { isNetworkError } from './apiError';
 import { translate } from '../i18n/core';
+import type { User } from '../types/auth';
+
+// --- Response bodies -------------------------------------------------------
+
+/**
+ * Parse an HTTP body as JSON the way the app needs it, not the way
+ * JSON.parse insists on it:
+ *  - a leading UTF-8 byte-order mark is dropped. A PHP source file saved
+ *    with a BOM makes an un-cached backend echo "﻿" ahead of EVERY
+ *    JSON body; the HTTP status is a healthy 200 and JSON.parse still throws,
+ *    which made every screen report a "network" failure (Sep 2026).
+ *  - an empty body is `null` (204 / empty 200), never an exception.
+ * Anything else that is not JSON throws a plain Error the client turns into
+ * a `malformed_response` rejection.
+ */
+export function parseJsonBody(text: string): unknown {
+  const trimmed = text.replace(/^﻿/, '').trim();
+  if (trimmed === '') return null;
+  return JSON.parse(trimmed);
+}
+
+/** Stable client-side code for a body the app could not read. */
+export const MALFORMED_RESPONSE = 'malformed_response';
+/** Stable client-side code for a /me body missing the fields the app needs. */
+export const MALFORMED_PROFILE = 'malformed_profile';
+
+/**
+ * Turn a /me body into the User the app renders, tolerating what a backend
+ * of any recent version may send:
+ *  - wrapped (`{ data: {...} }`, JsonResource) or bare
+ *  - missing optional fields (older backend, NULL columns) → safe defaults
+ *  - only `id` + `username` are required; `name` falls back to the username
+ * A body without those throws a `malformed_profile` rejection (never a crash
+ * deeper in a screen), which the caller treats as recoverable.
+ */
+export function parseProfile(raw: unknown): User {
+  const outer = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : null;
+  const inner = outer && outer.data && typeof outer.data === 'object' ? (outer.data as Record<string, unknown>) : outer;
+
+  const id = inner ? Number(inner.id) : NaN;
+  const username = inner && typeof inner.username === 'string' ? inner.username.trim() : '';
+  if (!inner || !Number.isFinite(id) || id <= 0 || !username) {
+    throw { status: 200, code: MALFORMED_PROFILE, message: translate('errors.server'), reason: describeShape(inner) };
+  }
+
+  const str = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v : fallback);
+  const sport = inner.preferred_sport;
+
+  return {
+    id,
+    name: str(inner.name, username),
+    username,
+    email: typeof inner.email === 'string' ? inner.email : undefined,
+    // Absent on older backends: treat as verified rather than bouncing a
+    // working account to the verification screen.
+    email_verified: typeof inner.email_verified === 'boolean' ? inner.email_verified : true,
+    selected_theme: str(inner.selected_theme, 'pitch_green'),
+    preferred_language: str(inner.preferred_language, 'en'),
+    two_factor_enabled: inner.two_factor_enabled === true,
+    avatar_url: typeof inner.avatar_url === 'string' && inner.avatar_url ? inner.avatar_url : null,
+    preferred_sport: sport && typeof sport === 'object' && Number.isFinite(Number((sport as { id?: unknown }).id))
+      ? (sport as User['preferred_sport'])
+      : null,
+  };
+}
+
+/** Safe one-word description of a bad body for logs (never its content). */
+function describeShape(inner: Record<string, unknown> | null): string {
+  if (!inner) return 'not_an_object';
+  const missing = ['id', 'username'].filter((k) => inner[k] === undefined || inner[k] === null || inner[k] === '');
+  return missing.length ? `missing_${missing.join('_')}` : 'invalid_id';
+}
+
+// --- Failure summaries (safe to log) ---------------------------------------
+
+export interface ApiFailureSummary {
+  endpoint: string;
+  /** HTTP status, or null for a network failure / parse failure without one. */
+  status: number | null;
+  /** Stable backend or client code when there is one. */
+  code: string | null;
+  kind: 'network' | 'invalid' | 'recoverable';
+}
+
+/**
+ * What a developer (Metro) or a bug report needs about a failed request:
+ * endpoint, status and stable code. Deliberately NOT the message — backend
+ * messages can contain user text, and a raw 500 body is noise.
+ */
+export function describeApiFailure(e: unknown, endpoint: string): ApiFailureSummary {
+  const err = asError(e);
+  const status = typeof err.status === 'number' ? err.status : null;
+  const code = typeof err.code === 'string' ? err.code : null;
+  const kind: ApiFailureSummary['kind'] = isNetworkError(e) ? 'network' : classifySessionError(e, endpoint.replace(/^[A-Z]+\s+/, ''));
+  return { endpoint, status, code, kind };
+}
+
+export function formatApiFailure(s: ApiFailureSummary): string {
+  return `[api] ${s.endpoint} -> ${s.status ?? 'no-response'}${s.code ? ` ${s.code}` : ''} (${s.kind})`;
+}
+
+// --- Profile load outcome ----------------------------------------------------
+
+export type ProfileLoadInput =
+  | { ok: true; raw: unknown }
+  | { ok: false; error: unknown };
+
+export type ProfileLoadOutcome =
+  /** Render the profile. */
+  | { kind: 'ready'; user: User }
+  /** Token is dead: the navigator resets to Login (the client already raised it). */
+  | { kind: 'session_invalid'; failure: ApiFailureSummary }
+  /** Stay on the screen with Retry + Logout. */
+  | { kind: 'failed'; view: ProfileFailureView; failure: ApiFailureSummary };
+
+/**
+ * One decision for the Profile screen from whatever /me produced. A body
+ * that cannot be parsed is a failure like any other (Retry + Logout), never
+ * an exception inside render.
+ */
+export function resolveProfileLoad(input: ProfileLoadInput, endpoint = 'GET /me'): ProfileLoadOutcome {
+  let error: unknown;
+  if (input.ok) {
+    try {
+      return { kind: 'ready', user: parseProfile(input.raw) };
+    } catch (e: unknown) {
+      error = e;
+    }
+  } else {
+    error = input.error;
+  }
+
+  const failure = describeApiFailure(error, endpoint);
+  if (failure.kind === 'invalid') {
+    return { kind: 'session_invalid', failure };
+  }
+  return { kind: 'failed', view: profileLoadFailureView('recoverable'), failure };
+}
 
 // --- Classification --------------------------------------------------------
 

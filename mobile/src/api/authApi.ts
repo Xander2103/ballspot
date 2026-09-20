@@ -1,5 +1,6 @@
 import { apiClient } from './client';
 import { User, ProfileStats, AuthResponse, LoginResult, XpEventsResponse } from '../types/auth';
+import { parseProfile } from '../utils/session';
 
 export const authApi = {
   register: (data: {
@@ -63,9 +64,11 @@ export const authApi = {
   resetPassword: (data: { email: string; token: string; password: string; password_confirmation: string }) =>
     apiClient.request<{ message: string }>('/reset-password', { method: 'POST', body: JSON.stringify(data) }),
 
-  // GET /me returns a JsonResource → wrapped in { data: User }
+  // GET /me returns a JsonResource → wrapped in { data: User }. parseProfile
+  // unwraps it, fills safe defaults for missing optional fields and rejects
+  // (malformed_profile) instead of handing a half-empty object to screens.
   me: () =>
-    apiClient.request<{ data: User }>('/me').then(r => r.data),
+    apiClient.request<unknown>('/me').then(parseProfile),
 
   stats: () =>
     apiClient.request<ProfileStats>('/profile/stats'),

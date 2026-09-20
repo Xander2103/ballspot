@@ -23,7 +23,8 @@ import { isLanguageCode, languageLabel, LanguageCode, DEFAULT_LANGUAGE } from '.
 import { badgeApi } from '../api/badgeApi';
 import { avatarApi } from '../api/avatarApi';
 import { signOut } from '../app/signOut';
-import { classifySessionError, deleteAccountAndSignOut, logoutLocally, profileLoadFailureView, SessionFailureKind } from '../utils/session';
+import { classifySessionError, deleteAccountAndSignOut, logoutLocally, profileLoadFailureView, SessionFailureKind, describeApiFailure, formatApiFailure } from '../utils/session';
+import { devLog } from '../utils/devLog';
 import { notifications } from '../services/notifications';
 import { useTheme } from '../theme/useTheme';
 import { THEME_META, ThemeTokens } from '../theme/themes';
@@ -78,6 +79,10 @@ export function ProfileScreen({ navigation }: Props) {
     if (statsRes.status === 'fulfilled') setStats(statsRes.value);
     if (finishRes.status === 'fulfilled') setHistory(finishRes.value.slice(0, 10));
 
+    // Endpoint + status + stable code only (never the body) — enough to tell
+    // "offline" from "profile_unavailable" from "session dead" in Metro.
+    if (meRes.status === 'rejected') devLog(formatApiFailure(describeApiFailure(meRes.reason, 'GET /me')));
+    if (statsRes.status === 'rejected') devLog(formatApiFailure(describeApiFailure(statsRes.reason, 'GET /profile/stats')));
     setProfileFailure(meRes.status === 'rejected' ? classifySessionError(meRes.reason, '/me') : null);
     setStatsFailed(statsRes.status === 'rejected');
     setHistoryFailed(finishRes.status === 'rejected');

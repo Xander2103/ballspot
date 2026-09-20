@@ -1,6 +1,27 @@
 import { tokenStorage } from '../storage/tokenStorage';
 import { getLocale, translate } from '../i18n/core';
-import { emitSessionInvalid, isSessionInvalidResponse, sessionInvalidReasonFor } from '../utils/session';
+import {
+  emitSessionInvalid, isSessionInvalidResponse, sessionInvalidReasonFor,
+  parseJsonBody, describeApiFailure, formatApiFailure, MALFORMED_RESPONSE,
+} from '../utils/session';
+import { devLog } from '../utils/devLog';
+
+/**
+ * Read a body as JSON. Tolerates a leading BOM and an empty body (see
+ * parseJsonBody); anything else unreadable resolves to `null` for error
+ * responses (the status is what matters there) and rejects with a stable
+ * `malformed_response` code for successful ones.
+ */
+async function readBody(response: Response, path: string, method: string): Promise<unknown> {
+  const text = await response.text();
+  try {
+    return parseJsonBody(text);
+  } catch {
+    if (!response.ok) return null;
+    devLog(`[api] ${method} ${path} -> ${response.status} ${MALFORMED_RESPONSE} (unreadable body, ${text.length} bytes)`);
+    throw { status: response.status, code: MALFORMED_RESPONSE, message: translate('errors.server') };
+  }
+}
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
 
@@ -26,13 +47,23 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const method = (options.method ?? 'GET').toUpperCase();
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+    });
+  } catch (e: unknown) {
+    devLog(formatApiFailure(describeApiFailure(e, `${method} ${path}`)));
+    throw e;
+  }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
+    const parsed = await readBody(response, path, method);
+    const error: Record<string, unknown> =
+      parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : { message: 'Request failed' };
+    devLog(formatApiFailure(describeApiFailure({ status: response.status, ...error }, `${method} ${path}`)));
 
     // Rate limited: surface a clear, actionable message with the wait time
     // (server sends Retry-After + a retry_after JSON field).
@@ -64,7 +95,7 @@ async function request<T>(
 
   if (response.status === 204) return undefined as T;
 
-  return response.json();
+  return (await readBody(response, path, method)) as T;
 }
 
 export const apiClient = { request };

@@ -65,6 +65,10 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     Route::post('sports/{sport}/status', [\App\Http\Controllers\Admin\SportController::class, 'updateStatus'])
         ->name('admin.sports.status');
 
+    // In-app notice (Home / Daily Challenge card message)
+    Route::get('notices', [\App\Http\Controllers\Admin\NoticeController::class, 'index'])->name('admin.notices.index');
+    Route::put('notices', [\App\Http\Controllers\Admin\NoticeController::class, 'update'])->name('admin.notices.update');
+
     // Gameplay settings (tournament challenge cooldown)
     Route::get('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'index'])->name('admin.settings.index');
     Route::put('settings', [\App\Http\Controllers\Admin\SettingsController::class, 'update'])->name('admin.settings.update');

@@ -34,6 +34,9 @@ final class AuthError
     public const SESSION_INVALID     = 'session_invalid';
     // Account deletion
     public const ADMIN_ACCOUNT_PROTECTED = 'admin_account_protected';
+    // GET /me or /profile/stats threw: the session is fine, the profile is not
+    // (retry later). Never a raw 500 body.
+    public const PROFILE_UNAVAILABLE = 'profile_unavailable';
     // Login 2FA (email code)
     public const TWO_FACTOR_REQUIRED     = 'two_factor_required';
     public const TWO_FACTOR_CODE_INVALID = 'two_factor_code_invalid';
@@ -63,6 +66,7 @@ final class AuthError
         self::ACCOUNT_DELETED     => 'This account has been deleted. You can create a new account with the same email.',
         self::SESSION_INVALID     => 'Your session has expired. Please log in again.',
         self::ADMIN_ACCOUNT_PROTECTED => 'Admin accounts cannot be deleted from the app.',
+        self::PROFILE_UNAVAILABLE => 'We could not load your profile right now. Please try again in a moment.',
         self::TWO_FACTOR_REQUIRED    => 'We sent a verification code to your email.',
         self::TWO_FACTOR_CODE_INVALID => 'That code is not correct. Check the newest email and try again.',
         self::TWO_FACTOR_CODE_EXPIRED => 'This code has expired. Please log in again to get a new one.',

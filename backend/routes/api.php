@@ -65,6 +65,8 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Static rank ladder (config-driven, no user data) — available pre-verification
     // so the "All ranks" overview works during onboarding.
     Route::get('/ranks', [RankController::class, 'index']);
+    // Admin-managed in-app notice (Home / Daily card). Public content only.
+    Route::get('/notices/active', [\App\Http\Controllers\Api\NoticeController::class, 'active']);
 
     // Full app access requires a verified email.
     Route::middleware('verified')->group(function () {

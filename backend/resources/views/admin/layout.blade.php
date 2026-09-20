@@ -44,6 +44,8 @@
            href="/admin/competition">Competition</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/notifications*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/notifications">Notifications</a>
+        <a class="text-white-50 small text-decoration-none {{ request()->is('admin/notices*') ? 'text-white fw-semibold' : '' }}"
+           href="/admin/notices">Notices</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/settings*') ? 'text-white fw-semibold' : '' }}"
            href="/admin/settings">Settings</a>
         <a class="text-white-50 small text-decoration-none {{ request()->is('admin/diagnostics*') ? 'text-white fw-semibold' : '' }}"

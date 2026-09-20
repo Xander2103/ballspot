@@ -13,6 +13,12 @@ import {
   emitSessionInvalid,
   sessionInvalidReasonFor,
   sessionExpiredMessage,
+  parseJsonBody,
+  parseProfile,
+  describeApiFailure,
+  formatApiFailure,
+  resolveProfileLoad,
+  MALFORMED_PROFILE,
 } from '../session';
 
 const SRC = path.resolve(__dirname, '..', '..');
@@ -219,6 +225,123 @@ describe('Home identity header', () => {
     const source = fs.readFileSync(path.join(SRC, 'screens', 'HomeScreen.tsx'), 'utf8');
     expect(source).not.toMatch(/\|\|\s*'…'/);
     expect(source).toMatch(/homeIdentity\(/);
+  });
+});
+
+describe('parseJsonBody', () => {
+  it('parses a body that starts with a UTF-8 byte-order mark', () => {
+    // A PHP file saved with a BOM makes an un-cached backend send this for EVERY response.
+    expect(parseJsonBody('﻿{"data":{"id":1}}')).toEqual({ data: { id: 1 } });
+    expect(() => JSON.parse('﻿{}')).toThrow(); // what the app did before
+  });
+
+  it('treats an empty body as null and rejects non-JSON', () => {
+    expect(parseJsonBody('')).toBeNull();
+    expect(parseJsonBody('  \n')).toBeNull();
+    expect(() => parseJsonBody('<!doctype html><html>')).toThrow();
+  });
+
+  it('the API client reads bodies through it and never through response.json()', () => {
+    const client = fs.readFileSync(path.join(SRC, 'api', 'client.ts'), 'utf8');
+    expect(client).toMatch(/parseJsonBody\(/);
+    expect(client).not.toMatch(/response\.json\(\)/);
+    expect(fs.readFileSync(path.join(SRC, 'api', 'authApi.ts'), 'utf8')).toMatch(/\.then\(parseProfile\)/);
+  });
+});
+
+describe('parseProfile (the /me body)', () => {
+  const full = {
+    id: 7, name: 'Alice', username: 'alice', email: 'a@example.com', email_verified: true,
+    selected_theme: 'classic', preferred_language: 'nl', two_factor_enabled: true,
+    avatar_url: 'https://x/a.jpg', preferred_sport: { id: 1, slug: 'football', name: 'Football', emoji: '⚽' },
+  };
+
+  it('handles a successful, complete /me (wrapped or bare)', () => {
+    expect(parseProfile({ data: full })).toEqual(full);
+    expect(parseProfile(full)).toEqual(full);
+  });
+
+  it('fills safe defaults for missing optional fields (older backend / NULL columns)', () => {
+    const user = parseProfile({ data: { id: '7', username: 'alice' } });
+    expect(user).toEqual({
+      id: 7, name: 'alice', username: 'alice', email: undefined, email_verified: true,
+      selected_theme: 'pitch_green', preferred_language: 'en', two_factor_enabled: false,
+      avatar_url: null, preferred_sport: null,
+    });
+    expect(parseProfile({ data: { ...full, selected_theme: null, preferred_language: '', two_factor_enabled: 'yes', avatar_url: '', preferred_sport: {} } })).toMatchObject({
+      selected_theme: 'pitch_green', preferred_language: 'en', two_factor_enabled: false, avatar_url: null, preferred_sport: null,
+    });
+  });
+
+  it('rejects an unknown or malformed body with a stable code instead of crashing', () => {
+    for (const bad of [null, undefined, 'ok', 42, [], {}, { data: null }, { data: { id: 0, username: 'x' } }, { data: { id: 3 } }, { data: { username: 'x' } }]) {
+      let caught: any = null;
+      try { parseProfile(bad); } catch (e) { caught = e; }
+      expect(caught?.code).toBe(MALFORMED_PROFILE);
+      expect(typeof caught?.reason).toBe('string');
+      expect(JSON.stringify(caught)).not.toContain('Alice');
+    }
+  });
+});
+
+describe('describeApiFailure (safe dev/diagnostic summary)', () => {
+  it('captures endpoint, status and stable code — never the message', () => {
+    const s = describeApiFailure({ status: 500, code: 'profile_unavailable', message: 'SQLSTATE secret' }, 'GET /me');
+    expect(s).toEqual({ endpoint: 'GET /me', status: 500, code: 'profile_unavailable', kind: 'recoverable' });
+    expect(formatApiFailure(s)).toBe('[api] GET /me -> 500 profile_unavailable (recoverable)');
+    expect(formatApiFailure(s)).not.toContain('SQLSTATE');
+  });
+
+  it('classifies network, dead-session and server failures', () => {
+    expect(describeApiFailure(new TypeError('Network request failed'), 'GET /me')).toMatchObject({ status: null, code: null, kind: 'network' });
+    expect(describeApiFailure({ status: 401, code: 'session_invalid' }, 'GET /me').kind).toBe('invalid');
+    expect(describeApiFailure({ status: 401, code: 'account_deleted' }, 'GET /me').kind).toBe('invalid');
+    expect(describeApiFailure({ status: 503 }, 'GET /profile/stats').kind).toBe('recoverable');
+  });
+});
+
+describe('resolveProfileLoad (Profile view model)', () => {
+  const full = { id: 7, name: 'Alice', username: 'alice', preferred_sport: null };
+
+  it('is ready with the parsed user on a successful /me', () => {
+    const out = resolveProfileLoad({ ok: true, raw: { data: full } });
+    expect(out.kind).toBe('ready');
+    if (out.kind === 'ready') expect(out.user.name).toBe('Alice');
+  });
+
+  it('is ready with defaults when optional fields are missing', () => {
+    const out = resolveProfileLoad({ ok: true, raw: { data: { id: 7, username: 'alice' } } });
+    expect(out.kind).toBe('ready');
+    if (out.kind === 'ready') expect(out.user).toMatchObject({ name: 'alice', selected_theme: 'pitch_green', preferred_language: 'en', two_factor_enabled: false });
+  });
+
+  it('401 / account_deleted / session_invalid → session invalid (log out)', () => {
+    for (const error of [{ status: 401, message: 'Unauthenticated.' }, { status: 401, code: 'account_deleted' }, { status: 403, code: 'session_invalid' }]) {
+      const out = resolveProfileLoad({ ok: false, error });
+      expect(out.kind).toBe('session_invalid');
+    }
+  });
+
+  it('500 / profile_unavailable / network → stay with Retry + Logout', () => {
+    for (const error of [{ status: 500, message: 'Server Error' }, { status: 500, code: 'profile_unavailable' }, new TypeError('Network request failed'), { status: 429, retry_after: 30 }]) {
+      const out = resolveProfileLoad({ ok: false, error });
+      expect(out.kind).toBe('failed');
+      if (out.kind === 'failed') {
+        expect(out.view.actions.map((a) => a.id)).toEqual(['retry', 'logout']);
+        expect(out.view.title).toBe("Couldn't load your profile");
+      }
+    }
+  });
+
+  it('does not crash on an unknown or malformed 200 body — it becomes a recoverable failure', () => {
+    for (const raw of [null, 'html', { data: {} }, { data: { id: 'abc', username: '' } }, [1, 2]]) {
+      const out = resolveProfileLoad({ ok: true, raw });
+      expect(out.kind).toBe('failed');
+      if (out.kind === 'failed') {
+        expect(out.failure).toMatchObject({ endpoint: 'GET /me', status: 200, code: MALFORMED_PROFILE, kind: 'recoverable' });
+        expect(out.view.actions.map((a) => a.id)).toEqual(['retry', 'logout']);
+      }
+    }
   });
 });
 
