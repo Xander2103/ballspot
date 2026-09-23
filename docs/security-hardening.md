@@ -168,8 +168,10 @@ exposed header.
 
 - All admin routes behind the `admin` middleware (session auth + `is_admin`);
   CSRF active on every admin form.
-- Admin web login throttled (5/min per IP); admins always get login 2FA on
-  the API path.
+- Admin web login throttled (5/min per IP + 50/hour per email) and logged
+  (`admin.login`, `admin.login_failed` with a reason category). The panel is
+  password-only: admin 2FA is the same per-user opt-in as every account
+  (`users.two_factor_enabled`) — a web second factor is an open item.
 - **No "remember me" on admin web login.** `Admin\AuthController` previously
   called `Auth::attempt(..., remember: true)` unconditionally, minting a
   ~400-day recaller cookie for the single most privileged account on the

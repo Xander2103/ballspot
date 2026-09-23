@@ -9,6 +9,7 @@ import { preferencesApi } from '../api/preferencesApi';
 import type { Sport } from '../types/sport';
 import type { RootStackParamList } from '../app/AppNavigator';
 import { useI18n } from '../i18n';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SportSelection'>;
 
@@ -57,8 +58,8 @@ export function SportSelectionScreen({ route, navigation }: Props) {
       } else {
         navigation.goBack();
       }
-    } catch (e: any) {
-      setError(e?.message ?? t('home.sportSelection.saveError'));
+    } catch (e: unknown) {
+      setError(getApiErrorMessage(e, t('home.sportSelection.saveError')));
       setSavingId(null);
     }
   }

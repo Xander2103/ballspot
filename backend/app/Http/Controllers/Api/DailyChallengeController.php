@@ -147,6 +147,12 @@ class DailyChallengeController extends Controller
             return response()->json(['message' => __('messages.daily.not_active')], 422);
         }
 
+        // Mirror the read path: an archived (pulled) photo disappears from
+        // /daily/today, so a client holding the id must not keep scoring on it.
+        if (!$dailyChallenge->challenge || $dailyChallenge->challenge->status === 'archived') {
+            return response()->json(['message' => __('messages.daily.not_active')], 422);
+        }
+
         // The date gate lives on the read path (`today()` scopes by date) but
         // route-model binding lets any id reach this write path. Without this
         // check a new account can back-play every past daily in one sitting:

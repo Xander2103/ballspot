@@ -320,6 +320,9 @@ return [
         'disk'        => 'public',
         'directory'   => 'avatars',
         'max_kb'      => (int) env('BALLSPOT_AVATAR_MAX_KB', 2048),
+        // Pixel cap per side: a 2 MB PNG can decode to 30000x30000 px and eat
+        // gigabytes in GD before re-encoding (decompression bomb).
+        'max_px'      => (int) env('BALLSPOT_AVATAR_MAX_PX', 4096),
         'mimes'       => ['jpeg', 'jpg', 'png', 'webp'],
     ],
 

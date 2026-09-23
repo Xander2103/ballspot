@@ -28,6 +28,9 @@ class CompetitionStandingsService
         return DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($start, $end) {
             $q->whereBetween('challenge_date', [$start, $end]);
         })
+            // A deleted (anonymized) account keeps its guesses for history but
+            // must not hold a live leaderboard slot or a podium at close.
+            ->whereIn('user_id', \App\Models\User::query()->whereNull('anonymized_at')->select('id'))
             ->get(['id', 'user_id', 'score', 'submitted_at'])
             ->groupBy('user_id')
             ->map(fn ($guesses, $userId) => [

@@ -14,6 +14,7 @@ import { applyProfileAndRoute } from '../app/authFlow';
 import { signOut } from '../app/signOut';
 import { prepareForNewAccount, adoptToken } from '../utils/verificationFlow';
 import { mapAuthError, validatePasswordPair } from '../utils/authErrors';
+import { WEB_BASE_URL } from '../utils/urls';
 import { defaultLanguageForDevice, LanguageCode } from '../utils/language';
 import { useTheme } from '../theme/useTheme';
 import { colors } from '../theme/colors';
@@ -21,8 +22,7 @@ import { spacing } from '../theme/spacing';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
-const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? API_BASE.replace(/\/api$/, '');
+const WEB_BASE = WEB_BASE_URL;
 
 type FieldErrors = {
   name?: string;

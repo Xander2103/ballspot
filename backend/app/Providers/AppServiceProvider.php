@@ -112,10 +112,24 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        // Admin session login: strict brute-force gate (admins also have
-        // forced 2FA on the API path; this protects the web form). Per-IP plus
-        // an IP-independent per-email hourly ceiling so a distributed attacker
-        // cannot get 5/min * N IPs against the single admin password.
+        // The one irreversible endpoint. A stolen token must not be able to
+        // hammer the anonymization transaction; a real user never needs more.
+        RateLimiter::for('account-delete', function (Request $request) {
+            return Limit::perHour(3)->by('account-delete|' . ($request->user()?->id ?: $request->ip()));
+        });
+
+        // Tournament writes (create / join / start / cancel): each is a
+        // lookup + locked write, and join is a code-guessing surface. The
+        // per-user business caps bound state, not request rate — this does.
+        RateLimiter::for('tournaments', function (Request $request) {
+            return Limit::perMinute(20)->by('tournaments|' . ($request->user()?->id ?: $request->ip()));
+        });
+
+        // Admin session login: strict brute-force gate for the web form (the
+        // panel is password-only — admin 2FA is per-user opt-in like everyone
+        // else, see docs/security-hardening.md). Per-IP plus an IP-independent
+        // per-email hourly ceiling so a distributed attacker cannot get
+        // 5/min * N IPs against the single admin password.
         RateLimiter::for('admin-login', function (Request $request) {
             $email = strtolower((string) $request->input('email'));
             return [

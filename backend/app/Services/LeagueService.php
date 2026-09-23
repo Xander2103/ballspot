@@ -275,6 +275,11 @@ class LeagueService
             'This tournament is no longer accepting players.'
         );
 
+        // The per-user lock above serializes THIS user's caps; the tournament
+        // cap below is a league-wide count, so lock the league row too or two
+        // different users can both pass a "7 of 8" check at the same time.
+        DB::table('leagues')->where('id', $league->id)->lockForUpdate()->first();
+
         // Already a member? Idempotent — never block re-joining your own lobby.
         $alreadyMember = $league->members()->where('user_id', $userId)->exists();
 

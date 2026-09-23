@@ -2,3 +2,7 @@
 backend/
 node_modules/
 .git/
+.env
+.env.*
+!.env.example
+dist/

@@ -23,10 +23,28 @@ async function readBody(response: Response, path: string, method: string): Promi
   }
 }
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
+import { API_BASE_URL } from '../utils/urls';
 
-// For physical device testing, replace 127.0.0.1 with your computer's LAN IP address
-// e.g. http://192.168.1.x:8000/api
+// For physical device testing set EXPO_PUBLIC_API_BASE_URL in mobile/.env to
+// your computer's LAN IP, e.g. http://192.168.1.x:8000/api (see .env.example).
+
+/** A request that gets no answer at all must fail like a network error, not spin forever. */
+const REQUEST_TIMEOUT_MS = 20000;
+
+async function fetchWithTimeout(input: string, init: RequestInit): Promise<Response> {
+  if (typeof AbortController === 'undefined') return fetch(input, init);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (e: unknown) {
+    // An abort surfaces as the same network-style failure the app already handles.
+    if ((e as { name?: string })?.name === 'AbortError') throw new TypeError('Network request failed');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function request<T>(
   path: string,
@@ -50,7 +68,7 @@ async function request<T>(
   const method = (options.method ?? 'GET').toUpperCase();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {
       ...options,
       headers,
     });

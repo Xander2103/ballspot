@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "be.vanmalderstudio.ballpicker",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#07111F",
         "foregroundImage": "./assets/web-app-manifest-512x512.png"

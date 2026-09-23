@@ -94,11 +94,12 @@ class AuthController extends Controller
         EmailVerificationService $emailVerification,
     ) {
         $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
+            'email' => ['required', 'email', 'max:255'],
+            'password' => ['required', 'string', 'max:255'],
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        // Case-insensitive: "Foo@x.com" at sign-up must still log in as "foo@x.com".
+        $user = User::findByEmail($request->email);
 
         if ($user && $user->anonymized_at !== null) {
             AppLog::warn('auth.login_failed', ['reason' => 'anonymized_account', 'user_id' => $user->id]);

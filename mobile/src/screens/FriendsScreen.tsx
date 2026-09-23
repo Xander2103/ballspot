@@ -17,6 +17,7 @@ import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
 import type { FriendRequestItem, FriendSuggestion, FriendSummary } from '../types/friend';
+import { getApiErrorMessage } from '../utils/apiError';
 
 type Props = MainTabScreenProps<'Friends'>;
 
@@ -104,8 +105,9 @@ export function FriendsScreen({ navigation, route }: Props) {
       setAddNotice(t('friends.list.requestSentNotice'));
       await load();
     } catch (e: unknown) {
-      const err = e as { message?: string };
-      setAddError(err?.message ?? t('friends.list.sendError'));
+      // Known codes / validation text stay; 5xx, offline and technical bodies
+      // become the friendly generic copy instead of raw server text.
+      setAddError(getApiErrorMessage(e, t('friends.list.sendError')));
     } finally {
       setAdding(false);
     }

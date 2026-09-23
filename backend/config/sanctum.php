@@ -50,7 +50,10 @@ return [
     |
     */
 
-    'expiration' => env('SANCTUM_TOKEN_EXPIRATION_MINUTES'), // null = never; set in production (see docs/security-hardening.md)
+    // Default 90 days (129600 min): a token lifted from a lost device must not
+    // be permanent access. Set SANCTUM_TOKEN_EXPIRATION_MINUTES to override;
+    // an empty value keeps the default (see docs/security-hardening.md).
+    'expiration' => (int) (env('SANCTUM_TOKEN_EXPIRATION_MINUTES') ?: 129600),
 
     /*
     |--------------------------------------------------------------------------

@@ -43,7 +43,12 @@ class PasswordResetFlow
      */
     public function request(string $email, string $channel): string
     {
-        $user = User::where('email', $email)->whereNull('anonymized_at')->first();
+        // Case-insensitive match; the broker then works with the STORED address
+        // so the token row and the email both use the account's own spelling.
+        $user = User::findByEmail($email);
+        if ($user && $user->anonymized_at !== null) {
+            $user = null;
+        }
 
         if (!$user) {
             AppLog::event('password_reset.requested', ['channel' => $channel, 'outcome' => 'no_account']);
@@ -52,7 +57,7 @@ class PasswordResetFlow
         }
 
         try {
-            $status = Password::sendResetLink(['email' => $email]);
+            $status = Password::sendResetLink(['email' => $user->email]);
         } catch (\Throwable $e) {
             AppLog::error('password_reset.requested', [
                 'channel'   => $channel,
@@ -89,6 +94,12 @@ class PasswordResetFlow
     public function reset(array $credentials, string $channel): string
     {
         $userId = null;
+
+        // The broker matches the address exactly; resolve the account
+        // case-insensitively first so the typed spelling never matters.
+        if ($account = User::findByEmail((string) ($credentials['email'] ?? ''))) {
+            $credentials['email'] = $account->email;
+        }
 
         try {
             $status = DB::transaction(function () use ($credentials, &$userId) {

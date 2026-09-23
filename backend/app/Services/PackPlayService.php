@@ -46,6 +46,18 @@ class PackPlayService
      */
     public function startOrResume(User $user, ChallengePack $pack): PackAttempt
     {
+        // Serialized per user (row lock on MySQL; no-op on SQLite): two
+        // concurrent starts must resolve to ONE active attempt, otherwise every
+        // per-guess XP could be paid twice by interleaving two attempts.
+        return DB::transaction(function () use ($user, $pack) {
+            DB::table('users')->where('id', $user->id)->lockForUpdate()->first();
+
+            return $this->startOrResumeLocked($user, $pack);
+        });
+    }
+
+    private function startOrResumeLocked(User $user, ChallengePack $pack): PackAttempt
+    {
         $active = PackAttempt::where('user_id', $user->id)
             ->where('challenge_pack_id', $pack->id)
             ->where('status', PackAttempt::STATUS_ACTIVE)

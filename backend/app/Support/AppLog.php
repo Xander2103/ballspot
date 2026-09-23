@@ -29,6 +29,8 @@ final class AppLog
         'password', 'password_confirmation', 'token', 'plain_text_token', 'code',
         'beta_code', 'login_code', 'reset_token', 'friend_code', 'push_token',
         'expo_token', 'app_key', 'secret', 'authorization', 'cookie', 'email',
+        'pin', 'otp', 'api_key', 'access_token', 'refresh_token', 'bearer',
+        'verification_code', 'plain_code', 'private_key', 'session_id',
     ];
 
     /** Something happened that is worth knowing about (normal operation). */

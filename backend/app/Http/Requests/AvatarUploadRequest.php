@@ -13,17 +13,20 @@ class AvatarUploadRequest extends FormRequest
     public function rules(): array
     {
         $maxKb = (int) config('ballspot.avatar.max_kb');
+        $maxPx = (int) config('ballspot.avatar.max_px', 4096);
         $mimes = implode(',', config('ballspot.avatar.mimes'));
 
         return [
             // `image` rejects SVG (getimagesize fails on it); `mimes` restricts
-            // to a raster allow-list; `max` caps size in KB.
+            // to a raster allow-list; `max` caps size in KB; `dimensions` caps
+            // the decoded pixel size so GD never allocates a decompression bomb.
             'avatar' => [
                 'required',
                 'file',
                 'image',
                 'mimes:' . $mimes,
                 'max:' . $maxKb,
+                "dimensions:max_width={$maxPx},max_height={$maxPx}",
             ],
         ];
     }

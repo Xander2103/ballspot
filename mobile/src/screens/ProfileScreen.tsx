@@ -25,6 +25,7 @@ import { avatarApi } from '../api/avatarApi';
 import { signOut } from '../app/signOut';
 import { classifySessionError, deleteAccountAndSignOut, logoutLocally, profileLoadFailureView, SessionFailureKind, describeApiFailure, formatApiFailure } from '../utils/session';
 import { devLog } from '../utils/devLog';
+import { WEB_BASE_URL } from '../utils/urls';
 import { notifications } from '../services/notifications';
 import { useTheme } from '../theme/useTheme';
 import { THEME_META, ThemeTokens } from '../theme/themes';
@@ -34,8 +35,7 @@ import type { TournamentFinish } from '../types/badge';
 
 const APP_VERSION = '1.0.0';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000/api';
-const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? API_BASE.replace(/\/api$/, '');
+const WEB_BASE = WEB_BASE_URL;
 
 type Props = MainTabScreenProps<'Profile'>;
 
@@ -114,8 +114,9 @@ export function ProfileScreen({ navigation }: Props) {
       setUploadingAvatar(true);
       const { avatar_url } = await avatarApi.upload(result.assets[0].uri);
       setUser((u) => (u ? { ...u, avatar_url } : u));
-    } catch (e: any) {
-      setAvatarError(e?.message || t('profile.screen.photoError'));
+    } catch (e: unknown) {
+      // Never raw server text: 5xx / offline / HTML bodies map to friendly copy.
+      setAvatarError(getApiErrorMessage(e, t('profile.screen.photoError')));
     } finally {
       setUploadingAvatar(false);
     }

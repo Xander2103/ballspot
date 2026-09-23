@@ -9,6 +9,7 @@ import { authApi } from '../api/authApi';
 import { bootstrapSession, routeForUser, logoutLocally, onSessionInvalid } from '../utils/session';
 import { signOut } from './signOut';
 import { EmptyState } from '../components/EmptyState';
+import { WEB_BASE_URL } from '../utils/urls';
 
 import type { Badge } from '../types/badge';
 import type { RankProgress, RankUp } from '../types/auth';
@@ -84,7 +85,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
  */
 export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
-const WEB_BASE = process.env.EXPO_PUBLIC_WEB_URL ?? 'https://ballpicker.vanmalderstudio.be';
+const WEB_BASE = WEB_BASE_URL;
 
 /**
  * Deep links. Only the password-reset link is routable from outside the app:

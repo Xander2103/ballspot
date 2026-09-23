@@ -50,6 +50,28 @@ class User extends Authenticatable implements MustVerifyEmail, HasLocalePreferen
         return in_array($lang, (array) config('ballspot.languages', ['en']), true) ? $lang : (string) config('ballspot.default_language', 'en');
     }
 
+    /** Canonical form of an address for storage and lookups: trimmed, lowercase. */
+    public static function normalizeEmail(?string $email): string
+    {
+        return strtolower(trim((string) $email));
+    }
+
+    /**
+     * Case-insensitive account lookup. Registration stores addresses lowercase
+     * (RegisterRequest), but older rows and SQLite's case-sensitive UNIQUE
+     * index can hold mixed case — a user who typed "Foo@x.com" at sign-up
+     * must still be able to log in and reset their password with "foo@x.com".
+     */
+    public static function findByEmail(?string $email): ?self
+    {
+        $normalized = self::normalizeEmail($email);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return static::query()->whereRaw('LOWER(email) = ?', [$normalized])->first();
+    }
+
     /** Login codes are sent only when the user opted in (or the global force flag is on). */
     public function wantsLoginTwoFactor(): bool
     {

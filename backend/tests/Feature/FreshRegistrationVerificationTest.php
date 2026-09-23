@@ -60,7 +60,11 @@ class FreshRegistrationVerificationTest extends TestCase
         Notification::fake();
         $res  = $this->withHeaders($headers)->postJson('/api/register', $this->payload);
         $res->assertStatus(201)->assertJsonPath('email_verified', false)->assertJsonPath('code_sent', true);
-        $user = User::where('email', $this->payload['email'])->firstOrFail();
+        // Addresses are stored lowercase since the 2026-09-21 audit; the
+        // mixed-case payload deliberately exercises that.
+        $user = User::findByEmail($this->payload['email']);
+        $this->assertNotNull($user);
+        $this->assertSame('fresh.player@example.com', $user->email);
 
         return [$user, $res->json('token'), $this->lastCode($user)];
     }
@@ -97,7 +101,8 @@ class FreshRegistrationVerificationTest extends TestCase
         $res->assertOk()
             ->assertJsonPath('email_verified', true)
             ->assertJsonPath('user.id', $user->id)
-            ->assertJsonPath('user.email', $this->payload['email']);
+            // The stored (lowercase) address comes back, not the typed spelling.
+            ->assertJsonPath('user.email', strtolower($this->payload['email']));
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
         $this->assertSame($user->id, $this->logged('email_verification.completed')[0]->context['user_id']);
     }
@@ -250,7 +255,7 @@ class FreshRegistrationVerificationTest extends TestCase
 
         $this->withToken($token)->getJson('/api/email/verification-status')
             ->assertOk()
-            ->assertJsonPath('email', $this->payload['email'])
+            ->assertJsonPath('email', strtolower($this->payload['email']))
             ->assertJsonPath('email_verified', false)
             ->assertJsonPath('has_usable_code', true)
             ->assertJsonPath('can_resend', false)

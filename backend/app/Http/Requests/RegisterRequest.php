@@ -12,6 +12,18 @@ class RegisterRequest extends FormRequest
 {
     public function authorize(): bool { return true; }
 
+    /**
+     * Addresses are stored lowercase so "Foo@x.com" and "foo@x.com" can never
+     * become two accounts on one mailbox (SQLite's UNIQUE index is
+     * case-sensitive) and so login/reset lookups are stable.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('email'))) {
+            $this->merge(['email' => \App\Models\User::normalizeEmail($this->input('email'))]);
+        }
+    }
+
     public function rules(): array
     {
         // Deleted accounts are anonymized in place: email/username are rewritten
@@ -23,11 +35,13 @@ class RegisterRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
-            'email' => ['required', 'email', 'unique:users,email'],
+            // max:255 = the column width; a longer valid-RFC address would pass
+            // validation and then fail the INSERT as a 500.
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             // `confirmed` = password_confirmation must be present and equal.
             // Until the store build that sends it is the minimum, the field is
             // only checked when present (config require_password_confirmation).
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', 'min:8', 'max:255', 'confirmed'],
             // Optional: defaults to config default_language in the controller.
             'preferred_language' => ['sometimes', 'nullable', 'string', Rule::in((array) config('ballspot.languages'))],
             // Consent must be provable server-side (GDPR Art. 7(1)); a
@@ -37,7 +51,7 @@ class RegisterRequest extends FormRequest
         ];
 
         if (!config('ballspot.auth.require_password_confirmation', false) && !$this->has('password_confirmation')) {
-            $rules['password'] = ['required', 'string', 'min:8'];
+            $rules['password'] = ['required', 'string', 'min:8', 'max:255'];
         }
 
         // Closed-beta gate: only enforced while a code is configured.

@@ -49,6 +49,40 @@ class StoreReadinessCheck extends Command
             $this->pass("BALLSPOT_WEB_URL={$webUrl}");
         }
 
+        // Security-relevant settings that .env.example deliberately leaves at
+        // a local-friendly default. Only WARN when APP_ENV is production so the
+        // check stays quiet on a dev box; on the server they are launch gates.
+        $this->productionSetting(
+            !in_array('*', (array) config('cors.allowed_origins', []), true),
+            'CORS_ALLOWED_ORIGINS is restricted',
+            'CORS_ALLOWED_ORIGINS is "*" — list the real web origins in production'
+        );
+        $this->productionSetting(
+            (int) config('sanctum.expiration') > 0,
+            'SANCTUM_TOKEN_EXPIRATION_MINUTES=' . (int) config('sanctum.expiration'),
+            'SANCTUM_TOKEN_EXPIRATION_MINUTES is empty — API tokens would never expire'
+        );
+        $this->productionSetting(
+            (bool) config('session.secure'),
+            'SESSION_SECURE_COOKIE=true',
+            'SESSION_SECURE_COOKIE is not true — the admin session cookie can travel over plain HTTP'
+        );
+        $this->productionSetting(
+            trim((string) env('TRUSTED_PROXIES', '')) !== '',
+            'TRUSTED_PROXIES is set',
+            'TRUSTED_PROXIES is empty — behind a proxy every IP-keyed rate limit collapses into one bucket'
+        );
+        $this->productionSetting(
+            !in_array('single', (array) config('logging.channels.stack.channels', []), true),
+            'LOG_STACK rotates (' . implode(',', (array) config('logging.channels.stack.channels', [])) . ')',
+            'LOG_STACK=single — laravel.log grows without bound; use LOG_STACK=daily'
+        );
+        $this->productionSetting(
+            config('mail.default') !== 'log',
+            'MAIL_MAILER=' . config('mail.default'),
+            'MAIL_MAILER=log — verification codes and reset links would be written to laravel.log instead of sent'
+        );
+
         // Active ready challenges
         $readyCount = Challenge::where('status', 'active')->get()->filter->isReadyForDaily()->count();
         if ($readyCount === 0) {
@@ -138,6 +172,18 @@ class StoreReadinessCheck extends Command
     private function checkEnv(string $key, callable $fn): void
     {
         $fn(env($key, ''));
+    }
+
+    /** PASS when ok; otherwise WARN in production and an informational PASS elsewhere. */
+    private function productionSetting(bool $ok, string $passMsg, string $warnMsg): void
+    {
+        if ($ok) {
+            $this->pass($passMsg);
+        } elseif (config('app.env') === 'production') {
+            $this->warn_($warnMsg);
+        } else {
+            $this->pass($passMsg . ' (not required outside production; would WARN in production)');
+        }
     }
 
     private function pass(string $msg): void

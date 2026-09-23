@@ -20,6 +20,8 @@ class LeaderboardController extends Controller
             ->join('league_rounds', 'guesses.league_round_id', '=', 'league_rounds.id')
             ->join('users', 'guesses.user_id', '=', 'users.id')
             ->where('league_rounds.league_id', $league->id)
+            // Deleted accounts keep their rows for history, never a rank.
+            ->whereNull('users.anonymized_at')
             ->select(
                 'users.id as user_id',
                 'users.username',

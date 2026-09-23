@@ -48,7 +48,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // what an unverified user needs to verify, inspect, or leave their account.
     Route::post('/logout',       [AuthController::class, 'logout']);
     Route::get('/me',            [AuthController::class, 'me']);
-    Route::delete('/account',    [AccountController::class, 'delete']);
+    Route::delete('/account',    [AccountController::class, 'delete'])->middleware('throttle:account-delete');
     // GDPR export — deliberately NOT behind the verified gate: an unverified
     // user has the same right to their data.
     Route::get('/me/export',     [\App\Http\Controllers\Api\DataExportController::class, 'show'])->middleware('throttle:export');
@@ -113,7 +113,7 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/packs/{slug}',  [ChallengePackController::class, 'show']);
 
         // Pack play mode (attempts, sequential guesses, completion).
-        Route::post('/packs/{slug}/start',   [PackPlayController::class, 'start']);
+        Route::post('/packs/{slug}/start',   [PackPlayController::class, 'start'])->middleware('throttle:gameplay');
         Route::get('/packs/{slug}/attempt',  [PackPlayController::class, 'attempt']);
         Route::post('/pack-attempts/{attempt}/guess', [PackPlayController::class, 'guess'])->middleware('throttle:gameplay');
         Route::get('/me/pack-completions',   [ProfileController::class, 'packCompletions']);
@@ -121,11 +121,11 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         // Availability check for the create screen — stays above /leagues/{league}.
         Route::get('/tournaments/availability',       [LeagueController::class, 'availability']);
         Route::get('/leagues',                        [LeagueController::class, 'index']);
-        Route::post('/leagues',                       [LeagueController::class, 'store']);
-        Route::post('/leagues/join',                  [LeagueController::class, 'join']);
+        Route::post('/leagues',                       [LeagueController::class, 'store'])->middleware('throttle:tournaments');
+        Route::post('/leagues/join',                  [LeagueController::class, 'join'])->middleware('throttle:tournaments');
         Route::get('/leagues/{league}',               [LeagueController::class, 'show']);
-        Route::post('/leagues/{league}/start',        [LeagueController::class, 'start']);
-        Route::delete('/leagues/{league}',            [LeagueController::class, 'destroy']);
+        Route::post('/leagues/{league}/start',        [LeagueController::class, 'start'])->middleware('throttle:tournaments');
+        Route::delete('/leagues/{league}',            [LeagueController::class, 'destroy'])->middleware('throttle:tournaments');
         // Per-user "remove from my list" for finished tournaments — deletes nothing.
         Route::post('/leagues/{league}/hide',         [LeagueController::class, 'hide']);
         Route::delete('/leagues/{league}/members/{user}', [LeagueController::class, 'removeMember']);
