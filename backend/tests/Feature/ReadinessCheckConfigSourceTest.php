@@ -59,8 +59,12 @@ class ReadinessCheckConfigSourceTest extends TestCase
     public function test_readiness_command_and_bootstrap_never_call_env(): void
     {
         foreach (['app/Console/Commands/StoreReadinessCheck.php', 'bootstrap/app.php', 'app/Support/TrustedProxies.php'] as $rel) {
-            $source = file_get_contents(base_path($rel));
-            $this->assertDoesNotMatchRegularExpression('/\benv\s*\(/', $source, "$rel must read config(), not env()");
+            // Code lines only — the comments deliberately explain why env() is banned here.
+            $code = array_filter(
+                file(base_path($rel)),
+                fn ($line) => !preg_match('#^\s*(//|\*|/\*|\#)#', $line)
+            );
+            $this->assertDoesNotMatchRegularExpression('/\benv\s*\(/', implode('', $code), "$rel must read config(), not env()");
         }
     }
 
