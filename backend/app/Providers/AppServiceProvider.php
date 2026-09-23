@@ -16,6 +16,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Config is loaded here (cached or not) — the only safe place to read
+        // TRUSTED_PROXIES. See config/ballspot.php 'trusted_proxies'.
+        \App\Support\TrustedProxies::apply();
+
         $this->configureRateLimiters();
     }
 

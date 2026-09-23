@@ -316,6 +316,13 @@ return [
     | Profile photos are stored on the public disk. SVG is intentionally
     | excluded (scriptable). Max size mirrors a conservative mobile limit.
     */
+    // Reverse proxy / load balancer IPs or CIDRs (comma-separated) whose
+    // X-Forwarded-* headers are trusted. Lives in config (not read with env()
+    // in bootstrap/app.php) because after `config:cache` .env is never loaded
+    // and an env() read there is silently empty — which makes every IP-keyed
+    // rate limiter share the proxy's address. Empty = trust none (local).
+    'trusted_proxies' => (string) env('TRUSTED_PROXIES', ''),
+
     'avatar' => [
         'disk'        => 'public',
         'directory'   => 'avatars',

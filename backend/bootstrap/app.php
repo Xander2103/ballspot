@@ -27,10 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Trust the reverse proxy / load balancer so $request->ip() reflects the
         // real client (not the proxy). Without this, every IP-keyed rate limiter
         // collapses into a single global bucket and $request->secure() misreads
-        // the scheme behind TLS termination. Set TRUSTED_PROXIES to the proxy
-        // IP(s)/CIDR(s); empty = trust none (safe local default).
+        // the scheme behind TLS termination. The proxy LIST is applied from
+        // config('ballspot.trusted_proxies') in AppServiceProvider::boot() —
+        // this closure runs before .env/config are loaded, and with a cached
+        // config .env is never loaded, so an env() read here is always empty.
         $middleware->trustProxies(
-            at: array_values(array_filter(array_map('trim', explode(',', (string) env('TRUSTED_PROXIES', ''))))),
             headers: Request::HEADER_X_FORWARDED_FOR
                 | Request::HEADER_X_FORWARDED_HOST
                 | Request::HEADER_X_FORWARDED_PORT

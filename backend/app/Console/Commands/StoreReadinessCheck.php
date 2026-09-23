@@ -23,17 +23,22 @@ class StoreReadinessCheck extends Command
         $this->line(str_repeat('─', 50));
         $this->newLine();
 
-        $this->checkEnv('APP_ENV', fn($v) => $v !== 'production'
-            ? $this->warn_("APP_ENV is \"{$v}\" — set to \"production\" before store release")
-            : $this->pass("APP_ENV=production"));
+        // Everything below reads CONFIG, never env(): after `config:cache`
+        // Laravel does not load .env at all, so env('APP_ENV') is null on
+        // production and the old checks reported APP_ENV as "" (false WARN).
+        $appEnv = (string) config('app.env', '');
+        $appEnv !== 'production'
+            ? $this->warn_("APP_ENV is \"{$appEnv}\" — set to \"production\" before store release")
+            : $this->pass('APP_ENV=production');
 
-        $this->checkEnv('APP_DEBUG', fn($v) => filter_var($v, FILTER_VALIDATE_BOOLEAN)
+        (bool) config('app.debug', false)
             ? $this->warn_('APP_DEBUG is true — disable in production (APP_DEBUG=false)')
-            : $this->pass('APP_DEBUG=false'));
+            : $this->pass('APP_DEBUG=false');
 
-        $this->checkEnv('APP_URL', fn($v) => str_contains($v, 'localhost') || str_contains($v, '127.0.0.1')
-            ? $this->warn_("APP_URL is \"{$v}\" — set to your production domain")
-            : $this->pass("APP_URL={$v}"));
+        $appUrl = (string) config('app.url', '');
+        str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1') || $appUrl === ''
+            ? $this->warn_("APP_URL is \"{$appUrl}\" — set to your production domain")
+            : $this->pass("APP_URL={$appUrl}");
 
         $supportEmail = config('ballspot.support_email', '');
         if (!$supportEmail || $supportEmail === 'support@ballspot.app') {
@@ -68,7 +73,7 @@ class StoreReadinessCheck extends Command
             'SESSION_SECURE_COOKIE is not true — the admin session cookie can travel over plain HTTP'
         );
         $this->productionSetting(
-            trim((string) env('TRUSTED_PROXIES', '')) !== '',
+            trim((string) config('ballspot.trusted_proxies', '')) !== '',
             'TRUSTED_PROXIES is set',
             'TRUSTED_PROXIES is empty — behind a proxy every IP-keyed rate limit collapses into one bucket'
         );
@@ -167,11 +172,6 @@ class StoreReadinessCheck extends Command
 
         $this->info('All checks passed. Ready for store submission.');
         return self::SUCCESS;
-    }
-
-    private function checkEnv(string $key, callable $fn): void
-    {
-        $fn(env($key, ''));
     }
 
     /** PASS when ok; otherwise WARN in production and an informational PASS elsewhere. */
