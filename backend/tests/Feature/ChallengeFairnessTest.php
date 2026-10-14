@@ -452,7 +452,10 @@ class ChallengeFairnessTest extends TestCase
         $this->assertSame(2, $page->viewData('summary')['tournament_eligible']); // EligibleTour + GeneralOne
         $this->assertSame(1, $page->viewData('summary')['daily_pool']);
         $this->assertSame(1, $page->viewData('summary')['used_as_daily']);
-        $this->assertSame(3, $page->viewData('summary')['pack_general']); // GeneralOne, PackOne, UsedGeneral
+        // v1.9.14: Pack and General are separate tiles (never a combined count).
+        $this->assertSame(1, $page->viewData('summary')['pack']);    // PackOne
+        $this->assertSame(2, $page->viewData('summary')['general']); // GeneralOne, UsedGeneral
+        $this->assertArrayNotHasKey('pack_general', $page->viewData('summary'));
 
         // v1.9.1: the index is split into the main list ('challenges') and the
         // collapsed Used Daily panel ('usedDaily'). Filters apply to both, so

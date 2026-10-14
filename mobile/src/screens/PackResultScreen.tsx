@@ -111,7 +111,7 @@ export function PackResultScreen({ route, navigation }: Props) {
           <>
             <AppButton
               title={t('packs.result.viewPackResults')}
-              onPress={() => navigation.replace('PackComplete', { slug, packName, completion: result.completion ?? null })}
+              onPress={() => navigation.replace('PackComplete', { slug, packName, completion: result.completion ?? null, justCompleted: true })}
             />
             <AppButton title={t('packs.result.backToPacks')} onPress={() => goPacks(navigation)} variant="secondary" />
           </>

@@ -16,6 +16,10 @@ export const authApi = {
     terms_accepted: boolean;
     age_confirmed: boolean;
     beta_code?: string;
+    /** Turnstile token — only when GET /api/config says captcha_required (off for launch). */
+    captcha_token?: string;
+    /** Honeypot: always sent empty by the app (utils/registerFlow). */
+    website?: string;
   }) =>
     apiClient.request<AuthResponse>('/register', { method: 'POST', body: JSON.stringify(data) }),
 

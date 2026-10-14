@@ -10,7 +10,7 @@ import { signOut } from '../app/signOut';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
-import { getApiErrorMessage } from '../utils/apiError';
+import { getAuthErrorMessage } from '../utils/authErrors';
 import { useI18n } from '../i18n';
 import {
   buildVerifyPayload,
@@ -161,7 +161,8 @@ export function EmailVerificationScreen({ route, navigation }: Props) {
         setTimeout(goToLogin, 1500);
         return;
       }
-      setError(getApiErrorMessage(e, t('auth.verification.resendFailed')));
+      // Code-aware: verification_resend_rate_limited → calm "wait a bit" copy.
+      setError(getAuthErrorMessage(e, t('auth.verification.resendFailed')));
     } finally {
       setResending(false);
     }

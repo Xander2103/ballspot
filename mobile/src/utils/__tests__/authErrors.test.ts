@@ -72,6 +72,28 @@ describe('mapAuthError', () => {
     expect(getAuthErrorMessage({ status: 422, message: 'SQLSTATE[23000] at /app.php:1' }, 'fallback text')).toBe('fallback text');
   });
 
+  it('maps the v1.9.13 rate-limit codes to the calm "wait a bit" copy', () => {
+    const calm = 'Too many attempts. Please wait a bit and try again.';
+    expect(getAuthErrorMessage({ status: 429, code: 'registration_rate_limited', retry_after: 30, message: 'Too many attempts. Try again in 30 seconds.' }, 'f')).toBe(calm);
+    expect(getAuthErrorMessage({ status: 429, code: 'verification_resend_rate_limited', retry_after: 900 }, 'f')).toBe(calm);
+    expect(getAuthErrorMessage({ status: 429, code: 'password_reset_rate_limited', retry_after: 3600 }, 'f')).toBe(calm);
+    expect(getAuthErrorMessage({ status: 429, code: 'login_2fa_rate_limited' }, 'f')).toBe(calm);
+    expect(getAuthErrorMessage({ status: 429, code: 'rate_limited' }, 'f')).toBe(calm);
+    // Without a code the client's own "try again in N seconds" sentence stays.
+    expect(getAuthErrorMessage({ status: 429, retry_after: 30, message: 'Too many attempts. Try again in 30 seconds.' }, 'f'))
+      .toBe('Too many attempts. Try again in 30 seconds.');
+  });
+
+  it('maps the CAPTCHA codes to friendly copy', () => {
+    expect(getAuthErrorMessage({ status: 422, code: 'registration_captcha_required' }, 'f'))
+      .toBe('Please complete the security check and try again.');
+    expect(getAuthErrorMessage({ status: 422, code: 'registration_captcha_failed' }, 'f'))
+      .toBe('The security check did not pass. Please try again.');
+    for (const code of ['registration_rate_limited', 'verification_resend_rate_limited', 'password_reset_rate_limited', 'login_2fa_rate_limited', 'registration_captcha_required', 'registration_captcha_failed']) {
+      expect(isKnownAuthCode(code)).toBe(true);
+    }
+  });
+
   it('isKnownAuthCode only accepts documented codes', () => {
     expect(isKnownAuthCode('email_taken')).toBe(true);
     expect(isKnownAuthCode('toString')).toBe(false);

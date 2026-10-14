@@ -12,6 +12,15 @@ export const daily = {
     notFound: 'No result found.',
     viewWeeklyLeaderboard: 'View Weekly Leaderboard',
   },
+  share: {
+    cta: 'Share result',
+    ctaHigh: 'Great score! Share your result',
+    message: 'I scored {{score}} points in today’s BallPicker Daily Challenge ⚽🎯 Can you beat me?',
+    xpAvailable: 'Share now and earn +{{xp}} XP',
+    xpEarned: '+{{xp}} XP earned for sharing!',
+    thanks: 'Thanks for sharing!',
+    error: 'Could not open the share sheet. Please try again.',
+  },
   leaderboard: {
     loadError: 'Failed to load leaderboard.',
     playToEnter: 'Play a round to enter the leaderboard.',

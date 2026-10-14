@@ -8,7 +8,8 @@ import { AppButton } from '../components/AppButton';
 import { authApi } from '../api/authApi';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { getApiErrorMessage, isNetworkError } from '../utils/apiError';
+import { isNetworkError } from '../utils/apiError';
+import { getAuthErrorMessage } from '../utils/authErrors';
 import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ForgotPassword'>;
@@ -38,7 +39,9 @@ export function ForgotPasswordScreen({ navigation }: Props) {
     } catch (e: unknown) {
       const status = (e as { status?: number })?.status;
       if (isNetworkError(e) || status === 429 || status === 422 || (status ?? 0) >= 500) {
-        setError(getApiErrorMessage(e, t('auth.forgotPassword.failed')));
+        // Code-aware: a 429 password_reset_rate_limited reads as the calm
+        // "wait a bit" sentence, never as a scary server error.
+        setError(getAuthErrorMessage(e, t('auth.forgotPassword.failed')));
       } else {
         setSent(true);
       }

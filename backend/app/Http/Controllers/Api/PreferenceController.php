@@ -7,6 +7,7 @@ use App\Http\Resources\SportResource;
 use App\Support\AppLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class PreferenceController extends Controller
 {
@@ -34,6 +35,15 @@ class PreferenceController extends Controller
         }
         if (array_key_exists('two_factor_enabled', $data)) {
             $enabled = (bool) $data['two_factor_enabled'];
+            // Launch control: while BALLPICKER_LOGIN_2FA_OPT_IN is false no
+            // account may newly opt in (every 2FA login costs an email).
+            // Accounts that already have it on keep it and may switch it off.
+            if ($enabled && !$user->two_factor_enabled && !config('ballspot.auth.login_2fa_opt_in', false)) {
+                AppLog::event('login.2fa_opt_in_refused', ['user_id' => $user->id]);
+                throw ValidationException::withMessages([
+                    'two_factor_enabled' => [__('messages.preferences.two_factor_unavailable')],
+                ]);
+            }
             if ($enabled !== (bool) $user->two_factor_enabled) {
                 // Security setting: always logged (user id + new state only).
                 AppLog::event('login.2fa_setting_changed', ['user_id' => $user->id, 'enabled' => $enabled]);

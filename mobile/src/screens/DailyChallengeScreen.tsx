@@ -82,6 +82,10 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   }
 
   async function handleSubmit() {
+    // Checked synchronously too: a double tap can fire before the disabled
+    // prop re-renders, and the second request only ever yields the backend's
+    // "already played" reply instead of a fresh result.
+    if (submitting) return;
     if (guessX === null || guessY === null) return;
     if (!Number.isFinite(guessX) || !Number.isFinite(guessY)) {
       setSubmitError(t('game.guess.lockBeforeSubmit'));
@@ -96,6 +100,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         newBadges: res.data.new_badges ?? [],
         rankProgress: res.rank_progress,
         rankUp: res.rank_up ?? null,
+        justCompleted: true,
       });
     } catch (e: unknown) {
       const err = e as { status?: number };

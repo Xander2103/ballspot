@@ -52,6 +52,9 @@ class DiagnosticsService
     /** How much of the log file tail to scan for recent errors (bytes). */
     private const LOG_TAIL_BYTES = 512 * 1024;
 
+    /** Abuse refusals shown on the "Auth email abuse" card (shared with /admin/competition). */
+    public const ABUSE_EVENTS = AuthAbuseStatsService::ABUSE_EVENTS;
+
     /** @var array<int, array{level: string, section: string, message: string}> */
     private array $warnings = [];
 
@@ -72,6 +75,7 @@ class DiagnosticsService
             'packs'        => $this->packs(),
             'storage'      => $this->storage(),
             'activity'     => $this->activity($now),
+            'abuse'        => $this->abuse($now),
             'prelaunch'    => $this->prelaunch(),
             'commands'     => $this->commands(),
         ];
@@ -197,7 +201,9 @@ class DiagnosticsService
                 continue;
             }
             foreach (preg_split('/\r?\n/', $this->tail($path, self::LOG_TAIL_BYTES)) as $line) {
-                if (!preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] \w+\.(ERROR|CRITICAL|ALERT|EMERGENCY|WARNING): ([a-z_]+\.[a-z_]+)\b/', $line, $m)) {
+                // Event names may carry digits (login.2fa_failed) — [a-z_] alone
+                // silently skipped them before v1.9.13.
+                if (!preg_match('/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] \w+\.(ERROR|CRITICAL|ALERT|EMERGENCY|WARNING): ([a-z0-9_]+\.[a-z0-9_]+)\b/', $line, $m)) {
                     continue;
                 }
                 if (Carbon::parse($m[1])->lt($since)) {
@@ -293,9 +299,15 @@ class DiagnosticsService
             $this->warn('warning', 'daily', 'Automatic daily scheduling is OFF (BALLPICKER_AUTO_SCHEDULE_DAILIES=false). The 00:05 cron entry is skipped; dailies are only created by hand (php artisan ballspot:schedule-daily-challenges or Admin → Daily).');
         }
 
+        // Same idea for activation: with the flag off, today's row stays
+        // `scheduled` until an admin flips it (the warning above says so).
+        $autoActivate = (bool) config('ballspot.daily.auto_activate', false);
+
         return [
             'auto_schedule_enabled' => $autoSchedule,
             'auto_schedule_env'     => 'BALLPICKER_AUTO_SCHEDULE_DAILIES',
+            'auto_activate_enabled' => $autoActivate,
+            'auto_activate_env'     => 'BALLPICKER_AUTO_ACTIVATE_DAILIES',
             'today'                => $today,
             'today_status'         => $todayStatus,
             'today_challenge_id'   => $todayRow?->challenge_id,
@@ -305,7 +317,8 @@ class DiagnosticsService
             'active_upcoming_count'=> $activeUpcoming,
             'pool_available'       => $poolAvailable,
             'pool_low_threshold'   => self::DAILY_POOL_LOW,
-            'cron_command'         => 'ballspot:schedule-daily-challenges (daily 00:05' . ($autoSchedule ? ')' : ', currently skipped)'),
+            'cron_command'         => 'ballspot:schedule-daily-challenges (daily 00:05' . ($autoSchedule ? ')' : ', currently skipped)')
+                . ' · ballspot:activate-daily (daily 00:10' . ($autoActivate ? ')' : ', currently skipped)'),
         ];
     }
 
@@ -467,6 +480,16 @@ class DiagnosticsService
             'push_tokens_total'     => DB::table('push_tokens')->count(),
             'users_total'           => User::count(),
         ];
+    }
+
+    /**
+     * Registration / auth-email abuse counters for the last 24h (names and
+     * counts only — see AuthAbuseStatsService). Informational: these are the
+     * protections WORKING, so no warning is raised for them.
+     */
+    private function abuse(Carbon $now): array
+    {
+        return app(AuthAbuseStatsService::class)->last24h($now);
     }
 
     /** Text only. Never executed from the web. */

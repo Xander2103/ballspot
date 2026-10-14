@@ -6,6 +6,7 @@ import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { EmptyState } from '../components/EmptyState';
 import { packApi } from '../api/packApi';
+import { growth } from '../services/growth';
 import { goHome, goPacks, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
@@ -24,7 +25,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PackComplete'>;
  */
 export function PackCompleteScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
-  const { slug, packName, completion: initial } = route.params;
+  const { slug, packName, completion: initial, justCompleted } = route.params;
   const { theme } = useTheme();
   const { t, locale } = useI18n();
   const styles = createStyles(theme);
@@ -53,6 +54,14 @@ export function PackCompleteScreen({ route, navigation }: Props) {
   useEffect(() => {
     if (!initial) load();
   }, [initial, load]);
+
+  // Growth: a pack completed just now is a positive moment for the
+  // conservative native review prompt (never when re-opening results).
+  useEffect(() => {
+    if (!justCompleted) return;
+    const timer = setTimeout(() => { void growth.onPackCompleted(); }, 1500);
+    return () => clearTimeout(timer);
+  }, [justCompleted]);
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={theme.primary} size="large" /></View>;

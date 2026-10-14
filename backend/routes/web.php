@@ -78,6 +78,10 @@ Route::prefix('admin')->middleware('admin')->group(function () {
     // counts). Never runs shell commands, never shows secrets.
     Route::get('diagnostics', [\App\Http\Controllers\Admin\DiagnosticsController::class, 'index'])->name('admin.diagnostics.index');
 
+    // Growth counters: share taps + review/rate ATTEMPTS (never confirmed
+    // reviews). Read-only, counts only.
+    Route::get('growth', [\App\Http\Controllers\Admin\GrowthStatsController::class, 'index'])->name('admin.growth.index');
+
     // Media export: filter challenge images, download one ZIP with manifests.
     // Read-only; the ZIP is a temp file deleted after the download.
     Route::get('media-export', [\App\Http\Controllers\Admin\MediaExportController::class, 'index'])->name('admin.media-export.index');

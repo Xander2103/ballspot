@@ -40,20 +40,35 @@ class AppServiceProvider extends ServiceProvider
 
         // Account creation: strict per IP — every register sends a
         // verification email (cooldown-bypassing), so this is the mail gate.
+        // v1.9.13: plus per normalized email and per username (attempts,
+        // IP-independent) so a script cannot hammer one identity from many
+        // addresses. Accounts actually CREATED per IP (5/hour, 10/day) are
+        // counted separately in App\Support\AuthAbuseGuard.
         RateLimiter::for('register', function (Request $request) {
+            $email    = \App\Models\User::normalizeEmail(is_string($request->input('email')) ? $request->input('email') : '');
+            $username = strtolower(trim(is_string($request->input('username')) ? $request->input('username') : ''));
+            $limits   = (array) config('ballspot.abuse.register', []);
+
             return [
                 Limit::perMinute(5)->by('reg-m|' . $request->ip()),
                 Limit::perHour(20)->by('reg-h|' . $request->ip()),
+                Limit::perHour((int) ($limits['attempts_per_email_hour'] ?? 5))->by('reg-e|' . ($email !== '' ? sha1($email) : 'none|' . $request->ip())),
+                Limit::perHour((int) ($limits['attempts_per_username_hour'] ?? 5))->by('reg-u|' . ($username !== '' ? sha1($username) : 'none|' . $request->ip())),
             ];
         });
 
         // Password reset request: strict per email+IP (mail bomb / enumeration
         // hammering) plus a per-IP ceiling.
+        // v1.9.13: plus an IP-independent per-email hourly ceiling (3) and a
+        // per-IP HOURLY ceiling (10, was 10/min). Counted whether or not the
+        // address exists, so a 429 never reveals an account.
         RateLimiter::for('forgot-password', function (Request $request) {
-            $email = strtolower((string) $request->input('email'));
+            $email  = strtolower(trim((string) $request->input('email')));
+            $limits = (array) config('ballspot.abuse.password_reset', []);
             return [
                 Limit::perMinute(3)->by('fp-e|' . $email . '|' . $request->ip()),
-                Limit::perMinute(10)->by('fp-ip|' . $request->ip()),
+                Limit::perHour((int) ($limits['per_ip_hour'] ?? 10))->by('fp-ip|' . $request->ip()),
+                Limit::perHour((int) ($limits['per_email_hour'] ?? 3))->by('fp-eh|' . sha1($email)),
             ];
         });
 
@@ -131,15 +146,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Admin session login: strict brute-force gate for the web form (the
         // panel is password-only — admin 2FA is per-user opt-in like everyone
-        // else, see docs/security-hardening.md). Per-IP plus an IP-independent
-        // per-email hourly ceiling so a distributed attacker cannot get
-        // 5/min * N IPs against the single admin password.
+        // else, see docs/security-hardening.md). Per IP here; the IP-independent
+        // per-email ceiling (50 FAILED attempts / hour) lives in
+        // App\Support\FailedLoginLimiter, inside the controller, so that only
+        // wrong passwords count — as middleware it counted every request and
+        // let anyone who knew the admin address lock the admin out.
         RateLimiter::for('admin-login', function (Request $request) {
-            $email = strtolower((string) $request->input('email'));
-            return [
-                Limit::perMinute(5)->by('admin-login|' . $request->ip()),
-                Limit::perHour(50)->by('admin-login-email|' . $email),
-            ];
+            return Limit::perMinute(5)->by('admin-login|' . $request->ip());
         });
 
         // Friend read endpoints (/friends, /friends/requests, /friends/suggestions)
@@ -149,21 +162,41 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(40)->by('friends-read|' . ($request->user()?->id ?: $request->ip()));
         });
 
+        // Share claims (v1.9.12): each one is a few ledger lookups and up to
+        // four inserts. XP is deduped per account / per day regardless, so
+        // this only bounds request volume and event-row growth.
+        RateLimiter::for('share', function (Request $request) {
+            return [
+                Limit::perMinute(10)->by('share|' . ($request->user()?->id ?: $request->ip())),
+                Limit::perDay(100)->by('share-d|' . ($request->user()?->id ?: $request->ip())),
+            ];
+        });
+
+        // Review / rate telemetry (v1.9.12): plain inserts, never rewarded.
+        // Keeps one client from filling app_events.
+        RateLimiter::for('growth-events', function (Request $request) {
+            return [
+                Limit::perMinute(30)->by('growth|' . ($request->user()?->id ?: $request->ip())),
+                Limit::perDay(300)->by('growth-d|' . ($request->user()?->id ?: $request->ip())),
+            ];
+        });
+
         // Admin announcement send: pushes to every opted-in device.
         RateLimiter::for('admin-send', function (Request $request) {
             return Limit::perMinute(10)->by('admin-send|' . ($request->user()?->id ?: $request->ip()));
         });
-        // Credential submission: per email+IP (tight), per IP (looser), and a
-        // per-email hourly ceiling. The last one is IP-independent on purpose —
-        // without it, an attacker with N addresses gets 5 guesses/min *per IP*
-        // against one victim account, which no other limit here bounds. Hourly
-        // (not per-minute) so a spammer cannot cheaply lock a victim out.
+        // Credential submission: per email+IP (tight) and per IP (looser). The
+        // IP-independent per-email ceiling — needed because an attacker with N
+        // addresses otherwise gets 5 guesses/min *per IP* against one victim —
+        // is App\Support\FailedLoginLimiter (50 FAILED attempts / hour, checked
+        // in AuthController::login). It no longer runs as middleware: that
+        // counted successful logins too, so 50 junk requests with a victim's
+        // address locked the real user out for an hour, repeatable forever.
         RateLimiter::for('login', function (Request $request) {
             $email = strtolower((string) $request->input('email'));
             return [
                 Limit::perMinute(5)->by($email . '|' . $request->ip()),
                 Limit::perMinute(20)->by('ip|' . $request->ip()),
-                Limit::perHour(50)->by('login-email|' . $email),
             ];
         });
 

@@ -855,6 +855,93 @@ Login at `/admin/login` with `admin@ballspot.local / password`. All admin routes
 
 ---
 
+## Growth: share rewards & review telemetry (v1.9.12)
+
+Native share sheet + native in-app review only — no social-media APIs, no
+social login, no analytics SDK. Rewards exist for **in-app sharing only**;
+rating / reviewing the app is **never** rewarded (store policy).
+
+### POST /api/share  *(auth + verified; throttle `share` 10/min + 100/day)*
+
+The app calls this right after the native share sheet opened (iOS/Android
+cannot confirm a post, so opening the sheet is the completed share). The
+server records the share event and awards whatever is still available. No
+client-supplied amount or score is ever trusted: a daily-result share takes
+the score from the user's own stored guess.
+
+```json
+// Request
+{ "type": "app" }
+{ "type": "daily_result", "daily_challenge_id": 42 }
+
+// Response 200
+{
+  "share_count": 1,
+  "xp_awarded": 135,
+  "rewards": ["first_share", "daily_share", "daily_high_score_share"],
+  "new_badges": [{ "code": "first_share", "name": "First Share", "icon": "📣", "rarity": "common", ... }],
+  "rank_progress": { "xp_gained": 135, "rank": { ... } },
+  "rank_up": null,
+  "status": { ...same shape as GET /api/share/status... }
+}
+
+// 422 — daily_result without the caller's own guess on that daily
+{ "message": "Play today's daily challenge before sharing its result.", "code": "no_guess" }
+```
+
+Reward rules (all idempotent, enforced by the `xp_events` unique index):
+
+| Reward | XP | Limit | Ledger key |
+|---|---|---|---|
+| First ever share | +25 + First Share trophy | once per account | `share_first` / 1 |
+| First daily-result share of the day | +10 | once per calendar day | `share_daily` / YYYYMMDD |
+| First 80+ daily-result share of the day | +15 + Daily Bragger trophy | once per calendar day | `share_daily_high_score` / YYYYMMDD |
+| 5 total shares | Social Striker trophy | once per account | `user_badges` unique |
+
+Trophy unlocks add the normal rarity XP from `config/ballspot.php` `xp.badge`
+like every other badge. `xp_awarded` is the ledger delta (share XP + badge XP).
+
+### GET /api/share/status  *(auth + verified)*
+
+```json
+{
+  "day": "2026-10-14",
+  "total_shares": 3,
+  "first_share_available": false,
+  "daily_share_available": true,
+  "daily_high_score_available": true,
+  "high_score_threshold": 80,
+  "social_striker_shares": 5,
+  "xp": { "first_share": 25, "daily_share": 10, "daily_high_score_share": 15 }
+}
+```
+
+### POST /api/events  *(auth + verified; throttle `growth-events` 30/min + 300/day)*
+
+Review / rate telemetry. Allow-listed names only; **never awards anything**.
+Share events are refused here (422) so share stats cannot be inflated from
+the client — they are written only by `POST /api/share`.
+
+```json
+// Request
+{ "event": "rate_app_tapped", "metadata": { "trigger": "button" } }
+// event ∈ rate_app_tapped | review_prompt_attempted | native_review_requested |
+//         review_prompt_skipped_due_to_completed | review_prompt_skipped_due_to_cooldown
+// metadata (optional): score 0..100, trigger ∈ daily_score | challenge_milestone | pack_completed | button
+// Every other metadata key is dropped server-side (no message text, no platform, no review text).
+
+// Response 201
+{ "recorded": true, "event": "rate_app_tapped" }
+```
+
+### Admin: GET /admin/growth  *(admin session)*
+
+Read-only counters (all-time + last 7 days) per event, plus the headline
+totals. Review numbers are labelled **attempts / taps / requests** — the page
+states that they are not confirmed App Store / Google Play reviews.
+
+---
+
 ## Security & Privacy endpoints (v1.8.1)
 
 ### Rate limiting
@@ -865,8 +952,24 @@ routes have stricter limits — the full table lives in
 
 ```json
 // Response 429 (headers include Retry-After)
-{ "message": "Too many requests. Please try again in 42 seconds.", "retry_after": 42 }
+{ "message": "Too many requests. Please try again in 42 seconds.", "code": "rate_limited", "retry_after": 42 }
 ```
+
+Since v1.9.13 every 429 carries a stable `code`: `registration_rate_limited`
+(`POST /register`), `verification_resend_rate_limited`
+(`POST /email/verification-notification`), `password_reset_rate_limited`
+(`POST /forgot-password`), `login_2fa_rate_limited` (`POST /login`,
+`POST /login/resend-code` when the per-address login-code ceiling is hit),
+otherwise `rate_limited`. The app shows "Too many attempts. Please wait a bit
+and try again." for all of them.
+
+`POST /register` also accepts two anti-bot fields: `website` (honeypot — the
+app always sends `""`; a non-empty value is refused as a generic
+`validation_failed` and blocks the IP for an hour) and `captcha_token`
+(required only when `GET /config` reports `captcha_required: true`; missing →
+422 `registration_captcha_required`, invalid → 422
+`registration_captcha_failed`). `GET /config` adds `captcha_required`,
+`captcha_provider` and the public `captcha_site_key` (null while off).
 
 ### POST /register — beta code *(v1.8.1)*
 

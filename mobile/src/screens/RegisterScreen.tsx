@@ -13,7 +13,8 @@ import { tokenStorage } from '../storage/tokenStorage';
 import { applyProfileAndRoute } from '../app/authFlow';
 import { signOut } from '../app/signOut';
 import { prepareForNewAccount, adoptToken } from '../utils/verificationFlow';
-import { mapAuthError, validatePasswordPair } from '../utils/authErrors';
+import { validatePasswordPair } from '../utils/authErrors';
+import { buildRegisterPayload, registerFailureView, registerSuccessRoute } from '../utils/registerFlow';
 import { WEB_BASE_URL } from '../utils/urls';
 import { defaultLanguageForDevice, LanguageCode } from '../utils/language';
 import { useTheme } from '../theme/useTheme';
@@ -109,21 +110,16 @@ export function RegisterScreen({ navigation }: Props) {
       // half-alive. (Being on this screen already means "switch account".)
       await prepareForNewAccount(tokenStorage, signOut);
 
-      const res = await authApi.register({
-        name: name.trim(),
-        username: username.trim(),
-        email: email.trim(),
-        password,
-        password_confirmation: confirm,
-        preferred_language: language,
-        terms_accepted: true,
-        age_confirmed: true,
-        ...(betaGate && betaCode.trim() ? { beta_code: betaCode.trim() } : {}),
-      });
+      // The payload always carries the (empty) honeypot field; a CAPTCHA
+      // token is only ever added once the app renders the widget (not yet —
+      // the backend flag stays off for launch).
+      const res = await authApi.register(buildRegisterPayload({
+        name, username, email, password, confirm, language, betaGate, betaCode,
+      }));
       // Persist the NEW token and prove it is what the device now holds — the
       // verification screen must never run against a leftover credential.
       await adoptToken(tokenStorage, res.token);
-      if (res.email_verified === true) {
+      if (registerSuccessRoute(res) === 'app') {
         // Email verification disabled by config — account is already verified,
         // so skip the verification screen and route straight into the app.
         const route = await applyProfileAndRoute(setTheme);
@@ -137,27 +133,15 @@ export function RegisterScreen({ navigation }: Props) {
       }
     } catch (e: unknown) {
       // Known account errors (email taken, username taken, passwords do not
-      // match, …) land on their field with friendly copy; anything else is
-      // one clean sentence — never raw backend text.
-      const info = mapAuthError(e, t('auth.register.failed'));
-      const apiErrors: FieldErrors = {};
-      const other: string[] = [];
-      for (const [field, text] of Object.entries(info.fieldErrors)) {
-        if (KNOWN_FIELDS.includes(field as keyof FieldErrors)) {
-          apiErrors[field as keyof FieldErrors] = text;
-        } else if (text) {
-          other.push(text);
-        }
-      }
+      // match, …) land on their field with friendly copy; a rate limit or a
+      // CAPTCHA refusal is one calm sentence and the form stays as it is —
+      // never raw backend text, never a dead end.
+      const view = registerFailureView(e, t('auth.register.failed'), KNOWN_FIELDS);
       // The server asked for a beta code: reveal the field even if /config
       // said the gate was off (config drift between deploys).
-      if (apiErrors.beta_code) setBetaGate(true);
-      setFieldErrors(apiErrors);
-      if (Object.keys(apiErrors).length === 0) {
-        setFormError(info.message);
-      } else if (other.length) {
-        setFormError(other[0]);
-      }
+      if (view.revealBetaField) setBetaGate(true);
+      setFieldErrors(view.fieldErrors);
+      setFormError(view.formError);
     } finally {
       setLoading(false);
     }

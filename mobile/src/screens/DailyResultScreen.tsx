@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -11,6 +11,8 @@ import { NewBadgesCard } from '../components/NewBadgesCard';
 import { RankProgressCard } from '../components/RankProgressCard';
 import { RankUpCard } from '../components/RankUpCard';
 import { dailyApi } from '../api/dailyApi';
+import { growth, type ShareOutcome } from '../services/growth';
+import { availableShareRewards, dailyShareCta, localDateString, type ShareRewardState } from '../utils/share';
 import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -46,7 +48,7 @@ function getDistanceFeedbackKey(distance: number): string {
 
 export function DailyResultScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
-  const { dailyChallengeId, newBadges, rankProgress, rankUp } = route.params;
+  const { dailyChallengeId, newBadges, rankProgress, rankUp, justCompleted } = route.params;
   const { t } = useI18n();
 
   const [result, setResult] = useState<DailyGuessResult | null>(null);
@@ -75,6 +77,45 @@ export function DailyResultScreen({ route, navigation }: Props) {
 
     return () => { cancelled = true; };
   }, [dailyChallengeId]);
+
+  // --- Growth: share result (rewarded server-side) + review prompt ----------
+  const [shareState, setShareState] = useState<ShareRewardState | null>(null);
+  const [shareOutcome, setShareOutcome] = useState<ShareOutcome | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState('');
+  const completionNoted = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    growth.loadShareState().then((s) => { if (active) setShareState(s); }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  // A fresh guess (never a re-opened result) counts as a completed challenge
+  // and can be a positive moment for the conservative native review prompt.
+  // Delayed so the score is on screen first; never blocks rendering.
+  useEffect(() => {
+    if (!result || !justCompleted || completionNoted.current) return;
+    completionNoted.current = true;
+    const timer = setTimeout(() => { void growth.onDailyResult(result.score); }, 1500);
+    return () => clearTimeout(timer);
+  }, [result, justCompleted]);
+
+  async function handleShare() {
+    if (!result || sharing) return;
+    setSharing(true);
+    setShareError('');
+    // Opening the native sheet is the share; the server records it and
+    // decides the XP (first share / once per day / 80+ bonus).
+    const outcome = await growth.shareDailyResult(result.score, dailyChallengeId);
+    if (!outcome.opened) {
+      setShareError(t('daily.share.error'));
+    } else {
+      setShareOutcome(outcome);
+      if (outcome.state) setShareState(outcome.state);
+    }
+    setSharing(false);
+  }
 
   if (loading) {
     return (
@@ -113,6 +154,32 @@ export function DailyResultScreen({ route, navigation }: Props) {
     { x_ratio: result.guess_x_ratio, y_ratio: result.guess_y_ratio, type: 'ghost-ball' },
     { x_ratio: result.ball_x_ratio, y_ratio: result.ball_y_ratio, type: isRevealImage ? 'glow' : 'default' },
   ];
+
+  // 80+ gets the stronger copy and the primary slot; lower scores still share,
+  // just less prominently. The hint only promises XP the server can still grant.
+  const shareCta = dailyShareCta(result.score);
+  const sharePreview = shareState && !shareOutcome
+    ? availableShareRewards(shareState, 'daily_result', result.score, localDateString(new Date()))
+    : null;
+  const shareBlock = (
+    <View style={styles.shareBlock}>
+      <AppButton
+        title={t(shareCta.key)}
+        onPress={handleShare}
+        loading={sharing}
+        variant={shareCta.prominent ? 'primary' : 'secondary'}
+      />
+      {sharePreview && sharePreview.xp > 0 ? (
+        <Text style={styles.shareHint}>{t('daily.share.xpAvailable', { xp: sharePreview.xp })}</Text>
+      ) : null}
+      {shareOutcome?.opened ? (
+        <Text style={[styles.shareHint, shareOutcome.xpAwarded > 0 ? styles.shareEarned : null]}>
+          {shareOutcome.xpAwarded > 0 ? t('daily.share.xpEarned', { xp: shareOutcome.xpAwarded }) : t('daily.share.thanks')}
+        </Text>
+      ) : null}
+      {shareError ? <Text style={styles.shareError}>{shareError}</Text> : null}
+    </View>
+  );
 
   return (
     <Screen scroll padding>
@@ -162,6 +229,8 @@ export function DailyResultScreen({ route, navigation }: Props) {
       {rankUp ? <RankUpCard rankUp={rankUp} /> : null}
       {rankProgress ? <RankProgressCard progress={rankProgress} /> : null}
       {newBadges && newBadges.length > 0 ? <NewBadgesCard badges={newBadges} /> : null}
+      {shareOutcome?.rankUp ? <RankUpCard rankUp={shareOutcome.rankUp} /> : null}
+      {shareOutcome && shareOutcome.newBadges.length > 0 ? <NewBadgesCard badges={shareOutcome.newBadges} /> : null}
 
       {/* Rank / percentile insight */}
       {typeof result.total_players === 'number' ? (
@@ -173,11 +242,13 @@ export function DailyResultScreen({ route, navigation }: Props) {
       ) : null}
 
       {/* Actions */}
+      {shareCta.prominent ? shareBlock : null}
       <AppButton
         title={t('daily.result.viewWeeklyLeaderboard')}
         onPress={() => navigation.navigate('WeeklyLeaderboard')}
         style={styles.leaderboardBtn}
       />
+      {!shareCta.prominent ? shareBlock : null}
       <AppButton
         title={t('game.buttons.backHome')}
         onPress={() => goHome(navigation)}
@@ -261,5 +332,24 @@ const styles = StyleSheet.create({
   },
   leaderboardBtn: {
     marginBottom: spacing.sm,
+  },
+  shareBlock: {
+    marginBottom: spacing.sm,
+  },
+  shareHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  shareEarned: {
+    color: colors.success,
+    fontWeight: '700',
+  },
+  shareError: {
+    fontSize: 13,
+    color: colors.error,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
 });

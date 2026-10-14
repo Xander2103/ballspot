@@ -62,6 +62,16 @@ friends, users with a pending request either way, recently-rejected pairs (30
 days) and anonymized accounts. No new data is collected or stored for this
 feature.
 
+## Share & review counters (v1.9.12)
+
+`app_events` stores one row per share tap / review attempt: event name, the
+acting user's id, a timestamp and at most a score, a daily challenge id and a
+trigger word. It never stores the shared message, any review text, the
+destination app/platform or anything the share sheet returns. Rows are
+counters for the admin Growth page only; they are not exposed to other players
+and no third party receives them. `xp_events` gains share-reward rows (same
+retention as other gameplay XP).
+
 ## Fullscreen guessing (v1.8.6)
 
 Placing a guess in the fullscreen image view stores exactly the same single

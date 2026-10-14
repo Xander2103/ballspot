@@ -73,6 +73,13 @@ class BadgeSeeder extends Seeder
             // Shooter" (top_10_percent_daily) and skill "Sharp Scorer".
             ['code' => 'sharpshooter',       'name' => 'Sharpshooter',       'icon' => '🏹', 'category' => 'tournament',  'rarity' => 'rare',      'description' => 'Hit the closest single guess of a tournament.'],
             ['code' => 'most_consistent',    'name' => 'Most Consistent',    'icon' => '📊', 'category' => 'tournament',  'rarity' => 'rare',      'description' => 'Post the best average score of a tournament.'],
+
+            // --- v1.9.12 share trophies (ShareRewardService) -------------------
+            // In-app sharing only. Rating / reviewing the app never unlocks
+            // anything (store policy: reviews must not be incentivized).
+            ['code' => 'first_share',        'name' => 'First Share',        'icon' => '📣', 'category' => 'social',      'rarity' => 'common',    'description' => 'Share BallPicker or a daily result for the first time.'],
+            ['code' => 'daily_bragger',      'name' => 'Daily Bragger',      'icon' => '😎', 'category' => 'social',      'rarity' => 'rare',      'description' => 'Share a daily result of 80 or more.'],
+            ['code' => 'social_striker',     'name' => 'Social Striker',     'icon' => '📢', 'category' => 'social',      'rarity' => 'rare',      'description' => 'Share five times.'],
         ];
 
         foreach ($badges as $i => $badge) {

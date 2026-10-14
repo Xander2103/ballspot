@@ -20,8 +20,8 @@ API route; stricter route-level limiters stack on top of it.
 | `login` | `POST /api/login` | 5/min per email+IP, 20/min per IP, **50/hour per email (IP-independent)** |
 | `login-verify` | `POST /api/login/verify` | 20/min per verification_id+IP |
 | `login-resend` | `POST /api/login/resend-code` | 5/min per verification_id+IP |
-| `register` | `POST /api/register` | 5/min + 20/hour per IP |
-| `forgot-password` | `POST /api/forgot-password` | 3/min per email+IP, 10/min per IP |
+| `register` | `POST /api/register` | 5/min + 20/hour per IP, **5/hour per normalized email + 5/hour per username (IP-independent)**; plus **5 accounts/hour + 10/day per IP** counted on success in `AuthAbuseGuard` (v1.9.13) |
+| `forgot-password` | `POST /api/forgot-password` | 3/min per email+IP, **10/hour per IP, 3/hour per email (IP-independent)** (v1.9.13) |
 | `reset-password` | `POST /api/reset-password` | 5/min per IP |
 | `email-verify` | `POST /api/email/verify` | 10/min per user |
 | `email-resend` | `POST /api/email/verification-notification` | 3/min per user |
@@ -33,10 +33,80 @@ API route; stricter route-level limiters stack on top of it.
 | `export` | `GET /api/me/export` | 5/hour per user |
 | `admin-login` | `POST /admin/login` | 5/min per IP |
 | `admin-send` | `POST /admin/notifications` (create, which can `send_now`) and `POST /admin/notifications/{id}/send` | 10/min per admin |
+| `share` | `POST /api/share` (v1.9.12 share claim) | 10/min + 100/day per user |
+| `growth-events` | `POST /api/events` (v1.9.12 review/rate telemetry) | 30/min + 300/day per user |
 
 Read-heavy endpoints (leaderboards, packs, ranks, stats, XP events,
 notification settings) ride the global `api` limiter — high enough for normal
 play, a hard cap for scraping.
+
+## Registration & auth-email abuse protection (v1.9.13)
+
+Email verification alone does not stop a bot from creating accounts and
+burning the Brevo quota with verification / reset / login-code emails. The
+launch protection is **rate limits + resend cooldowns + outcome ceilings**;
+CAPTCHA exists behind a flag and is OFF.
+
+Two layers (`backend/app/Providers/AppServiceProvider.php` and
+`backend/app/Support/AuthAbuseGuard.php`):
+
+| Flow | Request throttle (counts attempts) | Outcome ceiling (counts what actually happened) | Stable 429 code | Log event |
+|---|---|---|---|---|
+| `POST /api/register` | 5/min + 20/hour per IP; 5/hour per normalized email; 5/hour per username | **5 accounts/hour, 10/day per IP** (successes only — typos never count); honeypot-blocked IP for 1 h | `registration_rate_limited` | `register.rate_limited` |
+| Verification emails (register / unverified login / resend) | `email-resend` 3/min per user + 60 s cooldown | **5 emails/hour, 10/day per address** (register + login + resend combined); the last 3 codes stay valid, so nobody is stranded | `verification_resend_rate_limited` (resend) — register/login simply report `code_sent: false` | `verification.resend_rate_limited` |
+| `POST /api/forgot-password` | 3/min per email+IP; 10/hour per IP; 3/hour per email | Laravel broker: 1 email / 60 s per account | `password_reset_rate_limited` | `password_reset.rate_limited` |
+| Login code (2FA) emails (start + resend) | `login` / `login-resend` throttles + 60 s cooldown | **3 emails/hour, 10/day per address**; the pending code stays usable | `login_2fa_rate_limited` | `login_2fa.rate_limited` |
+| Honeypot (`website` field, always empty from the app) | — | filled → generic `validation_failed` 422, IP blocked from registering for 1 h | — | `honeypot.triggered` |
+
+All limits live in `config/ballspot.php` → `abuse` (env overrides
+`BALLPICKER_REGISTER_PER_IP_HOUR`, `…_PER_IP_DAY`,
+`BALLPICKER_REGISTER_ATTEMPTS_PER_EMAIL_HOUR`, `…_PER_USERNAME_HOUR`,
+`BALLPICKER_VERIFICATION_EMAILS_PER_HOUR` / `_PER_DAY`,
+`BALLPICKER_LOGIN_2FA_EMAILS_PER_HOUR` / `_PER_DAY`,
+`BALLPICKER_PASSWORD_RESET_PER_EMAIL_HOUR`, `…_PER_IP_HOUR`). Why 5/10
+verification emails and not 3/6: the v1.9.5 hardening keeps the last three
+codes valid precisely because mail is slow; register + a few resends in one
+hour is a real user, and `EmailVerificationHardeningTest` encodes it. Tighten
+with the env vars if Brevo usage says so.
+
+Every refusal answers `{ message, code, retry_after }` + `Retry-After` (the
+`ThrottleRequestsException` renderer in `bootstrap/app.php` adds the code by
+route; `AuthAbuseGuard::throwRateLimited` does the same for the outcome
+ceilings), the app maps the code to *"Too many attempts. Please wait a bit and
+try again."*, and a category-only event is logged — never the address, code,
+token or password (`AuthAbuseProtectionTest` asserts this). Forgot-password
+limits count whether or not the address exists, so a 429 never reveals an
+account. `/admin/diagnostics` → **Auth email abuse protection** shows the
+last-24 h counts per event.
+
+Not available: per-device / user-agent throttling — the app sends no device
+id and user agents are trivially spoofed, so nothing keys on them.
+
+### If registration spam starts (CAPTCHA — Cloudflare Turnstile)
+
+Implemented server-side, **disabled by default**, no app widget yet:
+
+1. Create a Turnstile widget at Cloudflare (hostname: the API domain; for a
+   native app use the "invisible"/managed mode). Note the **site key** (public)
+   and the **secret**.
+2. Ship an app build that renders the widget on the register screen and sends
+   its token as `captcha_token` (`GET /api/config` → `captcha_required`,
+   `captcha_site_key`, `captcha_provider`). `utils/registerFlow.ts` already
+   forwards `captchaToken` when present. **Until that build is the minimum in
+   the stores, do not enable the flag** — app registration would answer
+   `registration_captcha_required`.
+3. On the server: `BALLPICKER_CAPTCHA_ENABLED=true`, `BALLPICKER_CAPTCHA_SECRET=…`,
+   `BALLPICKER_CAPTCHA_SITE_KEY=…` (`BALLPICKER_CAPTCHA_PROVIDER=turnstile`),
+   then `php artisan config:cache`.
+4. Behaviour when enabled: `/api/register` requires `captcha_token`; missing →
+   422 `registration_captcha_required`; verify fails → 422
+   `registration_captcha_failed`; verification is server-side
+   (`App\Services\CaptchaVerifier`, 5 s timeout) and **fails closed** on a
+   provider outage. Login, resend, forgot-password never require it. Store
+   reviewers use the provided login credentials, so they are unaffected.
+5. Back off: set `BALLPICKER_CAPTCHA_ENABLED=false` and `config:cache` —
+   registration is exactly as before. `register.captcha_failed` counts appear
+   on the diagnostics abuse card.
 
 **Known gap — public-profile enumeration (reduced, not eliminated).**
 `GET /api/users/{user}/public-profile` takes a sequential user id, so an

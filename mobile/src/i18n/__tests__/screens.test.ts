@@ -116,7 +116,10 @@ describe('launch-critical screens only use keys that exist in English', () => {
 describe('language wiring', () => {
   it('register sends the selected language to the backend and switches the copy immediately', () => {
     const source = read('screens/RegisterScreen.tsx');
-    expect(source).toMatch(/preferred_language:\s*language/);
+    // The screen hands the chosen language to the payload builder, which
+    // maps it to the backend's preferred_language (utils/registerFlow.ts).
+    expect(source).toMatch(/buildRegisterPayload\(\{[\s\S]*\blanguage\b[\s\S]*\}\)/);
+    expect(read('utils/registerFlow.ts')).toMatch(/preferred_language:\s*input\.language/);
     expect(source).toMatch(/setLocale\(/);
     expect(source).toMatch(/rememberConfigDefault\(/);
   });

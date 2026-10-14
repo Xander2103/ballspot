@@ -4,6 +4,48 @@ This document covers content rights, pre-release checklists, and the store-readi
 
 ---
 
+## v1.9.12 store-relevant notes (Share, Rate, Review prompt, Growth stats)
+
+- **Sharing** uses only the OS share sheet (`Share.share` from React Native):
+  no Instagram/TikTok/Facebook/WhatsApp SDKs, no social login, no new
+  permissions, no analytics dependency. The shared text is generated on the
+  device and is **never** sent to or stored by the backend.
+- **Share rewards are for in-app sharing only** and are bounded server-side
+  (first share +25 XP once per account; +10 XP once per calendar day for a
+  daily-result share; +15 XP once per calendar day for an 80+ daily-result
+  share; trophies First Share / Daily Bragger / Social Striker once each).
+- **Rating / reviewing is never incentivized.** Tapping *Rate BallPicker*, the
+  native review dialog, or opening the store page grants no XP, trophy, badge,
+  unlock or advantage (`POST /api/events` cannot award anything; `GrowthShareReviewTest`
+  pins this). The button uses `expo-store-review` (SKStoreReviewController /
+  Play In-App Review) and only opens the store page as a fallback **after the
+  tap**. There is no custom star modal and the copy never asks for a positive
+  review.
+- **Automatic review prompt** (native only): never on the first launch, never
+  after an error / failed share / low score, only after a daily score ≥ 80, the
+  3rd or 5th completed challenge, or a completed pack; never opens the store
+  page. `reviewPromptCompleted` is the final rule: it is set as soon as the
+  review flow was shown (a native review request attempted automatically, *Rate
+  BallPicker* tapped, or the store fallback opened) and blocks the automatic
+  prompt forever on that device. The 30-day cooldown and the 3-attempts-per-
+  install cap only apply before that, i.e. to attempts where the native dialog
+  could not even be requested. The OS applies its own quota on top (iOS: 3 per
+  365 days).
+- **Admin Growth page** (`/admin/growth`) labels review numbers as *attempts /
+  taps / requests* and states that they are not confirmed App Store / Google
+  Play reviews. Nothing personal is stored beyond the user id.
+- **Data safety / privacy labels:** `app_events` adds share and review-attempt
+  *counters* linked to the account (no message text, no review text, no
+  platform). Mention under app activity / analytics-free usage data if the
+  stores ask; no third party receives it.
+- **Store links:** `android.playStoreUrl` is set in `app.json`. The iOS App
+  Store URL is unknown until the App Store Connect record exists — set
+  `EXPO_PUBLIC_IOS_APP_STORE_URL` in `mobile/eas.json` (preview + production
+  env), preferably the write-review deep link
+  `https://apps.apple.com/app/id<ID>?action=write-review`. Until then the iOS
+  Rate button falls back to "not available" when the native dialog cannot be
+  requested.
+
 ## ✅ RESOLVED 2026-08-20 — legal placeholders filled
 
 The served legal pages were rewritten in the 2026-08-05 pre-launch audit

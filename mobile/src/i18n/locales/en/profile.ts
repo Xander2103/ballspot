@@ -30,6 +30,19 @@ export const profile = {
     version: 'v{{version}}',
     credit: 'BallPicker is created by Van Malder Studio.',
   },
+  /** Share BallPicker (rewarded, bounded) + Rate BallPicker (never rewarded). */
+  growth: {
+    shareApp: 'Share BallPicker',
+    shareAppSubtitle: 'Invite friends to play.',
+    shareAppXp: 'Invite friends · +{{xp}} XP',
+    shareAppMessage: 'Think you can spot the ball? Play BallPicker with me ⚽🎯',
+    shareThanks: 'Thanks for sharing BallPicker!',
+    shareXpEarned: '+{{xp}} XP earned for sharing!',
+    shareError: 'Could not open the share sheet. Please try again.',
+    rateApp: 'Rate BallPicker',
+    rateAppSubtitle: 'Rate the app in the store.',
+    rateUnavailable: 'Rating is not available on this device yet.',
+  },
   /** Labels shared by the Profile stat lists and the friend profile grid. */
   stats: {
     tournaments: 'Tournaments',

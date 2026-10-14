@@ -18,10 +18,13 @@ import { EmptyState } from '../components/EmptyState';
 import { StatList } from '../components/StatList';
 import { LanguagePicker } from '../components/LanguagePicker';
 import { authApi } from '../api/authApi';
+import { configApi, DEFAULT_APP_CONFIG } from '../api/configApi';
 import { preferencesApi } from '../api/preferencesApi';
 import { isLanguageCode, languageLabel, LanguageCode, DEFAULT_LANGUAGE } from '../utils/language';
 import { badgeApi } from '../api/badgeApi';
 import { avatarApi } from '../api/avatarApi';
+import { growth } from '../services/growth';
+import { availableShareRewards, localDateString, type ShareRewardState } from '../utils/share';
 import { signOut } from '../app/signOut';
 import { classifySessionError, deleteAccountAndSignOut, logoutLocally, profileLoadFailureView, SessionFailureKind, describeApiFailure, formatApiFailure } from '../utils/session';
 import { devLog } from '../utils/devLog';
@@ -63,7 +66,34 @@ export function ProfileScreen({ navigation }: Props) {
   // mirrored into the local user so the summary lines update immediately.
   const [savingLanguage, setSavingLanguage] = useState<LanguageCode | null>(null);
   const [savingTwoFactor, setSavingTwoFactor] = useState(false);
+  // Launch control: the toggle that turns login 2FA ON is hidden unless the
+  // backend allows new opt-ins (GET /api/config login_two_factor_opt_in).
+  // Fail closed (hidden) when offline or on an older backend. Accounts that
+  // already have it on always see the toggle so they can switch it off.
+  const [twoFactorOptIn, setTwoFactorOptIn] = useState(DEFAULT_APP_CONFIG.login_two_factor_opt_in === true);
+
+  useEffect(() => {
+    let active = true;
+    configApi
+      .get()
+      .then((cfg) => { if (active) setTwoFactorOptIn(cfg.login_two_factor_opt_in === true); })
+      .catch(() => { /* keep the fail-closed default */ });
+    return () => { active = false; };
+  }, []);
   const [accountError, setAccountError] = useState('');
+  // Growth (v1.9.12): Share BallPicker can earn XP (server-side, bounded);
+  // Rate BallPicker never earns anything. Both are secondary rows.
+  const [shareState, setShareState] = useState<ShareRewardState | null>(null);
+  const [sharingApp, setSharingApp] = useState(false);
+  const [rating, setRating] = useState(false);
+  const [growthMessage, setGrowthMessage] = useState('');
+  const [growthMessageIsError, setGrowthMessageIsError] = useState(false);
+
+  const loadShareState = useCallback(() => {
+    growth.loadShareState().then(setShareState).catch(() => {});
+  }, []);
+  useEffect(() => { loadShareState(); }, [loadShareState]);
+  useEffect(() => navigation.addListener('focus', loadShareState), [navigation, loadShareState]);
 
   const loadProfile = useCallback(async () => {
     // allSettled, not all: one failing section must not blank the whole
@@ -159,6 +189,37 @@ export function ProfileScreen({ navigation }: Props) {
     }
   }
 
+  async function handleShareApp() {
+    if (sharingApp) return;
+    setSharingApp(true);
+    setGrowthMessage('');
+    const outcome = await growth.shareApp();
+    if (!outcome.opened) {
+      setGrowthMessage(t('profile.growth.shareError'));
+      setGrowthMessageIsError(true);
+    } else {
+      if (outcome.state) setShareState(outcome.state);
+      setGrowthMessage(outcome.xpAwarded > 0 ? t('profile.growth.shareXpEarned', { xp: outcome.xpAwarded }) : t('profile.growth.shareThanks'));
+      setGrowthMessageIsError(false);
+      if (outcome.xpAwarded > 0) loadProfile(); // rank card reflects the new XP
+    }
+    setSharingApp(false);
+  }
+
+  async function handleRateApp() {
+    if (rating) return;
+    setRating(true);
+    setGrowthMessage('');
+    // Native in-app review where available, the store page only because the
+    // user asked. No XP, no trophy, no unlock — ever.
+    const { action } = await growth.rateApp();
+    if (action === 'unavailable') {
+      setGrowthMessage(t('profile.growth.rateUnavailable'));
+      setGrowthMessageIsError(false);
+    }
+    setRating(false);
+  }
+
   async function handleLogout() {
     // Server-side first, while the auth token still works: stop pushes to
     // this device, then revoke the session. Both best-effort — a dead network
@@ -242,6 +303,9 @@ export function ProfileScreen({ navigation }: Props) {
   const retryProfile = () => { loadProfile(); };
   const currentLanguage: LanguageCode = isLanguageCode(user?.preferred_language) ? user.preferred_language : DEFAULT_LANGUAGE;
   const twoFactorOn = user?.two_factor_enabled === true;
+  const showTwoFactor = twoFactorOptIn || twoFactorOn;
+  // Only promise XP the server can still grant (first share once per account).
+  const shareAppXp = shareState ? availableShareRewards(shareState, 'app', null, localDateString(new Date())).xp : 0;
 
   return (
     <Screen scroll padding>
@@ -393,12 +457,49 @@ export function ProfileScreen({ navigation }: Props) {
         <NotificationSettingsCard flat />
       </CollapsibleSection>
 
+      {/* Growth — deliberately secondary. Sharing uses the native share sheet
+          (no social APIs) and may earn bounded XP; rating opens the native
+          review / store page and earns nothing (store policy). */}
+      <View style={styles.growthRow}>
+        <TouchableOpacity
+          style={styles.growthCard}
+          activeOpacity={0.8}
+          onPress={handleShareApp}
+          disabled={sharingApp}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.growth.shareApp')}
+        >
+          <Text style={styles.growthIcon}>📣</Text>
+          <Text style={styles.growthTitle}>{t('profile.growth.shareApp')}</Text>
+          <Text style={styles.growthSubtitle}>
+            {shareAppXp > 0 ? t('profile.growth.shareAppXp', { xp: shareAppXp }) : t('profile.growth.shareAppSubtitle')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.growthCard}
+          activeOpacity={0.8}
+          onPress={handleRateApp}
+          disabled={rating}
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.growth.rateApp')}
+        >
+          <Text style={styles.growthIcon}>⭐</Text>
+          <Text style={styles.growthTitle}>{t('profile.growth.rateApp')}</Text>
+          <Text style={styles.growthSubtitle}>{t('profile.growth.rateAppSubtitle')}</Text>
+        </TouchableOpacity>
+      </View>
+      {growthMessage ? (
+        <Text style={growthMessageIsError ? styles.inlineError : styles.growthMessage}>{growthMessage}</Text>
+      ) : null}
+
       <CollapsibleSection
         title={t('profile.account.title')}
-        summary={t('profile.account.summary', {
-          language: languageLabel(currentLanguage),
-          state: t(twoFactorOn ? 'common.labels.on' : 'common.labels.off'),
-        })}
+        summary={showTwoFactor
+          ? t('profile.account.summary', {
+            language: languageLabel(currentLanguage),
+            state: t(twoFactorOn ? 'common.labels.on' : 'common.labels.off'),
+          })
+          : languageLabel(currentLanguage)}
       >
         <LanguagePicker
           label={t('common.language.preferred')}
@@ -409,22 +510,24 @@ export function ProfileScreen({ navigation }: Props) {
         />
         <Text style={styles.settingHint}>{t('profile.account.languageHint')}</Text>
 
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleTextWrap}>
-            <Text style={styles.toggleLabel}>{t('profile.security.twoFactorLabel')}</Text>
-            <Text style={styles.toggleHint}>
-              {twoFactorOn ? t('profile.security.twoFactorOnHint') : t('profile.security.twoFactorOffHint')}
-            </Text>
+        {showTwoFactor ? (
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleTextWrap}>
+              <Text style={styles.toggleLabel}>{t('profile.security.twoFactorLabel')}</Text>
+              <Text style={styles.toggleHint}>
+                {twoFactorOn ? t('profile.security.twoFactorOnHint') : t('profile.security.twoFactorOffHint')}
+              </Text>
+            </View>
+            <Switch
+              value={twoFactorOn}
+              onValueChange={handleTwoFactorToggle}
+              disabled={savingTwoFactor}
+              trackColor={{ true: theme.primary, false: theme.border }}
+              thumbColor="#ffffff"
+              accessibilityLabel={t('profile.security.twoFactorLabel')}
+            />
           </View>
-          <Switch
-            value={twoFactorOn}
-            onValueChange={handleTwoFactorToggle}
-            disabled={savingTwoFactor}
-            trackColor={{ true: theme.primary, false: theme.border }}
-            thumbColor="#ffffff"
-            accessibilityLabel={t('profile.security.twoFactorLabel')}
-          />
-        </View>
+        ) : null}
         {accountError ? <Text style={styles.inlineError}>{accountError}</Text> : null}
       </CollapsibleSection>
 
@@ -525,6 +628,15 @@ function createStyles(theme: ThemeTokens) {
     toggleTextWrap: { flex: 1 },
     toggleLabel: { fontSize: 15, fontWeight: '700', color: theme.text },
     toggleHint: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+    growthRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    growthCard: {
+      flex: 1, alignItems: 'center', backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1,
+      borderColor: theme.border, paddingVertical: spacing.md, paddingHorizontal: spacing.sm,
+    },
+    growthIcon: { fontSize: 20, marginBottom: 4 },
+    growthTitle: { fontSize: 14, fontWeight: '700', color: theme.text, textAlign: 'center' },
+    growthSubtitle: { fontSize: 11, color: theme.textSecondary, textAlign: 'center', marginTop: 2 },
+    growthMessage: { fontSize: 13, color: theme.textSecondary, textAlign: 'center', marginBottom: spacing.sm },
     logoutBtn: { marginTop: spacing.lg, marginBottom: spacing.xl },
     footerLinks: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

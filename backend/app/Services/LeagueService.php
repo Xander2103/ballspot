@@ -203,6 +203,24 @@ class LeagueService
 
     public function start(League $league, int $userId): League
     {
+        return DB::transaction(function () use ($league, $userId) {
+            // The controller's lobby check is read-then-write: two parallel
+            // "Start" taps could both pass it and each insert a full set of
+            // rounds (league_rounds has no unique index on round_number), so
+            // a 7-day tournament would get 14 rounds with repeated photos.
+            // Lock the league row and re-read its status under the lock so
+            // only the first caller proceeds. No-op lock on SQLite (tests);
+            // SELECT ... FOR UPDATE on MySQL.
+            $locked = League::whereKey($league->id)->lockForUpdate()->firstOrFail();
+
+            abort_if($locked->status !== 'lobby', 422, __('messages.tournaments.start_from_lobby'));
+
+            return $this->startLocked($locked, $userId);
+        });
+    }
+
+    private function startLocked(League $league, int $userId): League
+    {
         $total = $league->duration_days * $league->rounds_per_day;
 
         // Unique photos only: never the same challenge twice in one tournament,

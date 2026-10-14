@@ -45,6 +45,7 @@ return [
         'sport_unavailable'  => 'Ce sport n\'est pas encore disponible.',
         'theme_unavailable'  => 'Ce thème n\'est pas disponible.',
         'two_factor_boolean' => 'La connexion à deux facteurs doit être activée ou désactivée.',
+        'two_factor_unavailable' => "La connexion à deux facteurs n'est pas encore disponible. Elle arrivera dans une prochaine version.",
     ],
 
     'daily' => [
@@ -52,6 +53,10 @@ return [
         'not_today'       => 'Ce défi du jour n\'est pas disponible aujourd\'hui.',
         'already_played'  => 'Tu as déjà joué au défi d\'aujourd\'hui.',
         'no_guess'        => 'Aucun essai trouvé pour ce défi.',
+    ],
+
+    'share' => [
+        'no_guess' => 'Joue d\'abord le défi du jour avant de partager son résultat.',
     ],
 
     'friends' => [

@@ -45,6 +45,7 @@ return [
         'sport_unavailable'  => 'Este deporte aún no está disponible.',
         'theme_unavailable'  => 'Ese tema no está disponible.',
         'two_factor_boolean' => 'El inicio de sesión en dos pasos debe estar activado o desactivado.',
+        'two_factor_unavailable' => 'El inicio de sesión en dos pasos aún no está disponible. Llegará en una versión posterior.',
     ],
 
     'daily' => [
@@ -52,6 +53,10 @@ return [
         'not_today'       => 'Este reto diario no está disponible hoy.',
         'already_played'  => 'Ya has jugado el reto de hoy.',
         'no_guess'        => 'No se encontró ningún intento para este reto.',
+    ],
+
+    'share' => [
+        'no_guess' => 'Juega primero el desafío diario de hoy antes de compartir su resultado.',
     ],
 
     'friends' => [

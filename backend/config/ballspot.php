@@ -77,6 +77,12 @@ return [
     */
     'daily' => [
         'auto_schedule' => filter_var(env('BALLPICKER_AUTO_SCHEDULE_DAILIES', true), FILTER_VALIDATE_BOOL),
+        // The scheduler creates rows as `scheduled`; the API only serves
+        // `active`. true = the 00:10 scheduler entry runs ballspot:activate-daily
+        // and flips TODAY's scheduled row to active (idempotent, never future
+        // dates, never archived rows, never an unready photo). false (default)
+        // = the manual Admin → Daily step stays the workflow. PRODUCTION: true.
+        'auto_activate' => filter_var(env('BALLPICKER_AUTO_ACTIVATE_DAILIES', false), FILTER_VALIDATE_BOOL),
     ],
 
     // Closed-beta gate: when set, registration requires a matching beta_code
@@ -195,6 +201,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Share rewards (v1.9.12 growth features — ShareRewardService)
+    |--------------------------------------------------------------------------
+    | XP for in-app SHARING only (never for store reviews / ratings — those
+    | must not be incentivized). Opening the native share sheet counts as the
+    | share. first_share_xp: once per account; daily_share_xp: once per
+    | calendar day; daily_high_score_xp: once per calendar day when the shared
+    | daily score is >= high_score_threshold. Badge unlocks (First Share,
+    | Daily Bragger, Social Striker) add the normal rarity XP from xp.badge.
+    */
+    'share' => [
+        'first_share_xp'        => (int) env('BALLPICKER_SHARE_FIRST_XP', 25),
+        'daily_share_xp'        => (int) env('BALLPICKER_SHARE_DAILY_XP', 10),
+        'daily_high_score_xp'   => (int) env('BALLPICKER_SHARE_DAILY_HIGH_SCORE_XP', 15),
+        'high_score_threshold'  => (int) env('BALLPICKER_SHARE_HIGH_SCORE_THRESHOLD', 80),
+        'social_striker_shares' => (int) env('BALLPICKER_SHARE_SOCIAL_STRIKER_SHARES', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Tournament integrity
     |--------------------------------------------------------------------------
     */
@@ -261,12 +286,79 @@ return [
         // default false) toggled from Profile → PATCH /api/me/preferences.
         'force_login_2fa'                    => (bool) env('BALLPICKER_FORCE_LOGIN_2FA', false),
 
+        // Launch control for the per-user opt-in. false (default, launch): the
+        // app hides the Profile toggle (GET /api/config login_two_factor_opt_in)
+        // and PATCH /me/preferences refuses two_factor_enabled=true, so no new
+        // account can start costing an email per login. Accounts that already
+        // opted in keep working and can switch it off. The whole 2FA flow stays
+        // in the backend; flip to true in a later version.
+        'login_2fa_opt_in'                   => filter_var(env('BALLPICKER_LOGIN_2FA_OPT_IN', false), FILTER_VALIDATE_BOOL),
+
         // Registration must carry password_confirmation. Off by default for one
         // release: the app build in the stores before v1.9.7 does not send the
         // field, and a backend deploy always lands before the store build. The
         // rule is still enforced whenever the field IS sent (new builds always
         // send it). Flip on once the v1.9.7 build is the minimum.
         'require_password_confirmation'      => filter_var(env('BALLPICKER_REQUIRE_PASSWORD_CONFIRMATION', false), FILTER_VALIDATE_BOOL),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Registration / auth-email abuse ceilings (v1.9.13 — App\Support\AuthAbuseGuard)
+    |--------------------------------------------------------------------------
+    | OUTCOME counters that complement the per-request throttle middleware:
+    | accounts actually created per IP, emails actually sent per address.
+    | A mistyped form never counts; a bot farm or an email-bomb does. Tune per
+    | environment; every refusal is a 429 with a stable code and is logged.
+    */
+    'abuse' => [
+        'register' => [
+            // Successful registrations per IP (the request throttle is 5/min + 20/hour).
+            'per_ip_hour' => (int) env('BALLPICKER_REGISTER_PER_IP_HOUR', 5),
+            'per_ip_day'  => (int) env('BALLPICKER_REGISTER_PER_IP_DAY', 10),
+            // Register REQUESTS per normalized email / username per hour
+            // (middleware). Counts attempts — validation retries included —
+            // so it sits a little above the "3 per hour" rule of thumb.
+            'attempts_per_email_hour'    => (int) env('BALLPICKER_REGISTER_ATTEMPTS_PER_EMAIL_HOUR', 5),
+            'attempts_per_username_hour' => (int) env('BALLPICKER_REGISTER_ATTEMPTS_PER_USERNAME_HOUR', 5),
+        ],
+        // Verification-code emails per address. The live-code window keeps
+        // the last 3 codes valid (EmailVerificationService::MAX_LIVE_CODES),
+        // so register + a few resends on slow mail must fit in one hour.
+        'verification_email' => [
+            'per_email_hour' => (int) env('BALLPICKER_VERIFICATION_EMAILS_PER_HOUR', 5),
+            'per_email_day'  => (int) env('BALLPICKER_VERIFICATION_EMAILS_PER_DAY', 10),
+        ],
+        // Login (2FA) code emails per address — start + resend combined.
+        'login_2fa' => [
+            'per_email_hour' => (int) env('BALLPICKER_LOGIN_2FA_EMAILS_PER_HOUR', 3),
+            'per_email_day'  => (int) env('BALLPICKER_LOGIN_2FA_EMAILS_PER_DAY', 10),
+        ],
+        // Password reset REQUESTS (middleware; counted regardless of whether
+        // the address exists, so a 429 never reveals an account).
+        'password_reset' => [
+            'per_email_hour' => (int) env('BALLPICKER_PASSWORD_RESET_PER_EMAIL_HOUR', 3),
+            'per_ip_hour'    => (int) env('BALLPICKER_PASSWORD_RESET_PER_IP_HOUR', 10),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Registration CAPTCHA (v1.9.13 — App\Services\CaptchaVerifier)
+    |--------------------------------------------------------------------------
+    | DISABLED by default. When enabled, POST /api/register requires a
+    | `captcha_token` that is verified server-side (Cloudflare Turnstile).
+    | The site key is public (exposed via GET /api/config); the secret never
+    | leaves the server. Enable only if spam starts — and only once the app
+    | build that renders the widget is live, or app registration breaks.
+    */
+    'captcha' => [
+        'enabled'         => filter_var(env('BALLPICKER_CAPTCHA_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'provider'        => env('BALLPICKER_CAPTCHA_PROVIDER', 'turnstile'),
+        'secret'          => env('BALLPICKER_CAPTCHA_SECRET', ''),
+        'site_key'        => env('BALLPICKER_CAPTCHA_SITE_KEY', ''),
+        'verify_url'      => env('BALLPICKER_CAPTCHA_VERIFY_URL', 'https://challenges.cloudflare.com/turnstile/v0/siteverify'),
+        'timeout_seconds' => (int) env('BALLPICKER_CAPTCHA_TIMEOUT_SECONDS', 5),
     ],
 
     /*

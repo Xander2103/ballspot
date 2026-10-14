@@ -6,6 +6,7 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
 use App\Support\AppLog;
+use App\Support\AuthAbuseGuard;
 use App\Support\AuthError;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Hash;
@@ -66,6 +67,20 @@ class EmailVerificationService
             return false;
         }
 
+        // Per-address email ceiling (v1.9.13): a mailbox gets at most N
+        // verification emails per hour/day whatever triggers them — register,
+        // login, resend. Nothing is written when blocked; the codes already
+        // in the inbox stay valid, so the user is never stranded.
+        if (($retryAfter = AuthAbuseGuard::emailSendBlocked(AuthAbuseGuard::SCOPE_VERIFICATION, $user->email)) !== null) {
+            AppLog::warn('verification.resend_rate_limited', [
+                'user_id'     => $user->id,
+                'trigger'     => $force ? 'forced' : 'login',
+                'retry_after' => $retryAfter,
+            ]);
+
+            return false;
+        }
+
         // Keep the newest live codes; drop consumed/expired ones and anything
         // beyond the live window so the table never grows per user.
         EmailVerificationCode::where('user_id', $user->id)
@@ -106,6 +121,8 @@ class EmailVerificationService
 
             return false;
         }
+
+        AuthAbuseGuard::recordEmailSend(AuthAbuseGuard::SCOPE_VERIFICATION, $user->email);
 
         AppLog::event('email_verification.sent', [
             'user_id'    => $user->id,
@@ -227,6 +244,17 @@ class EmailVerificationService
             throw ValidationException::withMessages([
                 'email' => [__('messages.auth.resend_cooldown')],
             ]);
+        }
+
+        // Hourly/daily email ceiling for this address: a stable 429 the app
+        // maps to "Too many attempts" (the codes already sent stay valid).
+        if (($retryAfter = AuthAbuseGuard::emailSendBlocked(AuthAbuseGuard::SCOPE_VERIFICATION, $user->email)) !== null) {
+            AuthAbuseGuard::throwRateLimited(
+                AuthError::VERIFICATION_RESEND_RATE_LIMITED,
+                $retryAfter,
+                'verification.resend_rate_limited',
+                ['user_id' => $user->id, 'trigger' => 'resend'],
+            );
         }
 
         if (!$this->send($user, $ip, $userAgent, force: true)) {

@@ -6,6 +6,7 @@ use App\Models\LoginVerificationCode;
 use App\Models\User;
 use App\Notifications\LoginVerificationCodeNotification;
 use App\Support\AppLog;
+use App\Support\AuthAbuseGuard;
 use App\Support\AuthError;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -38,6 +39,18 @@ class LoginVerificationService
      */
     public function start(User $user, ?string $ip, ?string $userAgent): LoginVerificationCode
     {
+        // Login-code emails per address (start + resend, 3/hour by default):
+        // a correct password must not become an email-bomb lever. 429 with a
+        // stable code; the pending code (if any) stays usable.
+        if (($retryAfter = AuthAbuseGuard::emailSendBlocked(AuthAbuseGuard::SCOPE_LOGIN_2FA, $user->email)) !== null) {
+            AuthAbuseGuard::throwRateLimited(
+                AuthError::LOGIN_2FA_RATE_LIMITED,
+                $retryAfter,
+                'login_2fa.rate_limited',
+                ['user_id' => $user->id, 'trigger' => 'login'],
+            );
+        }
+
         LoginVerificationCode::where('user_id', $user->id)->delete();
 
         $code          = $this->generateCode();
@@ -55,7 +68,22 @@ class LoginVerificationService
             'user_agent'      => $userAgent ? substr($userAgent, 0, 255) : null,
         ]);
 
-        $user->notify(new LoginVerificationCodeNotification($code, $expiryMinutes));
+        try {
+            $user->notify(new LoginVerificationCodeNotification($code, $expiryMinutes));
+        } catch (\Throwable $e) {
+            // No email means no way to finish this login. Drop the row so no
+            // stale pending code lingers, log the category only (never the
+            // code or the address) and answer a stable 503 the app has copy
+            // for — not a raw 500 after a hung SMTP connection.
+            $record->delete();
+            AppLog::error('login.2fa_send_failed', [
+                'user_id'   => $user->id,
+                'exception' => class_basename($e),
+            ]);
+            AuthError::throw(AuthError::TWO_FACTOR_SEND_FAILED, 503, 'email');
+        }
+
+        AuthAbuseGuard::recordEmailSend(AuthAbuseGuard::SCOPE_LOGIN_2FA, $user->email);
 
         return $record;
     }
@@ -118,8 +146,22 @@ class LoginVerificationService
             ]);
         }
 
+        if (($retryAfter = AuthAbuseGuard::emailSendBlocked(AuthAbuseGuard::SCOPE_LOGIN_2FA, $record->email)) !== null) {
+            AuthAbuseGuard::throwRateLimited(
+                AuthError::LOGIN_2FA_RATE_LIMITED,
+                $retryAfter,
+                'login_2fa.rate_limited',
+                ['user_id' => $record->user_id, 'trigger' => 'resend'],
+            );
+        }
+
         $code          = $this->generateCode();
         $expiryMinutes = $this->expiryMinutes();
+
+        // Remembered so a failed send puts the session back exactly as it was:
+        // the code already in the inbox stays valid and the cooldown is not
+        // consumed by an email that never left.
+        $previous = $record->only(['code_hash', 'code_sent_at', 'expires_at', 'attempts', 'ip_address', 'user_agent']);
 
         // Reset the code + attempts on the SAME verification session.
         $record->forceFill([
@@ -131,7 +173,19 @@ class LoginVerificationService
             'user_agent'   => $userAgent ? substr($userAgent, 0, 255) : null,
         ])->save();
 
-        $record->user->notify(new LoginVerificationCodeNotification($code, $expiryMinutes));
+        try {
+            $record->user->notify(new LoginVerificationCodeNotification($code, $expiryMinutes));
+        } catch (\Throwable $e) {
+            $record->forceFill($previous)->save();
+            AppLog::error('login.2fa_send_failed', [
+                'user_id'   => $record->user_id,
+                'exception' => class_basename($e),
+                'resend'    => true,
+            ]);
+            AuthError::throw(AuthError::TWO_FACTOR_SEND_FAILED, 503, 'verification_id');
+        }
+
+        AuthAbuseGuard::recordEmailSend(AuthAbuseGuard::SCOPE_LOGIN_2FA, $record->email);
     }
 
     /** Opportunistic/scheduled cleanup of expired or consumed codes. */

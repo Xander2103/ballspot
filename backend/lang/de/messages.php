@@ -45,6 +45,7 @@ return [
         'sport_unavailable'  => 'Diese Sportart ist noch nicht verfügbar.',
         'theme_unavailable'  => 'Dieses Design ist nicht verfügbar.',
         'two_factor_boolean' => 'Der Zwei-Faktor-Login muss an oder aus sein.',
+        'two_factor_unavailable' => 'Der Zwei-Faktor-Login ist noch nicht verfügbar. Er kommt in einer späteren Version.',
     ],
 
     'daily' => [
@@ -52,6 +53,10 @@ return [
         'not_today'       => 'Diese Tages-Challenge ist heute nicht verfügbar.',
         'already_played'  => 'Du hast die heutige Challenge bereits gespielt.',
         'no_guess'        => 'Kein Tipp für diese Challenge gefunden.',
+    ],
+
+    'share' => [
+        'no_guess' => 'Spiele zuerst die heutige Tages-Challenge, bevor du das Ergebnis teilst.',
     ],
 
     'friends' => [

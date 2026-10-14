@@ -93,9 +93,13 @@ async function request<T>(
           : typeof error?.retry_after === 'number'
             ? error.retry_after
             : 60;
+      // The backend tags auth throttles with a stable code
+      // (registration_rate_limited, verification_resend_rate_limited, …) so
+      // screens can show the calm "wait a bit" copy — keep it on the error.
       throw {
         status: 429,
         retry_after: retryAfter,
+        ...(typeof error?.code === 'string' ? { code: error.code } : {}),
         message: translate('errors.rateLimited', { seconds: retryAfter }),
       };
     }

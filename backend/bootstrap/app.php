@@ -73,12 +73,26 @@ return Application::configure(basePath: dirname(__DIR__))
         });
 
         // Clean, consistent 429 JSON for the app (never an HTML error page).
+        // v1.9.13: every throttled auth route also carries a stable `code`
+        // (registration_rate_limited, verification_resend_rate_limited,
+        // password_reset_rate_limited, login_2fa_rate_limited; otherwise
+        // rate_limited) and logs a category-only abuse event.
         $exceptions->render(function (ThrottleRequestsException $e, Request $request) {
             if ($request->expectsJson() || $request->is('api/*')) {
                 $retryAfter = (int) ($e->getHeaders()['Retry-After'] ?? 60);
+                $context    = \App\Support\AuthAbuseGuard::throttleContext($request);
+
+                if ($context['event'] !== null) {
+                    \App\Support\AppLog::warn($context['event'], [
+                        'scope'       => 'request_throttle',
+                        'code'        => $context['code'],
+                        'retry_after' => $retryAfter,
+                    ]);
+                }
 
                 return response()->json([
                     'message'     => __('messages.rate_limited', ['seconds' => $retryAfter]),
+                    'code'        => $context['code'],
                     'retry_after' => $retryAfter,
                 ], 429, $e->getHeaders());
             }

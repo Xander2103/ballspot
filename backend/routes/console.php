@@ -34,6 +34,16 @@ Schedule::command('ballspot:schedule-daily-challenges')
     ->when(fn () => (bool) config('ballspot.daily.auto_schedule', true))
     ->description('Auto-schedule dailies (skipped while BALLPICKER_AUTO_SCHEDULE_DAILIES=false)');
 
+// Flips TODAY's `scheduled` daily to `active` (the API only serves `active`).
+// Gated by BALLPICKER_AUTO_ACTIVATE_DAILIES (default false = the manual
+// Admin → Daily step stays the workflow). 00:10 so it runs after the 00:05
+// scheduler has created the row; idempotent, so a re-run is always harmless.
+Schedule::command('ballspot:activate-daily')
+    ->dailyAt('00:10')
+    ->withoutOverlapping()
+    ->when(fn () => (bool) config('ballspot.daily.auto_activate', false))
+    ->description("Auto-activate today's daily (skipped while BALLPICKER_AUTO_ACTIVATE_DAILIES=false)");
+
 // Closes the monthly competition and awards placements.
 Schedule::command('ballspot:close-competition')->monthlyOn(1, '00:15')->withoutOverlapping();
 

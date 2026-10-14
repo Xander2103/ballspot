@@ -17,6 +17,11 @@ class XpEvent extends Model
     public const SOURCE_PACK_GUESS        = 'pack_guess';
     public const SOURCE_PACK_COMPLETION   = 'pack_completion';
     public const SOURCE_COMPETITION_FINISH = 'competition_finish';
+    // v1.9.12 share rewards (ShareRewardService). source_id: 1 for the
+    // once-per-account first share, YYYYMMDD for the once-per-day awards.
+    public const SOURCE_SHARE_FIRST            = 'share_first';
+    public const SOURCE_SHARE_DAILY            = 'share_daily';
+    public const SOURCE_SHARE_DAILY_HIGH_SCORE = 'share_daily_high_score';
 
     protected $fillable = [
         'user_id', 'source_type', 'source_id', 'amount', 'reason', 'metadata',

@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "be.vanmalderstudio.ballpicker",
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=be.vanmalderstudio.ballpicker",
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#07111F",
@@ -39,13 +40,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "BallPicker needs access to your photos so you can choose a profile picture."
+          "photosPermission": "BallPicker needs access to your photos so you can choose a profile picture.",
+          "cameraPermission": "BallPicker needs your camera only to scan a friend's QR code.",
+          "microphonePermission": false
         }
       ],
       [
         "expo-camera",
         {
           "cameraPermission": "BallPicker needs your camera only to scan a friend's QR code.",
+          "microphonePermission": false,
           "recordAudioAndroid": false
         }
       ],

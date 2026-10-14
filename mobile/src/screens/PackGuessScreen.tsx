@@ -36,7 +36,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const [fullscreen, setFullscreen] = useState(false);
 
   const showCompletion = useCallback((completion?: PackCompletionSummary | null) => {
-    navigation.replace('PackComplete', { slug, packName, completion: completion ?? null });
+    navigation.replace('PackComplete', { slug, packName, completion: completion ?? null, justCompleted: true });
   }, [navigation, slug, packName]);
 
   useEffect(() => {

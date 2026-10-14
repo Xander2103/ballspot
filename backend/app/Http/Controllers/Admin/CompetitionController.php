@@ -3,38 +3,20 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\CompetitionFinish;
-use App\Models\User;
-use App\Services\CompetitionPeriodService;
+use App\Services\CompetitionAdminStatsService;
 
 class CompetitionController extends Controller
 {
-    public function __construct(private CompetitionPeriodService $period) {}
+    public function __construct(private CompetitionAdminStatsService $stats) {}
 
-    // GET /admin/competition — read-only view of the competition windows and
-    // close status. Closing itself stays a deliberate CLI action (no one-click
-    // awarding from the panel).
+    /**
+     * GET /admin/competition — read-only dashboard: current + previous period
+     * numbers, a live top-10 preview, accounts, growth and abuse summaries.
+     * Closing itself stays a deliberate CLI action (no one-click awarding
+     * from the panel); nothing on this page writes.
+     */
     public function index()
     {
-        $previous = $this->period->previousPeriod();
-
-        $previousClosed = CompetitionFinish::where('period_type', $previous['period_type'])
-            ->whereDate('period_start', $previous['period_start'])
-            ->whereDate('period_end', $previous['period_end'])
-            ->exists();
-
-        $lastClosed = CompetitionFinish::orderByDesc('period_start')->first();
-
-        return view('admin.competition.index', [
-            'period'         => $this->period->toArray(),
-            'previous'       => $previous,
-            'previousClosed' => $previousClosed,
-            'lastClosed'     => $lastClosed,
-            // Aggregate counts only — deleted accounts stay anonymous.
-            'accountStats'   => [
-                'total'   => User::whereNull('anonymized_at')->count(),
-                'deleted' => User::whereNotNull('anonymized_at')->count(),
-            ],
-        ]);
+        return view('admin.competition.index', ['d' => $this->stats->dashboard()]);
     }
 }

@@ -43,6 +43,9 @@ final class AuthError
     public const TWO_FACTOR_CODE_EXPIRED = 'two_factor_code_expired';
     public const TWO_FACTOR_LOCKED       = 'two_factor_locked';
     public const TWO_FACTOR_SESSION_INVALID = 'two_factor_session_invalid';
+    // The login code email could not be sent (mail transport down/slow). 503:
+    // the credentials were fine, nothing is wrong with the account — retry.
+    public const TWO_FACTOR_SEND_FAILED  = 'two_factor_send_failed';
     // Email verification (registration)
     public const VERIFICATION_CODE_INVALID = 'verification_code_invalid';
     public const VERIFICATION_CODE_EXPIRED = 'verification_code_expired';
@@ -52,6 +55,16 @@ final class AuthError
     public const RESET_TOKEN_INVALID = 'reset_token_invalid';
     public const RESET_TOKEN_EXPIRED = 'reset_token_expired';
     public const RESET_FAILED        = 'reset_failed';
+    // Abuse ceilings (v1.9.13) — every auth 429 carries one of these so the
+    // app shows "Too many attempts. Please wait a bit and try again."
+    public const RATE_LIMITED                     = 'rate_limited';
+    public const REGISTRATION_RATE_LIMITED        = 'registration_rate_limited';
+    public const VERIFICATION_RESEND_RATE_LIMITED = 'verification_resend_rate_limited';
+    public const PASSWORD_RESET_RATE_LIMITED      = 'password_reset_rate_limited';
+    public const LOGIN_2FA_RATE_LIMITED           = 'login_2fa_rate_limited';
+    // Registration CAPTCHA (feature-flagged, off by default).
+    public const REGISTRATION_CAPTCHA_REQUIRED = 'registration_captcha_required';
+    public const REGISTRATION_CAPTCHA_FAILED   = 'registration_captcha_failed';
 
     /**
      * English copy per code — kept as the last-resort fallback. The rendered
@@ -72,6 +85,7 @@ final class AuthError
         self::TWO_FACTOR_CODE_EXPIRED => 'This code has expired. Please log in again to get a new one.',
         self::TWO_FACTOR_LOCKED       => 'Too many incorrect attempts. Tap "Resend code" to get a new one.',
         self::TWO_FACTOR_SESSION_INVALID => 'This login session has expired. Please log in again.',
+        self::TWO_FACTOR_SEND_FAILED  => 'We could not send your login code right now. Please try again in a moment.',
         self::VERIFICATION_CODE_INVALID => 'That code is not correct. Check the newest email and try again.',
         self::VERIFICATION_CODE_EXPIRED => 'This code has expired. Please request a new one.',
         self::VERIFICATION_LOCKED       => 'Too many incorrect attempts. Please request a new code.',
@@ -79,6 +93,13 @@ final class AuthError
         self::RESET_TOKEN_INVALID => 'This password reset link is invalid. Please request a new one.',
         self::RESET_TOKEN_EXPIRED => 'This password reset link has expired. Please request a new one.',
         self::RESET_FAILED        => 'We could not reset your password right now. Please try again in a moment.',
+        self::RATE_LIMITED                     => 'Too many attempts. Please wait a bit and try again.',
+        self::REGISTRATION_RATE_LIMITED        => 'Too many attempts. Please wait a bit and try again.',
+        self::VERIFICATION_RESEND_RATE_LIMITED => 'Too many attempts. Please wait a bit and try again.',
+        self::PASSWORD_RESET_RATE_LIMITED      => 'Too many attempts. Please wait a bit and try again.',
+        self::LOGIN_2FA_RATE_LIMITED           => 'Too many attempts. Please wait a bit and try again.',
+        self::REGISTRATION_CAPTCHA_REQUIRED    => 'Please complete the security check and try again.',
+        self::REGISTRATION_CAPTCHA_FAILED      => 'The security check did not pass. Please try again.',
     ];
 
     /** Translated sentence for a code in the current app locale. */

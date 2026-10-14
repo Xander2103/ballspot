@@ -1,7 +1,9 @@
 <?php
 namespace App\Http\Requests;
 
+use App\Services\CaptchaVerifier;
 use App\Support\AppLog;
+use App\Support\AuthAbuseGuard;
 use App\Support\AuthError;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -10,6 +12,16 @@ use Illuminate\Validation\Rule;
 
 class RegisterRequest extends FormRequest
 {
+    /**
+     * Honeypot: a hidden field real clients always leave empty. The app sends
+     * it as "" (never shown to users); a form-filling bot fills it. Named
+     * like a harmless profile field on purpose.
+     */
+    public const HONEYPOT_FIELD = 'website';
+
+    /** Outcome of the CAPTCHA check, when the feature flag is on (see codeFor). */
+    private ?string $captchaOutcome = null;
+
     public function authorize(): bool { return true; }
 
     /**
@@ -48,6 +60,11 @@ class RegisterRequest extends FormRequest
             // client-side checkbox demonstrates nothing.
             'terms_accepted' => ['required', 'accepted'],
             'age_confirmed'  => ['required', 'accepted'],
+            // Anti-bot fields (v1.9.13). Both optional at the rule level: the
+            // honeypot must stay empty, the CAPTCHA token is only required
+            // when the feature flag is on — both checked in withValidator().
+            self::HONEYPOT_FIELD => ['sometimes', 'nullable', 'string', 'max:255'],
+            'captcha_token'      => ['sometimes', 'nullable', 'string', 'max:4096'],
         ];
 
         if (!config('ballspot.auth.require_password_confirmation', false) && !$this->has('password_confirmation')) {
@@ -67,6 +84,49 @@ class RegisterRequest extends FormRequest
     }
 
     /**
+     * Post-rule checks that must never leak detail to a bot:
+     *  - honeypot filled → generic "check the highlighted fields" + the IP is
+     *    blocked from creating accounts for an hour (AuthAbuseGuard);
+     *  - CAPTCHA (only when enabled) → `registration_captcha_required` when the
+     *    token is missing, `registration_captcha_failed` when it does not verify.
+     * The CAPTCHA round-trip is skipped while other fields are still invalid
+     * (no point spending a verify call on a payload that fails anyway).
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v) {
+            if ($this->filled(self::HONEYPOT_FIELD)) {
+                AuthAbuseGuard::recordHoneypot($this->ip());
+                $v->errors()->add(self::HONEYPOT_FIELD, AuthError::message(AuthError::VALIDATION_FAILED));
+
+                return;
+            }
+
+            $captcha = app(CaptchaVerifier::class);
+            if (!$captcha->enabled()) {
+                return;
+            }
+
+            $token = $this->input('captcha_token');
+            if (!is_string($token) || trim($token) === '') {
+                $this->captchaOutcome = CaptchaVerifier::MISSING;
+                $v->errors()->add('captcha_token', AuthError::message(AuthError::REGISTRATION_CAPTCHA_REQUIRED));
+
+                return;
+            }
+            if ($v->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $outcome = $captcha->verify($token, $this->ip());
+            if ($outcome !== CaptchaVerifier::OK) {
+                $this->captchaOutcome = $outcome;
+                $v->errors()->add('captcha_token', AuthError::message(AuthError::REGISTRATION_CAPTCHA_FAILED));
+            }
+        });
+    }
+
+    /**
      * Every registration failure answers in the shared AuthError shape:
      * `{ message, code, errors: {field: [msg]}, codes: {field: code} }`.
      * The log carries FIELD NAMES only (`register.validation_failed`) — never
@@ -79,7 +139,7 @@ class RegisterRequest extends FormRequest
 
         $codes = [];
         foreach (array_keys($errors->toArray()) as $field) {
-            $codes[$field] = self::codeFor($field, array_keys($failed[$field] ?? []));
+            $codes[$field] = $this->codeFor($field, array_keys($failed[$field] ?? []));
         }
 
         AppLog::warn('register.validation_failed', [
@@ -106,12 +166,17 @@ class RegisterRequest extends FormRequest
     }
 
     /** Stable machine-readable code per (field, failed rules). */
-    private static function codeFor(string $field, array $rules): string
+    private function codeFor(string $field, array $rules): string
     {
         return match (true) {
             $field === 'email'    && in_array('Unique', $rules, true)    => AuthError::EMAIL_TAKEN,
             $field === 'username' && in_array('Unique', $rules, true)    => AuthError::USERNAME_TAKEN,
             $field === 'password' && in_array('Confirmed', $rules, true) => AuthError::PASSWORD_MISMATCH,
+            // Never a hint that a honeypot exists.
+            $field === self::HONEYPOT_FIELD => AuthError::VALIDATION_FAILED,
+            $field === 'captcha_token' => $this->captchaOutcome === CaptchaVerifier::MISSING
+                ? AuthError::REGISTRATION_CAPTCHA_REQUIRED
+                : AuthError::REGISTRATION_CAPTCHA_FAILED,
             default => $field . '_invalid',
         };
     }

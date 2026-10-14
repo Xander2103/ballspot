@@ -6,6 +6,8 @@ use App\Models\Challenge;
 use App\Models\ChallengeCategory;
 use App\Models\ChallengeSubcategory;
 use App\Models\DailyChallenge;
+use App\Models\LeagueRound;
+use App\Models\PackAttemptGuess;
 use App\Models\Sport;
 use App\Models\Tag;
 use App\Support\AppLog;
@@ -24,8 +26,13 @@ class ChallengeController extends Controller
     /** Warn when a sport has fewer unique tournament photos than the longest tournament (7 days). */
     private const LOW_TOURNAMENT_POOL = 7;
 
+    /** List sort options (query `sort`); anything else falls back to newest. */
+    public const SORTS = ['newest', 'oldest', 'title'];
+
     public function index(Request $request)
     {
+        $sort = in_array($request->sort, self::SORTS, true) ? $request->sort : 'newest';
+
         // Shared filter set. Both sections (available + used-daily) apply the
         // same filters; they differ only by the daily-used split (v1.9.1).
         $base = fn () => Challenge::with(['sport', 'category', 'tags', 'subcategories'])
@@ -41,7 +48,9 @@ class ChallengeController extends Controller
             ->when($request->tournament === 'eligible', fn ($q) => $q->tournamentEligibleStrict())
             ->when($request->tournament === 'blocked',  fn ($q) => $q->tournamentBlocked())
             ->when($request->search, fn ($q, $v) => $q->where('title', 'like', '%' . $v . '%'))
-            ->latest();
+            // Presentation-only ordering (v1.9.14): newest (default), oldest, title A–Z.
+            ->when($sort === 'oldest', fn ($q) => $q->oldest(), fn ($q) => $q->latest())
+            ->when($sort === 'title', fn ($q) => $q->reorder('title')->orderBy('id'));
 
         $usedFilter = $request->used_as_daily; // null, 'yes' or 'no'
 
@@ -82,17 +91,23 @@ class ChallengeController extends Controller
             ->filter(fn ($row) => $row['count'] < self::LOW_TOURNAMENT_POOL)
             ->values();
 
-        // Summary cards (whole catalogue, independent of the current filter).
+        // Summary tiles (whole catalogue, independent of the current filter).
+        // Pack and General are separate pools (challenges.usage_pool holds
+        // exactly one value) and are counted separately — v1.9.14.
         $tournamentEligibleTotal = $tournamentPool->sum();
+        $poolCounts = Challenge::selectRaw('usage_pool, COUNT(*) as c')->groupBy('usage_pool')->pluck('c', 'usage_pool');
         $summary = [
-            'daily_pool'          => Challenge::where('usage_pool', Challenge::POOL_DAILY)->count(),
+            'total'               => Challenge::count(),
+            'daily_pool'          => (int) ($poolCounts[Challenge::POOL_DAILY] ?? 0),
             'tournament_eligible' => $tournamentEligibleTotal,
+            'pack'                => (int) ($poolCounts[Challenge::POOL_PACK] ?? 0),
+            'general'             => (int) ($poolCounts[Challenge::POOL_GENERAL] ?? 0),
             'used_as_daily'       => Challenge::dailyUsed()->count(),
-            'pack_general'        => Challenge::whereIn('usage_pool', [Challenge::POOL_PACK, Challenge::POOL_GENERAL])->count(),
+            'archived'            => Challenge::where('status', 'archived')->count(),
             'low_tournament'      => $tournamentEligibleTotal < self::LOW_TOURNAMENT_POOL,
         ];
 
-        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags', 'lowTournamentPools', 'summary', 'usedDaily', 'usedDailyOpen'))->with('challenges', $query);
+        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags', 'lowTournamentPools', 'summary', 'usedDaily', 'usedDailyOpen', 'sort'))->with('challenges', $query);
     }
 
     public function create()
@@ -355,13 +370,44 @@ class ChallengeController extends Controller
         return back()->with('success', "Set \"{$challenge->title}\" as daily challenge for {$data['date']}.");
     }
 
-    public function destroy(Challenge $challenge)
+    public function destroy(Request $request, Challenge $challenge)
     {
         // Prefer archiving over deletion. Hard delete is kept for emergencies only.
         // The UI replaces this button with an Archive action.
+        //
+        // The foreign keys cascade: daily_challenges -> daily_challenge_guesses,
+        // league_rounds -> guesses, pack_attempt_guesses. Deleting a photo that
+        // was ever played would silently erase other players' history (daily
+        // streaks, tournament scores, pack results), so refuse while any
+        // reference exists — archiving hides it from every pool just as well.
+        $usedIn = array_keys(array_filter([
+            'daily'      => $challenge->dailyChallenges()->exists(),
+            'tournament' => LeagueRound::where('challenge_id', $challenge->id)->exists(),
+            'pack'       => PackAttemptGuess::where('challenge_id', $challenge->id)->exists(),
+        ]));
+
+        if ($usedIn !== []) {
+            AppLog::warn('admin.challenge_delete_refused', [
+                'challenge_id'  => $challenge->id,
+                'used_in'       => $usedIn,
+                'admin_user_id' => $request->user()->id,
+            ]);
+
+            return redirect('/admin/challenges')->with(
+                'error',
+                "\"{$challenge->title}\" has been played (" . implode(', ', $usedIn) . ") and cannot be deleted — archive it instead."
+            );
+        }
+
         Storage::disk('public')->delete($challenge->hidden_image_path);
         if ($challenge->original_image_path) Storage::disk('public')->delete($challenge->original_image_path);
         $challenge->delete();
+
+        AppLog::warn('admin.challenge_deleted', [
+            'challenge_id'  => $challenge->id,
+            'admin_user_id' => $request->user()->id,
+        ]);
+
         return redirect('/admin/challenges')->with('success', 'Challenge permanently deleted.');
     }
 }

@@ -88,6 +88,24 @@ class StoreReadinessCheck extends Command
             'MAIL_MAILER=log — verification codes and reset links would be written to laravel.log instead of sent'
         );
 
+        // Launch policy: login 2FA is a per-user opt-in and OFF for launch.
+        // Forcing it would email a code on EVERY login (mail volume + support
+        // load), so that is a WARN in every environment, not just production.
+        (bool) config('ballspot.auth.force_login_2fa', false)
+            ? $this->warn_('BALLPICKER_FORCE_LOGIN_2FA is true — every login would email a code; set it to false for launch')
+            : $this->pass('BALLPICKER_FORCE_LOGIN_2FA=false (login 2FA is not forced)');
+        $this->pass('BALLPICKER_LOGIN_2FA_OPT_IN=' . ((bool) config('ballspot.auth.login_2fa_opt_in', false)
+            ? 'true (users may switch login 2FA on in Profile)'
+            : 'false (launch: new 2FA opt-ins are refused, existing ones keep working)'));
+
+        // Daily activation: with the flag off someone must flip today's daily
+        // to Active by hand every day or players see "No daily challenge".
+        $this->productionSetting(
+            (bool) config('ballspot.daily.auto_activate', false),
+            "BALLPICKER_AUTO_ACTIVATE_DAILIES=true (the 00:10 cron activates today's daily)",
+            "BALLPICKER_AUTO_ACTIVATE_DAILIES is not true — today's daily must be activated by hand in Admin → Daily every day"
+        );
+
         // Active ready challenges
         $readyCount = Challenge::where('status', 'active')->get()->filter->isReadyForDaily()->count();
         if ($readyCount === 0) {

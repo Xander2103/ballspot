@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './src/app/AppNavigator';
 import { ThemeProvider } from './src/theme/ThemeProvider';
+import { growth } from './src/services/growth';
 
 enableScreens();
 
@@ -24,6 +25,10 @@ export default function App() {
   const [minTimePassed, setMinTimePassed] = useState(false);
   const [appReady, setAppReady] = useState(false);
   const hidden = useRef(false);
+
+  // Growth: count launches so the automatic review prompt never fires on
+  // the first launch (utils/reviewPrompt). Best-effort, never blocks startup.
+  useEffect(() => { void growth.noteAppLaunch(); }, []);
 
   useEffect(() => {
     const minTimer = setTimeout(() => setMinTimePassed(true), SPLASH_MIN_MS);

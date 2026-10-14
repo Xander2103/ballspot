@@ -12,7 +12,11 @@ use App\Services\PlayerRankService;
 use App\Services\ScoreService;
 use App\Services\TournamentCompletionService;
 use App\Services\XpService;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RoundController extends Controller
 {
@@ -43,44 +47,54 @@ class RoundController extends Controller
             return response()->json(['message' => 'This tournament is not active'], 422);
         }
 
-        if (Guess::where('league_round_id', $round->id)->where('user_id', $userId)->exists()) {
-            return response()->json(['message' => 'Already submitted a guess for this round'], 422);
+        // Cheap rejection without a lock for the common replay cases; the
+        // same checks run again under the lock below before the insert.
+        if ($rejection = $this->rejectIfNotAllowed($round, $userId)) {
+            return $rejection;
         }
-
-        // rounds_per_day was previously enforced only when handing out the next
-        // round (LeagueController::currentRound). Round ids are sequential, so
-        // a client could skip that read and burn every round of a multi-day
-        // tournament in one minute — which also wins score ties, since those
-        // break on the earliest last-guess time.
-        $playedToday = Guess::whereHas('round', fn ($q) => $q->where('league_id', $round->league_id))
-            ->where('user_id', $userId)
-            ->whereDate('submitted_at', now()->toDateString())
-            ->count();
-
-        if ($playedToday >= $round->league->rounds_per_day) {
-            return response()->json(['message' => 'You have played all rounds available for today.'], 422);
-        }
-
-        $challenge = $round->challenge;
-        $result = $this->scoreService->calculate(
-            $request->guess_x_ratio,
-            $request->guess_y_ratio,
-            $challenge->ball_x_ratio,
-            $challenge->ball_y_ratio,
-        );
 
         $user     = $request->user();
         $xpBefore = $this->xpService->getTotalXp($user);
 
-        $guess = Guess::create([
-            'league_round_id' => $round->id,
-            'user_id' => $userId,
-            'guess_x_ratio' => $request->guess_x_ratio,
-            'guess_y_ratio' => $request->guess_y_ratio,
-            'distance' => $result['distance'],
-            'score' => $result['score'],
-            'submitted_at' => now(),
-        ]);
+        try {
+            $guess = DB::transaction(function () use ($request, $round, $userId) {
+                // Serialize this user's tournament submits. Both checks in
+                // rejectIfNotAllowed() are count-then-insert: requests fired in
+                // parallel could all pass them and burn every round of a
+                // multi-day tournament at once (the per-round unique index does
+                // not help — each round is a different row). The user row lock
+                // queues the second request until the first has committed.
+                // No-op on SQLite (tests); SELECT ... FOR UPDATE on MySQL.
+                DB::table('users')->where('id', $userId)->lockForUpdate()->first();
+
+                if ($rejection = $this->rejectIfNotAllowed($round, $userId)) {
+                    throw new HttpResponseException($rejection);
+                }
+
+                $challenge = $round->challenge;
+                $result = $this->scoreService->calculate(
+                    $request->guess_x_ratio,
+                    $request->guess_y_ratio,
+                    $challenge->ball_x_ratio,
+                    $challenge->ball_y_ratio,
+                );
+
+                return Guess::create([
+                    'league_round_id' => $round->id,
+                    'user_id' => $userId,
+                    'guess_x_ratio' => $request->guess_x_ratio,
+                    'guess_y_ratio' => $request->guess_y_ratio,
+                    'distance' => $result['distance'],
+                    'score' => $result['score'],
+                    'submitted_at' => now(),
+                ]);
+            });
+        } catch (UniqueConstraintViolationException) {
+            // Two identical submits that still raced past the checks (engines
+            // without row locks): the unique index on (round, user) kept the
+            // first row — answer like any replay, never a 500.
+            return $this->alreadySubmitted();
+        }
 
         $guess->load('round.challenge');
 
@@ -132,6 +146,40 @@ class RoundController extends Controller
         }
 
         return (new GuessResultResource($guess))->additional($additional);
+    }
+
+    /** 422 when this user may not submit to this round right now, else null. */
+    private function rejectIfNotAllowed(LeagueRound $round, int $userId): ?JsonResponse
+    {
+        if (Guess::where('league_round_id', $round->id)->where('user_id', $userId)->exists()) {
+            return $this->alreadySubmitted();
+        }
+
+        // rounds_per_day was previously enforced only when handing out the next
+        // round (LeagueController::currentRound). Round ids are sequential, so
+        // a client could skip that read and burn every round of a multi-day
+        // tournament in one minute — which also wins score ties, since those
+        // break on the earliest last-guess time.
+        $playedToday = Guess::whereHas('round', fn ($q) => $q->where('league_id', $round->league_id))
+            ->where('user_id', $userId)
+            ->whereDate('submitted_at', now()->toDateString())
+            ->count();
+
+        if ($playedToday >= $round->league->rounds_per_day) {
+            return response()->json(['message' => 'You have played all rounds available for today.'], 422);
+        }
+
+        return null;
+    }
+
+    private function alreadySubmitted(): JsonResponse
+    {
+        // The stable `code` lets the app open the stored result instead of
+        // showing a double-tap as an error.
+        return response()->json([
+            'message' => 'Already submitted a guess for this round',
+            'code'    => 'already_submitted',
+        ], 422);
     }
 
     public function result(Request $request, LeagueRound $round)

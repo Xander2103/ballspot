@@ -45,6 +45,7 @@ return [
         'sport_unavailable'  => 'This sport is not available yet.',
         'theme_unavailable'  => 'That theme is not available.',
         'two_factor_boolean' => 'Two-factor login must be on or off.',
+        'two_factor_unavailable' => 'Two-factor login is not available yet. It will arrive in a later version.',
     ],
 
     'daily' => [
@@ -52,6 +53,10 @@ return [
         'not_today'       => 'This daily challenge is not available today.',
         'already_played'  => "You have already played today's challenge.",
         'no_guess'        => 'No guess found for this challenge.',
+    ],
+
+    'share' => [
+        'no_guess' => 'Play today\'s daily challenge before sharing its result.',
     ],
 
     'friends' => [

@@ -185,15 +185,22 @@ class DailyChallengeController extends Controller
         $user     = $request->user();
         $xpBefore = $this->xpService->getTotalXp($user);
 
-        $guess = DailyChallengeGuess::create([
-            'daily_challenge_id' => $dailyChallenge->id,
-            'user_id'            => $userId,
-            'guess_x_ratio'      => $data['guess_x_ratio'],
-            'guess_y_ratio'      => $data['guess_y_ratio'],
-            'distance'           => $result['distance'],
-            'score'              => $result['score'],
-            'submitted_at'       => now(),
-        ]);
+        try {
+            $guess = DailyChallengeGuess::create([
+                'daily_challenge_id' => $dailyChallenge->id,
+                'user_id'            => $userId,
+                'guess_x_ratio'      => $data['guess_x_ratio'],
+                'guess_y_ratio'      => $data['guess_y_ratio'],
+                'distance'           => $result['distance'],
+                'score'              => $result['score'],
+                'submitted_at'       => now(),
+            ]);
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // A double-tap that raced past the exists() check above: the unique
+            // index on (daily_challenge_id, user_id) kept the first row. Answer
+            // like any replay — the app then opens the stored result — never a 500.
+            return response()->json(['message' => __('messages.daily.already_played')], 422);
+        }
 
         // XP: the guess score (deduped so reopening the result never re-awards).
         $this->xpService->awardXp(

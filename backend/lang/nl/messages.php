@@ -45,6 +45,7 @@ return [
         'sport_unavailable'  => 'Deze sport is nog niet beschikbaar.',
         'theme_unavailable'  => 'Dat thema is niet beschikbaar.',
         'two_factor_boolean' => 'Tweestapsverificatie moet aan of uit staan.',
+        'two_factor_unavailable' => 'Tweestapsverificatie is nog niet beschikbaar. Dit komt in een latere versie.',
     ],
 
     'daily' => [
@@ -52,6 +53,10 @@ return [
         'not_today'       => 'Deze dagelijkse uitdaging is vandaag niet beschikbaar.',
         'already_played'  => 'Je hebt de uitdaging van vandaag al gespeeld.',
         'no_guess'        => 'Geen gok gevonden voor deze uitdaging.',
+    ],
+
+    'share' => [
+        'no_guess' => 'Speel eerst de dagelijkse uitdaging van vandaag voor je het resultaat deelt.',
     ],
 
     'friends' => [

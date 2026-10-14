@@ -15,6 +15,7 @@ import { isTournamentsUnavailable } from '../utils/tournamentErrors';
 import { League, LobbyMember } from '../types/league';
 import { LeaderboardEntry } from '../types/guess';
 import { rivalryLine, daysLeftLabel } from '../utils/rivalry';
+import { LOBBY_POLL_INTERVAL_MS, shouldAlertOnLoadFailure, type LoadTrigger } from '../utils/lobbyPolling';
 import { useI18n, t as translate } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
@@ -36,7 +37,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
   const [removing, setRemoving] = useState(false);
   const [removedFromLobby, setRemovedFromLobby] = useState(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (trigger: LoadTrigger = 'manual') => {
     if (!leagueId) {
       // Module-level `translate` keeps `load` independent of the hook `t`, so a
       // language change does not re-create the callback and refetch.
@@ -72,18 +73,23 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         setLoading(false);
         return;
       }
-      Alert.alert(translate('tournaments.alerts.error'), translate('tournaments.detail.errors.loadFailed'));
+      // Background lobby polls stay silent: going offline in a lobby used to
+      // raise this modal every tick until the user left the screen. The next
+      // poll that succeeds simply refreshes the view.
+      if (shouldAlertOnLoadFailure(trigger)) {
+        Alert.alert(translate('tournaments.alerts.error'), translate('tournaments.detail.errors.loadFailed'));
+      }
     } finally {
       setLoading(false);
     }
   }, [leagueId]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { const u = navigation.addListener('focus', load); return u; }, [navigation, load]);
+  useEffect(() => { load('initial'); }, [load]);
+  useEffect(() => { const u = navigation.addListener('focus', () => { load('focus'); }); return u; }, [navigation, load]);
 
   useEffect(() => {
     if (league?.status !== 'lobby' || removedFromLobby) return;
-    const interval = setInterval(load, 3000);
+    const interval = setInterval(() => { load('poll'); }, LOBBY_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [league?.status, removedFromLobby, load]);
 

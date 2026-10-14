@@ -22,7 +22,8 @@ tickets, chats or this file.
 | Queue tables | `jobs`, `failed_jobs` (database queue; nothing is queued today) |
 | Uploaded images | `storage/app/public/{challenges/hidden,challenges/original,avatars,packs/covers}` served via the `public/storage` symlink |
 | Scheduler | system cron runs `php artisan schedule:run` every minute (see `routes/console.php`) |
-| Content backups | `../backups/ballspot-content/<timestamp>/` next to the backend folder |
+| Content backups (images + JSON exports, SQLite file only) | `../backups/ballspot-content/<timestamp>/` next to the backend folder |
+| **MySQL database backups** (nightly root cron) | `/var/backups/ballpicker/ballpicker-db-<stamp>.sql.gz`, log `/var/backups/ballpicker/backup.log` — see `docs/db-backup-runbook.md` |
 
 Warnings and errors go to **both** files; info-level events only go to the
 events file. `LOG_EVENTS_LEVEL=info` and `LOG_EVENTS_DAYS=14` are the defaults.
@@ -86,7 +87,10 @@ sudo supervisorctl status
 # Scheduler: every task + next run time
 php artisan schedule:list
 
-# Content backup (DB + images + JSON exports) — run before any risky change
+# MySQL dump (verified, 14-day retention) — run before any risky change
+sudo /var/www/ballpicker/backend/scripts/backup-mysql.sh && echo "backup ok"
+
+# Content backup (images + JSON exports; copies the DB only when it is SQLite)
 php artisan ballspot:backup-content
 
 # Public health check
@@ -120,6 +124,32 @@ Read-only. It never runs commands and never changes data. Reload for live number
 Thresholds live in `App\Services\DiagnosticsService` (`DAILY_POOL_LOW = 14`,
 `TOURNAMENT_POOL_LOW = 7`, `JOB_STALE_MINUTES = 15`, `DAILY_RUNWAY_DAYS = 3`).
 
+### Auth email abuse card (v1.9.13)
+
+"Auth email abuse protection" counts the last-24 h refusals per event
+(`register.rate_limited`, `verification.resend_rate_limited`,
+`password_reset.rate_limited`, `login_2fa.rate_limited`, `honeypot.triggered`,
+`register.captcha_failed`) from the events log. Numbers here mean the
+protections are working — not that something is broken. A sudden spike in
+`register.rate_limited` + `honeypot.triggered` is the signal to consider the
+flagged-off CAPTCHA (docs/security-hardening.md → "If registration spam
+starts"). Limits are tunable via the `BALLPICKER_REGISTER_*`,
+`BALLPICKER_VERIFICATION_EMAILS_*`, `BALLPICKER_LOGIN_2FA_EMAILS_*` and
+`BALLPICKER_PASSWORD_RESET_*` env vars (then `php artisan config:cache`).
+
+### Competition dashboard (`/admin/competition`, v1.9.14)
+
+Read-only: current period (players, guesses, average, highest guess, days
+remaining, top-finisher eligibility), previous period + close status
+(trophies, XP, closed at), a live top-10 preview (usernames only, deleted
+accounts excluded like the app), accounts (active / deleted / new 7d / new
+24h), the CLI close commands, the competition config with a config-cache
+reminder, the growth summary (hidden until the `app_events` migration ran;
+"Growth events are not tracked yet." while empty) and the same auth-abuse
+counters as the diagnostics card plus registrations, verification emails
+sent, reset requests and mail failures for the last 24 h. Nothing on the page
+writes — closing stays `php artisan ballspot:close-competition`.
+
 ### What each warning means
 
 - **No daily challenge exists for today** — the cron did not run, ran with an
@@ -127,8 +157,12 @@ Thresholds live in `App\Services\DiagnosticsService` (`DAILY_POOL_LOW = 14`,
   `php artisan ballspot:schedule-daily-challenges --dry-run`, then without
   `--dry-run`. Check `schedule:list` and the system cron entry.
 - **Today's daily is still "scheduled", not "active"** — the cron creates rows
-  as `scheduled`; the API only serves `active`. Go to Admin → Daily and set
-  today's row to Active. (Known gap: there is no automatic activation step.)
+  as `scheduled`; the API only serves `active`. With
+  `BALLPICKER_AUTO_ACTIVATE_DAILIES=true` the 00:10 scheduler entry
+  (`ballspot:activate-daily`, idempotent, today's date only) flips it for you;
+  check `schedule:list` and the events log for `daily.activated` /
+  `daily.activate_failed`. Otherwise go to Admin → Daily and set today's row
+  to Active, or run `php artisan ballspot:activate-daily --force`.
 - **Fewer than 3 days of daily challenges scheduled** — run the scheduler for
   more days (`--days=14`) or upload more daily/general-pool photos.
 - **Daily pool is low** — fewer than 14 never-used, ready, daily/general
@@ -262,6 +296,14 @@ php artisan storage:link             # idempotent
 curl -s https://ballpicker.vanmalderstudio.be/api/health
 ```
 
+**v1.9.12 (share / rate / growth stats)** adds one table (`app_events`,
+`php artisan migrate --force` above) and three badges — run
+`php artisan db:seed --class=BadgeSeeder` (idempotent `updateOrCreate`; never
+the full seeder on production). Share XP still lands if the seeder is skipped;
+only the First Share / Daily Bragger / Social Striker trophies would be missing
+until it runs. The counters live on `/admin/growth`; the app build that uses
+them (expo-store-review + the share buttons) needs a new EAS build.
+
 Then open `/admin/diagnostics` and clear every red warning before announcing
 the build. Set `BALLPICKER_APP_VERSION` in `.env` so the admin header and the
 diagnostics page show the release you actually deployed.
@@ -294,7 +336,11 @@ Two deploy rules learned the hard way (2026-09-07):
 - Warnings are computed on page load, not pushed.
 - Tournament completion has no time-based sweep; expired active tournaments
   are reported, not closed.
-- The daily `scheduled → active` step is still manual.
+- The daily `scheduled → active` step is manual unless
+  `BALLPICKER_AUTO_ACTIVATE_DAILIES=true` (then `ballspot:activate-daily` runs
+  at 00:10 and only ever touches today's row).
+- `ballspot:backup-content` never dumps MySQL; the database backup is the
+  separate root cron in `docs/db-backup-runbook.md`.
 
 ---
 

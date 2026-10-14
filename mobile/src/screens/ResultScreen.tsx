@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -12,6 +12,7 @@ import { RankProgressCard } from '../components/RankProgressCard';
 import { RankUpCard } from '../components/RankUpCard';
 import { TournamentCompletionCard } from '../components/TournamentCompletionCard';
 import { roundApi } from '../api/roundApi';
+import { growth } from '../services/growth';
 import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -48,7 +49,7 @@ function getDistanceFeedbackKey(distance: number): string {
 
 export function ResultScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
-  const { roundId, leagueId, imageUrl, leagueName, categoryName, challengeTitle, newBadges, rankProgress, rankUp, tournamentCompletion } = route.params;
+  const { roundId, leagueId, imageUrl, leagueName, categoryName, challengeTitle, newBadges, rankProgress, rankUp, tournamentCompletion, justCompleted } = route.params;
   const routeSportSlug = route.params.sportSlug ?? null;
   const { t } = useI18n();
   const [result, setResult] = useState<GuessResult | null>(null);
@@ -79,6 +80,16 @@ export function ResultScreen({ route, navigation }: Props) {
       .then(setNextRound)
       .catch(() => {}); // silent — worst case: show no next round info
   }, [leagueId]);
+
+  // Growth: a fresh round result counts as a completed challenge (review
+  // prompt milestones). Re-opened results are not counted; never blocks.
+  const completionNoted = useRef(false);
+  useEffect(() => {
+    if (!result || !justCompleted || completionNoted.current) return;
+    completionNoted.current = true;
+    const timer = setTimeout(() => { void growth.onTournamentResult(result.score); }, 1500);
+    return () => clearTimeout(timer);
+  }, [result, justCompleted]);
 
   if (loading) {
     return (

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Support\AppLog;
+use App\Support\FailedLoginLimiter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -33,9 +34,15 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'max:255'],
         ]);
 
+        // IP-independent per-email ceiling on FAILED attempts only (50/hour):
+        // bounds a distributed brute force without letting anyone who knows
+        // the admin address lock the admin out with harmless requests.
+        $email = (string) $request->input('email');
+        FailedLoginLimiter::assertNotLocked(FailedLoginLimiter::SCOPE_ADMIN, $email);
+
         // Case-insensitive address match (see User::findByEmail), then the
         // normal credential check against the stored row.
-        $user        = User::findByEmail((string) $request->input('email'));
+        $user        = User::findByEmail($email);
         $credentials = ['email' => $user?->email ?? (string) $request->input('email'), 'password' => (string) $request->input('password')];
 
         // No "remember me" for the admin panel. Laravel's recaller cookie lasts
@@ -46,6 +53,7 @@ class AuthController extends Controller
             if (!auth()->user()->is_admin) {
                 $id = auth()->id();
                 Auth::logout();
+                FailedLoginLimiter::recordFailure(FailedLoginLimiter::SCOPE_ADMIN, $email);
                 AppLog::warn('admin.login_failed', ['reason' => 'not_admin', 'user_id' => $id]);
                 return back()->withErrors(['email' => 'Invalid credentials.']);
             }
@@ -54,15 +62,18 @@ class AuthController extends Controller
             if (!auth()->user()->hasVerifiedEmail()) {
                 $id = auth()->id();
                 Auth::logout();
+                FailedLoginLimiter::recordFailure(FailedLoginLimiter::SCOPE_ADMIN, $email);
                 AppLog::warn('admin.login_failed', ['reason' => 'unverified', 'user_id' => $id]);
                 return back()->withErrors(['email' => 'Verify your email address before signing in.']);
             }
 
+            FailedLoginLimiter::clear(FailedLoginLimiter::SCOPE_ADMIN, $email);
             $request->session()->regenerate();
             AppLog::event('admin.login', ['user_id' => auth()->id()]);
             return redirect('/admin/challenges');
         }
 
+        FailedLoginLimiter::recordFailure(FailedLoginLimiter::SCOPE_ADMIN, $email);
         AppLog::warn('admin.login_failed', [
             'reason'  => $user ? 'wrong_password' : 'unknown_account',
             'user_id' => $user?->id,

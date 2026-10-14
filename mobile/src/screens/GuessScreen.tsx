@@ -92,6 +92,10 @@ export function GuessScreen({ route, navigation }: Props) {
   }
 
   async function handleSubmit() {
+    // Checked synchronously too: a double tap can fire before the disabled
+    // prop re-renders, and the second request would only ever get the
+    // backend's already-submitted reply instead of a fresh result.
+    if (submitting) return;
     if (guessX === null || guessY === null) return;
     if (!Number.isFinite(guessX) || !Number.isFinite(guessY)) {
       setSubmitError(t('game.guess.lockBeforeSubmit'));
@@ -113,8 +117,24 @@ export function GuessScreen({ route, navigation }: Props) {
         rankProgress,
         rankUp,
         tournamentCompletion,
+        justCompleted: true,
       });
     } catch (e: unknown) {
+      // The backend keeps exactly one guess per round. If this round was
+      // already answered (a double tap, a retry after a dropped response),
+      // open the stored result instead of presenting the replay as an error.
+      if ((e as { code?: unknown } | null)?.code === 'already_submitted' && round) {
+        navigation.replace('Result', {
+          roundId,
+          leagueId,
+          imageUrl: round.challenge.hidden_image_url,
+          leagueName,
+          categoryName: round.challenge.category?.name ?? null,
+          challengeTitle: round.challenge.title,
+          sportSlug: round.challenge.sport?.slug ?? null,
+        });
+        return;
+      }
       setSubmitError(getApiErrorMessage(e, t('game.guess.submitError')));
     } finally {
       setSubmitting(false);

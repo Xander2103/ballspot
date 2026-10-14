@@ -566,3 +566,27 @@ competition_finishes, tournament_finishes — see the per-table sections).
 Badges: `BadgeSeeder` now seeds **33** badges (v1.8.6 adds social_starter,
 friendly_five, host_starter, tournament_regular, sharp_scorer, pack_explorer,
 daily_loyalist).
+
+## app_events (v1.9.12) — growth counters
+
+`2026_10_14_000001_create_app_events_table` (additive; nothing existing touched):
+
+| Column | Type | Notes |
+|---|---|---|
+| id | bigint PK auto |
+| user_id | bigint FK → users nullable, nullOnDelete | the acting user |
+| event_name | varchar(60) | allow-listed in `App\Models\AppEvent::ALL`: share_app_tapped, daily_result_share_tapped, daily_result_high_score_share_tapped, share_reward_claimed, rate_app_tapped, review_prompt_attempted, native_review_requested, review_prompt_skipped_due_to_completed, review_prompt_skipped_due_to_cooldown |
+| metadata | json nullable | allow-listed keys only (`GrowthEventService::sanitizeMetadata`): score, daily_challenge_id, trigger, rewards, xp. Never the shared message, review text or a platform name. |
+| created_at | timestamp nullable | append-only; no updated_at |
+
+Indexes: `(event_name, created_at)`, `(user_id, event_name)`. Read by
+`/admin/growth` (counts only). Share events are written only by
+`ShareRewardService`; the five review/rate events come from `POST /api/events`.
+
+`xp_events.source_type` gains three share sources: `share_first` (source_id 1,
+once per account), `share_daily` and `share_daily_high_score` (source_id
+YYYYMMDD, once per calendar day) — the unique index is the anti-farming guard.
+
+Badges: `BadgeSeeder` seeds **42** badges as of v1.9.12 (adds first_share,
+daily_bragger, social_striker — in-app sharing only; rating the app never
+unlocks anything). Deploy: `php artisan db:seed --class=BadgeSeeder`.

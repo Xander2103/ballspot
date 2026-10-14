@@ -7,7 +7,9 @@ use App\Models\User;
 use App\Services\EmailVerificationService;
 use App\Services\LoginVerificationService;
 use App\Support\AppLog;
+use App\Support\AuthAbuseGuard;
 use App\Support\AuthError;
+use App\Support\FailedLoginLimiter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -27,6 +29,11 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request, EmailVerificationService $emailVerification)
     {
+        // Accounts actually created per IP (5/hour, 10/day by default) — a
+        // 429 `registration_rate_limited` before anything is written. Counts
+        // successes only, so form typos never lock a real person out.
+        AuthAbuseGuard::assertRegistrationAllowed($request);
+
         $user = User::create([
             'name'               => $request->name,
             'username'           => $request->username,
@@ -40,6 +47,8 @@ class AuthController extends Controller
         $user->terms_accepted_at = now();
         $user->terms_version     = (string) config('ballspot.legal.terms_version', '2026-08');
         $user->save();
+
+        AuthAbuseGuard::recordRegistration($request->ip());
 
         $codeSent = false;
         if ($this->emailVerificationRequired()) {
@@ -98,10 +107,17 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'max:255'],
         ]);
 
+        // IP-independent per-email ceiling on FAILED attempts only (50/hour):
+        // bounds a distributed brute force against one account without letting
+        // 50 harmless requests lock the real owner out (see FailedLoginLimiter).
+        $email = (string) $request->email;
+        FailedLoginLimiter::assertNotLocked(FailedLoginLimiter::SCOPE_LOGIN, $email);
+
         // Case-insensitive: "Foo@x.com" at sign-up must still log in as "foo@x.com".
-        $user = User::findByEmail($request->email);
+        $user = User::findByEmail($email);
 
         if ($user && $user->anonymized_at !== null) {
+            FailedLoginLimiter::recordFailure(FailedLoginLimiter::SCOPE_LOGIN, $email);
             AppLog::warn('auth.login_failed', ['reason' => 'anonymized_account', 'user_id' => $user->id]);
             AuthError::throw(AuthError::ACCOUNT_DELETED, 403, 'email');
         }
@@ -112,6 +128,7 @@ class AuthController extends Controller
             if (!$user) {
                 Hash::make($request->password);
             }
+            FailedLoginLimiter::recordFailure(FailedLoginLimiter::SCOPE_LOGIN, $email);
             // Category only — never the email, never the password.
             AppLog::warn('auth.login_failed', [
                 'reason'  => !$user ? 'unknown_account' : 'wrong_password',
@@ -119,6 +136,9 @@ class AuthController extends Controller
             ]);
             AuthError::throw(AuthError::INVALID_CREDENTIALS, 422, 'email');
         }
+
+        // Correct password: this address is no longer under suspicion.
+        FailedLoginLimiter::clear(FailedLoginLimiter::SCOPE_LOGIN, $email);
 
         // Email not verified yet — block full login and hand back a token so
         // the app can drive the verification screen.

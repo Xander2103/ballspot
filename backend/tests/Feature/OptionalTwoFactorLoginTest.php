@@ -178,6 +178,9 @@ class OptionalTwoFactorLoginTest extends TestCase
 
     public function test_toggling_2fa_via_preferences_works_and_is_logged(): void
     {
+        // Opting in is a launch-gated feature (BALLPICKER_LOGIN_2FA_OPT_IN,
+        // default false); this test covers the flow once it is switched on.
+        config(['ballspot.auth.login_2fa_opt_in' => true]);
         $user  = $this->verifiedUser();
         $token = $user->createToken('t')->plainTextToken;
 

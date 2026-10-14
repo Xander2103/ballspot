@@ -161,5 +161,5 @@ After recovering:
 ## Known Limitations
 
 - The backup command copies the SQLite file as-is. If the app is writing to the database during backup, there is a small risk of a partially-written copy. For safety, stop the dev server before backing up in production.
-- MySQL databases are not backed up by `ballspot:backup-content` (it only copies SQLite). For MySQL, use `mysqldump` separately.
+- MySQL databases are not backed up by `ballspot:backup-content` (it only copies SQLite). Production uses `backend/scripts/backup-mysql.sh` (nightly root cron, verified dumps, 14-day retention) — see `docs/db-backup-runbook.md`.
 - The `backups/` folder is ignored by Git via the root `.gitignore`. Backups will never be accidentally committed.

@@ -130,9 +130,13 @@
                     {!! $d['daily']['auto_schedule_enabled'] ? '<span class="badge bg-success">on</span>' : '<span class="badge bg-warning text-dark">off</span>' !!}
                     <span class="text-muted small"><code>{{ $d['daily']['auto_schedule_env'] }}</code> — {{ $d['daily']['auto_schedule_enabled'] ? 'the 00:05 cron fills the next 14 days automatically' : 'launch control: the 00:05 cron entry is skipped; only manual scheduling creates dailies' }}</span>
                 </td></tr>
+                <tr><th>Auto-activate today's daily</th><td>
+                    {!! $d['daily']['auto_activate_enabled'] ? '<span class="badge bg-success">on</span>' : '<span class="badge bg-warning text-dark">off</span>' !!}
+                    <span class="text-muted small"><code>{{ $d['daily']['auto_activate_env'] }}</code> — {{ $d['daily']['auto_activate_enabled'] ? "the 00:10 cron flips today's scheduled daily to active" : "today's daily must be set to Active by hand in Admin → Daily" }}</span>
+                </td></tr>
                 <tr><th>Cron</th><td><code>{{ $d['daily']['cron_command'] }}</code></td></tr>
             </table>
-            <div class="card-footer small text-muted">The cron creates rows as <code>scheduled</code>; the app only serves <code>active</code>. Check <code>php artisan schedule:list</code> if nothing is being created. Set <code>BALLPICKER_AUTO_SCHEDULE_DAILIES=false</code> to stop automatic creation.</div>
+            <div class="card-footer small text-muted">The cron creates rows as <code>scheduled</code>; the app only serves <code>active</code>. With <code>BALLPICKER_AUTO_ACTIVATE_DAILIES=true</code> the 00:10 cron activates today's row, otherwise activate it by hand. Check <code>php artisan schedule:list</code> if nothing is being created. Set <code>BALLPICKER_AUTO_SCHEDULE_DAILIES=false</code> to stop automatic creation.</div>
         </div>
     </div>
 
@@ -246,6 +250,34 @@
                 <tr><th>Users total</th><td>{{ $d['activity']['users_total'] }}</td></tr>
             </table>
             <div class="card-footer small text-muted">Counts only. Per-event detail lives in the events log.</div>
+        </div>
+    </div>
+
+    {{-- Auth email abuse (v1.9.13) --}}
+    <div class="col-12">
+        <div class="card shadow-sm" data-section="abuse">
+            <div class="card-header"><strong>Auth email abuse protection</strong> <span class="text-muted small">({{ $d['abuse']['window'] }} — refusals, i.e. the protections working)</span></div>
+            <div class="card-body pb-0">
+                <div class="row g-2 mb-3">
+                    @foreach($d['abuse']['rows'] as $row)
+                        <div class="col-6 col-md-2">
+                            <div class="border rounded p-2 bg-white">
+                                <div class="text-muted small">{{ $row['label'] }}</div>
+                                <div class="fs-5 fw-semibold">{{ $row['count_24h'] }}</div>
+                                <div class="small"><code>{{ $row['event'] }}</code></div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+            <table class="table table-sm mb-0">
+                <tr><th>Registration budget</th><td>{{ $d['abuse']['limits']['register_per_ip'] }} <span class="text-muted small">accounts actually created; form typos do not count (plus 5/min + 20/hour request throttle)</span></td></tr>
+                <tr><th>Verification emails</th><td>{{ $d['abuse']['limits']['verification_per_email'] }} <span class="text-muted small">register + login + resend combined; 60s resend cooldown</span></td></tr>
+                <tr><th>Login code (2FA) emails</th><td>{{ $d['abuse']['limits']['login_2fa_per_email'] }} <span class="text-muted small">start + resend combined; 60s resend cooldown</span></td></tr>
+                <tr><th>Password reset requests</th><td>{{ $d['abuse']['limits']['password_reset'] }} <span class="text-muted small">counted whether or not the address exists</span></td></tr>
+                <tr><th>Registration CAPTCHA</th><td>{!! $d['abuse']['captcha_enabled'] ? '<span class="badge bg-info text-dark">on</span>' : '<span class="badge bg-secondary">off</span>' !!} <span class="text-muted small"><code>BALLPICKER_CAPTCHA_ENABLED</code> — keep off unless registration spam starts (docs/security-hardening.md)</span></td></tr>
+            </table>
+            <div class="card-footer small text-muted">Counts come from the events log (<code>register.rate_limited</code>, <code>verification.resend_rate_limited</code>, <code>password_reset.rate_limited</code>, <code>login_2fa.rate_limited</code>, <code>honeypot.triggered</code>, <code>register.captcha_failed</code>). No address, code or token is ever logged.</div>
         </div>
     </div>
 

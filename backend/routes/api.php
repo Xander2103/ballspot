@@ -105,6 +105,12 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('/users/{user}/public-profile', [PublicProfileController::class, 'show'])
             ->middleware('throttle:profile-lookup');
 
+        // v1.9.12 growth: share rewards (server-side amounts + per-day dedupe)
+        // and review/rate telemetry (allow-listed names, never rewarded).
+        Route::post('/share',        [\App\Http\Controllers\Api\GrowthController::class, 'share'])->middleware('throttle:share');
+        Route::get('/share/status',  [\App\Http\Controllers\Api\GrowthController::class, 'shareStatus']);
+        Route::post('/events',       [\App\Http\Controllers\Api\GrowthController::class, 'track'])->middleware('throttle:growth-events');
+
         Route::get('/badges',    [BadgeController::class, 'index']);
         Route::get('/me/badges', [BadgeController::class, 'mine']);
 

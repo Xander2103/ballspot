@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Screen } from '../components/Screen';
+import { EmptyState } from '../components/EmptyState';
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { sportApi } from '../api/sportApi';
+import { authApi } from '../api/authApi';
 import { preferencesApi } from '../api/preferencesApi';
+import { signOut } from '../app/signOut';
 import type { Sport } from '../types/sport';
 import type { RootStackParamList } from '../app/AppNavigator';
 import { useI18n } from '../i18n';
 import { getApiErrorMessage } from '../utils/apiError';
+import { logoutLocally } from '../utils/session';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SportSelection'>;
 
@@ -21,26 +25,42 @@ export function SportSelectionScreen({ route, navigation }: Props) {
 
   const [sports, setSports] = useState<Sport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
 
-  useEffect(() => {
-    let active = true;
-    sportApi
-      .list() // active, selectable sports only (avoids inactive/admin data)
-      .then((list) => {
-        if (active) setSports(list);
-      })
-      .catch(() => {
-        if (active) setError(t('home.sportSelection.loadError'));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
+  useEffect(() => () => { mounted.current = false; }, []);
+
+  const loadSports = useCallback(async () => {
+    setLoading(true);
+    setLoadFailed(false);
+    setError(null);
+    try {
+      // Active, selectable sports only (avoids inactive/admin data).
+      const list = await sportApi.list();
+      if (mounted.current) setSports(list);
+    } catch {
+      // In onboarding this screen is the only route on the stack and has no
+      // back button, so a failed load must offer a way forward (Retry) and a
+      // way out (Log out) — never an empty grid the user can only escape by
+      // killing the app.
+      if (mounted.current) setLoadFailed(true);
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadSports(); }, [loadSports]);
+
+  async function leave() {
+    if (mode === 'onboarding') {
+      await logoutLocally({ apiLogout: () => authApi.logout(), clearLocal: signOut });
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    } else {
+      navigation.goBack();
+    }
+  }
 
   async function choose(sport: Sport) {
     if (savingId) return;
@@ -75,6 +95,18 @@ export function SportSelectionScreen({ route, navigation }: Props) {
 
       {loading ? (
         <ActivityIndicator color={theme.primary} size="large" style={{ marginTop: spacing.xl }} />
+      ) : loadFailed ? (
+        <EmptyState
+          icon="📡"
+          title={t('home.sportSelection.loadError')}
+          actions={[
+            { label: t('common.buttons.retry'), onPress: () => { loadSports(); } },
+            {
+              label: mode === 'onboarding' ? t('common.buttons.logout') : t('common.buttons.back'),
+              onPress: () => { leave(); },
+            },
+          ]}
+        />
       ) : (
         <View style={styles.grid}>
           {sports.map((sport) => {

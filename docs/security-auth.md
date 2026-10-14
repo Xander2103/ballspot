@@ -290,6 +290,16 @@ middleware on the auth routes. These bound automated fan-out; the **per-code
 | `POST /api/login/verify` | `throttle:login-verify` | 20/min per `verification_id`+IP |
 | `POST /api/login/resend-code` | `throttle:login-resend` | 5/min per `verification_id`+IP |
 
+v1.9.13 adds IP-independent **email ceilings** on top: login-code emails are
+capped at 3/hour (10/day) per address across login + resend, verification
+emails at 5/hour (10/day) per address, forgot-password at 3/hour per email and
+10/hour per IP, and registration at 5 created accounts/hour (10/day) per IP plus
+a honeypot field. Every refusal is a 429 with a stable code
+(`login_2fa_rate_limited`, `verification_resend_rate_limited`,
+`password_reset_rate_limited`, `registration_rate_limited`). Full table and the
+flagged-off CAPTCHA playbook: docs/security-hardening.md → "Registration &
+auth-email abuse protection".
+
 ---
 
 ## Configuration
