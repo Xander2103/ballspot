@@ -8,8 +8,10 @@
  *    and the 3-attempts-per-install cap only matter BEFORE the device is
  *    completed (an attempt where the native dialog could not even be
  *    requested, e.g. no Play Store);
- *  - the MANUAL "Rate BallPicker" button: native review where available,
- *    otherwise the store page.
+ *  - the MANUAL "Rate BallPicker" button: the official store review page
+ *    (App Store write-review / Play Store reviews), because the native dialog
+ *    is quota-limited by the OS and may silently not appear after a tap; the
+ *    native request is only the fallback when no store page is known.
  *
  * reviewPromptCompleted is the product rule and it is final: it becomes true
  * as soon as the review flow was shown to the user — a native review request
@@ -136,10 +138,10 @@ export function noteAppLaunch(state: ReviewPromptState): ReviewPromptState {
 
 export type RateAction = 'native_review' | 'open_store' | 'unavailable';
 
-/** Manual Rate button: native review first, the store page only as a fallback. */
+/** Manual Rate button: the store review page first, native review only as a fallback. */
 export function rateButtonAction(input: { nativeAvailable: boolean; storeUrl: string | null }): RateAction {
-  if (input.nativeAvailable) return 'native_review';
   if (input.storeUrl) return 'open_store';
+  if (input.nativeAvailable) return 'native_review';
   return 'unavailable';
 }
 

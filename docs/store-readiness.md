@@ -17,10 +17,13 @@ This document covers content rights, pre-release checklists, and the store-readi
 - **Rating / reviewing is never incentivized.** Tapping *Rate BallPicker*, the
   native review dialog, or opening the store page grants no XP, trophy, badge,
   unlock or advantage (`POST /api/events` cannot award anything; `GrowthShareReviewTest`
-  pins this). The button uses `expo-store-review` (SKStoreReviewController /
-  Play In-App Review) and only opens the store page as a fallback **after the
-  tap**. There is no custom star modal and the copy never asks for a positive
-  review.
+  pins this). The button opens the official store review page directly
+  **after the tap** (iOS `https://apps.apple.com/app/id6796491992?action=write-review`,
+  Android `https://play.google.com/store/apps/details?id=be.vanmalderstudio.ballpicker&showAllReviews=true`)
+  because the native dialog is OS-quota-limited and can silently not appear
+  (it never appears in TestFlight); the native `expo-store-review` request is
+  only the fallback when the page cannot be opened. There is no custom star
+  modal and the copy never asks for a positive review.
 - **Automatic review prompt** (native only): never on the first launch, never
   after an error / failed share / low score, only after a daily score ≥ 80, the
   3rd or 5th completed challenge, or a completed pack; never opens the store
@@ -38,13 +41,14 @@ This document covers content rights, pre-release checklists, and the store-readi
   *counters* linked to the account (no message text, no review text, no
   platform). Mention under app activity / analytics-free usage data if the
   stores ask; no third party receives it.
-- **Store links:** `android.playStoreUrl` is set in `app.json`. The iOS App
-  Store URL is unknown until the App Store Connect record exists — set
-  `EXPO_PUBLIC_IOS_APP_STORE_URL` in `mobile/eas.json` (preview + production
-  env), preferably the write-review deep link
-  `https://apps.apple.com/app/id<ID>?action=write-review`. Until then the iOS
-  Rate button falls back to "not available" when the native dialog cannot be
-  requested.
+- **Store links:** bundled in `mobile/src/utils/storeLinks.ts` from the
+  permanent identifiers (App Store id `6796491992`, package
+  `be.vanmalderstudio.ballpicker`); `android.playStoreUrl` is also set in
+  `app.json`. Not remote-configurable on purpose (the ids never change, the
+  button works offline, nothing remote can redirect players). Both pages
+  return 404 until the app is publicly live in that store.
+  `EXPO_PUBLIC_IOS_APP_STORE_URL` can still override the iOS link at build
+  time, but only with an `apps.apple.com` / `itms-apps://` URL.
 
 ## ✅ RESOLVED 2026-08-20 — legal placeholders filled
 

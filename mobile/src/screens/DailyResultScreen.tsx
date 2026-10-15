@@ -18,6 +18,7 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { DailyGuessResult, DailyStats, TodayResponse } from '../types/daily';
 import { useI18n } from '../i18n';
+import { settleDailyResultLoad } from '../utils/dailyResultLoad';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyResult'>;
 
@@ -59,21 +60,19 @@ export function DailyResultScreen({ route, navigation }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([
+    // Only the result is required; a failing today/stats call must not hide it.
+    Promise.allSettled([
       dailyApi.result(dailyChallengeId).then((r) => r.data),
       dailyApi.today(),
       dailyApi.stats(),
-    ])
-      .then(([resultData, todayData, statsData]) => {
-        if (cancelled) return;
-        setResult(resultData);
-        setToday(todayData);
-        setStats(statsData);
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!cancelled) setLoading(false);
-      });
+    ]).then((settled) => {
+      if (cancelled) return;
+      const loaded = settleDailyResultLoad(settled);
+      setResult(loaded.result);
+      setToday(loaded.today);
+      setStats(loaded.stats);
+      setLoading(false);
+    });
 
     return () => { cancelled = true; };
   }, [dailyChallengeId]);

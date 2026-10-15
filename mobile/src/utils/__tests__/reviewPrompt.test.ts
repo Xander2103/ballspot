@@ -144,9 +144,10 @@ describe('Rate BallPicker button', () => {
     expect(decideReviewPrompt(result.state, { kind: 'daily_score', score: 100 }, NOW).show).toBe(false);
   });
 
-  it('opens the store page only when native review is unavailable', () => {
-    expect(rateButtonAction({ nativeAvailable: true, storeUrl: 'https://play.google.com/store/apps/details?id=x' })).toBe('native_review');
+  it('opens the store review page directly, native review only without a store page', () => {
+    expect(rateButtonAction({ nativeAvailable: true, storeUrl: 'https://play.google.com/store/apps/details?id=x' })).toBe('open_store');
     expect(rateButtonAction({ nativeAvailable: false, storeUrl: 'https://play.google.com/store/apps/details?id=x' })).toBe('open_store');
+    expect(rateButtonAction({ nativeAvailable: true, storeUrl: null })).toBe('native_review');
     expect(rateButtonAction({ nativeAvailable: false, storeUrl: null })).toBe('unavailable');
   });
 

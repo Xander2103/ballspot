@@ -180,36 +180,34 @@ export const growth = {
   },
 
   /**
-   * Manual Rate button. Native review where available, otherwise the store
-   * page (only now, because the user asked). Marks the device completed
-   * whatever happens next (native request, store fallback or unavailable).
-   * Returns xpAwarded: 0 — always.
+   * Manual Rate button. Opens the official store review page directly (the
+   * native dialog is OS-quota-limited and can silently not appear, and it
+   * never shows in TestFlight); the native request is only the fallback when
+   * the page cannot be opened. Marks the device completed whatever happens
+   * next. Returns xpAwarded: 0 — always.
    */
   async rateApp(): Promise<{ action: RateAction; xpAwarded: 0 }> {
     void growthApi.track('rate_app_tapped', { trigger: 'button' });
     const storeUrl = resolveStoreUrl(Platform.OS, {
       EXPO_PUBLIC_IOS_APP_STORE_URL: process.env.EXPO_PUBLIC_IOS_APP_STORE_URL,
     });
-    const result = completeRateButtonTap(await loadReviewPromptState(), {
-      nativeAvailable: await nativeReviewAvailable(),
-      storeUrl,
-    });
+    const nativeAvailable = await nativeReviewAvailable();
+    const result = completeRateButtonTap(await loadReviewPromptState(), { nativeAvailable, storeUrl });
     await saveReviewPromptState(result.state);
 
     let action = result.action;
-    if (action === 'native_review') {
-      if (await requestNativeReview()) {
-        void growthApi.track('native_review_requested', { trigger: 'button' });
-      } else if (storeUrl) {
-        action = 'open_store';
-      } else {
-        action = 'unavailable';
-      }
-    }
     if (action === 'open_store' && storeUrl) {
       try {
         await Linking.openURL(storeUrl);
-      } catch {
+      } catch (e) {
+        devLog(`[growth] store page failed: ${(e as Error)?.message ?? 'unknown'}`);
+        action = nativeAvailable ? 'native_review' : 'unavailable';
+      }
+    }
+    if (action === 'native_review') {
+      if (await requestNativeReview()) {
+        void growthApi.track('native_review_requested', { trigger: 'button' });
+      } else {
         action = 'unavailable';
       }
     }
