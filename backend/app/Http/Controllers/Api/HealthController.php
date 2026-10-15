@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\HealthCheckService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 /**
  * GET /api/health — public, unauthenticated liveness check for deploy scripts
- * and uptime monitors.
+ * and the 5-minute monitor (scripts/monitor-health.sh).
  *
- * Deliberately minimal: status, app name, timestamp, environment name and two
- * boolean checks. No versions, no counts, no job payloads, no config values —
- * anything operational belongs on the admin-only /admin/diagnostics page.
+ * Deliberately minimal: status, app name, timestamp, environment name and one
+ * boolean per check (database, storage, cache, queue, scheduler — see
+ * HealthCheckService). No versions, no counts, no reasons, no config values —
+ * anything operational belongs on the admin-only /admin/diagnostics page,
+ * which shows the same checks with their reasons.
  *
  * 200 + "ok" when every check passes; 503 + "degraded" otherwise so a deploy
  * check or monitor can act on the status code alone. The JSON shape never
@@ -20,33 +22,16 @@ use Illuminate\Support\Facades\DB;
  */
 class HealthController extends Controller
 {
-    public function __invoke(): JsonResponse
+    public function __invoke(HealthCheckService $health): JsonResponse
     {
-        $checks = [
-            'database' => $this->databaseReachable(),
-            'storage'  => is_writable(storage_path('app/public')),
-        ];
-
-        $healthy = !in_array(false, $checks, true);
+        $result = $health->run();
 
         return response()->json([
-            'status'      => $healthy ? 'ok' : 'degraded',
+            'status'      => $result['ok'] ? 'ok' : 'degraded',
             'app'         => config('ballspot.app_name', 'BallPicker'),
             'timestamp'   => now()->toIso8601String(),
             'environment' => (string) config('app.env'),
-            'checks'      => $checks,
-        ], $healthy ? 200 : 503);
-    }
-
-    private function databaseReachable(): bool
-    {
-        try {
-            DB::connection()->getPdo();
-            DB::select('select 1');
-
-            return true;
-        } catch (\Throwable) {
-            return false;
-        }
+            'checks'      => $result['checks'],
+        ], $result['ok'] ? 200 : 503);
     }
 }

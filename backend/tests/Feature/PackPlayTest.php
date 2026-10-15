@@ -276,4 +276,99 @@ class PackPlayTest extends TestCase
             ->assertJsonPath('data.0.progress.status', 'active')
             ->assertJsonPath('data.0.progress.completed_count', 1);
     }
+
+    // ------------------------------------------------------------------
+    // Pack Start scenario coverage (2026-10-15 incident). None of these is
+    // allowed to answer 5xx: the app shows "Something went wrong on our side"
+    // for any 5xx and nothing else.
+    // ------------------------------------------------------------------
+
+    public function test_single_challenge_pack_completes_on_its_first_guess(): void
+    {
+        [, $token] = $this->auth();
+        $this->pack(1);
+
+        $start = $this->withToken($token)->postJson('/api/packs/play-pack/start')
+            ->assertOk()
+            ->assertJsonPath('attempt.total_challenges', 1)
+            ->json();
+
+        $this->withToken($token)->postJson("/api/pack-attempts/{$start['attempt']['id']}/guess", [
+            'challenge_id' => $start['challenge']['id'], 'guessed_x' => 0.5, 'guessed_y' => 0.5,
+        ])->assertOk()
+            ->assertJsonPath('pack_completed', true)
+            ->assertJsonPath('next_challenge', null)
+            ->assertJsonPath('completion.total_challenges', 1);
+    }
+
+    public function test_ten_challenge_pack_snapshots_all_ten_in_order(): void
+    {
+        [, $token] = $this->auth();
+        $pack = $this->pack(10);
+
+        $start = $this->withToken($token)->postJson('/api/packs/play-pack/start')
+            ->assertOk()
+            ->assertJsonPath('attempt.total_challenges', 10)
+            ->assertJsonPath('attempt.completed_count', 0);
+
+        $expected = $pack->challenges()->orderBy('challenge_pack_challenge.sort_order')->pluck('challenges.id')->all();
+        $this->assertSame($expected, PackAttempt::first()->challengeIds());
+        $this->assertSame($expected[0], $start->json('challenge.id'));
+    }
+
+    public function test_unknown_slug_is_a_json_404_not_a_500(): void
+    {
+        [, $token] = $this->auth();
+
+        $this->withToken($token)->postJson('/api/packs/does-not-exist/start')
+            ->assertNotFound()
+            ->assertJsonStructure(['message']);
+    }
+
+    public function test_archived_pack_cannot_be_started(): void
+    {
+        [, $token] = $this->auth();
+        $this->pack(2, ['status' => ChallengePack::STATUS_ARCHIVED]);
+
+        $this->withToken($token)->postJson('/api/packs/play-pack/start')->assertNotFound();
+    }
+
+    public function test_repeated_starts_create_one_attempt_and_award_no_xp(): void
+    {
+        [$user, $token] = $this->auth();
+        $this->pack();
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->withToken($token)->postJson('/api/packs/play-pack/start')->assertOk();
+        }
+
+        $this->assertSame(1, PackAttempt::count());
+        $this->assertSame(0, XpEvent::where('user_id', $user->id)->count());
+    }
+
+    public function test_challenge_deactivated_after_start_stays_playable_from_the_snapshot(): void
+    {
+        [, $token] = $this->auth();
+        $this->pack(2);
+
+        $start = $this->withToken($token)->postJson('/api/packs/play-pack/start')->assertOk()->json();
+        // Admin edits must not shift an in-flight attempt (ids are snapshotted).
+        Challenge::whereKey($start['challenge']['id'])->update(['status' => 'inactive']);
+
+        $this->withToken($token)->postJson('/api/packs/play-pack/start')
+            ->assertOk()
+            ->assertJsonPath('challenge.id', $start['challenge']['id']);
+        $this->withToken($token)->postJson("/api/pack-attempts/{$start['attempt']['id']}/guess", [
+            'challenge_id' => $start['challenge']['id'], 'guessed_x' => 0.5, 'guessed_y' => 0.5,
+        ])->assertOk()->assertJsonPath('progress.current_index', 1);
+    }
+
+    public function test_expired_or_unknown_token_is_a_401_with_session_code(): void
+    {
+        $this->pack();
+
+        $this->withToken('not-a-real-token')->postJson('/api/packs/play-pack/start')
+            ->assertUnauthorized()
+            ->assertJsonPath('code', 'session_invalid');
+    }
 }

@@ -54,3 +54,9 @@ Schedule::command('sanctum:prune-expired --hours=24')->daily();
 // BALLPICKER_DAILY_REMINDER_PUSH_ENABLED=true (see config/ballspot.php for the
 // cutover rule). 15-minute cadence + a 60-minute send window per user.
 Schedule::command('ballspot:send-daily-reminders')->everyFifteenMinutes()->withoutOverlapping();
+
+// Scheduler heartbeat for /api/health and /admin/diagnostics: when the cron
+// last ran and as which user. Deliberately NO withoutOverlapping() — that
+// would take a cache lock, and a broken cache store is one of the things the
+// heartbeat exists to reveal.
+Schedule::command('ballspot:heartbeat')->everyFiveMinutes();

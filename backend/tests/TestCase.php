@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Support\ResilientRateLimiter;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Cache;
 
@@ -16,6 +17,34 @@ abstract class TestCase extends BaseTestCase
         // forgot-password, ...) never leak between tests — each test starts
         // with a clean limiter window.
         Cache::flush();
+
+        // The health checks (GET /api/health, /admin/diagnostics) expect a
+        // fresh scheduler heartbeat written by the same user as this process.
+        // Keep it in a per-process temp file so tests never touch storage/;
+        // tests that want a stale/foreign heartbeat overwrite it.
+        config(['ballspot.monitoring.heartbeat_file' => sys_get_temp_dir() . '/bp-heartbeat-' . getmypid() . '.json']);
+        $this->writeSchedulerHeartbeat();
+
+        ResilientRateLimiter::resetReporting();
+    }
+
+    /**
+     * Write a scheduler heartbeat as HealthCheckService::scheduler reads it.
+     * Defaults: now, this process's uid.
+     */
+    protected function writeSchedulerHeartbeat(?int $unix = null, ?int $uid = null, ?string $user = null): string
+    {
+        $path = (string) config('ballspot.monitoring.heartbeat_file');
+        $uid ??= function_exists('posix_geteuid') ? posix_geteuid() : null;
+
+        file_put_contents($path, json_encode([
+            'at'   => date(DATE_ATOM, $unix ?? time()),
+            'unix' => $unix ?? time(),
+            'uid'  => $uid,
+            'user' => $user ?? 'test-user',
+        ]));
+
+        return $path;
     }
 
     /**

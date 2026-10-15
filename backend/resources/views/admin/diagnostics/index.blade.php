@@ -45,6 +45,31 @@
     </div>
 </div>
 
+{{-- Health summary: the same checks as GET /api/health and `php artisan ballspot:health` --}}
+@php $h = $d['health']; $sch = $h['details']['scheduler']; @endphp
+<div class="card shadow-sm mb-4" data-section="health">
+    <div class="card-header d-flex align-items-center gap-2">
+        <strong>Health</strong>
+        <span class="badge {{ $h['ok'] ? 'bg-success' : 'bg-danger' }}">{{ $h['ok'] ? 'ok' : 'degraded' }}</span>
+        <span class="text-muted small">— what <code>GET /api/health</code> and the 5-minute monitor see</span>
+    </div>
+    <div class="card-body py-2">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            @foreach($h['checks'] as $name => $ok)
+                <span class="badge {{ $ok ? 'bg-success' : 'bg-danger' }}" title="{{ $h['details'][$name]['reason'] ?? 'ok' }}">{{ $name }}: {{ $ok ? 'ok' : 'FAIL' }}</span>
+            @endforeach
+        </div>
+        @foreach($h['details'] as $name => $detail)
+            @if($detail['reason'])<div class="small text-danger">{{ $name }}: {{ $detail['reason'] }}</div>@endif
+        @endforeach
+        <div class="small text-muted">
+            Scheduler: {{ $sch['last_run_at'] ? 'last ran ' . $sch['age_minutes'] . ' min ago as ' : 'no heartbeat yet' }}@if($sch['last_run_at'])<code>{{ $sch['ran_as'] ?? ('uid ' . $sch['ran_as_uid']) }}</code>@endif
+            · web user <code>{{ $sch['web_user'] ?? ('uid ' . $sch['web_uid']) }}</code>
+            · rate-limiter store <code>{{ $h['details']['cache']['limiter_store'] }}</code> ({{ $h['details']['cache']['limiter_driver'] }})
+        </div>
+    </div>
+</div>
+
 <div class="row g-4">
 
     {{-- 1. App status --}}
@@ -78,6 +103,7 @@
                 <tr><th>Last error</th><td>{{ $fmt($d['log']['last_error_at']) }}
                     @if($d['log']['last_error_summary'])<div class="small text-muted">{{ $d['log']['last_error_summary'] }}</div>@endif
                 </td></tr>
+                <tr><th>laravel.log writable by web user</th><td>{!! $yesNo($d['log']['writable']) !!}</td></tr>
                 <tr><th>Events file</th><td><code>{{ $d['log']['events_file'] }}</code> <span class="text-muted small">today: {!! $yesNo($d['log']['events_file_today']) !!} · writable by web user: {!! $yesNo($d['log']['events_writable']) !!}</span></td></tr>
                 <tr><th>Failed flows (24h)</th><td>
                     @if(empty($d['log']['event_errors_24h']))
@@ -231,6 +257,29 @@
                     <tr><th>{{ $dir['label'] }}</th><td>{!! $yesNo($dir['exists']) !!} <span class="text-muted small">{{ $dir['files'] }} file(s) · <code>{{ $dir['path'] }}</code></span></td></tr>
                 @endforeach
             </table>
+        </div>
+    </div>
+
+    {{-- Cache / rate limiter --}}
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100" data-section="cache">
+            <div class="card-header"><strong>Cache / rate limiter</strong></div>
+            <table class="table table-sm mb-0">
+                <tr><th>Default store</th><td><code>{{ $d['cache']['default_store'] }}</code></td></tr>
+                <tr><th>Rate-limiter store</th><td><code>{{ $d['cache']['limiter_store'] }}</code> <span class="text-muted small">driver <code>{{ $d['cache']['limiter_driver'] }}</code></span></td></tr>
+                <tr><th>Write/read probe</th><td>{!! $yesNo($d['cache']['probe_ok']) !!}
+                    @if($d['cache']['probe_error'])<div class="small text-muted">{{ $d['cache']['probe_error'] }}</div>@endif
+                </td></tr>
+                @if($d['cache']['file_path'])
+                    <tr><th><code>{{ $d['cache']['file_path'] }}</code> writable</th><td>{!! $yesNo($d['cache']['file_root_writable']) !!}</td></tr>
+                    <tr><th>Entries not writable by web user</th><td>
+                        <span class="badge {{ $d['cache']['unwritable_count'] > 0 ? 'bg-danger' : 'bg-success' }}">{{ $d['cache']['unwritable_count'] }}</span>
+                        <span class="text-muted small">of {{ $d['cache']['scanned'] }} scanned{{ $d['cache']['scan_truncated'] ? ' (scan capped)' : '' }}</span>
+                        @foreach($d['cache']['unwritable_samples'] as $sample)<div class="small"><code>{{ $sample }}</code></div>@endforeach
+                    </td></tr>
+                @endif
+            </table>
+            <div class="card-footer small text-muted">Every throttled API route (all of <code>/api</code>, plus Pack Start, guesses, tournaments, share) writes this store on each request. An entry the web user cannot write turns those requests into a 500 before the controller runs.</div>
         </div>
     </div>
 

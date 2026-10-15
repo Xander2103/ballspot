@@ -228,6 +228,39 @@ is NOT stuck: logging in again with the same email + password answers
 "Resend code" does the same. Expired codes are purged hourly, so a stranded
 account having zero `email_verification_codes` rows is normal, not damage.
 
+### "Start Pack" shows "Something went wrong on our side"
+The app shows that copy only for a 5xx (or an unreadable 2xx body). Pack
+list/detail use only the global `api` limiter; Start Pack and every guess
+(pack, daily, tournament) also hit the per-user `gameplay` limiter and write
+to the database.
+
+**Incident 2026-10-15 (confirmed from the production log):**
+`fopen(storage/framework/cache/data/14/e0/…): No such file or directory`,
+stack `FileStore → RateLimiter → ThrottleRequests`, repeatedly for one user.
+`CACHE_STORE=file` and the scheduler cron ran as root; every
+`withoutOverlapping()` task takes a cache lock, so root had created
+`data/xx/` directories the web user could not write into. For a player
+whose per-user limiter key hashed into one of them, `makeDirectory()` failed
+silently and `fopen()` hit a path that never existed → 500 on Start Pack and
+on every guess, while the pack list (a different key) still loaded. Repairing
+ownership fixed it.
+
+Since then the limiter **fails open** (`App\Support\ResilientRateLimiter`):
+a broken cache store no longer 500s any route; the request goes through
+unthrottled, `rate_limiter.store_failed` is logged (error level, counted on
+Diagnostics → "Failed flows") and the health check's `cache` flag turns
+false so the monitor mails you. So if the symptom is back, it is NOT the
+cache — collect, as the web user:
+1. `grep -n "packs/.*/start\|SQLSTATE\|Permission denied" storage/logs/laravel.log | tail -n 20`
+   — and check the newest timestamp: if it is days old, `laravel.log` itself
+   is not writable (Diagnostics: "laravel.log writable by web user") and 500s
+   are not being recorded. `sudo scripts/fix-permissions.sh`.
+2. `/admin/diagnostics` → Health strip and "Cache / rate limiter" card.
+3. `sudo -u www-data php artisan ballspot:health`
+4. `grep "pack.start" storage/logs/ballpicker-events-$(date +%F).log | tail`
+   — `pack.started` means the request reached the service.
+5. `tail -n 50 /var/log/nginx/error.log` for 502/504 (php-fpm down/timeouts).
+
 ### "I can't register" / beta code rejected
 `grep auth.beta_code_rejected …` — `missing_code` means the app build did not
 send one; `invalid_code` means a typo or a rotated code. The code itself is
@@ -286,43 +319,252 @@ disk side.
 
 ---
 
-## 5. After a deploy
+## 5. Production setup, deploy and monitoring
+
+### 5.0 `/var/www/ballpicker/deploy.sh` — review (2026-10-15)
+
+The original script (14 steps, run as `deploy`, `sudo` for chown/supervisor/
+systemctl) was reviewed line by line. It is sound in structure; three things
+in it create the permission state behind both incidents:
+
+| step | original | finding | now |
+|---|---|---|---|
+| 2, 5–8, 11, 13, 14 | `php artisan …` **as `deploy`** | every file/dir Laravel creates in those steps is `deploy`-owned with umask 022 → group `www-data` cannot write it. Step 10's `chown/chmod` repairs what exists *at that moment*; step 11 (`queue:restart`) and 14 (`schedule:list`, `migrate:status`) run **after** it, and any artisan run by hand later is never repaired | every artisan call is `sudo -u www-data php artisan …` |
+| 4 | `composer install` as `deploy` | its hooks run `package:discover`, writing `bootstrap/cache/{packages,services}.php` as `deploy` | `composer install --no-scripts`, then `package:discover` as `www-data` |
+| 8 | `php artisan optimize:clear` | runs `cache:clear`: wipes every rate-limit counter and scheduler lock on each deploy (and, as `deploy`, cannot delete `www-data`-owned cache dirs — silently) | `view:clear` + `config:cache`, `route:cache`, `view:cache` |
+| 9–10 | `mkdir -p …`, `chown -R deploy:www-data`, `chmod -R 775` | right idea, wrong moment and no setgid: directories created afterwards by `deploy` are 755 `deploy:deploy` | `scripts/fix-permissions.sh` **before** the first artisan call: `www-data:www-data`, dirs 2775, files 664, `.env` 640 |
+| 3 | `git reset --hard origin/master` | fine (discards server-side edits — intended) | kept; `--ref=<commit>` for rollback |
+| 2 / 13 | `artisan down` / `up` | fine; the monitor now gives maintenance mode 10 min grace | kept (`--no-maintenance` to skip) |
+| 11 | `queue:restart` + `supervisorctl restart all` | fine **if** the supervisor program runs as `www-data` — check `user=` | kept; check in §5.2 |
+| 12 | reload php-fpm + nginx | fine | kept |
+| 14 | curl checks | fine | kept, plus `fix-permissions.sh --check` and `ballspot:health` |
+
+Who created `storage/framework/cache/data/14/`? User 32's gameplay-limiter
+**timer** key hashes to exactly `data/14/e0` (verified), so the key is
+certain. The directory `14/` itself was created by a non-`www-data` process
+earlier: not by step 11 (its key hashes to `ee/2f`), so by the scheduler cron
+if it runs as `deploy`/`root`, or by an artisan command typed by hand. §5.2
+step 2 finds out which; the fix below covers every variant.
+
+`backend/scripts/deploy.sh` is the corrected script with the same 14 steps
+and the same operator (`deploy` + `sudo`). `/var/www/ballpicker/deploy.sh`
+becomes a two-line wrapper (§5.3) so the habit `./deploy.sh` keeps working.
+
+### 5.1 Ownership model (the rule behind both outages)
+
+| What | Owner | Mode | Who writes it |
+|---|---|---|---|
+| application code, `vendor/` | `deploy` | 755 / 644 (world-readable) | `git`, `composer --no-scripts` — as `deploy`, during deploy |
+| `storage/`, `bootstrap/cache/` | `www-data:www-data` | dirs **2775**, files **0664** | php-fpm, artisan, the scheduler cron — **all as `www-data`** |
+| `.env` | `deploy:www-data` | **640** | you |
+
+`deploy` is a member of group `www-data` (so `git reset --hard` can still
+touch the tracked `.gitignore` files inside `storage/`), but **`deploy` never
+runs PHP**: every `php artisan …` on the server is
+`sudo -u www-data php artisan …`, and the scheduler cron lives in
+**www-data's** crontab. Never world-writable (`777`), never `chown -R root`.
+`scripts/fix-permissions.sh` makes the table above true and `--check`
+verifies it without changing anything.
+
+What went wrong before: 2026-09-07 the root cron created the day's events
+log (dropped events, 500s on register); 2026-10-15 the root cron's
+`withoutOverlapping()` locks created `storage/framework/cache/data/xx/`
+directories (Start Pack / guesses 500 for some players). Same mistake, two
+symptoms; see §4 "Start Pack" for the incident detail.
+
+### 5.2 One-time installation (run once, then only on a new server)
 
 ```bash
 cd /var/www/ballpicker/backend
-php artisan migrate --force          # never migrate:fresh
-php artisan config:cache && php artisan route:cache && php artisan view:cache
-php artisan storage:link             # idempotent
+
+# 0. deploy joins group www-data (new shells only — log out/in once)
+sudo usermod -aG www-data deploy
+
+# 1. Ownership and modes of the writable dirs (idempotent, touches no data)
+sudo scripts/fix-permissions.sh
+sudo scripts/fix-permissions.sh --check          # exit 0 = good
+
+# 2. .env — add/confirm, then re-cache as the web user
+#    CACHE_STORE=database            # strongly recommended: rate-limit counters in MySQL,
+#                                    # no per-directory ownership to get wrong (the `cache`
+#                                    # table exists; 0001_01_01_000001_create_cache_table)
+#    BALLPICKER_WEB_USER=www-data
+#    BALLPICKER_ALERT_EMAIL=info@vanmalderstudio.be
+#    BALLPICKER_RATE_LIMIT_FALLBACK_STORE=database   # default (§5.6)
+#    BALLPICKER_RATE_LIMIT_FAIL_OPEN=true            # default (§5.6)
+sudo -u www-data php artisan config:cache
+
+# 3. Scheduler cron — in WWW-DATA's crontab only. First find where it is today:
+sudo crontab -l 2>/dev/null | grep -n schedule:run ; crontab -l 2>/dev/null | grep -n schedule:run ; sudo crontab -u www-data -l 2>/dev/null
+sudo crontab -u www-data -e
+#   * * * * * cd /var/www/ballpicker/backend && php artisan schedule:run >> /dev/null 2>&1
+# then remove the schedule:run line from root's and deploy's crontab (crontab -e / sudo crontab -e)
+
+# 3b. Supervisor queue program must run as www-data
+grep -n 'user=\|command=' /etc/supervisor/conf.d/*.conf      # user=www-data; else edit, then: sudo supervisorctl reread && sudo supervisorctl update
+
+# 4. Independent monitor + backup — in ROOT's crontab (they must not depend on PHP)
+sudo mkdir -p /var/lib/ballpicker-monitor && sudo touch /var/log/ballpicker-monitor.log
+sudo crontab -e
+#   */5 * * * * /var/www/ballpicker/backend/scripts/monitor-health.sh
+#   15 3 * * *  /var/www/ballpicker/backend/scripts/backup-mysql.sh      # see docs/db-backup-runbook.md
+
+# 5. Prove it
+sudo -u www-data php artisan ballspot:health         # all ok after the first heartbeat (≤5 min)
 curl -s https://ballpicker.vanmalderstudio.be/api/health
+sudo /var/www/ballpicker/backend/scripts/monitor-health.sh; echo "exit $?"
+sudo -u www-data php artisan ballspot:send-alert --subject="[BallPicker] test alert" --body="monitoring installed on $(hostname)"
 ```
 
-**v1.9.12 (share / rate / growth stats)** adds one table (`app_events`,
-`php artisan migrate --force` above) and three badges — run
-`php artisan db:seed --class=BadgeSeeder` (idempotent `updateOrCreate`; never
-the full seeder on production). Share XP still lands if the seeder is skipped;
-only the First Share / Daily Bragger / Social Striker trophies would be missing
-until it runs. The counters live on `/admin/growth`; the app build that uses
-them (expo-store-review + the share buttons) needs a new EAS build.
+Switching `CACHE_STORE` from `file` to `database` resets in-memory
+rate-limit windows once (counters start fresh in the table); nothing else is
+affected. Do not delete `storage/framework/cache/data` — it is simply no
+longer used.
+
+### 5.3 Every deploy
+
+```bash
+# /var/www/ballpicker/deploy.sh — replace its content with this wrapper once:
+#!/usr/bin/env bash
+exec bash /var/www/ballpicker/backend/scripts/deploy.sh "$@"
+```
+
+```bash
+cd /var/www/ballpicker && ./deploy.sh                      # as deploy; sudo asks once
+./deploy.sh --skip-composer                                # app-code-only hotfix
+./deploy.sh --ref=<commit>                                 # pinned deploy / rollback
+./deploy.sh --no-maintenance                               # skip artisan down/up
+```
+
+`backend/scripts/deploy.sh` keeps the original 14 steps: maintenance on →
+`git reset --hard origin/master` (or `--ref`) → `composer install --no-dev
+--no-scripts` (as deploy) → `fix-permissions.sh` → `package:discover`,
+`migrate --force`, `BadgeSeeder`, sprint-badge backfill, `view:clear` +
+`config/route/view:cache`, `storage:link` (all as www-data) → `queue:restart`
++ `supervisorctl restart all` → reload php-fpm + nginx → maintenance off →
+checks (`fix-permissions.sh --check`, `ballspot:health`, HTTP health,
+schedule, supervisor, CORS, privacy page). It stops at the first failing
+step, brings the app back up first, and never runs `migrate:fresh`, the full
+`db:seed`, `cache:clear` or `optimize:clear`.
 
 Then open `/admin/diagnostics` and clear every red warning before announcing
 the build. Set `BALLPICKER_APP_VERSION` in `.env` so the admin header and the
 diagnostics page show the release you actually deployed.
 
-Two deploy rules learned the hard way (2026-09-07):
+**Rollback.** The script prints `rollback later with: … --ref=<commit>` at
+the start of every run. `--ref` does `git reset --hard <commit>` and re-runs
+composer, permissions, caches and the checks; the next plain run returns to
+`origin/master`. Migrations are
+never rolled back automatically: every migration in this project is
+additive, and the monitoring release adds **no** migration at all, so code
+rollback is always safe. The `.env` keys added for monitoring are ignored
+by older code; `CACHE_STORE=database` can stay.
 
-- **Run every artisan command and the scheduler cron as the web user**
-  (`sudo -u www-data php artisan …`). A log file created by root cannot be
-  appended to by php-fpm; the diagnostics "Backend errors" card shows
-  "writable by web user: no" for today's events file when this has happened.
-  Repair: `chown -R www-data:www-data storage/logs`.
-- **Nothing in this repo schedules dailies during a deploy.** The only
-  automatic writer of `daily_challenges` is the 00:05 scheduler entry
-  (`ballspot:schedule-daily-challenges`, default 14 days). To keep a cleared
-  daily calendar empty until you schedule by hand, set
-  `BALLPICKER_AUTO_SCHEDULE_DAILIES=false` in `.env` and run
-  `php artisan config:cache`. `php artisan db:seed` (the full seeder) would also
-  add today's daily via `DailyChallengeSeeder` — run only `--class=BadgeSeeder`
-  on production.
+**Downtime.** The script keeps the original maintenance window
+(`artisan down --retry=30` … `up`): the app answers 503 for the length of
+the deploy (typically 1–2 minutes; the mobile app shows "Something went
+wrong" and retries). The monitor recognises maintenance mode (503 without the
+health JSON) and only alerts if it lasts longer than
+`BALLPICKER_MAINTENANCE_GRACE_MINUTES` (10). Database and sessions are
+untouched. `--no-maintenance` skips the window; then a request during
+`composer install` or the cache rewrite can fail for a second instead.
+
+**Queue worker.** Nothing is queued today (mail and push run inline), but if
+a supervisor program exists it must run as `user=www-data`
+(`grep -n user= /etc/supervisor/conf.d/*.conf`) or it recreates the
+root-owned-file problem. The deploy script calls `queue:restart` (graceful)
+when it finds one.
+
+**Repeated runs** are safe: ownership repair, `migrate`, `storage:link`,
+`BadgeSeeder` and the caches are all idempotent; rate-limit counters and
+scheduler locks are never touched.
+
+**Nothing in this repo schedules dailies during a deploy.** The only
+automatic writer of `daily_challenges` is the 00:05 scheduler entry
+(`ballspot:schedule-daily-challenges`, default 14 days). To keep a cleared
+daily calendar empty until you schedule by hand, set
+`BALLPICKER_AUTO_SCHEDULE_DAILIES=false` in `.env` and run
+`php artisan config:cache`. `php artisan db:seed` (the full seeder) would also
+add today's daily via `DailyChallengeSeeder` — run only `--class=BadgeSeeder`
+on production.
+
+### 5.4 What is monitored
+
+`GET /api/health` (public, booleans only) = `php artisan ballspot:health`
+(with reasons, exit 1 when degraded) = the Health strip on
+`/admin/diagnostics`. All three use `App\Services\HealthCheckService`:
+
+| check | true when | typical cause when false |
+|---|---|---|
+| `database` | PDO connects and `select 1` works | MySQL down / wrong credentials |
+| `storage` | `storage/app/public` writable by the web user | ownership |
+| `cache` | the rate-limiter store passes a write/read/delete probe **and** (file driver) no entry under `cache/data` is unwritable | root-created dirs, full disk, `CACHE_STORE` pointing at a dead service |
+| `queue` | `jobs`/`failed_jobs` exist, nothing waiting > 15 min, no failure in the last 24 h | worker not running, a job that threw |
+| `scheduler` | `ballspot:heartbeat` ran ≤ 15 min ago **as the web user** | cron missing, or cron in root's crontab (the 2026-10-15 cause) |
+
+`ballspot:heartbeat` is scheduled every five minutes without
+`withoutOverlapping()`, so it does not depend on the cache it helps monitor.
+
+### 5.5 Alerting
+
+`scripts/monitor-health.sh` (root cron, every 5 min, bash + curl only) fetches
+`/api/health`, retries once after 20 s, and mails `BALLPICKER_ALERT_EMAIL`:
+
+- **DOWN** — first failure (HTTP ≠ 200 or `"status" ≠ "ok"`); records the incident start
+- **STILL DOWN** — while it keeps failing, at most once per `BALLPICKER_ALERT_COOLDOWN_MINUTES` (default 60)
+- **RECOVERED** — first success afterwards, with the outage duration
+
+Delivery goes through the app's SMTP (`sudo -u www-data php artisan
+ballspot:send-alert`); if PHP itself is broken it falls back to
+`sendmail`/`mail(1)` when present, otherwise it writes `ALERT NOT DELIVERED`
+to `/var/log/ballpicker-monitor.log`. State lives in
+`/var/lib/ballpicker-monitor/{incident,last_alert,last_ok}`. Mail bodies
+carry the URL, HTTP code, status, failing check names, host and time — never
+a secret or a stack trace.
+
+Overrides (environment of the cron line): `BALLPICKER_HEALTH_URL`,
+`BALLPICKER_ALERT_EMAIL`, `BALLPICKER_ALERT_COOLDOWN_MINUTES`,
+`BALLPICKER_MONITOR_STATE_DIR`, `BALLPICKER_MONITOR_LOG`.
+
+### 5.6 The rate limiter when its cache store breaks
+
+`App\Support\ResilientRateLimiter` (bound for the throttle middleware, the
+`RateLimiter` facade, `AuthAbuseGuard` and `FailedLoginLimiter`):
+
+| stage | what happens | who is affected |
+|---|---|---|
+| store throws | request switches to `BALLPICKER_RATE_LIMIT_FALLBACK_STORE` (default `database`) and retries — **every limit stays enforced**, counters restart once | nobody; `rate_limiter.store_failed` (policy `fallback:database`) is logged, health `cache` turns red |
+| fallback unavailable too, limiter in `fail_closed` (`register`, `email-verify`, `email-resend`, `forgot-password`, `reset-password`, `login`, `login-verify`, `login-resend`, `admin-login`, `account-delete`, `export`) | **503** "temporarily unavailable", nothing sent, nothing created | mail-producing / credential / irreversible flows — they need the database anyway |
+| fallback unavailable too, any other limiter (`api`, `gameplay`, `tournaments`, `share`, `friends`, `uploads`, …) | request allowed unthrottled (`BALLPICKER_RATE_LIMIT_FAIL_OPEN=true`); set it to `false` to 500 instead | gameplay stays playable; XP dedupe and business caps are database-backed |
+
+So email abuse is never unlimited: either the database counter holds, or
+the mail-producing route is closed.
+
+### 5.7 Switching `CACHE_STORE` to `database`
+
+What it needs and what it changes — verify, do not assume:
+
+```bash
+cd /var/www/ballpicker/backend
+sudo -u www-data php artisan migrate:status | grep create_cache_table   # must say Ran (0001_01_01_000001)
+sudo -u www-data php artisan tinker --execute="echo DB::table('cache')->count(), ' / ', DB::table('cache_locks')->count();"
+sudo -u www-data php artisan tinker --execute="foreach (DB::select('SHOW GRANTS FOR CURRENT_USER()') as \$r) echo implode(' ', (array) \$r), PHP_EOL;"
+```
+
+- The migration creates only `cache` and `cache_locks` (`key`, `value`/`owner`,
+  `expiration`); it does not reference any player table. If `migrate:status`
+  shows it pending, `migrate --force` adds the two tables and nothing else.
+- Needed privileges: SELECT, INSERT, UPDATE, DELETE on those two tables — the
+  same CRUD the app already has on `sessions` (`SESSION_DRIVER=database`).
+- Concurrency: `DatabaseStore::increment` runs inside a transaction with
+  `lockForUpdate` (row lock on MariaDB), `add` relies on the primary key, so
+  two simultaneous guesses count as two. `withoutOverlapping()` locks use
+  `cache_locks` (`tests/Feature/DatabaseCacheStoreTest`).
+- The health probe writes/reads/deletes one row and skips the file scan.
+- Growth: one row per distinct limiter key; expired rows are pruned hourly by
+  `ballspot:cleanup-login-codes` (only rows whose expiration passed).
+- Switching resets in-flight rate-limit windows once. `storage/framework/
+  cache/data` stays as it is — unused, not deleted.
 
 ---
 

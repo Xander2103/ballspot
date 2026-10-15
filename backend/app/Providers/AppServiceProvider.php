@@ -11,7 +11,13 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // Same construction as the framework singleton (CacheServiceProvider),
+        // but failing open when the store breaks — see the class.
+        $this->app->extend(\Illuminate\Cache\RateLimiter::class, function ($limiter, $app) {
+            return new \App\Support\ResilientRateLimiter(
+                $app->make('cache')->driver($app['config']->get('cache.limiter'))
+            );
+        });
     }
 
     public function boot(): void

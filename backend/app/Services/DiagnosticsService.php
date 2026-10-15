@@ -49,6 +49,9 @@ class DiagnosticsService
         'pack.start_failed',
     ];
 
+    /** Upper bound on file-cache entries inspected per page load. */
+    private const CACHE_SCAN_LIMIT = 20000;
+
     /** How much of the log file tail to scan for recent errors (bytes). */
     private const LOG_TAIL_BYTES = 512 * 1024;
 
@@ -58,6 +61,8 @@ class DiagnosticsService
     /** @var array<int, array{level: string, section: string, message: string}> */
     private array $warnings = [];
 
+    public function __construct(private HealthCheckService $health) {}
+
     public function snapshot(): array
     {
         $this->warnings = [];
@@ -66,6 +71,7 @@ class DiagnosticsService
 
         $data = [
             'generated_at' => $now,
+            'health'       => $this->healthSummary(),
             'app'          => $this->app($now),
             'log'          => $this->log($now),
             'queue'        => $this->queue($now),
@@ -74,6 +80,7 @@ class DiagnosticsService
             'tournaments'  => $this->tournaments($now),
             'packs'        => $this->packs(),
             'storage'      => $this->storage(),
+            'cache'        => $this->cache(),
             'activity'     => $this->activity($now),
             'abuse'        => $this->abuse($now),
             'prelaunch'    => $this->prelaunch(),
@@ -137,6 +144,9 @@ class DiagnosticsService
             // the file as another user, the web user cannot append and every
             // event is dropped (before 2026-09-07 it was a 500 instead).
             'events_writable'   => is_file($eventsPath) ? is_writable($eventsPath) : is_writable(dirname($eventsPath)),
+            // An unwritable laravel.log means uncaught exceptions (every 500)
+            // leave no trace at all — the log just seems to stop on some date.
+            'writable'          => is_file($path) ? is_writable($path) : is_writable(dirname($path)),
             'errors_24h'        => 0,
             'warnings_24h'      => 0,
             'last_error_at'     => null,
@@ -145,6 +155,10 @@ class DiagnosticsService
 
         if (!$result['events_writable']) {
             $this->warn('danger', 'log', 'Today\'s events log (storage/logs/ballpicker-events-' . $now->toDateString() . '.log) is not writable by the web user — operational events are being dropped and laravel.log shows applog.write_failed. Fix ownership (chown to the web user) and run the scheduler cron as that same user.');
+        }
+
+        if (!$result['writable']) {
+            $this->warn('danger', 'log', 'storage/logs/laravel.log is not writable by the web user — 500 errors are not being recorded, so the newest entries in the file are stale. Fix: chown www-data:www-data storage/logs/laravel.log and run artisan / the scheduler cron as the web user.');
         }
 
         if (!$result['exists']) {
@@ -459,6 +473,52 @@ class DiagnosticsService
             'link_exists'   => $linkExists,
             'directories'   => $dirs,
         ];
+    }
+
+    /**
+     * Same checks as GET /api/health (HealthCheckService), with their reasons.
+     * Scheduler problems are warned here: a stale heartbeat means the cron is
+     * not running; a cron running as another user than php-fpm is the
+     * misconfiguration behind the 2026-10-15 outage.
+     */
+    private function healthSummary(): array
+    {
+        $h = $this->health->run();
+        $s = $h['details']['scheduler'];
+
+        if (!$s['ok']) {
+            if ($s['last_run_at'] === null || $s['age_minutes'] > $s['max_minutes']) {
+                $this->warn('danger', 'scheduler', 'Scheduler heartbeat ' . ($s['last_run_at'] === null ? 'missing' : "is {$s['age_minutes']} minutes old") . ' — the cron is not running. Install (as the web user): * * * * * cd /var/www/ballpicker/backend && php artisan schedule:run');
+            } elseif ($s['user_ok'] === false) {
+                $this->warn('danger', 'scheduler', 'The scheduler cron runs as ' . ($s['ran_as'] ?? 'uid ' . $s['ran_as_uid']) . ', not as the web user ' . ($s['web_user'] ?? 'uid ' . $s['web_uid']) . '. It creates cache directories and log files the web user cannot write (Start Pack 500s, dropped events). Move the schedule:run entry to the web user\'s crontab, then run scripts/fix-permissions.sh.');
+            }
+        }
+
+        return $h;
+    }
+
+    /**
+     * The cache store behind the rate limiter, scanned deeper than the public
+     * health check (details in HealthCheckService::cache).
+     */
+    private function cache(): array
+    {
+        $c = $this->health->cache(self::CACHE_SCAN_LIMIT);
+
+        if (!$c['probe_ok']) {
+            $this->warn('danger', 'cache', "Rate-limiter cache store '{$c['limiter_store']}' ({$c['limiter_driver']}) failed a write/read/delete probe — throttled API routes run unthrottled (BALLPICKER_RATE_LIMIT_FAIL_OPEN) and laravel.log/events show rate_limiter.store_failed. " . ($c['probe_error'] ?? ''));
+        }
+
+        if ($c['limiter_driver'] === 'file') {
+            if (!$c['file_root_writable']) {
+                $this->warn('danger', 'cache', "{$c['file_path']} is not writable by the web user — rate-limit counters cannot be written.");
+            }
+            if ($c['unwritable_count'] > 0) {
+                $this->warn('danger', 'cache', "{$c['unwritable_count']} file-cache entr" . ($c['unwritable_count'] === 1 ? 'y is' : 'ies are') . " not writable by the web user (typically created by artisan or cron running as root). Requests whose rate-limit key hashes there answer 500 — e.g. Start Pack / guesses for some players while the pack list still loads. Fix: chown -R www-data:www-data storage/framework/cache, then run artisan and the scheduler cron as www-data.");
+            }
+        }
+
+        return $c;
     }
 
     /** Counts only — a quick pulse of "is anyone playing / did anything happen". */

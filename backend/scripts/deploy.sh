@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+# =============================================================================
+# BallPicker — production deploy, run as the `deploy` user
+#
+#   /var/www/ballpicker/deploy.sh                 (wrapper → this script)
+#   backend/scripts/deploy.sh                     deploy origin/master
+#   backend/scripts/deploy.sh --ref=<commit>      deploy/roll back to that commit
+#   backend/scripts/deploy.sh --skip-composer     app-code-only hotfix (vendor unchanged)
+#   backend/scripts/deploy.sh --no-maintenance    skip `artisan down/up`
+#
+# The steps mirror the original /var/www/ballpicker/deploy.sh (reviewed
+# 2026-10-15, docs/ops-runbook.md §5.0). Three changes matter:
+#
+#   1. EVERY `php artisan` runs as www-data (sudo -u www-data). The original
+#      ran them as `deploy`, which created deploy-owned, group-unwritable
+#      files and directories under storage/ that php-fpm could not write —
+#      the 2026-09-07 events-log and 2026-10-15 cache/data → Start Pack 500
+#      incidents. The rule has no exceptions: `deploy` never runs PHP.
+#   2. composer runs with --no-scripts and `package:discover` then runs as
+#      www-data (the composer hooks would write bootstrap/cache as deploy).
+#   3. No `optimize:clear` / `cache:clear` — they wipe every rate-limit
+#      counter and scheduler lock. `view:clear` + the three *:cache rebuilds
+#      are what the app needs.
+#
+# Kept as before: maintenance mode, `git reset --hard origin/master`,
+# BadgeSeeder, sprint-badge backfill, queue:restart + supervisor restart,
+# php-fpm + nginx reload, post-deploy curl checks. Added: the ownership repair
+# (scripts/fix-permissions.sh) BEFORE the first artisan call and a permission
+# + health check at the end.
+#
+# Ownership model (§5.1): code and vendor/ belong to `deploy` (world-readable),
+# storage/ and bootstrap/cache/ belong to www-data (dirs 2775, files 664),
+# `deploy` is a member of group www-data, .env is deploy:www-data 640.
+#
+# Never run here, by design: migrate:fresh, db:wipe, db:seed without --class,
+# cache:clear, optimize:clear.
+#
+# Exit codes: 0 deployed and healthy | 1 a step failed (output says which;
+# the app is brought back up before exiting when maintenance mode was on)
+# =============================================================================
+
+set -Eeuo pipefail
+
+APP_ROOT="${BALLPICKER_APP_ROOT:-/var/www/ballpicker}"
+BACKEND="${BALLPICKER_BACKEND_DIR:-$APP_ROOT/backend}"
+BRANCH="${BALLPICKER_BRANCH:-master}"
+WEB_USER="${BALLPICKER_WEB_USER:-www-data}"
+WEB_URL="${BALLPICKER_WEB_URL:-https://ballpicker.vanmalderstudio.be}"
+HEALTH_URL="${BALLPICKER_HEALTH_URL:-$WEB_URL/api/health}"
+FPM_UNIT="${BALLPICKER_FPM_UNIT:-php8.3-fpm}"
+PHP_BIN="${BALLPICKER_PHP:-php}"
+COMPOSER_BIN="${BALLPICKER_COMPOSER:-composer}"
+
+REF=""; SKIP_COMPOSER=0; MAINTENANCE=1
+for arg in "$@"; do
+  case "$arg" in
+    --ref=*) REF="${arg#--ref=}" ;;
+    --skip-composer) SKIP_COMPOSER=1 ;;
+    --no-maintenance) MAINTENANCE=0 ;;
+    *) echo "usage: $0 [--ref=<commit>] [--skip-composer] [--no-maintenance]" >&2; exit 1 ;;
+  esac
+done
+
+step()   { printf '\n==> %s\n' "$*"; }
+as_web() { sudo -u "$WEB_USER" -H "$@"; }
+artisan() { as_web "$PHP_BIN" artisan "$@"; }
+IN_MAINTENANCE=0
+die() {
+  printf 'DEPLOY FAILED: %s\n' "$*" >&2
+  if [[ $IN_MAINTENANCE -eq 1 ]]; then
+    echo "Bringing the app back up (code may be half-deployed — check /admin/diagnostics)." >&2
+    artisan up || true
+  fi
+  exit 1
+}
+
+# Any unexpected failure (set -e) must still lift maintenance mode.
+trap 'die "unexpected error at line $LINENO"' ERR
+
+[[ $EUID -ne 0 ]] || die "run as the deploy user, not root (git/composer must not create root-owned files in the checkout)"
+cd "$BACKEND" 2>/dev/null || die "backend dir not found: $BACKEND"
+[[ -f .env ]] || die ".env missing in $BACKEND"
+id -u "$WEB_USER" >/dev/null 2>&1 || die "no such user: $WEB_USER"
+sudo -v || die "sudo is required (chown, supervisorctl, systemctl, artisan as $WEB_USER)"
+
+echo "=================================================="
+echo " BallPicker deploy — $(date '+%Y-%m-%d %H:%M:%S') on $(hostname)"
+echo " Branch: $BRANCH   Backend: $BACKEND   Web user: $WEB_USER   Running as: $(id -un)"
+echo "=================================================="
+
+step "1. Current version"
+before=$(git rev-parse --short HEAD 2>/dev/null || echo 'not-a-git-checkout')
+echo "$before"; git status --short
+echo "   rollback later with: $0 --ref=$before"
+
+if [[ $MAINTENANCE -eq 1 ]]; then
+  step "2. Maintenance mode on (the monitor treats this as maintenance for 10 min before alerting)"
+  artisan down --retry=30 || true
+  IN_MAINTENANCE=1
+fi
+
+step "3. Code: $( [[ -n "$REF" ]] && echo "reset to $REF" || echo "reset to origin/$BRANCH" )"
+git fetch origin || die "git fetch failed"
+if [[ -n "$REF" ]]; then
+  git reset --hard "$REF" || die "cannot reset to $REF"
+else
+  git reset --hard "origin/$BRANCH" || die "git reset --hard origin/$BRANCH failed"
+fi
+
+if [[ $SKIP_COMPOSER -eq 0 ]]; then
+  step "4. composer install --no-dev --no-scripts (as $(id -un); vendor/ is read-only for $WEB_USER)"
+  "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --no-progress --no-scripts \
+    || die "composer install failed"
+fi
+
+step "5. Ownership: storage/ and bootstrap/cache/ -> $WEB_USER, .env 640 (scripts/fix-permissions.sh)"
+sudo env BALLPICKER_BACKEND_DIR="$BACKEND" BALLPICKER_WEB_USER="$WEB_USER" bash "$BACKEND/scripts/fix-permissions.sh" \
+  || die "fix-permissions.sh failed"
+
+if [[ $SKIP_COMPOSER -eq 0 ]]; then
+  step "6. package:discover (the composer hook, now as $WEB_USER)"
+  artisan package:discover --ansi || die "package:discover failed"
+fi
+
+step "7. Migrations (additive only — never migrate:fresh)"
+artisan migrate --force || die "migrate failed"
+
+step "8. BadgeSeeder (idempotent updateOrCreate)"
+artisan db:seed --class=BadgeSeeder --force || die "BadgeSeeder failed"
+
+step "9. Backfill sprint badges (non-fatal, as before)"
+artisan ballspot:backfill-sprint-badges || true
+
+step "10. Rebuild caches (no optimize:clear — rate-limit counters and locks are kept)"
+artisan view:clear   || die "view:clear failed"
+artisan config:cache || die "config:cache failed"
+artisan route:cache  || die "route:cache failed"
+artisan view:cache   || die "view:cache failed"
+artisan storage:link >/dev/null 2>&1 || true
+
+step "11. Queue worker: graceful restart"
+artisan queue:restart || true
+if command -v supervisorctl >/dev/null 2>&1; then
+  sudo supervisorctl restart all || echo "   supervisorctl restart failed — check: sudo supervisorctl status"
+fi
+
+step "12. Reload services"
+sudo systemctl reload "$FPM_UNIT" || echo "   reload $FPM_UNIT failed — check: systemctl status $FPM_UNIT"
+sudo systemctl reload nginx       || echo "   reload nginx failed — check: systemctl status nginx"
+
+if [[ $IN_MAINTENANCE -eq 1 ]]; then
+  step "13. Maintenance mode off"
+  artisan up || die "artisan up failed — run: sudo -u $WEB_USER php artisan up"
+  IN_MAINTENANCE=0
+fi
+
+step "14. Post-deploy checks"
+echo "Commit: $(git rev-parse HEAD) (was $before)"
+echo "Pending migrations: $(artisan migrate:status | grep -ci pending || true)"
+echo
+echo "Permissions as $WEB_USER:"
+sudo env BALLPICKER_BACKEND_DIR="$BACKEND" BALLPICKER_WEB_USER="$WEB_USER" bash "$BACKEND/scripts/fix-permissions.sh" --check \
+  || die "writable dirs are not fully writable by $WEB_USER after the deploy"
+echo
+echo "Health (php artisan ballspot:health as $WEB_USER):"
+if ! artisan ballspot:health; then
+  echo "   DEGRADED — 'scheduler' stays red until the $WEB_USER cron has run ballspot:heartbeat (≤5 min); anything else: fix before announcing."
+fi
+echo
+echo "Health over HTTP:"
+curl -s -m 15 "$HEALTH_URL" || true
+echo
+echo
+echo "Schedule:"
+artisan schedule:list || true
+echo
+if command -v supervisorctl >/dev/null 2>&1; then echo "Supervisor:"; sudo supervisorctl status || true; echo; fi
+echo "CORS evil origin check. Expected: no output below."
+curl -s -m 15 -D - -o /dev/null "$HEALTH_URL" -H "Origin: https://evil.example.com" | grep -i "access-control-allow-origin" || true
+echo
+echo "CORS good origin check. Expected: Access-Control-Allow-Origin: $WEB_URL"
+curl -s -m 15 -D - -o /dev/null "$HEALTH_URL" -H "Origin: $WEB_URL" | grep -i "access-control-allow-origin" || true
+echo
+echo "Privacy push token check. Expected: > 0"
+curl -s -m 15 "$WEB_URL/privacy" | grep -ci "push token" || true
+
+echo
+echo "=================================================="
+echo " Deploy complete: $(git rev-parse --short HEAD) — now open /admin/diagnostics and clear every red warning"
+echo "=================================================="

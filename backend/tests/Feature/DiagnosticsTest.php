@@ -365,4 +365,55 @@ class DiagnosticsTest extends TestCase
         $this->assertIsBool($snapshot['app']['debug']);
         $this->assertSame(config('ballspot.version'), $snapshot['app']['version']);
     }
+
+    // ------------------------------------------------------------------
+    // Health strip (2026-10-15 incident follow-up)
+    // ------------------------------------------------------------------
+
+    public function test_snapshot_carries_the_health_checks(): void
+    {
+        $snapshot = $this->snapshot();
+
+        $this->assertSame(['database', 'storage', 'cache', 'queue', 'scheduler'], array_keys($snapshot['health']['checks']));
+        $this->assertTrue($snapshot['health']['ok']);
+        $this->assertTrue($snapshot['health']['details']['scheduler']['ok']);
+        $this->assertEmpty(array_filter($snapshot['warnings'], fn ($w) => $w['section'] === 'scheduler'));
+    }
+
+    public function test_page_renders_the_health_strip(): void
+    {
+        $this->actingAs($this->admin())->get('/admin/diagnostics')
+            ->assertOk()
+            ->assertSee('data-section="health"', false)
+            ->assertSee('scheduler: ok')
+            ->assertSee('GET /api/health');
+    }
+
+    public function test_stale_scheduler_heartbeat_is_a_danger_warning_with_the_cron_line(): void
+    {
+        $this->writeSchedulerHeartbeat(time() - 3600);
+
+        $snapshot = $this->snapshot();
+
+        $this->assertFalse($snapshot['health']['checks']['scheduler']);
+        $warnings = array_values(array_filter($snapshot['warnings'], fn ($w) => $w['section'] === 'scheduler'));
+        $this->assertCount(1, $warnings);
+        $this->assertSame('danger', $warnings[0]['level']);
+        $this->assertStringContainsString('schedule:run', $warnings[0]['message']);
+    }
+
+    public function test_scheduler_cron_running_as_another_user_is_a_danger_warning(): void
+    {
+        if (!function_exists('posix_geteuid')) {
+            $this->markTestSkipped('posix extension missing');
+        }
+        $this->writeSchedulerHeartbeat(time(), posix_geteuid() + 1, 'root');
+
+        $snapshot = $this->snapshot();
+
+        $warnings = array_values(array_filter($snapshot['warnings'], fn ($w) => $w['section'] === 'scheduler'));
+        $this->assertCount(1, $warnings);
+        $this->assertStringContainsString('runs as root', $warnings[0]['message']);
+        $this->assertStringContainsString('fix-permissions.sh', $warnings[0]['message']);
+    }
 }

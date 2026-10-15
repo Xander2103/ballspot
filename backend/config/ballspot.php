@@ -474,4 +474,65 @@ return [
         'premium_max_created_per_user'       => (int) env('BALLSPOT_PREMIUM_MAX_CREATED_TOURNAMENTS', 20),
         'premium_max_players_per_tournament' => (int) env('BALLSPOT_PREMIUM_MAX_PLAYERS_PER_TOURNAMENT', 32),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate limiter resilience + monitoring (2026-10-15 incident)
+    |--------------------------------------------------------------------------
+    | Start Pack answered 500 for some players because the rate limiter's file
+    | cache held directories the web user could not write (created by the
+    | scheduler cron running as root). The limiter now fails OPEN when its
+    | store breaks (App\Support\ResilientRateLimiter), and /api/health,
+    | `ballspot:health` and /admin/diagnostics report the store, the scheduler
+    | heartbeat and the user the cron runs as. docs/ops-runbook.md §5.
+    */
+    'rate_limiter' => [
+        // Stage 1 when the limiter's cache store throws: switch the request
+        // to this store and keep every limit enforced (the `cache` table —
+        // 0001_01_01_000001_create_cache_table — needs no file permissions).
+        // Empty, or the same as the primary store, disables the fallback.
+        'fallback_store' => env('BALLPICKER_RATE_LIMIT_FALLBACK_STORE', 'database'),
+
+        // Stage 2, only when the fallback is unavailable too. These named
+        // limiters answer 503 instead of running unprotected: every one of
+        // them sends mail (verification, 2FA, reset), checks a code or
+        // password, or does something irreversible/heavy. Everything else
+        // (gameplay, reads, social, uploads) fails open per `fail_open`.
+        'fail_closed' => [
+            'register', 'email-verify', 'email-resend',
+            'forgot-password', 'reset-password',
+            'login', 'login-verify', 'login-resend',
+            'admin-login', 'account-delete', 'export',
+        ],
+
+        // false = the non-critical limiters fail closed as well (every
+        // throttled route 500s while both stores are broken — the original
+        // behaviour). Default true: let the request through and log
+        // rate_limiter.store_failed; the health check is red either way.
+        'fail_open' => (bool) env('BALLPICKER_RATE_LIMIT_FAIL_OPEN', true),
+    ],
+
+    'monitoring' => [
+        // Where scripts/monitor-health.sh (via ballspot:send-alert) sends
+        // DOWN / STILL DOWN / RECOVERED mails.
+        'alert_email' => env('BALLPICKER_ALERT_EMAIL', 'info@vanmalderstudio.be'),
+
+        // Written by ballspot:heartbeat every five minutes; read by the health
+        // checks. Older than max_minutes = "scheduler not running".
+        'heartbeat_file'                  => storage_path('framework/scheduler-heartbeat.json'),
+        'scheduler_heartbeat_max_minutes' => (int) env('BALLPICKER_SCHEDULER_HEARTBEAT_MAX_MINUTES', 15),
+
+        // The system user php-fpm runs as. The scheduler cron must run as the
+        // same user or it creates files the web user cannot write. Empty =
+        // "the user of the process running the check" (right under php-fpm;
+        // on the CLI run artisan as the web user).
+        'web_user' => env('BALLPICKER_WEB_USER'),
+
+        // A job that failed within this window fails the queue check.
+        'queue_failed_window_hours' => 24,
+
+        // Upper bound on file-cache entries the public health check inspects
+        // per call (the admin page scans deeper).
+        'cache_scan_limit' => 4096,
+    ],
 ];

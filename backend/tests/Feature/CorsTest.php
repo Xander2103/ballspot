@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
@@ -14,6 +15,9 @@ use Tests\TestCase;
  */
 class CorsTest extends TestCase
 {
+    // /api/health now also checks the queue tables, so the schema must exist.
+    use RefreshDatabase;
+
     private function usePatternConfig(): void
     {
         config([
@@ -82,14 +86,26 @@ class CorsTest extends TestCase
      */
     private function loadCorsConfig(string $origins): array
     {
+        // Laravel's env() reads $_SERVER first, and booting copies a local
+        // .env value (e.g. CORS_ALLOWED_ORIGINS=*) there — so override and
+        // restore $_SERVER too, or the test only passes without that key.
+        $hadServer = array_key_exists('CORS_ALLOWED_ORIGINS', $_SERVER);
+        $oldServer = $_SERVER['CORS_ALLOWED_ORIGINS'] ?? null;
+
         putenv("CORS_ALLOWED_ORIGINS={$origins}");
         $_ENV['CORS_ALLOWED_ORIGINS'] = $origins;
+        $_SERVER['CORS_ALLOWED_ORIGINS'] = $origins;
 
         try {
             return require base_path('config/cors.php');
         } finally {
             putenv('CORS_ALLOWED_ORIGINS');
             unset($_ENV['CORS_ALLOWED_ORIGINS']);
+            if ($hadServer) {
+                $_SERVER['CORS_ALLOWED_ORIGINS'] = $oldServer;
+            } else {
+                unset($_SERVER['CORS_ALLOWED_ORIGINS']);
+            }
         }
     }
 }
