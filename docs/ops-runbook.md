@@ -374,47 +374,97 @@ symptoms; see §4 "Start Pack" for the incident detail.
 
 ### 5.2 One-time installation (run once, then only on a new server)
 
+The order matters. The scheduler cron moves to www-data **before** the first
+deploy with the new script, so that deploy already runs next to a correct
+cron and the only thing it can report is the heartbeat that does not exist
+yet (tolerated, §5.3). Nothing below changes the running app until the deploy
+itself (step 9): steps 0–8 only read, back up, fetch the scripts, repair
+ownership (php-fpm gains write access, loses nothing) and edit files that are
+not read until the deploy re-caches the config.
+
+As `deploy`, one command at a time; stop at the first surprise.
+
 ```bash
-cd /var/www/ballpicker/backend
-
-# 0. deploy joins group www-data (new shells only — log out/in once)
-sudo usermod -aG www-data deploy
-
-# 1. Ownership and modes of the writable dirs (idempotent, touches no data)
-sudo scripts/fix-permissions.sh
-sudo scripts/fix-permissions.sh --check          # exit 0 = good
-
-# 2. .env — add/confirm, then re-cache as the web user
-#    CACHE_STORE=database            # strongly recommended: rate-limit counters in MySQL,
-#                                    # no per-directory ownership to get wrong (the `cache`
-#                                    # table exists; 0001_01_01_000001_create_cache_table)
-#    BALLPICKER_WEB_USER=www-data
-#    BALLPICKER_ALERT_EMAIL=info@vanmalderstudio.be
-#    BALLPICKER_RATE_LIMIT_FALLBACK_STORE=database   # default (§5.6)
-#    BALLPICKER_RATE_LIMIT_FAIL_OPEN=true            # default (§5.6)
-sudo -u www-data php artisan config:cache
-
-# 3. Scheduler cron — in WWW-DATA's crontab only. First find where it is today:
+# 0. Facts first (read-only). The current commit is the rollback target — write it down.
+cd /var/www/ballpicker && git rev-parse --short HEAD && git status --short
 sudo crontab -l 2>/dev/null | grep -n schedule:run ; crontab -l 2>/dev/null | grep -n schedule:run ; sudo crontab -u www-data -l 2>/dev/null
+grep -n 'user=\|command=' /etc/supervisor/conf.d/*.conf                 # user=www-data wanted
+ps -o user= -C php-fpm8.3 | sort -u                                      # www-data
+sudo -u www-data php /var/www/ballpicker/backend/artisan migrate:status | grep create_cache_table   # Ran = the `cache` table exists
+sudo -u www-data php /var/www/ballpicker/backend/artisan tinker --execute="foreach (DB::select('SHOW GRANTS FOR CURRENT_USER()') as \$r) echo implode(' ', (array) \$r), PHP_EOL;"
+
+# 1. Back up the old entry point, outside the checkout. Never run it again: it ran artisan as deploy.
+sudo mkdir -p /var/backups/ballpicker && sudo cp -a /var/www/ballpicker/deploy.sh /var/backups/ballpicker/deploy.sh.$(date +%F) && ls -l /var/backups/ballpicker/
+
+# 2. Fetch ONLY the scripts. The rest of the code stays as deployed; step 9 does the real reset.
+cd /var/www/ballpicker && git fetch origin && git checkout origin/master -- backend/scripts && ls -l backend/scripts/
+bash -n backend/scripts/deploy.sh && bash -n backend/scripts/fix-permissions.sh && bash -n backend/scripts/deploy-wrapper.sh && echo syntax-ok
+
+# 3. deploy joins group www-data (new shells only — log out, log in, then check)
+sudo usermod -aG www-data deploy
+id -nG | tr ' ' '\n' | grep -x www-data
+
+# 4. Ownership and modes of the writable dirs (idempotent, touches no data)
+cd /var/www/ballpicker/backend && sudo bash scripts/fix-permissions.sh && sudo bash scripts/fix-permissions.sh --check
+
+# 5. Scheduler cron — in WWW-DATA's crontab only; keep the php path the old line used
 sudo crontab -u www-data -e
 #   * * * * * cd /var/www/ballpicker/backend && php artisan schedule:run >> /dev/null 2>&1
-# then remove the schedule:run line from root's and deploy's crontab (crontab -e / sudo crontab -e)
+#   then remove the schedule:run line where step 0 found it:   sudo crontab -e   and/or   crontab -e
+sudo journalctl -u cron --since "-3min" --no-pager | grep -c '(www-data) CMD'    # ≥1 after a minute; 0 = not active yet
 
-# 3b. Supervisor queue program must run as www-data
-grep -n 'user=\|command=' /etc/supervisor/conf.d/*.conf      # user=www-data; else edit, then: sudo supervisorctl reread && sudo supervisorctl update
+# 6. Supervisor queue program must run as www-data (skip when step 0 showed user=www-data)
+#    edit /etc/supervisor/conf.d/<program>.conf → user=www-data, then:
+sudo supervisorctl reread && sudo supervisorctl update
 
-# 4. Independent monitor + backup — in ROOT's crontab (they must not depend on PHP)
+# 7. .env — add these lines. Nothing reads them until the deploy runs config:cache.
+#    CACHE_STORE=database                     # rate-limit counters and scheduler locks in MySQL — no
+#                                             # per-directory ownership to get wrong (`cache` table, step 0)
+#    BALLPICKER_WEB_USER=www-data
+#    BALLPICKER_ALERT_EMAIL=info@vanmalderstudio.be
+#    (defaults, only if you want them explicit: BALLPICKER_RATE_LIMIT_FALLBACK_STORE=database, BALLPICKER_RATE_LIMIT_FAIL_OPEN=true)
+nano /var/www/ballpicker/backend/.env
+
+# 8. Entry point: install the wrapper from the repo (root-owned, untracked) and prove the hand-over without deploying
+sudo install -m 0755 /var/www/ballpicker/backend/scripts/deploy-wrapper.sh /var/www/ballpicker/deploy.sh
+/var/www/ballpicker/deploy.sh --help
+
+# 9. First deploy with the new script (1–2 min maintenance). Expected: "Deploy complete", exit 0, and in the
+#    health table only "scheduler  FAIL" followed by "Only the scheduler heartbeat is missing or stale".
+cd /var/www/ballpicker && ./deploy.sh; echo "exit $?"
+
+# 10. ≤5 min later the www-data cron has written the heartbeat
+cat /var/www/ballpicker/backend/storage/framework/scheduler-heartbeat.json       # "user": "www-data", recent "at"
+sudo -u www-data php /var/www/ballpicker/backend/artisan ballspot:health          # Status: ok
+curl -s https://ballpicker.vanmalderstudio.be/api/health                           # "status":"ok"
+
+# 11. Independent monitor + backup — in ROOT's crontab, only now (earlier it would have alerted on the expected 503s)
 sudo mkdir -p /var/lib/ballpicker-monitor && sudo touch /var/log/ballpicker-monitor.log
 sudo crontab -e
 #   */5 * * * * /var/www/ballpicker/backend/scripts/monitor-health.sh
 #   15 3 * * *  /var/www/ballpicker/backend/scripts/backup-mysql.sh      # see docs/db-backup-runbook.md
+sudo /var/www/ballpicker/backend/scripts/monitor-health.sh; echo "exit $?"        # 0
+sudo -u www-data php /var/www/ballpicker/backend/artisan ballspot:send-alert --subject="[BallPicker] test alert" --body="monitoring installed on $(hostname)"
 
-# 5. Prove it
-sudo -u www-data php artisan ballspot:health         # all ok after the first heartbeat (≤5 min)
-curl -s https://ballpicker.vanmalderstudio.be/api/health
-sudo /var/www/ballpicker/backend/scripts/monitor-health.sh; echo "exit $?"
-sudo -u www-data php artisan ballspot:send-alert --subject="[BallPicker] test alert" --body="monitoring installed on $(hostname)"
+# 12. Smoke test in the app (Start Pack, a pack guess, a daily guess); /admin/diagnostics without red warnings
 ```
+
+**If step 9 ends with exit 1.** The script has already lifted maintenance
+mode; the code may be half-deployed. Read the `DEPLOY FAILED:` line, then
+`cd /var/www/ballpicker && ./deploy.sh --ref=<commit from step 0>`. That
+completes even though the old commit has no `backend/scripts/` (the script
+copies `fix-permissions.sh` aside before the reset). Afterwards the wrapper
+refuses to start until `git checkout origin/master -- backend/scripts` has
+been run again (it prints that command). The `.env` lines from step 7 can
+stay: older code ignores the `BALLPICKER_*` keys and `CACHE_STORE=database`
+works with it (the table exists). No migration was added, so the database
+needs nothing. Restoring `/var/backups/ballpicker/deploy.sh.<date>` is the
+last resort only; after running it, run `sudo bash scripts/fix-permissions.sh`
+because it leaves deploy-owned files behind.
+
+**If step 9 ends with exit 2.** The app is up and on the new code; one of the
+post-deploy checks failed and the output names it (`PROBLEM —`). Fix it, do
+not roll back.
 
 Switching `CACHE_STORE` from `file` to `database` resets in-memory
 rate-limit windows once (counters start fresh in the table); nothing else is
@@ -424,41 +474,63 @@ longer used.
 ### 5.3 Every deploy
 
 ```bash
-# /var/www/ballpicker/deploy.sh — replace its content with this wrapper once:
-#!/usr/bin/env bash
-exec bash /var/www/ballpicker/backend/scripts/deploy.sh "$@"
-```
-
-```bash
 cd /var/www/ballpicker && ./deploy.sh                      # as deploy; sudo asks once
 ./deploy.sh --skip-composer                                # app-code-only hotfix
 ./deploy.sh --ref=<commit>                                 # pinned deploy / rollback
 ./deploy.sh --no-maintenance                               # skip artisan down/up
+./deploy.sh --help
 ```
 
-`backend/scripts/deploy.sh` keeps the original 14 steps: maintenance on →
-`git reset --hard origin/master` (or `--ref`) → `composer install --no-dev
---no-scripts` (as deploy) → `fix-permissions.sh` → `package:discover`,
-`migrate --force`, `BadgeSeeder`, sprint-badge backfill, `view:clear` +
-`config/route/view:cache`, `storage:link` (all as www-data) → `queue:restart`
-+ `supervisorctl restart all` → reload php-fpm + nginx → maintenance off →
-checks (`fix-permissions.sh --check`, `ballspot:health`, HTTP health,
-schedule, supervisor, CORS, privacy page). It stops at the first failing
-step, brings the app back up first, and never runs `migrate:fresh`, the full
-`db:seed`, `cache:clear` or `optimize:clear`.
+`/var/www/ballpicker/deploy.sh` is the installed copy of
+`backend/scripts/deploy-wrapper.sh` (§5.2 step 8): root-owned, not tracked,
+so `git reset --hard` never touches it. It refuses to start when
+`backend/scripts/deploy.sh` or `fix-permissions.sh` is missing or not
+executable, or when the deploy script does not parse, and otherwise hands
+over to `backend/scripts/deploy.sh`, which keeps the original 14 steps:
+maintenance on → `git reset --hard origin/master` (or `--ref`) →
+`composer install --no-dev --no-scripts` (as deploy) → `fix-permissions.sh`
+→ `package:discover`, `migrate --force`, `BadgeSeeder`, sprint-badge
+backfill, `view:clear` + `config/route/view:cache`, `storage:link` (all as
+www-data) → `queue:restart` + `supervisorctl restart all` → reload php-fpm +
+nginx → maintenance off → checks (`fix-permissions.sh --check`,
+`ballspot:health`, HTTP health, schedule, supervisor, CORS, privacy page).
+It never runs `migrate:fresh`, the full `db:seed`, `cache:clear` or
+`optimize:clear`.
+
+**Exit codes.**
+
+| exit | meaning | what to do |
+|---|---|---|
+| 0 | deployed, every check passed. A scheduler heartbeat that is missing or stale right after the deploy is tolerated and announced as such (the www-data cron writes it within 5 min) | open `/admin/diagnostics`, clear red warnings, re-run `ballspot:health` in 5 min |
+| 1 | a deploy step failed; the app has been brought back up; the code may be half-deployed | read `DEPLOY FAILED:`, then `./deploy.sh --ref=<previous commit>` |
+| 2 | deployed and up, but a post-deploy check failed (permissions, or a health check other than the heartbeat); the output has a `PROBLEM —` line with the repair | fix it; do not roll back |
+
+**Maintenance mode is always lifted.** The script turns it off in step 13;
+on a failed step, on Ctrl-C or a dropped terminal, and on any unexpected
+error the EXIT trap runs `artisan up`, and if that fails too it removes
+`storage/framework/down` and `maintenance.php` directly (that is all
+maintenance mode is). Only `kill -9` can leave the app down — then run
+`sudo -u www-data php artisan up`, or `sudo rm -f
+storage/framework/down storage/framework/maintenance.php`. Run a deploy over
+a stable connection; `tests/Feature/DeployScriptTest.php` exercises every
+one of these exit paths against shims.
 
 Then open `/admin/diagnostics` and clear every red warning before announcing
 the build. Set `BALLPICKER_APP_VERSION` in `.env` so the admin header and the
 diagnostics page show the release you actually deployed.
 
-**Rollback.** The script prints `rollback later with: … --ref=<commit>` at
-the start of every run. `--ref` does `git reset --hard <commit>` and re-runs
+**Rollback.** Step 1 prints `rollback later with: /var/www/ballpicker/deploy.sh
+--ref=<commit>`. `--ref` does `git reset --hard <commit>` and re-runs
 composer, permissions, caches and the checks; the next plain run returns to
-`origin/master`. Migrations are
-never rolled back automatically: every migration in this project is
-additive, and the monitoring release adds **no** migration at all, so code
-rollback is always safe. The `.env` keys added for monitoring are ignored
-by older code; `CACHE_STORE=database` can stay.
+`origin/master`. The whole script is parsed before it runs and
+`fix-permissions.sh` is copied aside first, so a rollback to a commit that
+predates `backend/scripts/` completes too; afterwards the wrapper refuses
+the next run until `git checkout origin/master -- backend/scripts` (it
+prints that). Migrations are never rolled back automatically: every
+migration in this project is additive, and the monitoring release adds
+**no** migration at all, so code rollback is always safe. The `.env` keys
+added for monitoring are ignored by older code; `CACHE_STORE=database` can
+stay.
 
 **Downtime.** The script keeps the original maintenance window
 (`artisan down --retry=30` … `up`): the app answers 503 for the length of
