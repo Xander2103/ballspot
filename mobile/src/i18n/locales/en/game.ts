@@ -35,6 +35,7 @@ export const game = {
     closeFullscreenA11y: 'Close fullscreen image',
     tapToPlace: 'Tap the image to place your guess',
     tapToAdjust: 'Tap again to adjust your guess',
+    pinchToZoom: 'Pinch to zoom, drag to pan',
   },
   guess: {
     instruction: 'Tap the image to place the missing ball.',

@@ -403,6 +403,7 @@ export const fr: Translations = {
       closeFullscreenA11y: "Fermer l'image plein écran",
       tapToPlace: "Touche l'image pour placer ton essai",
       tapToAdjust: 'Touche à nouveau pour ajuster ton essai',
+      pinchToZoom: 'Pince pour zoomer, glisse pour déplacer',
     },
     guess: {
       instruction: "Touche l'image pour placer le ballon manquant.",

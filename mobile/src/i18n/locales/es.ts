@@ -409,6 +409,7 @@ export const es: Translations = {
       closeFullscreenA11y: 'Cerrar la imagen a pantalla completa',
       tapToPlace: 'Toca la imagen para colocar tu intento',
       tapToAdjust: 'Toca de nuevo para ajustar tu intento',
+      pinchToZoom: 'Pellizca para hacer zoom, arrastra para mover',
     },
     guess: {
       instruction: 'Toca la imagen para colocar el balón que falta.',

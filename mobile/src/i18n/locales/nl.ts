@@ -409,6 +409,7 @@ export const nl: Translations = {
       closeFullscreenA11y: 'Volledig scherm sluiten',
       tapToPlace: 'Tik op de afbeelding om je gok te plaatsen',
       tapToAdjust: 'Tik opnieuw om je gok aan te passen',
+      pinchToZoom: 'Knijp om te zoomen, sleep om te verschuiven',
     },
     guess: {
       instruction: 'Tik op de afbeelding om de ontbrekende bal te plaatsen.',

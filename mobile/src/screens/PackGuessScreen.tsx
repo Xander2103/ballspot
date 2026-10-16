@@ -131,6 +131,8 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const step = attempt.completed_count + 1; // 1-indexed current step
   const total = attempt.total_challenges;
   const isFinal = step >= total;
+  // One label for both submit buttons (footer and fullscreen viewer).
+  const submitTitle = isFinal ? t('packs.guess.submitFinal') : t('packs.guess.submit');
 
   return (
     // scroll: a portrait image (height = width / aspect) can overflow small
@@ -167,7 +169,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         <AppButton
-          title={isFinal ? t('packs.guess.submitFinal') : t('packs.guess.submit')}
+          title={submitTitle}
           onPress={handleSubmit}
           loading={submitting}
           disabled={!hasGuess || submitting}
@@ -182,6 +184,10 @@ export function PackGuessScreen({ route, navigation }: Props) {
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
         onSelectPoint={handleGuess}
         sportSlug={challenge.sport?.slug}
+        onSubmit={handleSubmit}
+        submitTitle={submitTitle}
+        submitting={submitting}
+        submitError={error}
       />
     </Screen>
   );

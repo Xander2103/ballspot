@@ -409,6 +409,7 @@ export const de: Translations = {
       closeFullscreenA11y: 'Vollbild schließen',
       tapToPlace: 'Tippe auf das Bild, um deinen Tipp zu setzen',
       tapToAdjust: 'Tippe erneut, um deinen Tipp anzupassen',
+      pinchToZoom: 'Zum Zoomen zusammenziehen, zum Verschieben ziehen',
     },
     guess: {
       instruction: 'Tippe auf das Bild, um den fehlenden Ball zu platzieren.',

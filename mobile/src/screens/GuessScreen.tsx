@@ -158,6 +158,8 @@ export function GuessScreen({ route, navigation }: Props) {
   const guessLabel = hasGuess
     ? t('game.guess.locked', { x: Math.round(guessX! * 100), y: Math.round(guessY! * 100) })
     : t('game.image.tapToPlace');
+  // One label for both submit buttons (footer and fullscreen viewer).
+  const submitTitle = t('game.buttons.submitGuess');
 
   const roundContextSuffix = progress
     ? progress.remaining === 1
@@ -230,7 +232,7 @@ export function GuessScreen({ route, navigation }: Props) {
         </View>
         {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
         <AppButton
-          title={t('game.buttons.submitGuess')}
+          title={submitTitle}
           onPress={handleSubmit}
           loading={submitting}
           disabled={!hasGuess}
@@ -245,6 +247,10 @@ export function GuessScreen({ route, navigation }: Props) {
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
         onSelectPoint={handleGuess}
         sportSlug={round.challenge.sport?.slug}
+        onSubmit={handleSubmit}
+        submitTitle={submitTitle}
+        submitting={submitting}
+        submitError={submitError}
       />
     </Screen>
   );

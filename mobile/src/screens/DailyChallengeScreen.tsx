@@ -138,6 +138,8 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   const guessLabel = hasGuess
     ? t('game.guess.locked', { x: Math.round(guessX! * 100), y: Math.round(guessY! * 100) })
     : t('game.image.tapToPlace');
+  // One label for both submit buttons (footer and fullscreen viewer).
+  const submitTitle = t('game.buttons.submitGuess');
 
   return (
     // scroll: a portrait image (height = width / aspect) can overflow small
@@ -200,7 +202,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
           </Text>
         </View>
         {submitError ? <Text style={styles.submitError}>{submitError}</Text> : null}
-        <AppButton title={t('game.buttons.submitGuess')} onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
+        <AppButton title={submitTitle} onPress={handleSubmit} loading={submitting} disabled={!hasGuess || submitting} />
       </View>
 
       <FullscreenImageViewer
@@ -211,6 +213,10 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
         onSelectPoint={handleGuess}
         sportSlug={challenge.challenge.sport?.slug}
+        onSubmit={handleSubmit}
+        submitTitle={submitTitle}
+        submitting={submitting}
+        submitError={submitError}
       />
     </Screen>
   );
