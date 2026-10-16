@@ -384,6 +384,16 @@ not read until the deploy re-caches the config.
 
 As `deploy`, one command at a time; stop at the first surprise.
 
+About step 0's `git status --short`: apart from `?? deploy.sh` it should be
+empty. A ` M` line is a local edit of a tracked file; step 2 overwrites such
+edits inside `backend/scripts/` (today only `backup-mysql.sh` lives there)
+and the deploy's `git reset --hard` discards them everywhere else, exactly as
+the old script did on every run. Commit anything that must survive before
+step 2. Untracked files (`deploy.sh`, `backend/.env`, `storage/`) are never
+touched by either command, and the files step 2 stages are byte-identical to
+what the reset installs, so the index ends up clean (verified in a throwaway
+clone, 2026-10-16).
+
 ```bash
 # 0. Facts first (read-only). The current commit is the rollback target — write it down.
 cd /var/www/ballpicker && git rev-parse --short HEAD && git status --short
@@ -504,6 +514,23 @@ It never runs `migrate:fresh`, the full `db:seed`, `cache:clear` or
 | 0 | deployed, every check passed. A scheduler heartbeat that is missing or stale right after the deploy is tolerated and announced as such (the www-data cron writes it within 5 min) | open `/admin/diagnostics`, clear red warnings, re-run `ballspot:health` in 5 min |
 | 1 | a deploy step failed; the app has been brought back up; the code may be half-deployed | read `DEPLOY FAILED:`, then `./deploy.sh --ref=<previous commit>` |
 | 2 | deployed and up, but a post-deploy check failed (permissions, or a health check other than the heartbeat); the output has a `PROBLEM —` line with the repair | fix it; do not roll back |
+
+**After exit 1 — forward or back?** Exit 1 is never a rollback: the script
+reverts nothing, it only lifts maintenance mode, so the app is live on
+whatever the failed step left behind. The last lines of the output say
+exactly what that is (`STATE: …`), followed by the two ways out. Decide
+within minutes:
+
+| `STATE:` says | cause | do |
+|---|---|---|
+| `nothing changed — the code is still <old>` | fetch, sudo, `.env`, a preflight check | fix the cause, run `./deploy.sh` again; nothing to roll back |
+| anything else, cause outside the code (network during `composer`/`fetch`, sudo timed out, a reload failed, disk full) | transient | fix it, run `./deploy.sh` again (every step is idempotent) |
+| anything else, cause in the new code or data (`migrate` failed, `package:discover`/`config:cache`/`BadgeSeeder` threw, or the deploy completed and the app is broken) | the release | `./deploy.sh --ref=<previous commit>` (printed in step 1), investigate locally, deploy forward later |
+
+`--ref` is the only correct rollback: it re-runs composer, permissions,
+caches and the service reloads for the old commit. A hand-typed `git reset`
+leaves `bootstrap/cache/config.php` and `routes-v7.php` from the new code
+behind. Never roll back on exit 2 or on a `scheduler FAIL` alone.
 
 **Maintenance mode is always lifted.** The script turns it off in step 13;
 on a failed step, on Ctrl-C or a dropped terminal, and on any unexpected

@@ -77,6 +77,7 @@ case "${args[*]}" in
   *fix-permissions.sh*--check*) echo "fix-permissions --check (${args[1]})"; exit "${SHIM_FIXCHECK_EXIT:-0}" ;;
   *fix-permissions.sh*)         echo "fix-permissions repair (${args[1]})"; exit "${SHIM_FIXPERM_EXIT:-0}" ;;
 esac
+[[ "${args[0]}" == "rm" && -n "${SHIM_RM_EXIT:-}" ]] && exit "$SHIM_RM_EXIT"
 exec "${args[@]}"
 SH,
             // php artisan <command>: maintenance flag files, health, list
@@ -187,10 +188,50 @@ SH,
         $this->assertSame(1, $r->exitCode());
         $this->assertStringContainsString('DEPLOY FAILED: composer install failed', $r->errorOutput());
         $this->assertStringContainsString('Bringing the app back up', $r->errorOutput());
-        $this->assertStringContainsString('rollback: ' . $this->root . '/deploy.sh --ref=abc1234', $r->errorOutput());
+        // the operator must see that nothing was reverted, and both ways out
+        $this->assertStringContainsString('STATE: code is abc1234 (was abc1234); vendor/, permissions and the config/route/view caches are still those of abc1234', $r->errorOutput());
+        $this->assertStringContainsString('This is NOT a rollback', $r->errorOutput());
+        $this->assertStringContainsString('deploy forward (idempotent):   ' . $this->root . '/deploy.sh', $r->errorOutput());
+        $this->assertStringContainsString('roll back to the old commit:   ' . $this->root . '/deploy.sh --ref=abc1234', $r->errorOutput());
         $this->assertAppIsUp();
         $this->assertStringContainsString('artisan up', $this->calls());
         $this->assertStringNotContainsString('artisan migrate', $this->calls(), 'steps after the failure must not run');
+    }
+
+    public function test_a_failure_before_the_code_changed_says_there_is_nothing_to_roll_back(): void
+    {
+        $r = $this->deploy(['SHIM_GIT_FETCH_EXIT' => 1]);
+
+        $this->assertSame(1, $r->exitCode());
+        $this->assertStringContainsString('DEPLOY FAILED: git fetch failed', $r->errorOutput());
+        $this->assertStringContainsString('STATE: nothing changed — the code is still abc1234', $r->errorOutput());
+        $this->assertStringContainsString('Nothing to roll back. Fix the cause, then run again:  ' . $this->root . '/deploy.sh', $r->errorOutput());
+        $this->assertStringNotContainsString('NOT a rollback', $r->errorOutput());
+        $this->assertAppIsUp();
+        $this->assertStringNotContainsString('git reset', $this->calls());
+    }
+
+    public function test_a_failing_artisan_up_at_step_13_falls_back_to_the_flag_files_and_the_deploy_completes(): void
+    {
+        $r = $this->deploy(['SHIM_UP_EXIT' => 1]);
+
+        $this->assertSame(0, $r->exitCode(), $r->output() . $r->errorOutput());
+        $this->assertStringContainsString('removing the maintenance flag files directly', $r->errorOutput());
+        $this->assertStringContainsString('Deploy complete', $r->output());
+        $this->assertStringNotContainsString('STATE:', $r->errorOutput());
+        $this->assertAppIsUp();
+    }
+
+    public function test_when_maintenance_cannot_be_lifted_at_all_the_manual_command_and_the_stage_are_printed(): void
+    {
+        // artisan up fails AND the direct removal fails: the one case the script cannot fix itself
+        $r = $this->deploy(['SHIM_UP_EXIT' => 1, 'SHIM_RM_EXIT' => 1]);
+
+        $this->assertSame(1, $r->exitCode());
+        $this->assertStringContainsString('DEPLOY FAILED: could not lift maintenance mode', $r->errorOutput());
+        $this->assertStringContainsString('COULD NOT LIFT MAINTENANCE MODE — run now: sudo rm -f ' . $this->backend . '/storage/framework/down', $r->errorOutput());
+        $this->assertStringContainsString('STATE: fully deployed: abc1234', $r->errorOutput());
+        $this->assertFileExists($this->backend . '/storage/framework/down', 'honest: the flag is still there');
     }
 
     public function test_when_artisan_up_itself_fails_the_flag_files_are_removed_directly(): void
@@ -210,6 +251,7 @@ SH,
 
         $this->assertSame(130, $r->exitCode(), $r->output() . $r->errorOutput());
         $this->assertStringContainsString('DEPLOY INTERRUPTED', $r->errorOutput());
+        $this->assertStringContainsString('This is NOT a rollback', $r->errorOutput());
         $this->assertAppIsUp();
         $this->assertStringNotContainsString('artisan migrate', $this->calls());
     }
@@ -243,6 +285,7 @@ SH,
         $this->assertStringContainsString('PROBLEM — failing checks: cache,scheduler', $r->output());
         $this->assertStringContainsString('the app is UP, but 1 post-deploy check(s) failed', $r->output());
         $this->assertStringNotContainsString('DEPLOY FAILED', $r->errorOutput());
+        $this->assertStringNotContainsString('NOT a rollback', $r->errorOutput(), 'exit 2 is a complete deploy — no rollback advice');
         $this->assertAppIsUp();
     }
 
@@ -288,6 +331,7 @@ SH,
 
         $bad = $this->deploy([], ['--nope']);
         $this->assertSame(1, $bad->exitCode());
+        $this->assertStringNotContainsString('STATE:', $bad->errorOutput(), 'no rollback advice before anything started');
 
         $this->assertSame('', $this->calls(), 'no git/composer/artisan call may happen');
     }

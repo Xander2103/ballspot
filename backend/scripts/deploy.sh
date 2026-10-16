@@ -51,8 +51,11 @@
 #   0  deployed and every check passed. A scheduler heartbeat that is missing
 #      or stale right after the deploy is tolerated (the www-data cron writes
 #      it within 5 minutes) — step 14 says so explicitly.
-#   1  a deploy step failed. The app was brought back up; the code may be
-#      half-deployed — read the DEPLOY FAILED line, then roll back with --ref.
+#   1  a deploy step failed. The app was brought back up and is LIVE ON
+#      WHATEVER THE FAILED STEP LEFT (the STATE: line says exactly what). The
+#      script never reverts anything itself — this is not a rollback. Read
+#      DEPLOY FAILED + STATE, then either run again (forward, idempotent) or
+#      roll back with --ref=<previous commit>; docs/ops-runbook.md §5.3.
 #   2  deployed and up, but a post-deploy check failed (permissions, or a
 #      health check other than the heartbeat). Fix before announcing.
 # =============================================================================
@@ -71,7 +74,7 @@ COMPOSER_BIN="${BALLPICKER_COMPOSER:-composer}"
 ENTRY="${BALLPICKER_DEPLOY_ENTRY:-$APP_ROOT/deploy.sh}"   # what to type for a rollback (the wrapper sets it)
 
 REF=""; SKIP_COMPOSER=0; MAINTENANCE=1
-IN_MAINTENANCE=0; SNAP=""; BEFORE="unknown"; POST_PROBLEMS=0
+IN_MAINTENANCE=0; SNAP=""; BEFORE="unknown"; NEW=""; STAGE=0; STARTED=0; POST_PROBLEMS=0
 HEALTH_CHECKS="database|storage|cache|queue|scheduler"
 
 usage() {
@@ -102,14 +105,38 @@ lift_maintenance() {
   return 1
 }
 
+# What the server is left with when a step fails (STAGE advances as steps succeed).
+state_text() {
+  case $STAGE in
+    0) echo "nothing changed — the code is still $BEFORE" ;;
+    1) echo "code is $NEW (was $BEFORE); vendor/, permissions and the config/route/view caches are still those of $BEFORE" ;;
+    2) echo "code and vendor/ are $NEW; permissions and the config/route/view caches are still those of $BEFORE" ;;
+    3) echo "code, vendor/ and permissions are $NEW; migrations not run; config/route/view caches are still those of $BEFORE" ;;
+    4) echo "code, vendor/, permissions and migrations are $NEW; config/route/view caches are still those of $BEFORE" ;;
+    5) echo "code, vendor/, migrations and caches are $NEW; queue worker, php-fpm and nginx are not reloaded yet" ;;
+    *) echo "fully deployed: $NEW" ;;
+  esac
+}
+
 # Runs on every exit: normal end, die(), set -e, Ctrl-C, lost terminal.
 cleanup() {
   local rc=$?
   trap - ERR INT TERM HUP
   set +e
   if [[ $IN_MAINTENANCE -eq 1 ]]; then
-    echo "Bringing the app back up before exiting (code may be half-deployed — check /admin/diagnostics; rollback: $ENTRY --ref=$BEFORE)" >&2
+    echo "Bringing the app back up before exiting." >&2
     lift_maintenance
+  fi
+  if [[ $STARTED -eq 1 && $rc -ne 0 && $rc -ne 2 ]]; then
+    echo >&2
+    echo "STATE: $(state_text)" >&2
+    if [[ $STAGE -eq 0 ]]; then
+      echo "Nothing to roll back. Fix the cause, then run again:  $ENTRY" >&2
+    else
+      echo "This is NOT a rollback — nothing was reverted, and the app is live on that mixed state. Within minutes, do one of:" >&2
+      echo "  deploy forward (idempotent):   $ENTRY" >&2
+      echo "  roll back to the old commit:   $ENTRY --ref=$BEFORE" >&2
+    fi
   fi
   [[ -n "$SNAP" ]] && rm -rf "$SNAP"
   exit "$rc"
@@ -137,6 +164,7 @@ main() {
   [[ -f .env ]] || die ".env missing in $BACKEND"
   id -u "$WEB_USER" >/dev/null 2>&1 || die "no such user: $WEB_USER"
   sudo -v || die "sudo is required (chown, supervisorctl, systemctl, artisan as $WEB_USER)"
+  STARTED=1
 
   # Keep a copy of fix-permissions.sh: step 3 may reset to a commit without scripts/ (rollback).
   SNAP=$(mktemp -d "${TMPDIR:-/tmp}/ballpicker-deploy.XXXXXX") || die "mktemp failed"
@@ -160,17 +188,20 @@ main() {
 
   step "3. Code: $( [[ -n "$REF" ]] && echo "reset to $REF" || echo "reset to origin/$BRANCH" )"
   git fetch origin || die "git fetch failed"
+  NEW="${REF:-origin/$BRANCH} (the reset itself failed — check: git -C $BACKEND status)"; STAGE=1
   if [[ -n "$REF" ]]; then
     git reset --hard "$REF" || die "cannot reset to $REF"
   else
     git reset --hard "origin/$BRANCH" || die "git reset --hard origin/$BRANCH failed"
   fi
+  NEW=$(git rev-parse --short HEAD 2>/dev/null || echo "${REF:-origin/$BRANCH}")
 
   if [[ $SKIP_COMPOSER -eq 0 ]]; then
     step "4. composer install --no-dev --no-scripts (as $(id -un); vendor/ is read-only for $WEB_USER)"
     "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --no-progress --no-scripts \
       || die "composer install failed"
   fi
+  STAGE=2
 
   step "5. Ownership: storage/ and bootstrap/cache/ -> $WEB_USER, .env 640 (scripts/fix-permissions.sh)"
   fix_perms="$BACKEND/scripts/fix-permissions.sh"
@@ -181,6 +212,7 @@ main() {
   fi
   sudo env BALLPICKER_BACKEND_DIR="$BACKEND" BALLPICKER_WEB_USER="$WEB_USER" bash "$fix_perms" \
     || die "fix-permissions.sh failed"
+  STAGE=3
 
   if [[ $SKIP_COMPOSER -eq 0 ]]; then
     step "6. package:discover (the composer hook, now as $WEB_USER)"
@@ -189,6 +221,7 @@ main() {
 
   step "7. Migrations (additive only — never migrate:fresh)"
   artisan migrate --force || die "migrate failed"
+  STAGE=4
 
   step "8. BadgeSeeder (idempotent updateOrCreate)"
   artisan db:seed --class=BadgeSeeder --force || die "BadgeSeeder failed"
@@ -202,6 +235,7 @@ main() {
   artisan route:cache  || die "route:cache failed"
   artisan view:cache   || die "view:cache failed"
   artisan storage:link >/dev/null 2>&1 || true
+  STAGE=5
 
   step "11. Queue worker: graceful restart"
   artisan queue:restart || true
@@ -212,6 +246,7 @@ main() {
   step "12. Reload services"
   sudo systemctl reload "$FPM_UNIT" || echo "   reload $FPM_UNIT failed — check: systemctl status $FPM_UNIT"
   sudo systemctl reload nginx       || echo "   reload nginx failed — check: systemctl status nginx"
+  STAGE=6
 
   if [[ $IN_MAINTENANCE -eq 1 ]]; then
     step "13. Maintenance mode off"
