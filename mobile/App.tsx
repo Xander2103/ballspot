@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './src/app/AppNavigator';
 import { ThemeProvider } from './src/theme/ThemeProvider';
 import { growth } from './src/services/growth';
+import { StagingRibbon } from './src/components/StagingRibbon';
 
 enableScreens();
 
@@ -60,6 +61,7 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AppNavigator onReady={handleReady} />
+        <StagingRibbon />
       </ThemeProvider>
     </SafeAreaProvider>
   );

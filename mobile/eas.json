@@ -42,6 +42,18 @@
           "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
         }
       }
+    },
+    "staging": {
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "staging"
+      },
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   }
 }
