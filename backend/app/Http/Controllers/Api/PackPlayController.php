@@ -29,7 +29,18 @@ class PackPlayController extends Controller
      */
     public function start(Request $request, string $slug): JsonResponse
     {
-        $pack = $this->visiblePack($slug);
+        return $this->startFor($request, $this->visiblePack($slug));
+    }
+
+    /**
+     * Start/resume body for an already-resolved pack. Shared with the club
+     * route POST /api/clubs/{club}/packs/{slug}/start, so both tracks answer
+     * the exact same contract (incl. the 409 replay body). The access gate
+     * runs here: public rules for BallPicker packs, membership + active club +
+     * competition reservation (409 pack_reserved_for_competition) for club packs.
+     */
+    public function startFor(Request $request, ChallengePack $pack): JsonResponse
+    {
         $this->access->assertCanPlay($request->user(), $pack);
 
         try {
@@ -58,8 +69,19 @@ class PackPlayController extends Controller
     // GET /api/packs/{slug}/attempt — active or latest attempt for the pack.
     public function attempt(Request $request, string $slug): JsonResponse
     {
-        $pack    = $this->visiblePack($slug);
+        $pack = $this->visiblePack($slug);
         $this->access->assertCanPlay($request->user(), $pack);
+
+        return $this->attemptFor($request, $pack);
+    }
+
+    /**
+     * Active-or-latest attempt body for an already-resolved, already-authorized
+     * pack (shared with GET /api/clubs/{club}/packs/{slug}/attempt, which
+     * checks club membership itself so a suspended club stays readable).
+     */
+    public function attemptFor(Request $request, ChallengePack $pack): JsonResponse
+    {
         $attempt = $this->play->activeOrLatest($request->user(), $pack);
 
         if (! $attempt) {

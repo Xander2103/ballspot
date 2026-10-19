@@ -34,6 +34,11 @@ reviewed by a lawyer before public launch.**
 | Content backups | `backups/` folders (DB snapshot + uploaded images), produced by `ballspot:backup-content` | Disaster recovery | Legitimate interest | **Define and enforce a retention window (e.g. 30 days, then delete). Backups taken before a deletion contain pre-anonymization personal data until they expire** | Operator only (never committed — gitignored) |
 | Support/contact data | none collected in-app; `BALLSPOT_SUPPORT_EMAIL` (info@vanmalderstudio.be) receives email the user sends voluntarily | Support | Legitimate interest | Mailbox policy | Operator |
 | Admin audit data | **none currently** — see docs/security-hardening.md recommendation | — | — | — | — |
+| Club memberships | `club_members` (club_id, user_id, role, status active/left/removed/banned, joined_at, left_at, last_seen_at, invite_code_id, added_by/removed_by user ids, admin-only `removal_reason`) | BallPicker Clubs: who belongs to which private club and with which role; `last_seen_at` orders My Clubs | Contract (a club the player chose to join with a code) | Rows kept as history; on account deletion every active membership becomes `removed` (`removal_reason = account_deleted`) | The member (own); club owners/admins and — only when the club allows it (D9) — other members see username + avatar + role; platform admins |
+| Club competition play | `club_competition_attempts`, `club_competition_attempt_guesses`, derived `club_competition_pack_results` / `club_competition_entries`, `club_competition_finishes`, `club_pack_reward_claims` | Club competitions, club leaderboards, the once-per-pack global reward | Contract | Retained after deletion like all gameplay, linked to the anonymized row; finishes show "Deleted User" | Club members see usernames, avatars and scores on club leaderboards (D12); left/removed members are hidden from live standings |
+| Club photo submissions | `club_photo_submissions` (club, `uploaded_by_user_id`, private file on the `club_private` disk, mime/size/sha256, notes, status) + the private files under `storage/app/private/clubs` | Club-supplied photos turned into club challenges | Contract / club agreement (D8) | Uploader id nulled on account deletion; the photo stays club content | Club admins (own club), platform admins; files only via short-lived signed URLs |
+| Club invite codes | `club_invite_codes` (code, label, limits, `created_by_user_id` / `revoked_by_user_id`) | Joining a club | Contract | Creator/revoker ids nulled on account deletion; the code keeps working | Club admins and platform admins only — never in an export or a member payload |
+| Club contact + audit | `clubs.contact_name`, `clubs.contact_email` (admin-only, hidden from every API), `club_audit_events` (actor id, allow-listed metadata, codes masked) | Club administration, accountability | Legitimate interest | Kept with the club; the actor of a deleted account is the anonymized row | Platform admins only |
 
 ## Visible to other players (v1.8.2)
 
@@ -138,6 +143,14 @@ Retained, deliberately, linked to the anonymized row: guesses, XP events,
 badges, tournament/competition finishes, pack attempts. Rationale: leaderboard
 and other players' history integrity.
 
+**BallPicker Clubs (2026-10).** Account deletion also: sets every active club
+membership to `removed` (audited; a club that loses its last owner is flagged
+`needs_owner` for platform admins, D6), nulls `club_invite_codes.created_by_user_id`
+/ `revoked_by_user_id` (the codes stay valid) and
+`club_photo_submissions.uploaded_by_user_id`. Club competition attempts,
+guesses, finishes and reward claims are retained like other gameplay.
+`ClubPrivacyTest` (tests/Feature/Clubs/Api) is the guard.
+
 Also retained, deliberately: **`terms_accepted_at` and `terms_version`**. They
 are not cleared on deletion — they are the accountability record that consent
 was actually given, and by then the identity they were attached to has already
@@ -165,6 +178,12 @@ identifying anyone.
   requests. For the counterpart of a friendship or request it returns only
   username + display name — **never that other person's email or friend code**
   (`DataExportTest::test_export_never_exposes_other_users_emails_or_friend_codes`).
+- Since the Clubs sprint the export has a `clubs` section: the subject's own
+  memberships (club name + public id, role, status, joined/left/last seen),
+  a competition-attempt summary and list, club competition finishes, club
+  reward claims and their own photo submissions (metadata, never the private
+  file path). It never contains other members, invite codes, club contact
+  details or admin notes (`ClubPrivacyTest`).
 - `DELETE /api/account` revokes all API tokens, deletes the avatar file, push
   tokens, notification settings and pending verification codes, and anonymizes
   the user row. Gameplay history is retained linked to the anonymized row —

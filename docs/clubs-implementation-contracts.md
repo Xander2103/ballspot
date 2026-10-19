@@ -308,6 +308,19 @@ Shared shapes:
 
 Cursor pagination uses Laravel `cursorPaginate()` with a deterministic order (sort key + id). `limit` is clamped to `clubs.pagination.max`.
 
+Member API notes (B1, as built — see `docs/api-contract.md` "Clubs (member API)"):
+- Cursors are opaque keyset cursors from `App\Services\Clubs\ClubCursor` (same semantics as `cursorPaginate()`, which cannot
+  page on the SQL expressions My Clubs/members sort by). Leaderboards are ranked in memory and use an opaque offset cursor.
+- Unknown `{club}` / out-of-club `{pack}` bindings answer the same 404 `club_not_found` as a non-member (route `missing`).
+- Members see club packs that are `active` **and** public-visibility; anything else is 404 `club_not_found`.
+- Joining a suspended club answers the generic `club_code_invalid` (join semantics of §4), not `club_unavailable`.
+- `GET …/packs/{slug}` returns `challenges: []` while the pack is reserved for a competition (no photo preview, plan §5.2).
+- `abilities.manage` = `manageMembers` (owner/admin of an active club).
+- Reward-claim hook for the competition track: `ClubRewardService::claim()` at attempt start,
+  `awardCompetitionGuessXp(User, ClubCompetitionAttempt, int $guessId, int $score): int` per guess and
+  `awardCompetitionCompletion(User, ClubCompetitionAttempt): array{completion_xp, new_badges}` on completion
+  (XpEvent sources `club_competition_guess` / `club_competition_completion`).
+
 ---
 
 ## 6. Admin & portal conventions
@@ -324,6 +337,22 @@ Cursor pagination uses Laravel `cursorPaginate()` with a deterministic order (so
     dedicated table if the service is token-bound; record which in the report).
   - Session key `club_portal.verified_at`. Middleware `club.portal` requires auth + verified 2FA + `portal.access` on the selected club.
   - Club switcher for users who admin several clubs. Own login throttle `club-portal-login`.
+
+Central admin notes (B2, as built):
+- Routes `admin.clubs.*` bind `{club}` by **id** (`whereNumber`), `{member}` / `{inviteCode}` with `scopeBindings()`. Tabs are
+  `GET admin/clubs/{club}?tab=overview|members|codes|packs|competitions|photos|settings|audit`; `GET …/members` and `…/codes`
+  redirect to their tab. Controllers extend `Admin\Clubs\AdminClubController` (AuthorizesRequests + `logAdmin()`).
+- Placeholders: `Admin\Clubs\ClubCompetitionController@index` + `views/admin/clubs/competitions/index.blade.php` (C1 replaces) and
+  `Admin\Clubs\ClubPhotoController@index` + `views/admin/clubs/photos/index.blade.php` (D1 replaces). The club detail's
+  Competitions/Photos tabs (`views/admin/clubs/tabs/{competitions,photos}.blade.php`) are read-only lists; link the editor/queue there.
+  The "Photo review" nav badge counts `ClubPhotoSubmission::open()` (only rendered on club pages).
+- Foundation additions (additive): `ClubService::updateSettings(…, ?int $expectedVersion = null)` (stale_version; a change bumps
+  `version`), `ClubService::replaceLogo(Club, ?UploadedFile, User)`, club setting key `default_normal_play_policy` (null → config).
+- Content scope: `App\Services\Clubs\ClubContentScope` — query param `club` = '' (BallPicker, default) | `all` | `<id>` on
+  `/admin/challenges`, `/admin/packs`, `/admin/media-export`; `eligibleChallenges(pack)` / `assertPackChallenges(pack, ids)` enforce
+  §4.8 (validation error on `challenges`). Challenge/pack owner is chosen at creation and never changes (`club_id` prohibited on
+  pack update, ignored on challenge update). Club challenges: `usage_pool = club`, images via `ClubMediaService::storeImage`.
+- Admin list helpers: `AdminClubIndexQuery`, `AdminClubAuditQuery`, `ClubStatsService::overview(Club)`.
 
 ---
 

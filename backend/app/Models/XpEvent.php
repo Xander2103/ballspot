@@ -22,6 +22,12 @@ class XpEvent extends Model
     public const SOURCE_SHARE_FIRST            = 'share_first';
     public const SOURCE_SHARE_DAILY            = 'share_daily';
     public const SOURCE_SHARE_DAILY_HIGH_SCORE = 'share_daily_high_score';
+    // BallPicker Clubs competition track (ClubRewardService, plan §5.8). Only
+    // the player's rewarded run on a club pack pays out. source_id: the
+    // competition guess id (per guess) / the competition attempt id (completion).
+    // Normal club pack play keeps the pack_guess / pack_completion sources.
+    public const SOURCE_CLUB_COMPETITION_GUESS      = 'club_competition_guess';
+    public const SOURCE_CLUB_COMPETITION_COMPLETION = 'club_competition_completion';
 
     protected $fillable = [
         'user_id', 'source_type', 'source_id', 'amount', 'reason', 'metadata',

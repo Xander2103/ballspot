@@ -29,4 +29,36 @@ class ChallengePackResource extends JsonResource
             'is_featured'     => (bool) $this->is_featured,
         ];
     }
+
+    /**
+     * The GET /api/packs/{slug} `data` payload: the summary above plus safe
+     * summaries of the READY challenges. Shared with the club pack detail
+     * (GET /api/clubs/{club}/packs/{slug}) so both stay identical. Expects
+     * `challenges` (with sport + category) and `sport` loaded.
+     */
+    public static function detail(\App\Models\ChallengePack $pack): array
+    {
+        $challenges = $pack->challenges
+            ->filter(fn (\App\Models\Challenge $c) => $c->isReadyForDaily())
+            ->values();
+
+        $payload = (new self($pack))->resolve();
+        // challenge_count should reflect what a user can actually play here.
+        $payload['challenge_count'] = $challenges->count();
+        $payload['challenges'] = $challenges->map(fn (\App\Models\Challenge $c) => [
+            'id'               => $c->id,
+            'title'            => $c->title,
+            'difficulty'       => $c->difficulty,
+            // SECURITY: never expose ball_x_ratio / ball_y_ratio / reveal image here.
+            'hidden_image_url' => \App\Support\ChallengeImageUrl::hidden($c),
+            'sport'            => $c->sport ? [
+                'slug'  => $c->sport->slug,
+                'name'  => $c->sport->name,
+                'emoji' => $c->sport->emoji,
+            ] : null,
+            'category'         => $c->category ? ['name' => $c->category->name, 'slug' => $c->category->slug] : null,
+        ])->values();
+
+        return $payload;
+    }
 }

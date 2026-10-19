@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ChallengePackResource;
-use App\Models\Challenge;
 use App\Models\ChallengePack;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,26 +57,7 @@ class ChallengePackController extends Controller
             ->where('slug', $slug)
             ->firstOrFail();
 
-        $challenges = $pack->challenges
-            ->filter(fn (Challenge $c) => $c->isReadyForDaily())
-            ->values();
-
-        $payload = (new ChallengePackResource($pack))->resolve();
-        // challenge_count should reflect what a user can actually play here.
-        $payload['challenge_count'] = $challenges->count();
-        $payload['challenges'] = $challenges->map(fn (Challenge $c) => [
-            'id'               => $c->id,
-            'title'            => $c->title,
-            'difficulty'       => $c->difficulty,
-            // SECURITY: never expose ball_x_ratio / ball_y_ratio / reveal image here.
-            'hidden_image_url' => \App\Support\ChallengeImageUrl::hidden($c),
-            'sport'            => $c->sport ? [
-                'slug'  => $c->sport->slug,
-                'name'  => $c->sport->name,
-                'emoji' => $c->sport->emoji,
-            ] : null,
-            'category'         => $c->category ? ['name' => $c->category->name, 'slug' => $c->category->slug] : null,
-        ])->values();
+        $payload = ChallengePackResource::detail($pack);
 
         return response()->json(['data' => $payload]);
     }

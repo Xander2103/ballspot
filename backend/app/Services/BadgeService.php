@@ -275,10 +275,7 @@ class BadgeService
             $awarded[] = $this->award($user, 'sharp_scorer', ['high_scoring_guesses' => $highScoring]);
         }
 
-        $distinctPacks = \App\Models\PackAttempt::where('user_id', $user->id)
-            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
-            ->distinct('challenge_pack_id')
-            ->count('challenge_pack_id');
+        $distinctPacks = $this->distinctCompletedPackCount($user);
         if ($distinctPacks >= 3) {
             $awarded[] = $this->award($user, 'pack_explorer', ['distinct_packs' => $distinctPacks]);
         }
@@ -406,39 +403,58 @@ class BadgeService
      *   - perfect_pack: every guess in the attempt was a perfect score.
      *   - pack_master: the user has completed 10+ packs.
      *
+     * Club packs: PackPlayService only calls this for the player's REWARDED
+     * run (ClubRewardService, plan §5.8).
+     *
      * @return Badge[]
      */
     public function evaluatePackCompletion(User $user, \App\Models\PackAttempt $attempt): array
     {
-        $awarded = [];
         $context = ['pack_attempt_id' => $attempt->id, 'challenge_pack_id' => $attempt->challenge_pack_id];
+        $scores  = $attempt->guesses->map(fn ($g) => (int) $g->score)->all();
+
+        return $this->evaluatePackRun($user, $attempt->pack, $scores, $context);
+    }
+
+    /**
+     * Pack badges for a completed run that is not a pack_attempts row — the
+     * rewarded competition attempt on a club pack (ClubRewardService hook for
+     * the Competitions track). Same rules as evaluatePackCompletion().
+     *
+     * @param list<int> $scores the run's guess scores
+     * @return Badge[]
+     */
+    public function evaluatePackRunCompletion(User $user, \App\Models\ChallengePack $pack, array $scores, array $context): array
+    {
+        return $this->evaluatePackRun($user, $pack, $scores, $context);
+    }
+
+    /** @return Badge[] */
+    private function evaluatePackRun(User $user, ?\App\Models\ChallengePack $pack, array $scores, array $context): array
+    {
+        $awarded = [];
 
         $awarded[] = $this->award($user, 'first_pack_completed', $context);
 
         // Per-pack completion trophy (admin opt-in). award() is idempotent, so
-        // replays and races cannot duplicate it.
-        $packBadge = $attempt->pack?->completionBadge;
+        // replays and races cannot duplicate it. Club packs carry club-scoped
+        // trophies (badges.club_id), never shown in the global catalogue.
+        $packBadge = $pack?->completionBadge;
         if ($packBadge) {
             $awarded[] = $this->award($user, $packBadge->code, $context);
         }
 
-        $guesses = $attempt->guesses;
-        if ($guesses->isNotEmpty() && $guesses->every(fn ($g) => $this->scoreService->isPerfectScore((int) $g->score))) {
+        if (!empty($scores) && collect($scores)->every(fn ($score) => $this->scoreService->isPerfectScore((int) $score))) {
             $awarded[] = $this->award($user, 'perfect_pack', $context);
         }
 
-        $completedPacks = \App\Models\PackAttempt::where('user_id', $user->id)
-            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
-            ->count();
+        $completedPacks = $this->completedPackCount($user);
         if ($completedPacks >= 10) {
             $awarded[] = $this->award($user, 'pack_master', array_merge($context, ['completed_packs' => $completedPacks]));
         }
 
         // v1.8.6: complete three DIFFERENT packs (pack_master counts attempts).
-        $distinctPacks = \App\Models\PackAttempt::where('user_id', $user->id)
-            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
-            ->distinct('challenge_pack_id')
-            ->count('challenge_pack_id');
+        $distinctPacks = $this->distinctCompletedPackCount($user);
         if ($distinctPacks >= 3) {
             $awarded[] = $this->award($user, 'pack_explorer', array_merge($context, ['distinct_packs' => $distinctPacks]));
         }
@@ -446,6 +462,53 @@ class BadgeService
         $awarded = array_merge($awarded, $this->evaluateRankBadges($user));
 
         return $this->clean($awarded);
+    }
+
+    /**
+     * pack_master count: completed attempts on BallPicker packs (as before)
+     * plus each club pack once — the player's reward claim whose run
+     * completed (contracts §3.7). Replays/extra runs of a club pack never
+     * count. Without club activity this equals the pre-Clubs count.
+     */
+    public function completedPackCount(User $user): int
+    {
+        return $this->publicCompletedAttempts($user)->count()
+            + $this->completedClubRewardCount($user);
+    }
+
+    /** pack_explorer count: distinct completed BallPicker packs + completed club reward runs. */
+    public function distinctCompletedPackCount(User $user): int
+    {
+        return $this->publicCompletedAttempts($user)->distinct('challenge_pack_id')->count('challenge_pack_id')
+            + $this->completedClubRewardCount($user);
+    }
+
+    private function publicCompletedAttempts(User $user)
+    {
+        return \App\Models\PackAttempt::where('user_id', $user->id)
+            ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
+            ->whereNotIn('challenge_pack_id', \App\Models\ChallengePack::query()->whereNotNull('club_id')->select('id'));
+    }
+
+    /** Club packs whose rewarded run (normal or competition attempt) is completed. */
+    private function completedClubRewardCount(User $user): int
+    {
+        return \App\Models\ClubPackRewardClaim::query()
+            ->where('club_pack_reward_claims.user_id', $user->id)
+            ->where(function ($q) {
+                $q->where(function ($normal) {
+                    $normal->where('club_pack_reward_claims.source_type', \App\Models\ClubPackRewardClaim::SOURCE_PACK_ATTEMPT)
+                        ->whereExists(fn ($e) => $e->selectRaw('1')->from('pack_attempts')
+                            ->whereColumn('pack_attempts.id', 'club_pack_reward_claims.source_id')
+                            ->where('pack_attempts.status', \App\Models\PackAttempt::STATUS_COMPLETED));
+                })->orWhere(function ($competition) {
+                    $competition->where('club_pack_reward_claims.source_type', \App\Models\ClubPackRewardClaim::SOURCE_COMPETITION_ATTEMPT)
+                        ->whereExists(fn ($e) => $e->selectRaw('1')->from('club_competition_attempts')
+                            ->whereColumn('club_competition_attempts.id', 'club_pack_reward_claims.source_id')
+                            ->where('club_competition_attempts.status', \App\Enums\CompetitionAttemptStatus::Completed->value));
+                });
+            })
+            ->count();
     }
 
     /** @return Badge[] */

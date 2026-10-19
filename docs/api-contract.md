@@ -1923,3 +1923,152 @@ for older clients. Codes: `email_taken`, `username_taken`, `password_mismatch`,
   `password_reset.requested|completed|failed` (renamed from `password.reset_*`),
   `account.delete.completed|failed` (renamed from `account.deleted` /
   `account.delete_failed`).
+
+---
+
+## Clubs (member API)  *(BallPicker Clubs sprint, feature-flagged)*
+
+Private clubs created by platform admins. Design: `docs/clubs-architecture-plan.md`; shared shapes and error
+codes: `docs/clubs-implementation-contracts.md` §3.3 / §5 (binding). This section documents what the member API
+actually serves.
+
+**Gate.** Every route below is behind `auth:sanctum`, `active`, `verified` and `feature:clubs`. While
+`ballspot.clubs.enabled` is off every route (including unknown ids) answers
+`404 {"message": "...", "code": "feature_disabled"}`; `GET /api/config` reports `features.clubs`.
+
+**Addressing & isolation.** Clubs are addressed by their ULID `public_id` (`id` in every payload) — never the
+internal id or the slug. Club packs are addressed by slug **inside** the club (scoped binding). Outsiders, members of
+another club, left/removed/banned members, platform admins without a membership, archived clubs, unknown ids and a
+pack slug of another club all get the identical `404 {"message": "...", "code": "club_not_found"}` — the API never
+confirms that a club or pack exists. There is deliberately **no** route that lists or searches clubs the caller has
+not joined.
+
+**Suspended clubs (D18)** are listed (`status: "suspended"`) and readable; starting a pack or guessing answers
+`423 club_unavailable`. Joining one answers the generic `club_code_invalid`. Leaving stays possible.
+
+**Pagination.** Lists use an opaque `cursor` (`meta.next_cursor`, `null` on the last page) with a deterministic
+order (sort key + id), `limit` clamped to `ballspot.clubs.pagination.max` (50; default 20). An invalid cursor is a
+422 on `cursor`.
+
+### GET /api/clubs?q=&sort=recent|name&cursor=&limit=
+
+My Clubs: only the caller's ACTIVE memberships of active or suspended clubs (archived clubs hidden). `q` (trimmed,
+cut to 60 chars, LIKE wildcards literal) matches club name or city **within the memberships**. `recent` (default) =
+`last_seen_at` (refreshed when the club detail is opened, at most every 5 min) / `joined_at` desc; `name` = name asc.
+
+```jsonc
+// 200
+{ "data": [ClubCard], "meta": { "next_cursor": "opaque"|null, "per_page": 20, "total_joined": 3, "query": "gent"|null } }
+
+// ClubCard
+{ "id": "01JB…", "name": "KFC Example", "slug": "kfc-example", "logo_url": "https://…"|null, "city": "Gent",
+  "country_code": "BE", "club_type": "sports_club", "sport": { "slug", "name", "emoji" }|null,
+  "role": "owner"|"admin"|"member", "status": "active"|"suspended",
+  "packs_count": 6,                                  // active + public-visibility club packs
+  "competitions": { "active": 1, "upcoming": 2 },    // published competitions in that phase
+  "joined_at": "ISO" }
+```
+
+### POST /api/clubs/join  `{ "code": "abcd-efgh" }`  *(throttle `club-join`)*
+
+Any case, dashes/spaces ignored. `200 { "data": ClubCard, "joined": true }`; an active member gets
+`joined: false` (idempotent, `uses_count` unchanged); a left/removed member is reactivated.
+
+| Status | `code` | When |
+|---|---|---|
+| 422 | `club_code_invalid` | unknown / revoked / expired / exhausted code, joining disabled, club not active, banned user — one identical body (D23); counts as a failure |
+| 429 | `club_join_locked` (+ `retry_after`, `Retry-After`) | 15 failed codes in the rolling hour (`clubs.join.failures_per_hour`) |
+| 429 | `club_join_rate_limited` | request limiter: 10/min per user, 30/hour per IP |
+| 422 | `club_full` / `club_membership_limit` | club at its member cap / player at 50 clubs |
+| 422 | Laravel validation | `code` missing |
+
+### GET /api/clubs/{club}
+
+```jsonc
+{ "data": ClubCard & {
+    "description": "…"|null, "region": "…"|null, "members_count": 214,
+    "abilities": { "view_members": bool, "leave": bool, "manage": bool },
+    "packs_preview": [ClubPackCard…3],
+    "competitions_preview": { "active": [CompetitionCard], "upcoming": [CompetitionCard…3], "completed_count": 4 },
+    "leaderboard_preview": { "top": [ClubLeaderboardEntry…3], "me": ClubLeaderboardEntry|null } } }
+```
+`competitions_preview` lists published competitions only (drafts, cancelled and voided ones are never shown);
+`completed_count` = ended + finalized. A CompetitionCard's `me` = `{rank, total_score, packs_completed}` from the
+derived standings, ranked among active members (total desc → reached first → fewer attempts). Contact details and
+internal ids are never part of the payload.
+
+### POST /api/clubs/{club}/leave
+
+`200 { "left": true }`. The sole owner gets `422 club_owner_must_transfer`.
+
+### GET /api/clubs/{club}/members?q=&cursor=&limit=
+
+`{ "data": [{ "user_id", "username", "avatar_url", "role", "joined_at" }], "meta": { "next_cursor", "per_page", "total" } }`
+— active members, owners → admins → members, then username. `q` matches the username. Usernames + avatars only
+(D12). When the club hides the list from ordinary members (setting `member_list_visibility = admins`, the default,
+D9): `403 club_forbidden`.
+
+### GET /api/clubs/{club}/packs?cursor=&limit=
+
+`{ "data": [ClubPackCard], "meta": { "next_cursor", "per_page" } }` — the club's active, public-visibility packs
+(featured first, then `sort_order`, name). ClubPackCard = every field of a `GET /api/packs` item, plus:
+
+```jsonc
+{ "progress": { "status": "active"|"completed", "completed_count": 8, "total_challenges": 12, "total_score": 640 }|null, // normal track, latest attempt
+  "best_score": 640|null,                  // best attempt total over both tracks (voided competition attempts excluded)
+  "reserved_for_competition": false,       // a published competition with normal_play_policy=blocked links the pack
+  "competitions": [ { "id": "01J…", "name": "Autumn Cup", "phase": "upcoming"|"active"|"ended" } ] } // published only
+```
+
+### GET /api/clubs/{club}/packs/{slug}
+
+Exactly the `data` of `GET /api/packs/{slug}` (club challenge images are signed `/media/clubs/…` URLs), plus
+`reserved_for_competition` and `competitions`. **While the pack is reserved the `challenges` list is empty** (the
+photos cannot be previewed outside the competition); `challenge_count` stays.
+
+### POST /api/clubs/{club}/packs/{slug}/start  *(throttle `gameplay`)*  ·  GET /api/clubs/{club}/packs/{slug}/attempt
+
+Same bodies as `POST /api/packs/{slug}/start` / `GET /api/packs/{slug}/attempt` (same code path), including the 409
+replay contract for a completed pack. Start also answers `409 pack_reserved_for_competition` while a blocked
+competition is published (attempts already in progress may still finish and stay readable) and
+`423 club_unavailable` for a suspended club. The attempt read works in a suspended club.
+
+### POST /api/pack-attempts/{attempt}/guess  *(existing route)*
+
+Unchanged contract. For club packs every guess re-checks access: a removed/left/banned member → `404 club_not_found`,
+a suspended club → `423 club_unavailable`; nothing is stored.
+
+**Rewards (D3).** The first run of a player on a club pack — normal attempt or competition attempt — holds the single
+reward claim (`club_pack_reward_claims`, unique per player × pack). Only that run earns per-guess XP (`pack_guess`),
+completion XP (`pack_completion`, 250) and pack-badge evaluation (`first_pack_completed`, `perfect_pack`,
+`pack_master`, `pack_explorer`, the club's own per-pack trophy). Any other club run answers
+`rank_progress.xp_gained: 0`, `completion_xp: 0`, `new_badges: []` and still scores. `pack_master` / `pack_explorer`
+count BallPicker completions plus each club pack once (its completed rewarded run). Public packs are unchanged.
+
+### GET /api/clubs/{club}/leaderboard?cursor=&limit=
+
+Club all-time board (D19): per active member and club pack the best of the normal attempt total and the non-voided
+competition attempt totals (non-voided competitions; partial attempts count what they scored), summed. Only players
+with at least one scored guess appear; left/removed/banned members are hidden (their attempts are kept).
+Order: `total_score` desc → moment the total was reached asc → `attempts_used` asc; players equal on all three share
+the rank (1, 2, 2, 4), shown by username.
+
+```jsonc
+{ "data": [ { "rank": 2, "user_id": 33, "username": "jules", "avatar_url": "…"|null, "total_score": 2700,
+              "packs_completed": 2, "attempts_used": 3, "is_current_user": false } ],
+  "meta": { "total_players": 61, "current_user_rank": 4|null, "current_user_score": 2140|null,
+            "better_than_percentage": 93|null, "top_users": [entry…3], "nearby_users": [entry above, me, entry below],
+            "next_cursor": "opaque"|null, "per_page": 20 } }
+```
+
+### GET /api/me/export — `clubs` section
+
+`clubs: { memberships: [{ club: {id, name}, role, status, joined_at, left_at, last_seen_at }],
+competition_attempts_summary: { count, completed, total_score }, competition_attempts: [{ club, competition: {id, name},
+pack, attempt_number, status, total_score, guesses_count, started_at, completed_at }], competition_finishes: [...],
+pack_reward_claims: [{ pack, source_type, claimed_at }], photo_submissions: [{ club, status, mime, width, height,
+bytes, club_note, rejection_reason, created_at }] }` — never other members, invite codes, club contact details,
+admin notes or private file paths.
+
+Competition endpoints (`/api/clubs/{club}/competitions…`, `/api/club-competition-attempts/…`,
+`/api/me/club-finishes`) are documented by the Competitions track.

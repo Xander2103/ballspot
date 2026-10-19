@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\Challenge;
 use App\Models\ChallengePack;
+use App\Models\ClubPackRewardClaim;
 use App\Models\PackAttempt;
 use App\Models\PackAttemptGuess;
 use App\Models\User;
 use App\Models\XpEvent;
+use App\Services\Clubs\ClubRewardService;
 use App\Support\AppLog;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -27,6 +29,13 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
  *    an already-completed attempt into a 500: failures are logged and the
  *    completion payload is still returned
  *  - completed attempts carry a completion summary (overview screen)
+ *
+ * BallPicker Clubs (contracts §3.7): a CLUB pack attempt claims the player's
+ * single reward slot for the pack at start (ClubRewardService, source
+ * `pack_attempt`). Per-guess XP, completion XP and badge evaluation happen
+ * only for that rewarded run; any other club run answers xp_gained 0,
+ * completion_xp 0 and new_badges []. Public packs never touch the claim
+ * table — their behaviour is unchanged.
  */
 class PackPlayService
 {
@@ -37,6 +46,7 @@ class PackPlayService
         private XpService $xpService,
         private BadgeService $badgeService,
         private PlayerRankService $rankService,
+        private ClubRewardService $clubRewards,
     ) {}
 
     /**
@@ -88,6 +98,11 @@ class PackPlayService
             'total_score'       => 0,
             'metadata'          => ['challenge_ids' => $challengeIds],
         ]);
+
+        if ($pack->club_id !== null) {
+            // First run on this club pack in any track → the rewarded run.
+            $this->clubRewards->claim($user, $pack, ClubPackRewardClaim::SOURCE_PACK_ATTEMPT, $attempt->id);
+        }
 
         AppLog::event('pack.started', ['pack_id' => $pack->id, 'user_id' => $user->id, 'attempt_id' => $attempt->id, 'challenge_count' => count($challengeIds)]);
 
@@ -161,6 +176,10 @@ class PackPlayService
         // restarted for full guess + completion XP each time.
         $isReplay = $this->hasCompletedBefore($user, $attempt);
 
+        // Club packs: only the player's rewarded run pays out (plan §5.8).
+        $unrewardedClubRun = $this->isUnrewardedClubRun($user, $attempt);
+        $skipXp            = $isReplay || $unrewardedClubRun;
+
         $ids        = $attempt->challengeIds();
         $expectedId = $ids[$attempt->current_index] ?? null;
         if ($expectedId === null) {
@@ -183,7 +202,7 @@ class PackPlayService
 
         $xpBefore = $this->xpService->getTotalXp($user);
 
-        $result = DB::transaction(function () use ($attempt, $challenge, $challengeId, $x, $y, $score, $user, $isReplay) {
+        $result = DB::transaction(function () use ($attempt, $challenge, $challengeId, $x, $y, $score, $user, $skipXp) {
             $guess = PackAttemptGuess::create([
                 'pack_attempt_id' => $attempt->id,
                 'challenge_id'    => $challengeId,
@@ -195,8 +214,8 @@ class PackPlayService
             ]);
 
             // Per-guess XP (= score). Skipped entirely on a replay of a pack the
-            // user has already completed.
-            if (!$isReplay) {
+            // user has already completed, and on a non-rewarded club run.
+            if (!$skipXp) {
                 $this->xpService->awardXp(
                     $user,
                     XpEvent::SOURCE_PACK_GUESS,
@@ -224,7 +243,9 @@ class PackPlayService
         $newBadges    = [];
 
         if ($completed) {
-            [$completionXp, $newBadges] = $this->awardCompletion($user, $attempt, $isReplay);
+            [$completionXp, $newBadges] = $unrewardedClubRun
+                ? $this->completeUnrewardedClubRun($user, $attempt)
+                : $this->awardCompletion($user, $attempt, $isReplay);
         }
 
         $xpAfter = $this->xpService->getTotalXp($user);
@@ -310,6 +331,42 @@ class PackPlayService
         }
 
         return [$completionXp, $newBadges];
+    }
+
+    /**
+     * A club pack run that does not hold the player's reward claim (another
+     * run — e.g. a competition attempt — claimed the pack first). Public
+     * packs are never "unrewarded": they keep the pre-Clubs rules.
+     */
+    private function isUnrewardedClubRun(User $user, PackAttempt $attempt): bool
+    {
+        $pack = $attempt->pack;
+        if ($pack === null || $pack->club_id === null) {
+            return false;
+        }
+
+        return !$this->clubRewards->isRewarded($user, $pack, ClubPackRewardClaim::SOURCE_PACK_ATTEMPT, $attempt->id);
+    }
+
+    /**
+     * Completion of a non-rewarded club run: no completion XP and no badge
+     * evaluation (D3). Logged like a normal completion.
+     *
+     * @return array{0:int,1:array}
+     */
+    private function completeUnrewardedClubRun(User $user, PackAttempt $attempt): array
+    {
+        AppLog::event('pack.completed', [
+            'pack_id'       => (int) $attempt->challenge_pack_id,
+            'user_id'       => $user->id,
+            'attempt_id'    => $attempt->id,
+            'replay'        => true,
+            'rewarded'      => false,
+            'total_score'   => (int) $attempt->total_score,
+            'completion_xp' => 0,
+        ]);
+
+        return [0, []];
     }
 
     private function rewardFailed(\Throwable $e, string $stage, int $packId, int $userId, int $attemptId): void

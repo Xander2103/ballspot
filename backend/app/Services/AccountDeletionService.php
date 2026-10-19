@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\ClubInviteCode;
+use App\Models\ClubPhotoSubmission;
 use App\Models\EmailVerificationCode;
 use App\Models\FriendRequest;
 use App\Models\Friendship;
@@ -9,6 +11,7 @@ use App\Models\LoginVerificationCode;
 use App\Models\NotificationSetting;
 use App\Models\PushToken;
 use App\Models\User;
+use App\Services\Clubs\ClubMembershipService;
 use App\Support\AppLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -56,6 +59,17 @@ class AccountDeletionService
             // Social graph — cascades never fire (see class doc).
             Friendship::where('user_id', $id)->orWhere('friend_id', $id)->delete();
             FriendRequest::where('requester_id', $id)->orWhere('recipient_id', $id)->delete();
+
+            // BallPicker Clubs (plan §11.7): every active membership becomes
+            // `removed` (audited; a club losing its last owner is flagged
+            // needs_owner, D6). Invite codes the user created stay valid with
+            // the creator nulled, and photo submissions lose their uploader.
+            // Competition attempts, guesses, finishes and reward claims are
+            // gameplay history and stay linked to the anonymized row.
+            app(ClubMembershipService::class)->removeAllForDeletedUser($user);
+            ClubInviteCode::where('created_by_user_id', $id)->update(['created_by_user_id' => null]);
+            ClubInviteCode::where('revoked_by_user_id', $id)->update(['revoked_by_user_id' => null]);
+            ClubPhotoSubmission::where('uploaded_by_user_id', $id)->update(['uploaded_by_user_id' => null]);
 
             // Anonymize personal fields. The deleted-{id} identifiers are unique
             // per row, so the original email/username become free to register

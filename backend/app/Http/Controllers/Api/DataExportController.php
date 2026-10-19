@@ -3,6 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ClubCompetitionAttempt;
+use App\Models\ClubCompetitionFinish;
+use App\Models\ClubMember;
+use App\Models\ClubPackRewardClaim;
+use App\Models\ClubPhotoSubmission;
 use App\Models\CompetitionFinish;
 use App\Models\DailyChallengeGuess;
 use App\Models\FriendRequest;
@@ -11,6 +16,7 @@ use App\Models\NotificationSetting;
 use App\Models\PackAttempt;
 use App\Models\PushToken;
 use App\Models\TournamentFinish;
+use App\Models\User;
 use App\Models\XpEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -150,6 +156,99 @@ class DataExportController extends Controller
                     'total_score'  => $a->total_score,
                     'completed_at' => $a->completed_at?->toISOString(),
                 ]),
+
+            'clubs' => $this->clubs($user),
         ]);
+    }
+
+    /**
+     * BallPicker Clubs (plan §11.7, AT-PRV-02): the subject's own memberships
+     * (every status — rows are kept as history), competition attempts, club
+     * trophies, reward claims and own photo submissions (metadata only, never
+     * the private file path). Clubs are identified by name + public id only:
+     * never another member's identity or email, never an invite code, never
+     * the club's contact details or admin notes.
+     */
+    private function clubs(User $user): array
+    {
+        $value = fn ($v) => $v instanceof \BackedEnum ? $v->value : $v;
+
+        $attempts = ClubCompetitionAttempt::where('user_id', $user->id)
+            ->with(['competition:id,public_id,name,club_id', 'competition.club:id,public_id,name', 'pack:id,name'])
+            ->orderByDesc('started_at')
+            ->limit(self::MAX_ROWS)
+            ->get();
+
+        return [
+            'memberships' => ClubMember::where('user_id', $user->id)
+                ->with('club:id,public_id,name')
+                ->orderByDesc('joined_at')
+                ->limit(self::MAX_ROWS)
+                ->get()
+                ->map(fn (ClubMember $m) => [
+                    'club'         => $m->club ? ['id' => $m->club->public_id, 'name' => $m->club->name] : null,
+                    'role'         => $value($m->role),
+                    'status'       => $value($m->status),
+                    'joined_at'    => $m->joined_at?->toISOString(),
+                    'left_at'      => $m->left_at?->toISOString(),
+                    'last_seen_at' => $m->last_seen_at?->toISOString(),
+                ])->values(),
+
+            'competition_attempts_summary' => [
+                'count'       => ClubCompetitionAttempt::where('user_id', $user->id)->count(),
+                'completed'   => ClubCompetitionAttempt::where('user_id', $user->id)->where('status', 'completed')->count(),
+                'total_score' => (int) ClubCompetitionAttempt::where('user_id', $user->id)->where('status', '!=', 'voided')->sum('total_score'),
+            ],
+
+            'competition_attempts' => $attempts->map(fn (ClubCompetitionAttempt $a) => [
+                'club'           => $a->competition?->club?->name,
+                'competition'    => $a->competition ? ['id' => $a->competition->public_id, 'name' => $a->competition->name] : null,
+                'pack'           => $a->pack?->name,
+                'attempt_number' => (int) $a->attempt_number,
+                'status'         => $value($a->status),
+                'total_score'    => (int) $a->total_score,
+                'guesses_count'  => (int) $a->guesses_count,
+                'started_at'     => $a->started_at?->toISOString(),
+                'completed_at'   => $a->completed_at?->toISOString(),
+            ])->values(),
+
+            'competition_finishes' => ClubCompetitionFinish::where('user_id', $user->id)
+                ->with('competition:id,public_id,name')
+                ->limit(self::MAX_ROWS)
+                ->get()
+                ->map(fn (ClubCompetitionFinish $f) => [
+                    'competition'   => $f->competition?->name,
+                    'placement'     => (int) $f->placement,
+                    'total_score'   => (int) $f->total_score,
+                    'total_players' => (int) $f->total_players,
+                ])->values(),
+
+            'pack_reward_claims' => ClubPackRewardClaim::where('user_id', $user->id)
+                ->with('pack:id,name')
+                ->limit(self::MAX_ROWS)
+                ->get()
+                ->map(fn (ClubPackRewardClaim $c) => [
+                    'pack'        => $c->pack?->name,
+                    'source_type' => $c->source_type,
+                    'claimed_at'  => $c->claimed_at?->toISOString(),
+                ])->values(),
+
+            'photo_submissions' => ClubPhotoSubmission::where('uploaded_by_user_id', $user->id)
+                ->with('club:id,public_id,name')
+                ->orderByDesc('created_at')
+                ->limit(self::MAX_ROWS)
+                ->get()
+                ->map(fn (ClubPhotoSubmission $p) => [
+                    'club'             => $p->club?->name,
+                    'status'           => $value($p->status),
+                    'mime'             => $p->mime,
+                    'width'            => $p->width,
+                    'height'           => $p->height,
+                    'bytes'            => $p->bytes,
+                    'club_note'        => $p->club_note,
+                    'rejection_reason' => $p->rejection_reason,
+                    'created_at'       => $p->created_at?->toISOString(),
+                ])->values(),
+        ];
     }
 }

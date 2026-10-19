@@ -21,17 +21,42 @@
 |    has not joined.
 */
 
+use App\Exceptions\ClubDomainException;
+use App\Http\Controllers\Api\Clubs\ClubController;
+use App\Http\Controllers\Api\Clubs\ClubLeaderboardController;
+use App\Http\Controllers\Api\Clubs\ClubPackController;
+use App\Http\Controllers\Api\Clubs\MyClubsController;
+use App\Http\Middleware\EnsureFeatureEnabled;
 use Illuminate\Support\Facades\Route;
 
-Route::name('api.clubs.')->group(function () {
+// An unknown club public_id or a pack slug outside the club answers exactly
+// like a club the caller is not a member of (404 club_not_found), so the API
+// never confirms that a club or pack exists. Route-model binding can run
+// before `feature:clubs`, so the flag is checked here too.
+$clubMissing = static fn () => (new ClubDomainException(
+    EnsureFeatureEnabled::enabled('clubs') ? ClubDomainException::CLUB_NOT_FOUND : ClubDomainException::FEATURE_DISABLED,
+    404,
+))->toJsonResponse();
+
+Route::name('api.clubs.')->missing($clubMissing)->group(function () {
     // ---------------------------------------------------------------------
     // Member section (B1 — Member API): My Clubs, join, detail, leave,
     // members, packs + normal play, club leaderboard.
-    //   GET  /clubs · POST /clubs/join · GET /clubs/{club} · POST /clubs/{club}/leave
-    //   GET  /clubs/{club}/members · GET /clubs/{club}/packs · GET /clubs/{club}/packs/{slug}
-    //   POST /clubs/{club}/packs/{slug}/start · GET /clubs/{club}/packs/{slug}/attempt
-    //   GET  /clubs/{club}/leaderboard
     // ---------------------------------------------------------------------
+    Route::get('/clubs', [MyClubsController::class, 'index'])->name('index');
+    Route::post('/clubs/join', [MyClubsController::class, 'join'])->middleware('throttle:club-join')->name('join');
+
+    Route::scopeBindings()->prefix('/clubs/{club:public_id}')->group(function () {
+        Route::get('/', [ClubController::class, 'show'])->name('show');
+        Route::post('/leave', [ClubController::class, 'leave'])->name('leave');
+        Route::get('/members', [ClubController::class, 'members'])->name('members');
+        Route::get('/leaderboard', [ClubLeaderboardController::class, 'index'])->name('leaderboard');
+
+        Route::get('/packs', [ClubPackController::class, 'index'])->name('packs.index');
+        Route::get('/packs/{pack:slug}', [ClubPackController::class, 'show'])->name('packs.show');
+        Route::post('/packs/{pack:slug}/start', [ClubPackController::class, 'start'])->middleware('throttle:gameplay')->name('packs.start');
+        Route::get('/packs/{pack:slug}/attempt', [ClubPackController::class, 'attempt'])->name('packs.attempt');
+    });
 
     // ---------------------------------------------------------------------
     // Competitions section (C1 — Competitions):
