@@ -493,3 +493,48 @@ Club portal notes (D2, as built — see `docs/club-portal.md`):
 3. `php artisan test` is fully green (the existing 1,074 tests unchanged). Mobile: jest + tsc green.
 4. `git diff --check` is clean. No debug output, no secrets, no `.DS_Store`.
 5. The report lists files changed, deviations from these contracts, and anything left undone.
+
+---
+
+## 9. Wave F — phase 7 completion contract (club-admin API, content reports, member notifications, CSV)
+
+All routes under the member API group (`auth:sanctum, active, verified, feature:clubs`), club by `public_id`, non-members 404,
+members without the ability 403 `club_forbidden`. Role rules are identical to the portal (`ClubPortalMemberRules`, owner-only
+admin-granting codes) — reuse the same services/rules, never duplicate them.
+
+| Method & path | Ability | Body / response |
+|---|---|---|
+| `GET /api/clubs/{club}/invite-codes?cursor=` | manageCodes | `{ data: InviteCode[], meta }` — usable first, then revoked/expired |
+| `POST /api/clubs/{club}/invite-codes` | manageCodes (admin-granting: owner) | `{ label?, max_uses?, expires_at?, grants_role? = member }` → 201 `{ data: InviteCode }` |
+| `POST /api/clubs/{club}/invite-codes/{id}/revoke` | manageCodes | → `{ data: InviteCode }` |
+| `GET /api/clubs/{club}/members?q=&cursor=` | (existing) | each item additionally carries `actions: { change_role, remove, ban }` booleans for the caller (all false for plain members) |
+| `PATCH /api/clubs/{club}/members/{userId}` | transferOwnership/owner | `{ role: "admin"\|"member" }` → `{ data: Member }` |
+| `POST /api/clubs/{club}/members/{userId}/remove` | manageMembers | `{ reason? }` → `{ removed: true }` |
+| `POST /api/clubs/{club}/members/{userId}/ban` | manageMembers | `{ reason? }` → `{ banned: true }` |
+| `GET /api/clubs/{club}/photos?cursor=` | uploadPhotos | `{ data: [{ id, status, club_note, rejection_reason, thumbnail_url (signed), created_at }], meta }` |
+| `POST /api/clubs/{club}/photos` (multipart) | uploadPhotos | `photo` (image), `rights_confirmed` (accepted), `note?` → 201 `{ data: PhotoSubmission }` (`throttle:uploads`) |
+| `POST /api/clubs/{club}/reports` | any active member | `{ subject_type: "club"\|"competition"\|"member", subject_id?: string (competition public_id / user id), reason: "inappropriate"\|"offensive"\|"spam"\|"privacy"\|"other", details?: string ≤ 500 }` → 201 `{ data: { id, status: "open" } }` (`throttle:club-reports` 5/h per user) |
+
+```jsonc
+// InviteCode
+{ "id": 4, "code": "ABCD-EFGH", "qr_payload": "ballpicker:club:ABCDEFGH", "label": "U15 parents"|null,
+  "grants_role": "member"|"admin", "uses_count": 41, "max_uses": 100|null, "expires_at": "ISO"|null,
+  "revoked_at": "ISO"|null, "is_usable": true, "created_at": "ISO" }
+```
+`GET /api/clubs/{club}` `abilities` gains `manage_codes`, `manage_members`, `upload_photos` (booleans; `manage` stays).
+
+**Content reports** — table `club_content_reports` (club_id, reporter_user_id nullOnDelete, subject_type, subject_ref, reason,
+details, status open|reviewed|dismissed|actioned, admin_note, reviewed_by_user_id, reviewed_at, timestamps; index(status, created_at),
+index(club_id, status)). Admin: Clubs nav page **Reports** (`admin.club-reports.index`, open-count badge) with filters and actions
+(mark reviewed / dismiss / actioned + note, link to the club/competition/member). Audit `report.created`, `report.resolved`.
+Account deletion nulls `reporter_user_id`. Privacy inventory + export (own reports) updated.
+
+**Member notifications** — notification setting category `club_updates` (default on, user-toggleable through the existing
+`/api/me/notification-settings`). Pushes via the existing `ExpoPushService`, at most once per event (timestamps on
+`club_competitions`: `notified_published_at`, `notified_started_at`, `notified_finalized_at`), sent to active members only:
+competition published (upcoming), competition started (from the tick when rules lock), competition finalized (with the
+member's placement if any). Payload `data: { type: "club_competition", club_id, competition_id }` → the app opens
+`ClubCompetition`. Localised per recipient (5 languages). Admin announcement opt-outs are not affected.
+
+**CSV export** — portal (and admin) download of the club leaderboard and of a competition's standings: columns rank, username,
+total_score, packs_completed, attempts_used; usernames only, never emails; audit `export.downloaded`.
