@@ -4,7 +4,7 @@
  * sync. Clubs and competitions are addressed by their public ULID (`id`),
  * club packs by slug within the club.
  */
-import type { ChallengePackDetail, PackProgress } from './pack';
+import type { ChallengePackDetail, PackChallengeSummary, PackProgress } from './pack';
 
 export type ClubRole = 'owner' | 'admin' | 'member';
 export type ClubStatus = 'active' | 'suspended';
@@ -177,3 +177,107 @@ export interface JoinClubResponse {
 
 /** Filter of `GET /api/clubs/{club}/competitions` (completed = ended + finalized). */
 export type CompetitionListPhase = 'active' | 'upcoming' | 'completed';
+
+// --- Competitions (contracts §5) -------------------------------------------
+
+/** Why a competition pack cannot be started right now (server-computed). */
+export type CompetitionBlockedReason =
+  | 'not_started'
+  | 'ended'
+  | 'limit_reached'
+  | 'already_played'
+  | 'attempt_in_progress'
+  | 'club_unavailable';
+
+/** The player's per-pack eligibility in a competition. The app only renders it; every start re-checks. */
+export interface CompetitionPackState {
+  attempts_used: number;
+  attempts_remaining: number;
+  next_attempt_number: number | null;
+  can_start: boolean;
+  blocked_reason: CompetitionBlockedReason | null;
+  active_attempt_id: number | null;
+  counted_score: number | null;
+  best_score: number | null;
+  first_score: number | null;
+}
+
+export interface CompetitionPack {
+  id: number;
+  slug: string;
+  name: string;
+  cover_image_url: string | null;
+  challenge_count: number;
+  state: CompetitionPackState;
+}
+
+export interface CompetitionMyEntry {
+  rank: number;
+  total_score: number;
+  packs_completed: number;
+  attempts_used: number;
+  score_reached_at: string | null;
+}
+
+/** `GET /api/clubs/{club}/competitions/{competition}` */
+export interface CompetitionDetail extends CompetitionCard {
+  packs: CompetitionPack[];
+  my_entry: CompetitionMyEntry | null;
+  leaderboard_preview: ClubLeaderboardEntry[];
+}
+
+export type CompetitionAttemptStatus = 'active' | 'completed' | 'expired' | 'voided';
+
+export interface CompetitionAttempt {
+  id: number;
+  competition_id: string;
+  pack_slug: string;
+  attempt_number: number;
+  status: CompetitionAttemptStatus;
+  current_index: number;
+  completed_count: number;
+  total_challenges: number;
+  total_score: number;
+  /** False for replays / extra attempts: they score for the competition but earn no global XP (D3). */
+  is_rewarded_run: boolean;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+/** Start/resume and GET attempt: the attempt + its current challenge (pack challenge payload shape). */
+export interface CompetitionAttemptResponse {
+  attempt: CompetitionAttempt;
+  challenge: PackChallengeSummary | null;
+}
+
+/** The competition block of a competition guess response. */
+export interface CompetitionGuessBlock {
+  counted_score: number | null;
+  total_score: number | null;
+  rank: number | null;
+  attempts_remaining: number | null;
+}
+
+export interface CompetitionLeaderboardMeta extends ClubLeaderboardMeta {
+  rules: CompetitionRules;
+  phase: CompetitionPhase;
+}
+
+/** `GET /api/me/club-finishes` — the player's own club competition placements (club-only trophies). */
+export interface ClubFinish {
+  competition: { id: string; name: string };
+  club: { id: string; name: string; logo_url: string | null };
+  placement: number;
+  total_score: number;
+  total_players: number;
+  finalized_at: string | null;
+}
+
+/** What PackResult hands to the competition complete view (competition attempts have no pack completion summary). */
+export interface CompetitionOutcome {
+  competition: CompetitionGuessBlock | null;
+  finalScore: number;
+  totalChallenges: number;
+  isRewardedRun: boolean;
+  completionXp: number;
+}

@@ -119,6 +119,7 @@ export const profile = {
     packTrophies: 'Pack trophies',
     noPackTrophies: 'No completed packs yet.',
     competitionTrophies: 'Competition trophies',
+    clubTrophies: 'Club trophies',
     noCompetitionTrophies: 'No competition trophies yet.',
     earnedOn: 'Earned {{date}}',
     earned: 'Earned',

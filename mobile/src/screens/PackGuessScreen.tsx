@@ -8,14 +8,14 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { playSessionApi } from '../api/playSessionApi';
-import { exitPlaySession, useHardwareBack } from '../app/navigationActions';
+import { exitPlaySession, goToPlayDetail, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { isPackAlreadyCompleted } from '../types/pack';
 import type { PackAttemptState, PackChallengeSummary, PackCompletionSummary } from '../types/pack';
 import { getClubErrorMessage } from '../utils/clubErrors';
-import { resolvePlaySession } from '../utils/playSession';
+import { isCompetitionSession, resolvePlaySession, withAttempt } from '../utils/playSession';
 import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackGuess'>;
@@ -51,10 +51,15 @@ export function PackGuessScreen({ route, navigation }: Props) {
           showCompletion(res.completion);
           return;
         }
-        if (!res.challenge) {
-          // Nothing left to play — bounce back to the pack detail.
-          navigation.replace('PackDetail', { slug, name: packName, session: routeSession });
+        if (!res.challenge || (isCompetitionSession(routeSession) && res.attempt.status !== 'active')) {
+          // Nothing left to play (or a competition attempt that expired with
+          // the window) — bounce back to the pack / competition screen.
+          goToPlayDetail(navigation, routeSession, slug, packName, 'replace');
           return;
+        }
+        if (isCompetitionSession(routeSession) && !routeSession.attemptId) {
+          // Bind the session to the started attempt: later screens resume it.
+          navigation.setParams({ session: withAttempt(routeSession, res.attempt.id) });
         }
         setAttempt(res.attempt);
         setChallenge(res.challenge);
@@ -122,7 +127,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
       <Screen>
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
-          <AppButton title={t('common.buttons.back')} onPress={() => navigation.replace('PackDetail', { slug, name: packName, session: routeSession })} variant="secondary" style={{ marginTop: spacing.md }} />
+          <AppButton title={t('common.buttons.back')} onPress={() => goToPlayDetail(navigation, routeSession, slug, packName, 'replace')} variant="secondary" style={{ marginTop: spacing.md }} />
         </View>
       </Screen>
     );

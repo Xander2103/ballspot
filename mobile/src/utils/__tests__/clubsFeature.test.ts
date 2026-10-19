@@ -123,3 +123,40 @@ describe('Clubs wiring', () => {
     }
   });
 });
+
+describe('competitions wiring', () => {
+  it('competition play goes through the adapter: start is idempotent per attempt number, resume uses GET attempt', () => {
+    const adapter = read('api/playSessionApi.ts');
+    expect(adapter).toMatch(/clubApi\.competitionAttempt\(session\.attemptId\)/);
+    expect(adapter).toMatch(/clubApi\.startCompetitionAttempt\(clubId, competitionId, packSlug, session\.attemptNumber\)/);
+    expect(adapter).toMatch(/toPackGuessResult\(await clubApi\.competitionGuess\(/);
+    const api = read('api/clubApi.ts');
+    expect(api).toMatch(/JSON\.stringify\(\{ attempt_number: attemptNumber \}\)/);
+    expect(api).toMatch(/`\/club-competition-attempts\/\$\{attemptId\}\/guess`/);
+  });
+
+  it('the competition screen starts the server-provided next attempt number and guards double taps', () => {
+    const source = read('screens/ClubCompetitionScreen.tsx');
+    expect(source).toMatch(/competitionPackAction\(pack\.state, detail\.phase, detail\.rules\)/);
+    expect(source).toMatch(/handleStart\(pack, action\.attemptNumber\)/);
+    expect(source).toMatch(/if \(startInFlight\.current\) return;/);
+  });
+
+  it('a competition attempt ends on its own complete view', () => {
+    expect(read('screens/PackCompleteScreen.tsx')).toMatch(/isCompetitionSession\(props\.route\.params\.session\)\) return <CompetitionCompleteView/);
+    expect(read('screens/CompetitionCompleteView.tsx')).toMatch(/clubs\.competition\.complete\.noXp/);
+  });
+
+  it('club trophies come from the player\'s own /me/club-finishes and stay hidden when empty', () => {
+    const source = read('components/TrophyRoom.tsx');
+    expect(source).toMatch(/clubApi\.myClubFinishes\(\)/);
+    expect(source).toMatch(/clubFinishes\.length > 0/);
+    expect(read('api/clubApi.ts')).toMatch(/'\/me\/club-finishes'/);
+  });
+
+  it('ConfirmModal follows the active theme', () => {
+    const source = read('components/ConfirmModal.tsx');
+    expect(source).not.toMatch(/theme\/colors/);
+    expect(source).toMatch(/useTheme\(\)/);
+  });
+});

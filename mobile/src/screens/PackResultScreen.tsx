@@ -8,8 +8,9 @@ import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { useTheme } from '../theme/useTheme';
-import { exitPlaySession, useHardwareBack } from '../app/navigationActions';
+import { exitPlaySession, goToPlayDetail, useHardwareBack } from '../app/navigationActions';
 import { backToOriginKey } from '../utils/playSession';
+import { isRewardedRun } from '../utils/competition';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
@@ -50,6 +51,12 @@ export function PackResultScreen({ route, navigation }: Props) {
           <Text style={styles.scoreValue}>{r.score}</Text>
           <Text style={styles.scoreLabel}>{t('common.labels.points')}</Text>
           {xpGained > 0 ? <Text style={styles.xp}>{t('packs.result.xpGained', { xp: xpGained })}</Text> : null}
+          {/* Competition attempts: where this guess leaves the player in the competition. */}
+          {result.competition && typeof result.competition.rank === 'number' ? (
+            <Text style={styles.competitionLine}>
+              {t('clubs.competition.resultLine', { score: (result.competition.total_score ?? 0).toLocaleString(), rank: result.competition.rank })}
+            </Text>
+          ) : null}
         </View>
 
         {/* Reveal image with markers */}
@@ -114,14 +121,24 @@ export function PackResultScreen({ route, navigation }: Props) {
           <>
             <AppButton
               title={t('packs.result.viewPackResults')}
-              onPress={() => navigation.replace('PackComplete', { slug, packName, completion: result.completion ?? null, justCompleted: true, session })}
+              onPress={() => navigation.replace('PackComplete', {
+                slug, packName, completion: result.completion ?? null, justCompleted: true, session,
+                // Competition attempts have no pack completion summary: hand over the competition outcome.
+                competitionOutcome: result.competition !== undefined ? {
+                  competition: result.competition ?? null,
+                  finalScore: result.final_score ?? progress.total_score,
+                  totalChallenges: progress.total_challenges,
+                  isRewardedRun: isRewardedRun(result),
+                  completionXp: result.completion_xp ?? 0,
+                } : undefined,
+              })}
             />
             <AppButton title={t(backToOriginKey(session, 'packs.result.backToPacks'))} onPress={exit} variant="secondary" />
           </>
         ) : (
           <>
             <AppButton title={t('packs.result.nextChallenge')} onPress={() => navigation.replace('PackGuess', { slug, packName, session })} />
-            <AppButton title={t('packs.result.leavePack')} onPress={() => navigation.navigate('PackDetail', { slug, name: packName, session })} variant="secondary" />
+            <AppButton title={t('packs.result.leavePack')} onPress={() => goToPlayDetail(navigation, session, slug, packName, 'navigate')} variant="secondary" />
           </>
         )}
       </View>
@@ -142,6 +159,7 @@ function createStyles(theme: ThemeTokens) {
     scoreValue: { fontSize: 48, fontWeight: '800', color: theme.primary },
     scoreLabel: { fontSize: 13, color: theme.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
     xp: { fontSize: 15, fontWeight: '700', color: theme.success, marginTop: spacing.xs },
+    competitionLine: { fontSize: 13, fontWeight: '600', color: theme.textSecondary, marginTop: spacing.xs },
     imageCard: { backgroundColor: theme.surface, borderRadius: 14, padding: spacing.sm, borderWidth: 1, borderColor: theme.border },
     legendRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm, flexWrap: 'wrap', gap: spacing.xs },
     legend: { fontSize: 12, color: theme.textSecondary },

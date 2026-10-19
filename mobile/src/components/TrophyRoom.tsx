@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Pressable, Modal } from 'react-native';
 import { badgeApi } from '../api/badgeApi';
 import { packApi } from '../api/packApi';
+import { clubApi } from '../api/clubApi';
+import type { ClubFinish } from '../types/club';
 import type { CompetitionFinish, EarnedBadge, TournamentFinish } from '../types/badge';
 import type { PackCompletion } from '../types/pack';
 import { useTheme } from '../theme/useTheme';
@@ -115,6 +117,7 @@ export function TrophyRoom() {
   const [finishes, setFinishes] = useState<TournamentFinish[]>([]);
   const [packCompletions, setPackCompletions] = useState<PackCompletion[]>([]);
   const [competitionFinishes, setCompetitionFinishes] = useState<CompetitionFinish[]>([]);
+  const [clubFinishes, setClubFinishes] = useState<ClubFinish[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selected, setSelected] = useState<EarnedBadge | null>(null);
@@ -149,6 +152,12 @@ export function TrophyRoom() {
     // Competition finishes (closed monthly/weekly periods) — non-fatal too.
     badgeApi.competitionFinishes()
       .then((data) => !cancelled && setCompetitionFinishes(data))
+      .catch(() => {});
+
+    // Club trophies (own placements in finalized club competitions) — non-fatal;
+    // a 404 (Clubs switched off) simply hides the section.
+    clubApi.myClubFinishes()
+      .then((data) => !cancelled && setClubFinishes(data))
       .catch(() => {});
 
     return () => {
@@ -216,6 +225,16 @@ export function TrophyRoom() {
         </View>
       ) : null}
 
+      {/* Club trophies — club-only placements (no global XP). This Trophy Room is
+          only ever rendered for the signed-in player; the section stays hidden
+          for players without any club finish. */}
+      {!loading && !error && clubFinishes.length > 0 ? (
+        <View style={styles.finishesWrap}>
+          <Text style={styles.subHeader}>{t('profile.trophyRoom.clubTrophies')}</Text>
+          {clubFinishes.map((f) => <ClubFinishRow key={`${f.club.id}:${f.competition.id}`} finish={f} styles={styles} />)}
+        </View>
+      ) : null}
+
       {/* Badge detail — untruncated name/description, rarity, earned state. */}
       <Modal
         visible={selected != null}
@@ -269,6 +288,31 @@ function CompetitionFinishRow({ finish, styles }: { finish: CompetitionFinish; s
           {t('profile.trophyRoom.placeWithName', { place: placementLabel(t, finish.placement), name: competitionName })}
         </Text>
         {parts.length > 0 ? <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function ClubFinishRow({ finish, styles }: { finish: ClubFinish; styles: Styles }) {
+  const { t } = useI18n();
+  const date = finish.finalized_at
+    ? new Date(finish.finalized_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
+  const parts = [
+    finish.club.name,
+    t('profile.units.players', { count: finish.total_players }),
+    t('profile.units.pts', { score: finish.total_score.toLocaleString('en-US') }),
+    date,
+  ].filter(Boolean);
+
+  return (
+    <View style={styles.finishRow}>
+      <Text style={styles.finishMedal}>{placementMedal(finish.placement)}</Text>
+      <View style={styles.finishInfo}>
+        <Text style={styles.finishTitle} numberOfLines={1}>
+          {t('profile.trophyRoom.placeWithName', { place: placementLabel(t, finish.placement), name: finish.competition.name })}
+        </Text>
+        <Text style={styles.finishMeta} numberOfLines={1}>{parts.join(' · ')}</Text>
       </View>
     </View>
   );

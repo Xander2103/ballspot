@@ -15,6 +15,7 @@ import type { Badge } from '../types/badge';
 import type { RankProgress, RankUp } from '../types/auth';
 import type { TournamentCompletion } from '../types/guess';
 import type { PackGuessResult, PackCompletionSummary } from '../types/pack';
+import type { CompetitionListPhase, CompetitionOutcome } from '../types/club';
 import { LoginScreen } from '../screens/LoginScreen';
 import { LoginVerificationScreen } from '../screens/LoginVerificationScreen';
 import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
@@ -48,6 +49,7 @@ import { ClubPacksScreen } from '../screens/ClubPacksScreen';
 import { ClubLeaderboardScreen } from '../screens/ClubLeaderboardScreen';
 import { ClubMembersScreen } from '../screens/ClubMembersScreen';
 import { ClubCompetitionScreen } from '../screens/ClubCompetitionScreen';
+import { ClubCompetitionsScreen } from '../screens/ClubCompetitionsScreen';
 import { HeaderExitButton } from '../components/HeaderExitButton';
 import { exitPlaySession, goHome } from './navigationActions';
 import { exitLabelKey, type PlaySession } from '../utils/playSession';
@@ -75,7 +77,7 @@ export type RootStackParamList = {
   PackDetail: { slug: string; name: string; session?: PlaySession };
   PackGuess: { slug: string; packName: string; session?: PlaySession };
   PackResult: { slug: string; packName: string; result: PackGuessResult; imageUrl: string | null; sportSlug?: string | null; session?: PlaySession };
-  PackComplete: { slug: string; packName: string; completion?: PackCompletionSummary | null; /** Set only when the pack was completed just now (growth: review prompt). */ justCompleted?: boolean; session?: PlaySession };
+  PackComplete: { slug: string; packName: string; completion?: PackCompletionSummary | null; /** Set only when the pack was completed just now (growth: review prompt). */ justCompleted?: boolean; session?: PlaySession; /** Competition attempts: the outcome from the last guess (else loaded). */ competitionOutcome?: CompetitionOutcome };
   RankOverview: undefined;
   TrophyRoom: undefined;
   CreateLeague: undefined;
@@ -96,9 +98,10 @@ export type RootStackParamList = {
   ScanClubCode: undefined;
   ClubDetail: { clubId: string; name?: string; /** Banner after a join from JoinClub. */ notice?: 'joined' | 'alreadyMember' };
   ClubPacks: { clubId: string; name?: string };
-  ClubLeaderboard: { clubId: string; name?: string };
+  /** Club all-time board, or a competition's standings when `competitionId` is set. */
+  ClubLeaderboard: { clubId: string; competitionId?: string; name?: string };
+  ClubCompetitions: { clubId: string; phase?: CompetitionListPhase; name?: string };
   ClubMembers: { clubId: string; name?: string };
-  /** Placeholder until the competitions follow-up implements the screen. */
   ClubCompetition: { clubId: string; competitionId: string; name?: string; clubName?: string };
 };
 
@@ -341,6 +344,7 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
         <Stack.Screen name="ClubPacks" component={ClubPacksScreen} options={{ title: t('nav.titles.clubPacks') }} />
         <Stack.Screen name="ClubLeaderboard" component={ClubLeaderboardScreen} options={{ title: t('nav.titles.clubLeaderboard') }} />
         <Stack.Screen name="ClubMembers" component={ClubMembersScreen} options={{ title: t('nav.titles.clubMembers') }} />
+        <Stack.Screen name="ClubCompetitions" component={ClubCompetitionsScreen} options={{ title: t('nav.titles.clubCompetitions') }} />
         <Stack.Screen name="ClubCompetition" component={ClubCompetitionScreen} options={({ route }) => ({ title: route.params.name ?? t('nav.titles.clubCompetition') })} />
       </Stack.Navigator>
     </NavigationContainer>

@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useCallback, useLayoutEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -13,27 +13,36 @@ import { usePaginatedSearch, type PageRequest } from '../hooks/usePaginatedSearc
 import { useTheme } from '../theme/useTheme';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
-import type { ClubLeaderboardEntry, ClubLeaderboardMeta } from '../types/club';
+import type { ClubLeaderboardEntry, ClubLeaderboardMeta, CompetitionLeaderboardMeta } from '../types/club';
 import { getClubErrorMessage, isClubGoneError } from '../utils/clubErrors';
 import { sharedRanks } from '../utils/sharedRank';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClubLeaderboard'>;
+type Meta = ClubLeaderboardMeta & Partial<Pick<CompetitionLeaderboardMeta, 'rules' | 'phase'>>;
 
 /**
- * Club all-time leaderboard (cursor pages). Ranks are the server's shared
- * ranks (1, 2, 2, 4); tied rows read "=4". Usernames + avatars only (D12).
+ * Club all-time leaderboard, or — with `competitionId` — a competition's
+ * standings (cursor pages). Ranks are the server's shared ranks (1, 2, 2, 4);
+ * tied rows read "=4". Usernames + avatars only (D12).
  */
 export function ClubLeaderboardScreen({ navigation, route }: Props) {
-  const { clubId } = route.params;
+  const { clubId, competitionId, name } = route.params;
   const { theme } = useTheme();
   const { t } = useI18n();
 
   const fetchPage = useCallback(async ({ cursor, signal }: PageRequest) => {
-    const res = await clubApi.leaderboard(clubId, { cursor, signal });
-    return { items: res.data ?? [], nextCursor: res.meta?.next_cursor ?? null, meta: res.meta ?? null };
-  }, [clubId]);
+    const res = competitionId
+      ? await clubApi.competitionLeaderboard(clubId, competitionId, { cursor, signal })
+      : await clubApi.leaderboard(clubId, { cursor, signal });
+    return { items: res.data ?? [], nextCursor: res.meta?.next_cursor ?? null, meta: (res.meta ?? null) as Meta | null };
+  }, [clubId, competitionId]);
 
-  const list = usePaginatedSearch<ClubLeaderboardEntry, ClubLeaderboardMeta>({
+  // A competition board's title is the competition name.
+  useLayoutEffect(() => {
+    if (competitionId && name) navigation.setOptions({ title: name });
+  }, [navigation, competitionId, name]);
+
+  const list = usePaginatedSearch<ClubLeaderboardEntry, Meta>({
     fetchPage,
     getKey: (e) => String(e.user_id),
   });
@@ -70,6 +79,9 @@ export function ClubLeaderboardScreen({ navigation, route }: Props) {
 
   const header = (
     <View>
+      {meta?.phase === 'finalized' || meta?.phase === 'ended' ? (
+        <Text style={[styles.finalLabel, { color: theme.textMuted }]}>{t('clubs.competition.finalStandings')}</Text>
+      ) : null}
       {view === 'list' && state.error ? <View style={styles.banner}><InlineBanner text={getClubErrorMessage(state.error, t('clubs.leaderboard.loadError'))} tone="warning" /></View> : null}
       {meta && view === 'list' ? (
         <YourPositionCard
@@ -77,7 +89,7 @@ export function ClubLeaderboardScreen({ navigation, route }: Props) {
           totalPlayers={meta.total_players}
           betterThanPercentage={meta.better_than_percentage}
           scoreText={typeof meta.current_user_score === 'number'
-            ? t('clubs.leaderboard.clubPoints', { score: meta.current_user_score.toLocaleString() })
+            ? t(competitionId ? 'clubs.leaderboard.competitionPoints' : 'clubs.leaderboard.clubPoints', { score: meta.current_user_score.toLocaleString() })
             : null}
           shared={myRankShared}
         />
@@ -118,4 +130,5 @@ const styles = StyleSheet.create({
   listContent: { paddingBottom: spacing.xxl, flexGrow: 1 },
   banner: { paddingHorizontal: spacing.md, paddingTop: spacing.md },
   footer: { paddingHorizontal: spacing.md },
+  finalLabel: { fontSize: 13, fontWeight: '700', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.md },
 });

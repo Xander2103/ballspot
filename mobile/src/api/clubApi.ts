@@ -4,7 +4,10 @@ import type {
   ClubPackCard, ClubPackDetail, CompetitionCard, CompetitionListPhase, CursorMeta, CursorPage,
   JoinClubResponse, MyClubsMeta,
 } from '../types/club';
-import type { PackAttemptResponse, PackStartResponse } from '../types/pack';
+import type { PackAttemptResponse, PackGuessResult, PackStartResponse } from '../types/pack';
+import type {
+  ClubFinish, CompetitionAttempt, CompetitionAttemptResponse, CompetitionDetail, CompetitionLeaderboardMeta,
+} from '../types/club';
 
 /**
  * BallPicker Clubs member API (docs/clubs-implementation-contracts.md §5).
@@ -30,6 +33,7 @@ function query(params: Record<string, string | number | null | undefined>): stri
 
 const club = (clubId: string) => `/clubs/${encodeURIComponent(clubId)}`;
 const clubPack = (clubId: string, slug: string) => `${club(clubId)}/packs/${encodeURIComponent(slug)}`;
+const competition = (clubId: string, competitionId: string) => `${club(clubId)}/competitions/${encodeURIComponent(competitionId)}`;
 
 export const clubApi = {
   /** My Clubs: only the caller's active/suspended memberships. `q` filters name/city server-side. */
@@ -86,4 +90,42 @@ export const clubApi = {
       `${club(clubId)}/competitions${query({ phase: params.phase, cursor: params.cursor, limit: params.limit })}`,
       { signal: params.signal },
     ),
+
+  /** Competition detail: window, rules, linked packs with my per-pack `state`, my entry, leaderboard preview. */
+  competition: (clubId: string, competitionId: string) =>
+    apiClient.request<{ data: CompetitionDetail }>(competition(clubId, competitionId)),
+
+  /**
+   * Start (or resume) a competition attempt. Idempotent: retrying with the same
+   * `attempt_number` returns the same attempt; an active attempt is returned as is.
+   */
+  startCompetitionAttempt: (clubId: string, competitionId: string, slug: string, attemptNumber: number) =>
+    apiClient.request<CompetitionAttemptResponse>(
+      `${competition(clubId, competitionId)}/packs/${encodeURIComponent(slug)}/attempts`,
+      { method: 'POST', body: JSON.stringify({ attempt_number: attemptNumber }) },
+    ),
+
+  /** Attempt state + current challenge (owner only, else 404). */
+  competitionAttempt: (attemptId: number) =>
+    apiClient.request<CompetitionAttemptResponse>(`/club-competition-attempts/${attemptId}`),
+
+  /** Submit a guess. A retry of an accepted guess returns the stored result with `replayed: true`. */
+  competitionGuess: (attemptId: number, challengeId: number, guessedX: number, guessedY: number) =>
+    apiClient.request<Omit<PackGuessResult, 'progress'> & { progress: CompetitionAttempt; replayed?: boolean }>(
+      `/club-competition-attempts/${attemptId}/guess`,
+      { method: 'POST', body: JSON.stringify({ challenge_id: challengeId, guessed_x: guessedX, guessed_y: guessedY }) },
+    ),
+
+  competitionLeaderboard: (clubId: string, competitionId: string, params: PageParams = {}) =>
+    apiClient.request<CursorPage<ClubLeaderboardEntry, CompetitionLeaderboardMeta>>(
+      `${competition(clubId, competitionId)}/leaderboard${query({ cursor: params.cursor, limit: params.limit })}`,
+      { signal: params.signal },
+    ),
+
+  myCompetitionAttempts: (clubId: string, competitionId: string) =>
+    apiClient.request<{ data: CompetitionAttempt[] }>(`${competition(clubId, competitionId)}/me/attempts`),
+
+  /** The player's own club competition placements (Trophy Room "Club trophies"). */
+  myClubFinishes: () =>
+    apiClient.request<{ data: ClubFinish[] }>('/me/club-finishes').then((r) => r.data ?? []),
 };

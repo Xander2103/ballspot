@@ -8,7 +8,8 @@ import { EmptyState } from '../components/EmptyState';
 import { playSessionApi } from '../api/playSessionApi';
 import { growth } from '../services/growth';
 import { exitPlaySession, goHome, useHardwareBack } from '../app/navigationActions';
-import { backToOriginKey, resolvePlaySession } from '../utils/playSession';
+import { backToOriginKey, isCompetitionSession, resolvePlaySession } from '../utils/playSession';
+import { CompetitionCompleteView } from './CompetitionCompleteView';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
@@ -24,7 +25,14 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PackComplete'>;
  * the final PackResult, from a completed pack's detail page ("View results"),
  * and whenever the app finds an attempt that is already completed.
  */
-export function PackCompleteScreen({ route, navigation }: Props) {
+export function PackCompleteScreen(props: Props) {
+  // A competition attempt has its own outcome view (counted score, rank,
+  // attempts left); a pack (public or club) keeps the overview below.
+  if (isCompetitionSession(props.route.params.session)) return <CompetitionCompleteView {...props} />;
+  return <PackCompleteOverview {...props} />;
+}
+
+function PackCompleteOverview({ route, navigation }: Props) {
   const { slug, packName, completion: initial, justCompleted, session } = route.params;
   // "Back" returns to where the play flow started (Packs list or the club).
   const exit = useCallback(() => exitPlaySession(navigation, session), [navigation, session]);

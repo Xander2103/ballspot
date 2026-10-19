@@ -35,11 +35,13 @@ export const nav = {
     clubLeaderboard: 'Club leaderboard',
     clubMembers: 'Members',
     clubCompetition: 'Competition',
+    clubCompetitions: 'Competitions',
   },
   backTo: 'Back to {{label}}',
   exit: {
     home: 'Home',
     packs: 'Packs',
     club: 'Club',
+    competition: 'Competition',
   },
 };

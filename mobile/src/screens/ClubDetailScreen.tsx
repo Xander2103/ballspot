@@ -9,6 +9,7 @@ import { LeaderboardRow, LeaderboardSeparator } from '../components/LeaderboardL
 import { ClubLogo } from '../components/clubs/ClubLogo';
 import { roleChipColor } from '../components/clubs/ClubCard';
 import { ClubPackRow } from '../components/clubs/ClubPackRow';
+import { CompetitionRow } from '../components/clubs/CompetitionRow';
 import { SegmentedControl } from '../components/clubs/SegmentedControl';
 import { ActionSheet, type SheetAction } from '../components/clubs/ActionSheet';
 import { InlineBanner } from '../components/clubs/ListStates';
@@ -19,7 +20,7 @@ import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
 import type { ClubDetail, ClubLeaderboardEntry, ClubPackCard, CompetitionCard } from '../types/club';
-import { clubHeaderParts, competitionSubtitle, roleLabel, type CompetitionSegment } from '../utils/clubDisplay';
+import { clubHeaderParts, roleLabel, type CompetitionSegment } from '../utils/clubDisplay';
 import { getClubErrorMessage, hasClubErrorCode, isClubGoneError } from '../utils/clubErrors';
 import { mergePreviewRows, sharedRankFlags } from '../utils/sharedRank';
 import type { PlaySession } from '../utils/playSession';
@@ -250,7 +251,13 @@ export function ClubDetailScreen({ navigation, route }: Props) {
 
         {/* Competitions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('clubs.sections.competitions')}</Text>
+          <SectionHeader
+            title={t('clubs.sections.competitions')}
+            seeAll={t('clubs.sections.seeAll')}
+            seeAllA11y={t('clubs.sections.seeAllA11y', { section: t('clubs.sections.competitions') })}
+            onSeeAll={() => navigation.navigate('ClubCompetitions', { clubId, phase: segment ?? 'active', name: club.name })}
+            styles={styles}
+          />
           <SegmentedControl<CompetitionSegment>
             segments={[
               { key: 'active', label: t('clubs.competitions.segmentActive') },
@@ -268,16 +275,7 @@ export function ClubDetailScreen({ navigation, route }: Props) {
             ) : competitionItems.length === 0 ? (
               <Text style={styles.muted}>{t(emptyCompetitionKey)}</Text>
             ) : (
-              competitionItems.map((c) => (
-                <TouchableOpacity key={c.id} style={styles.competitionRow} onPress={() => openCompetition(c)} activeOpacity={0.85} accessibilityRole="button">
-                  <Text style={styles.competitionIcon}>🏆</Text>
-                  <View style={styles.flex}>
-                    <Text style={styles.competitionName} numberOfLines={1}>{c.name}</Text>
-                    <Text style={styles.competitionMeta} numberOfLines={1}>{competitionSubtitle(c, locale)}</Text>
-                  </View>
-                  <Text style={styles.chevron}>›</Text>
-                </TouchableOpacity>
-              ))
+              competitionItems.map((c) => <CompetitionRow key={c.id} competition={c} onPress={() => openCompetition(c)} />)
             )}
           </View>
         </View>
@@ -380,7 +378,6 @@ function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 240 },
     content: { padding: spacing.md, paddingBottom: spacing.xxl },
-    flex: { flex: 1, minWidth: 0 },
     header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
     headerText: { flex: 1, minWidth: 0 },
     name: { fontSize: 22, fontWeight: '800', color: theme.text },
@@ -399,15 +396,6 @@ function createStyles(theme: ThemeTokens) {
     seeAll: { fontSize: 14, fontWeight: '700', color: theme.primary, marginBottom: spacing.sm },
     sectionBody: { marginTop: spacing.sm },
     muted: { fontSize: 13, color: theme.textMuted, paddingVertical: spacing.sm },
-    competitionRow: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-      backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
-      padding: spacing.md, marginBottom: spacing.sm,
-    },
-    competitionIcon: { fontSize: 20 },
-    competitionName: { fontSize: 15, fontWeight: '700', color: theme.text },
-    competitionMeta: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
-    chevron: { fontSize: 22, color: theme.textMuted },
     board: { backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
   });
 }

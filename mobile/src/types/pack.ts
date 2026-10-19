@@ -140,6 +140,13 @@ export interface PackGuessResult {
   final_score: number | null;
   completion_xp: number | null;
   completion?: PackCompletionSummary | null;
+  /**
+   * Competition attempts only (POST /club-competition-attempts/{id}/guess):
+   * counted score / total / rank / attempts left after this guess.
+   */
+  competition?: { counted_score: number | null; total_score: number | null; rank: number | null; attempts_remaining: number | null } | null;
+  /** Competition attempts: the attempt is a rewarded run (false = no global XP for replays / extra attempts). */
+  is_rewarded_run?: boolean | null;
 }
 
 export interface PackCompletion {

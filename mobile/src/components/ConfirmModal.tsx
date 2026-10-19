@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
 import { AppButton } from './AppButton';
-import { colors } from '../theme/colors';
+import { useTheme } from '../theme/useTheme';
+import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
 
@@ -33,6 +34,8 @@ export function ConfirmModal({
   errorText,
 }: Props) {
   const { t } = useI18n();
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
   const confirmText = confirmLabel ?? t('common.buttons.confirm');
   const cancelText = cancelLabel ?? t('common.buttons.cancel');
   // Never dismiss the dialog while the confirm action is running.
@@ -70,46 +73,48 @@ export function ConfirmModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  dialog: {
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: spacing.xl,
-    width: '100%',
-    maxWidth: 360,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
-  message: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-    lineHeight: 20,
-  },
-  error: {
-    fontSize: 13,
-    color: colors.error,
-    marginTop: -spacing.sm,
-    marginBottom: spacing.md,
-  },
-  buttons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  btn: {
-    flex: 1,
-  },
-});
+function createStyles(theme: ThemeTokens) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.overlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl,
+    },
+    dialog: {
+      backgroundColor: theme.surface,
+      borderRadius: 18,
+      padding: spacing.xl,
+      width: '100%',
+      maxWidth: 360,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    title: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.text,
+      marginBottom: spacing.sm,
+    },
+    message: {
+      fontSize: 14,
+      color: theme.textSecondary,
+      marginBottom: spacing.lg,
+      lineHeight: 20,
+    },
+    error: {
+      fontSize: 13,
+      color: theme.error,
+      marginTop: -spacing.sm,
+      marginBottom: spacing.md,
+    },
+    buttons: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    btn: {
+      flex: 1,
+    },
+  });
+}

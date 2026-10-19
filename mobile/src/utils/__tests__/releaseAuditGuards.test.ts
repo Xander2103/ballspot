@@ -67,6 +67,22 @@ describe('store build config', () => {
     expect(typeof app.expo.ios.infoPlist.NSCameraUsageDescription).toBe('string');
     expect(typeof app.expo.ios.infoPlist.NSPhotoLibraryUsageDescription).toBe('string');
   });
+
+  it('the camera purpose string covers every scanner the app has (friend and club QR codes), everywhere it is declared', () => {
+    const strings = [
+      app.expo.ios.infoPlist.NSCameraUsageDescription,
+      pluginConfig('expo-camera').cameraPermission,
+      pluginConfig('expo-image-picker').cameraPermission,
+    ];
+    for (const s of strings) {
+      expect(typeof s).toBe('string');
+      expect(s).toMatch(/QR/);
+      expect(s).toMatch(/friend/i);
+      expect(s).toMatch(/club/i);
+    }
+    // One wording in all three places, so the iOS prompt never depends on which plugin wrote it last.
+    expect(new Set(strings).size).toBe(1);
+  });
 });
 
 describe('auth error copy', () => {
