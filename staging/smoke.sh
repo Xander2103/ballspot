@@ -88,7 +88,8 @@ vtok=$(curl -s "${AUTH[@]}" -b "$JAR/p" -c "$JAR/p" "$BASE/club/verify" | grep -
 st=$(curl -s -o /dev/null -w '%{http_code}' "${AUTH[@]}" -b "$JAR/p" -c "$JAR/p" -X POST "$BASE/club/verify" \
       --data-urlencode "_token=$vtok" --data-urlencode "code=$pcode")
 check "portal code accepted" 302 "$st"
-check "portal home after 2FA" 200 "$(code "${AUTH[@]}" -b "$JAR/p" "$BASE/club")"
+final=$(curl -s -L -o /dev/null -w '%{http_code} %{url_effective}' "${AUTH[@]}" -b "$JAR/p" -c "$JAR/p" "$BASE/club")
+case "$final" in "200 $BASE/club/"*) ok "portal dashboard after 2FA (single-club owner → ${final#200 $BASE})";; *) bad "portal dashboard after 2FA ($final)";; esac
 
 echo "== Mail isolation"
 nonqa=$(curl -s "$MAILPIT/api/v1/messages?limit=500" | json 'sum(1 for m in d["messages"] for t in m["To"] if not t["Address"].endswith("@staging.ballpicker.test"))')

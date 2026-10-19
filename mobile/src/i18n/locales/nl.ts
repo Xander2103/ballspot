@@ -147,6 +147,7 @@ export const nl: Translations = {
 
   errors: {
     network: 'BallPicker is niet bereikbaar. Controleer je verbinding en probeer opnieuw.',
+    stagingApiUnconfigured: 'Deze staging-build heeft geen staging-server ingesteld. Start Metro met de staging-API-URL.',
     server: 'Er ging iets mis aan onze kant. Probeer het zo meteen opnieuw.',
     unauthorized: 'Je sessie is verlopen. Log opnieuw in.',
     generic: 'Er ging iets mis. Probeer het opnieuw.',

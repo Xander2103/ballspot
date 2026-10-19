@@ -65,3 +65,45 @@ describe('getApiErrorMessage', () => {
     expect(getApiErrorMessage('Custom string', fallback)).toBe('Custom string');
   });
 });
+
+describe('network failures from Expo native fetch (SDK 56)', () => {
+  class FetchError extends Error {
+    constructor(message: string) { super(message); this.name = 'Error'; }
+  }
+
+  it('treats a FetchError (unreachable host) as a network error, not as bad credentials', () => {
+    const e = new FetchError('fetch failed: UnexpectedException: A server with the specified hostname could not be found. (at ExpoModulesCore/Promise.swift:56)');
+    expect(isNetworkError(e)).toBe(true);
+    expect(getApiErrorMessage(e, 'Login failed. Please check your details and try again.')).toBe(networkErrorMessage());
+  });
+
+  it('recognises the iOS offline / connection-lost variants', () => {
+    for (const msg of [
+      'fetch failed: The Internet connection appears to be offline.',
+      'The network connection was lost.',
+      'Could not connect to the server.',
+    ]) {
+      expect(isNetworkError(new Error(msg))).toBe(true);
+    }
+  });
+
+  it('never treats an HTTP response as a network error', () => {
+    expect(isNetworkError({ status: 422, message: 'fetch failed' })).toBe(false);
+    expect(isNetworkError({ status: 0, name: 'FetchError' })).toBe(false);
+  });
+});
+
+describe('unconfigured staging build', () => {
+  it('shows the staging-configuration message, never "check your details"', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getAuthErrorMessage } = require('../authErrors');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { STAGING_API_UNCONFIGURED, STAGING_API_UNCONFIGURED_KEY } = require('../apiError');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { translate } = require('../../i18n/core');
+    const e = { code: STAGING_API_UNCONFIGURED, message: translate(STAGING_API_UNCONFIGURED_KEY) };
+    const shown = getAuthErrorMessage(e, 'Login failed. Please check your details and try again.');
+    expect(shown).toBe(translate(STAGING_API_UNCONFIGURED_KEY));
+    expect(shown).toMatch(/staging/i);
+  });
+});

@@ -16,10 +16,13 @@ export function StagingRibbon() {
   if (APP_VARIANT !== 'staging') return null;
 
   const unconfigured = API_BASE_URL === STAGING_UNCONFIGURED_API_BASE_URL;
-  const label = unconfigured ? 'STAGING · NO STAGING API CONFIGURED' : `STAGING · ${hostOf(API_BASE_URL) ?? '?'}`;
+  // Compact: first host label only ("actions-titanium-suited-tier"), so the pill
+  // stays small and sits in the empty band at the bottom of the status bar.
+  const host = (hostOf(API_BASE_URL) ?? '?').split('.')[0];
+  const label = unconfigured ? 'STAGING · NO STAGING API CONFIGURED' : `STAGING · ${host}`;
 
   return (
-    <View pointerEvents="none" style={[styles.wrap, { top: insets.top + 2 }]} accessibilityLabel={label}>
+    <View pointerEvents="none" style={[styles.wrap, { top: Math.max(0, insets.top - 16) }]} accessibilityLabel={label}>
       <Text style={[styles.text, unconfigured && styles.warn]} numberOfLines={1}>{label}</Text>
     </View>
   );
@@ -35,11 +38,11 @@ const styles = StyleSheet.create({
   text: {
     backgroundColor: '#FFB020',
     color: '#111111',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
-    letterSpacing: 0.5,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    letterSpacing: 0.4,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
     borderRadius: 8,
     overflow: 'hidden',
     maxWidth: 320,

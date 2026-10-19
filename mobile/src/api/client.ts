@@ -24,6 +24,8 @@ async function readBody(response: Response, path: string, method: string): Promi
 }
 
 import { API_BASE_URL } from '../utils/urls';
+import { STAGING_UNCONFIGURED_API_BASE_URL } from '../utils/appVariant';
+import { STAGING_API_UNCONFIGURED, STAGING_API_UNCONFIGURED_KEY } from '../utils/apiError';
 
 // For physical device testing set EXPO_PUBLIC_API_BASE_URL in mobile/.env to
 // your computer's LAN IP, e.g. http://192.168.1.x:8000/api (see .env.example).
@@ -87,6 +89,11 @@ async function request<T>(
   }
 
   const method = (options.method ?? 'GET').toUpperCase();
+  // A staging build without a staging URL resolves to an unroutable sentinel
+  // (utils/urls) — say so plainly instead of attempting the request.
+  if (API_BASE_URL === STAGING_UNCONFIGURED_API_BASE_URL) {
+    throw { code: STAGING_API_UNCONFIGURED, message: translate(STAGING_API_UNCONFIGURED_KEY) };
+  }
   let response: Response;
   try {
     response = await fetchWithTimeout(`${API_BASE_URL}${path}`, {

@@ -145,6 +145,7 @@ export const fr: Translations = {
   },
   errors: {
     network: 'Impossible de joindre BallPicker. Vérifie ta connexion et réessaie.',
+    stagingApiUnconfigured: 'Cette build de staging n’a pas de serveur de staging configuré. Lance Metro avec l’URL de l’API de staging.',
     server: 'Un problème est survenu de notre côté. Réessaie dans un instant.',
     unauthorized: 'Ta session a expiré. Reconnecte-toi.',
     generic: 'Un problème est survenu. Réessaie.',

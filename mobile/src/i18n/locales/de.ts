@@ -147,6 +147,7 @@ export const de: Translations = {
 
   errors: {
     network: 'BallPicker ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.',
+    stagingApiUnconfigured: 'Für diesen Staging-Build ist kein Staging-Server eingerichtet. Starte Metro mit der Staging-API-URL.',
     server: 'Bei uns ist etwas schiefgelaufen. Bitte versuche es gleich noch einmal.',
     unauthorized: 'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.',
     generic: 'Etwas ist schiefgelaufen. Bitte versuche es erneut.',

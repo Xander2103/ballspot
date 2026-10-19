@@ -108,6 +108,12 @@ npx expo run:ios --device "<device name>" --configuration Release --no-bundler
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
 npx expo run:android --device Medium_Phone_API_37.0 --no-bundler
 ```
+**Daily use (simulator / LAN device, debug builds):** `staging/metro.sh` reads the current tunnel URL from
+`staging/secrets/tunnel_url`, refuses production hosts, checks `/api/config` answers, exports `APP_VARIANT=staging` and the three
+`EXPO_PUBLIC_*` values, and starts Metro with `--clear`. `EXPO_PUBLIC_*` values are inlined at bundle time, so after a tunnel
+restart (new URL) re-run `staging/metro.sh` and reload the app. No native rebuild and no simulator restart are needed. Also update
+`APP_URL` / `BALLSPOT_WEB_URL` / `FRONTEND_URL` in the staging `.env` and `staging/dc up -d --force-recreate app scheduler`.
+
 Push notifications need an EAS development build (approved in principle, **not triggered**). For Android, push additionally
 needs a Firebase app for the staging package.
 

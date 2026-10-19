@@ -5,6 +5,7 @@
  */
 export const errors = {
   network: 'Could not reach BallPicker. Check your connection and try again.',
+  stagingApiUnconfigured: 'This staging build has no staging server configured. Start Metro with the staging API URL.',
   server: 'Something went wrong on our side. Please try again in a moment.',
   unauthorized: 'Your session has expired. Please log in again.',
   generic: 'Something went wrong. Please try again.',
