@@ -67,7 +67,9 @@ class MemberController extends PortalController
         $this->guard($request, $member, ClubPortalMemberRules::REMOVE);
         $member->setRelation('club', $club);
 
-        $this->memberships->remove($member, $request->user(), self::ACTOR, $request->input('reason'));
+        $this->memberships->actAsManager($club, $request->user(), $member, ClubPortalMemberRules::REMOVE,
+            fn (ClubMember $t) => $this->memberships->remove($t, $request->user(), self::ACTOR, $request->input('reason')));
+        $member->refresh();
         $this->logPortal($request, 'member_removed', ['club_id' => $club->id, 'member_id' => $member->id]);
 
         return back()->with('success', __('club_portal.members.flash.removed', ['name' => $this->name($member)]));
@@ -78,7 +80,9 @@ class MemberController extends PortalController
         $this->guard($request, $member, ClubPortalMemberRules::BAN);
         $member->setRelation('club', $club);
 
-        $this->memberships->ban($member, $request->user(), self::ACTOR, $request->input('reason'));
+        $this->memberships->actAsManager($club, $request->user(), $member, ClubPortalMemberRules::BAN,
+            fn (ClubMember $t) => $this->memberships->ban($t, $request->user(), self::ACTOR, $request->input('reason')));
+        $member->refresh();
         $this->logPortal($request, 'member_banned', ['club_id' => $club->id, 'member_id' => $member->id]);
 
         return back()->with('success', __('club_portal.members.flash.banned', ['name' => $this->name($member)]));
@@ -89,7 +93,9 @@ class MemberController extends PortalController
         $this->guard($request, $member, ClubPortalMemberRules::UNBAN);
         $member->setRelation('club', $club);
 
-        $this->memberships->unban($member, $request->user(), self::ACTOR);
+        $this->memberships->actAsManager($club, $request->user(), $member, ClubPortalMemberRules::UNBAN,
+            fn (ClubMember $t) => $this->memberships->unban($t, $request->user(), self::ACTOR));
+        $member->refresh();
         $this->logPortal($request, 'member_unbanned', ['club_id' => $club->id, 'member_id' => $member->id]);
 
         return back()->with('success', __('club_portal.members.flash.unbanned', ['name' => $this->name($member)]));
@@ -100,7 +106,9 @@ class MemberController extends PortalController
         $this->guard($request, $member, ClubPortalMemberRules::ROLE);
         $member->setRelation('club', $club);
 
-        $this->memberships->changeRole($member, $request->role(), $request->user(), self::ACTOR);
+        $this->memberships->actAsManager($club, $request->user(), $member, ClubPortalMemberRules::ROLE,
+            fn (ClubMember $t) => $this->memberships->changeRole($t, $request->role(), $request->user(), self::ACTOR));
+        $member->refresh();
         $this->logPortal($request, 'member_role_changed', ['club_id' => $club->id, 'member_id' => $member->id, 'role' => $member->role->value]);
 
         return back()->with('success', __('club_portal.members.flash.role_changed', [

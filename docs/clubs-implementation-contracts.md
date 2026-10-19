@@ -601,3 +601,19 @@ Shapes above are served as written, with these additions/clarifications (mobile:
   `tests/Feature/Clubs/Portal/PortalCsvExportTest`; helpers `tests/Concerns/{AssertsJsonShape, BuildsClubStandings}`.
   Existing guards updated for the additive fields: `ClubApiIsolationTest` (route matrix incl. the Wave F routes →
   non-members 404), `ClubDetailApiTest`, `MobileContractShapeTest` (abilities + member `actions`).
+
+### Wave F review fixes (orchestrator)
+- **Push cap (review M1):** `ClubCompetitionNotifier::published()` closes the event without a push when the club already sent
+  `ballspot.clubs.notifications.max_publish_pushes_per_day` (default 3, env `BALLSPOT_CLUBS_PUBLISH_PUSHES_PER_DAY`) "published"
+  pushes for other competitions in the last 24 h — a publish → cancel loop is not a broadcast channel (`club.notify_skipped`
+  reason `club_push_cap`; test `test_publish_cancel_loops_are_capped_per_club_per_day`).
+- **Role rules under the lock (review L1):** `ClubMembershipService::actAsManager()` takes the club lock (the lock every membership
+  change takes first), reloads actor + target and re-runs `ClubPortalMemberRules::allows()` before the action. Used by the club-admin
+  API and the portal for role / remove / ban / unban (`ManagerActionLockTest`).
+- **Migration rollback (deploy safety):** `2026_10_20_000004_add_club_id_to_content_tables::down()` now drops each `club_id` foreign key
+  before its indexes and keeps a plain `pack_attempts(challenge_pack_id)` index on MySQL/MariaDB before dropping the composite one
+  (MySQL error 1553 otherwise). Verified: full rollback of the 18 Clubs migrations and re-migrate on MariaDB 11.4 and SQLite, with
+  pre-existing rows intact. (The pre-sprint migration `2026_07_30_000001_add_missing_query_indexes` has the same MySQL `down()` flaw —
+  not changed here.)
+- Known (review I1, display only): the invite-code list's "usable first" ordering is computed per request, so a code expiring between
+  two pages can be skipped or repeated once.

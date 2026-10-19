@@ -55,6 +55,15 @@ class ClubCompetitionNotifier
             if ($c->state !== CompetitionState::Published) {
                 return $this->summary(self::EVENT_PUBLISHED, false);
             }
+            if ($this->publishCapReached($c)) {
+                // Publish → cancel → publish loops must not become a broadcast
+                // channel: over the per-club daily cap the event is closed
+                // without a push (members still see the competition in the app).
+                $this->claim($c, 'notified_published_at', fn ($q) => $q);
+                AppLog::event('club.notify_skipped', ['competition_id' => $c->id, 'event' => self::EVENT_PUBLISHED, 'reason' => 'club_push_cap']);
+
+                return $this->summary(self::EVENT_PUBLISHED, false);
+            }
             if (now()->gte($c->starts_at)) {
                 // Published after the start: members get "started", and "published" is closed for good.
                 $result = $this->startedNow($c);
@@ -128,6 +137,17 @@ class ClubCompetitionNotifier
             ->where('ends_at', '>', $now));
 
         return $claimed ? $this->send($c, self::EVENT_STARTED) : $this->summary(self::EVENT_STARTED, false);
+    }
+
+    /** True when the club already sent its daily allowance of "published" pushes (other competitions, last 24 h). */
+    private function publishCapReached(ClubCompetition $c): bool
+    {
+        $cap = (int) config('ballspot.clubs.notifications.max_publish_pushes_per_day', 3);
+
+        return ClubCompetition::where('club_id', $c->club_id)
+            ->whereKeyNot($c->getKey())
+            ->where('notified_published_at', '>=', now()->subDay())
+            ->count() >= $cap;
     }
 
     /** Atomic claim of a notified_* column: true for exactly one caller. */

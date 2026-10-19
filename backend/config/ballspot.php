@@ -547,6 +547,9 @@ return [
         // Wave F: member content reports (POST /api/clubs/{club}/reports,
         // limiter `club-reports`): requests per user per hour.
         'reports' => ['per_user_per_hour' => (int) env('BALLSPOT_CLUBS_REPORTS_PER_HOUR', 5)],
+        // Member pushes for competitions: at most this many "published" pushes per
+        // club per 24 h (a publish → cancel loop must not become a broadcast channel).
+        'notifications' => ['max_publish_pushes_per_day' => (int) env('BALLSPOT_CLUBS_PUBLISH_PUSHES_PER_DAY', 3)],
         // Club portal (/club, D2 — docs/club-portal.md): the emailed 6-digit
         // code on every new portal session, its expiry / wrong-attempt lock /
         // resend cooldown, the per-address hourly email ceiling, and the

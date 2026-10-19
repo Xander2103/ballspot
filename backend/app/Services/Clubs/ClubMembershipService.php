@@ -533,6 +533,33 @@ class ClubMembershipService
         $this->context->forget($club->id, $member->user_id);
     }
 
+    /**
+     * Run a manager action on another member with the role rules
+     * (ClubPortalMemberRules) re-checked under the club lock — the lock every
+     * membership change takes first — on freshly loaded actor and target rows,
+     * so a concurrent demotion/transfer cannot slip between check and act.
+     *
+     * @template T
+     * @param \Closure(ClubMember $target): T $act
+     * @return T
+     */
+    public function actAsManager(Club $club, User $actor, ClubMember $target, string $action, \Closure $act): mixed
+    {
+        return DB::transaction(function () use ($club, $actor, $target, $action, $act) {
+            $this->lockClub($club);
+
+            $freshActor  = ClubMember::where('club_id', $club->id)->where('user_id', $actor->id)->first();
+            $freshTarget = ClubMember::where('club_id', $club->id)->whereKey($target->getKey())->first();
+            if ($freshActor === null || $freshTarget === null
+                || !\App\Services\ClubPortal\ClubPortalMemberRules::allows($freshActor, $freshTarget, $action)) {
+                throw ClubDomainException::forbidden();
+            }
+            $freshTarget->setRelation('club', $club);
+
+            return $act($freshTarget);
+        });
+    }
+
     private function lockClub(Club $club): void
     {
         DB::table('clubs')->where('id', $club->id)->lockForUpdate()->first();

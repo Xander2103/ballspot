@@ -33,7 +33,8 @@ class ClubMemberController extends Controller
     {
         $target = $this->target($request, $club, $userId, ClubPortalMemberRules::ROLE);
 
-        $this->memberships->changeRole($target, $request->role(), $request->user(), ClubAuditEvent::ACTOR_CLUB_ADMIN);
+        $target = $this->memberships->actAsManager($club, $request->user(), $target, ClubPortalMemberRules::ROLE,
+            fn (ClubMember $t) => $this->memberships->changeRole($t, $request->role(), $request->user(), ClubAuditEvent::ACTOR_CLUB_ADMIN));
 
         $target->refresh()->load('user:id,username,avatar_path');
 
@@ -48,7 +49,8 @@ class ClubMemberController extends Controller
     {
         $target = $this->target($request, $club, $userId, ClubPortalMemberRules::REMOVE);
 
-        $this->memberships->remove($target, $request->user(), ClubAuditEvent::ACTOR_CLUB_ADMIN, $request->reason());
+        $this->memberships->actAsManager($club, $request->user(), $target, ClubPortalMemberRules::REMOVE,
+            fn (ClubMember $t) => $this->memberships->remove($t, $request->user(), ClubAuditEvent::ACTOR_CLUB_ADMIN, $request->reason()));
 
         return response()->json(['removed' => true]);
     }
@@ -58,7 +60,8 @@ class ClubMemberController extends Controller
     {
         $target = $this->target($request, $club, $userId, ClubPortalMemberRules::BAN);
 
-        $this->memberships->ban($target, $request->user(), ClubAuditEvent::ACTOR_CLUB_ADMIN, $request->reason());
+        $this->memberships->actAsManager($club, $request->user(), $target, ClubPortalMemberRules::BAN,
+            fn (ClubMember $t) => $this->memberships->ban($t, $request->user(), ClubAuditEvent::ACTOR_CLUB_ADMIN, $request->reason()));
 
         return response()->json(['banned' => true]);
     }

@@ -45,24 +45,39 @@ return new class extends Migration
 
     public function down(): void
     {
+        // MySQL/MariaDB silently drop the implicit index behind a foreign key
+        // once another index can serve it, and refuse to drop an index a
+        // foreign key still needs (error 1553). So: keep a plain index for the
+        // pack_attempts FK before removing ours, and drop each club_id foreign
+        // key BEFORE the indexes that back it.
         if (Schema::hasIndex('pack_attempts', ['challenge_pack_id', 'status'])) {
-            Schema::table('pack_attempts', function (Blueprint $table) {
+            $mysql = in_array(Schema::getConnection()->getDriverName(), ['mysql', 'mariadb'], true);
+            Schema::table('pack_attempts', function (Blueprint $table) use ($mysql) {
+                if ($mysql && !Schema::hasIndex('pack_attempts', ['challenge_pack_id'])) {
+                    $table->index('challenge_pack_id');
+                }
                 $table->dropIndex(['challenge_pack_id', 'status']);
             });
         }
 
         if (Schema::hasColumn('badges', 'club_id')) {
             Schema::table('badges', function (Blueprint $table) {
+                $table->dropForeign(['club_id']);
+            });
+            Schema::table('badges', function (Blueprint $table) {
                 $table->dropIndex(['club_id']);
-                $table->dropConstrainedForeignId('club_id');
+                $table->dropColumn('club_id');
             });
         }
 
         foreach (['challenges', 'challenge_packs'] as $name) {
             if (Schema::hasColumn($name, 'club_id')) {
                 Schema::table($name, function (Blueprint $table) {
+                    $table->dropForeign(['club_id']);
+                });
+                Schema::table($name, function (Blueprint $table) {
                     $table->dropIndex(['club_id', 'status']);
-                    $table->dropConstrainedForeignId('club_id');
+                    $table->dropColumn('club_id');
                 });
             }
         }

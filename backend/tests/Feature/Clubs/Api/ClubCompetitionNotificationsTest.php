@@ -136,6 +136,28 @@ class ClubCompetitionNotificationsTest extends CompetitionTestCase
         $this->assertNull($noToken->pushTokens()->first());
     }
 
+    public function test_publish_cancel_loops_are_capped_per_club_per_day(): void
+    {
+        config(['ballspot.clubs.notifications.max_publish_pushes_per_day' => 2]);
+        $anna    = $this->withPushToken($this->member('anna'));
+        $service = app(ClubCompetitionService::class);
+
+        foreach (range(1, 4) as $i) {
+            $c = $this->publish($this->draft(['name' => 'Loop ' . $i]));
+            $this->assertNotNull($c->fresh()->notified_published_at, 'the event is always closed');
+            $service->cancel($c->fresh(), $this->owner);
+        }
+
+        // Only the first two publishes reached members; the rest were closed silently.
+        $this->assertCount(2, collect($this->sent())->where('to', $this->token($anna)));
+
+        // A day later the allowance is back.
+        Carbon::setTestNow(now()->addDay()->addMinute());
+        $this->publish($this->draft(['name' => 'Next day', 'starts_at' => now()->addDay(), 'ends_at' => now()->addDays(8)]));
+        $this->assertCount(3, collect($this->sent())->where('to', $this->token($anna)));
+        Carbon::setTestNow();
+    }
+
     public function test_copy_follows_each_recipients_language(): void
     {
         $nl = $this->withPushToken($this->member('nl_user'));
