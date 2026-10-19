@@ -8,7 +8,8 @@ import { ImageGuessPicker, Marker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { useTheme } from '../theme/useTheme';
-import { goPacks, useHardwareBack } from '../app/navigationActions';
+import { exitPlaySession, useHardwareBack } from '../app/navigationActions';
+import { backToOriginKey } from '../utils/playSession';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
@@ -18,8 +19,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PackResult'>;
 const pct = (n: number) => `${Math.round((Number.isFinite(n) ? n : 0) * 100)}%`;
 
 export function PackResultScreen({ route, navigation }: Props) {
-  useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
-  const { slug, packName, result, imageUrl } = route.params;
+  const { slug, packName, result, imageUrl, session } = route.params;
+  // "Back" returns to where the play flow started (Packs list or the club).
+  const exit = useCallback(() => exitPlaySession(navigation, session), [navigation, session]);
+  useHardwareBack(exit);
   // The challenge's sport decides the marker (never the pack's).
   const sportSlug = result.result.sport?.slug ?? route.params.sportSlug ?? null;
   const { theme } = useTheme();
@@ -111,14 +114,14 @@ export function PackResultScreen({ route, navigation }: Props) {
           <>
             <AppButton
               title={t('packs.result.viewPackResults')}
-              onPress={() => navigation.replace('PackComplete', { slug, packName, completion: result.completion ?? null, justCompleted: true })}
+              onPress={() => navigation.replace('PackComplete', { slug, packName, completion: result.completion ?? null, justCompleted: true, session })}
             />
-            <AppButton title={t('packs.result.backToPacks')} onPress={() => goPacks(navigation)} variant="secondary" />
+            <AppButton title={t(backToOriginKey(session, 'packs.result.backToPacks'))} onPress={exit} variant="secondary" />
           </>
         ) : (
           <>
-            <AppButton title={t('packs.result.nextChallenge')} onPress={() => navigation.replace('PackGuess', { slug, packName })} />
-            <AppButton title={t('packs.result.leavePack')} onPress={() => navigation.navigate('PackDetail', { slug, name: packName })} variant="secondary" />
+            <AppButton title={t('packs.result.nextChallenge')} onPress={() => navigation.replace('PackGuess', { slug, packName, session })} />
+            <AppButton title={t('packs.result.leavePack')} onPress={() => navigation.navigate('PackDetail', { slug, name: packName, session })} variant="secondary" />
           </>
         )}
       </View>

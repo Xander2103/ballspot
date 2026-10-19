@@ -10,6 +10,7 @@ import { tournaments } from './tournaments';
 import { friends } from './friends';
 import { profile } from './profile';
 import { notifications } from './notifications';
+import { clubs } from './clubs';
 
 /**
  * English — the source of truth. Every other locale is typed as
@@ -28,6 +29,7 @@ export const en = {
   friends,
   profile,
   notifications,
+  clubs,
 };
 
 export type Translations = typeof en;

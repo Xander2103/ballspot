@@ -3,6 +3,7 @@ import { BackHandler, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 import type { RootStackParamList } from './AppNavigator';
+import { exitRoutesFor, isClubSession, type PlaySession } from '../utils/playSession';
 
 export type GameNavigation = Pick<NavigationProp<RootStackParamList>, 'reset'>;
 
@@ -17,6 +18,24 @@ export function goHome(navigation: GameNavigation): void {
 /** Leave a pack flow for the Packs list, with Home underneath it. */
 export function goPacks(navigation: GameNavigation): void {
   navigation.reset({ index: 1, routes: [{ name: 'Home' }, { name: 'Packs' }] });
+}
+
+/**
+ * Leave a play flow for where it started ("return to origin"): a public pack
+ * goes to the Packs list exactly like goPacks; a club pack returns to its
+ * club's detail (Clubs tab underneath). See utils/playSession.ts.
+ */
+export function exitPlaySession(navigation: GameNavigation, session: PlaySession | null | undefined): void {
+  if (!isClubSession(session)) {
+    goPacks(navigation);
+    return;
+  }
+  navigation.reset(exitRoutesFor(session));
+}
+
+/** Leave a club flow (left the club / club gone) for the Clubs tab. */
+export function goClubs(navigation: GameNavigation): void {
+  navigation.reset({ index: 0, routes: [{ name: 'Home', params: { screen: 'Clubs' } }] });
 }
 
 /**

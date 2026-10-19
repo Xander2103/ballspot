@@ -1,16 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
-import { packApi } from '../api/packApi';
+import { playSessionApi, type SessionPackDetail } from '../api/playSessionApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { isPackAlreadyCompleted } from '../types/pack';
-import type { ChallengePackDetail, PackAttemptState, PackCompletionSummary } from '../types/pack';
-import { getApiErrorMessage } from '../utils/apiError';
+import type { PackAttemptState, PackCompletionSummary } from '../types/pack';
+import { getClubErrorMessage, isPackReservedError } from '../utils/clubErrors';
+import { resolvePlaySession, sessionClubId } from '../utils/playSession';
 import { formatPct } from '../utils/packCompletion';
 import { useI18n } from '../i18n';
 
@@ -18,41 +19,48 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PackDetail'>;
 
 export function PackDetailScreen({ route, navigation }: Props) {
   const { slug } = route.params;
+  // Which play track this is (public pack by default; club pack via session).
+  const routeSession = route.params.session;
+  const session = useMemo(() => resolvePlaySession({ slug, session: routeSession }), [slug, routeSession]);
+  const api = useMemo(() => playSessionApi(session), [session]);
+  const isClubPack = sessionClubId(session) !== null;
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = createStyles(theme);
 
-  const [pack, setPack] = useState<ChallengePackDetail | null>(null);
+  const [pack, setPack] = useState<SessionPackDetail | null>(null);
   const [attempt, setAttempt] = useState<PackAttemptState | null>(null);
   const [completion, setCompletion] = useState<PackCompletionSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
+  // Normal play refused because a running competition reserves the pack (409).
+  const [reservedByServer, setReservedByServer] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const [packRes, attemptRes] = await Promise.all([
-        packApi.get(slug),
-        packApi.attempt(slug).catch(() => ({ attempt: null, challenge: null, completion: null })),
+        api.detail(),
+        api.attempt().catch(() => ({ attempt: null, challenge: null, completion: null })),
       ]);
       setPack(packRes.data);
       setAttempt(attemptRes.attempt);
       setCompletion(attemptRes.completion ?? null);
     } catch (e: unknown) {
-      setError(getApiErrorMessage(e, t('packs.detail.loadError')));
+      setError(getClubErrorMessage(e, t('packs.detail.loadError')));
     } finally {
       setLoading(false);
     }
-  }, [slug, t]);
+  }, [api, t]);
 
   useEffect(() => { load(); }, [load]);
   // Refresh progress when returning from a play session.
   useEffect(() => navigation.addListener('focus', load), [navigation, load]);
 
   function showResults(packName: string) {
-    navigation.navigate('PackComplete', { slug, packName, completion });
+    navigation.navigate('PackComplete', { slug, packName, completion, session: routeSession });
   }
 
   async function handlePlay(packName: string) {
@@ -60,18 +68,23 @@ export function PackDetailScreen({ route, navigation }: Props) {
     setStarting(true);
     setError('');
     try {
-      await packApi.start(slug);
-      navigation.navigate('PackGuess', { slug, packName });
+      await api.start();
+      navigation.navigate('PackGuess', { slug, packName, session: routeSession });
     } catch (e: unknown) {
       if (isPackAlreadyCompleted(e)) {
         // Completed in the meantime (other device / stale screen): show the
         // overview instead of an error.
         setAttempt(e.attempt ?? attempt);
         setCompletion(e.completion ?? completion);
-        navigation.navigate('PackComplete', { slug, packName, completion: e.completion ?? completion });
+        navigation.navigate('PackComplete', { slug, packName, completion: e.completion ?? completion, session: routeSession });
         return;
       }
-      setError(getApiErrorMessage(e, t('packs.detail.startError')));
+      if (isPackReservedError(e)) {
+        // Linked to a competition since this screen loaded: friendly card, no error.
+        setReservedByServer(true);
+        return;
+      }
+      setError(getClubErrorMessage(e, t('packs.detail.startError')));
     } finally {
       setStarting(false);
     }
@@ -96,6 +109,10 @@ export function PackDetailScreen({ route, navigation }: Props) {
   const playable = count > 0;
   const isActive = attempt?.status === 'active';
   const isCompleted = attempt?.status === 'completed';
+  // Club packs only: normal play is blocked while a competition reserves the
+  // pack — an attempt already in progress may still be finished.
+  const reserved = isClubPack && !isActive && !isCompleted && (pack.reserved_for_competition === true || reservedByServer);
+  const reservingCompetition = pack.competitions?.find((c) => c.phase === 'active' || c.phase === 'upcoming') ?? null;
 
   // No challenge previews before starting — that would spoil the pack.
   // The player only sees cover, title, description, sport, difficulty,
@@ -132,6 +149,15 @@ export function PackDetailScreen({ route, navigation }: Props) {
                 : t('packs.detail.pointsOnly', { score: attempt!.total_score })}
             </Text>
             <AppButton title={t('packs.detail.viewResults')} onPress={() => showResults(pack.name)} style={styles.cta} />
+          </View>
+        ) : reserved ? (
+          <View style={styles.completedCard}>
+            <Text style={styles.completedTitle}>{t('clubs.packs.reservedTitle')}</Text>
+            <Text style={styles.completedSub}>
+              {reservingCompetition
+                ? t('clubs.packs.reservedNamed', { name: reservingCompetition.name })
+                : t('clubs.packs.reservedGeneric')}
+            </Text>
           </View>
         ) : playable ? (
           <AppButton

@@ -1,18 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
 import { EmptyState } from '../components/EmptyState';
-import { packApi } from '../api/packApi';
+import { playSessionApi } from '../api/playSessionApi';
 import { growth } from '../services/growth';
-import { goHome, goPacks, useHardwareBack } from '../app/navigationActions';
+import { exitPlaySession, goHome, useHardwareBack } from '../app/navigationActions';
+import { backToOriginKey, resolvePlaySession } from '../utils/playSession';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import type { PackCompletionSummary } from '../types/pack';
-import { getApiErrorMessage } from '../utils/apiError';
+import { getClubErrorMessage } from '../utils/clubErrors';
 import { completionHeadline, formatAverage, formatPct } from '../utils/packCompletion';
 import { useI18n } from '../i18n';
 
@@ -24,8 +25,11 @@ type Props = NativeStackScreenProps<RootStackParamList, 'PackComplete'>;
  * and whenever the app finds an attempt that is already completed.
  */
 export function PackCompleteScreen({ route, navigation }: Props) {
-  useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
-  const { slug, packName, completion: initial, justCompleted } = route.params;
+  const { slug, packName, completion: initial, justCompleted, session } = route.params;
+  // "Back" returns to where the play flow started (Packs list or the club).
+  const exit = useCallback(() => exitPlaySession(navigation, session), [navigation, session]);
+  useHardwareBack(exit);
+  const api = useMemo(() => playSessionApi(resolvePlaySession({ slug, session })), [slug, session]);
   const { theme } = useTheme();
   const { t, locale } = useI18n();
   const styles = createStyles(theme);
@@ -38,18 +42,18 @@ export function PackCompleteScreen({ route, navigation }: Props) {
     setLoading(true);
     setError('');
     try {
-      const res = await packApi.attempt(slug);
+      const res = await api.attempt();
       if (res.completion) {
         setSummary(res.completion);
       } else {
         setError(t('packs.complete.notCompleted'));
       }
     } catch (e: unknown) {
-      setError(getApiErrorMessage(e, t('packs.complete.loadError')));
+      setError(getClubErrorMessage(e, t('packs.complete.loadError')));
     } finally {
       setLoading(false);
     }
-  }, [slug, t]);
+  }, [api, t]);
 
   useEffect(() => {
     if (!initial) load();
@@ -76,7 +80,7 @@ export function PackCompleteScreen({ route, navigation }: Props) {
           message={error || t('packs.complete.noResultsMessage')}
           actions={[
             { label: t('common.buttons.retry'), onPress: load },
-            { label: t('packs.complete.backToPacks'), onPress: () => goPacks(navigation) },
+            { label: t(backToOriginKey(session, 'packs.complete.backToPacks')), onPress: exit },
           ]}
         />
       </Screen>
@@ -139,7 +143,7 @@ export function PackCompleteScreen({ route, navigation }: Props) {
         {trophy?.earned ? (
           <AppButton title={t('packs.complete.viewTrophyRoom')} onPress={() => navigation.navigate('TrophyRoom')} />
         ) : null}
-        <AppButton title={t('packs.complete.backToPacks')} onPress={() => goPacks(navigation)} variant={trophy?.earned ? 'secondary' : 'primary'} />
+        <AppButton title={t(backToOriginKey(session, 'packs.complete.backToPacks'))} onPress={exit} variant={trophy?.earned ? 'secondary' : 'primary'} />
         <AppButton title={t('common.buttons.home')} onPress={() => goHome(navigation)} variant="secondary" />
       </View>
     </Screen>

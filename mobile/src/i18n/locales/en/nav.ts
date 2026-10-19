@@ -3,6 +3,7 @@ export const nav = {
   tabs: {
     play: 'Play',
     tournaments: 'Tournaments',
+    clubs: 'Clubs',
     friends: 'Friends',
     profile: 'Profile',
   },
@@ -27,10 +28,18 @@ export const nav = {
     weeklyLeaderboard: 'Weekly Leaderboard',
     leaderboard: 'Leaderboard',
     scanFriendCode: 'Scan friend code',
+    joinClub: 'Join a club',
+    scanClubCode: 'Scan club code',
+    club: 'Club',
+    clubPacks: 'Club packs',
+    clubLeaderboard: 'Club leaderboard',
+    clubMembers: 'Members',
+    clubCompetition: 'Competition',
   },
   backTo: 'Back to {{label}}',
   exit: {
     home: 'Home',
     packs: 'Packs',
+    club: 'Club',
   },
 };

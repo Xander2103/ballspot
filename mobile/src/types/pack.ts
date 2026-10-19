@@ -99,8 +99,22 @@ export interface PackAlreadyCompletedError {
   pack_completed?: boolean;
 }
 
+/**
+ * Other 409s that are NOT "already completed": the Clubs API answers 409 with
+ * a `code` for a pack reserved by a running competition and for competition
+ * attempt conflicts. The replay 409 itself carries no code.
+ */
+const NOT_COMPLETED_409_CODES = new Set([
+  'pack_reserved_for_competition',
+  'competition_attempt_in_progress',
+  'attempt_not_active',
+  'stale_version',
+]);
+
 export function isPackAlreadyCompleted(e: unknown): e is PackAlreadyCompletedError {
-  return !!e && typeof e === 'object' && (e as { status?: number }).status === 409;
+  if (!e || typeof e !== 'object' || (e as { status?: number }).status !== 409) return false;
+  const code = (e as { code?: unknown }).code;
+  return !(typeof code === 'string' && NOT_COMPLETED_409_CODES.has(code));
 }
 
 export interface PackGuessResult {

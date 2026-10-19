@@ -41,8 +41,16 @@ import { DailyResultScreen } from '../screens/DailyResultScreen';
 import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { ScanFriendCodeScreen } from '../screens/ScanFriendCodeScreen';
+import { JoinClubScreen } from '../screens/JoinClubScreen';
+import { ScanClubCodeScreen } from '../screens/ScanClubCodeScreen';
+import { ClubDetailScreen } from '../screens/ClubDetailScreen';
+import { ClubPacksScreen } from '../screens/ClubPacksScreen';
+import { ClubLeaderboardScreen } from '../screens/ClubLeaderboardScreen';
+import { ClubMembersScreen } from '../screens/ClubMembersScreen';
+import { ClubCompetitionScreen } from '../screens/ClubCompetitionScreen';
 import { HeaderExitButton } from '../components/HeaderExitButton';
-import { goHome, goPacks } from './navigationActions';
+import { exitPlaySession, goHome } from './navigationActions';
+import { exitLabelKey, type PlaySession } from '../utils/playSession';
 import { initLocale, useI18n } from '../i18n';
 
 export type RootStackParamList = {
@@ -53,15 +61,21 @@ export type RootStackParamList = {
   Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { email?: string; token?: string } | undefined;
-  /** Bottom-tab host (Play / Tournaments / Friends / Profile). Keeps the
+  /** Bottom-tab host (Play / Tournaments / Clubs* / Friends / Profile; *only
+      while GET /api/config features.clubs is true). Keeps the
       historical 'Home' name so every existing reset/navigate keeps working. */
   Home: NavigatorScreenParams<MainTabParamList> | undefined;
   SportSelection: { mode?: 'onboarding' | 'change'; currentSportId?: number | null } | undefined;
   Packs: undefined;
-  PackDetail: { slug: string; name: string };
-  PackGuess: { slug: string; packName: string };
-  PackResult: { slug: string; packName: string; result: PackGuessResult; imageUrl: string | null; sportSlug?: string | null };
-  PackComplete: { slug: string; packName: string; completion?: PackCompletionSummary | null; /** Set only when the pack was completed just now (growth: review prompt). */ justCompleted?: boolean };
+  /*
+   * Pack play screens. `session` = which play track (utils/playSession.ts):
+   * absent = public pack (unchanged); a club pack passes { kind: 'pack',
+   * packSlug, clubId, clubName }. Every screen forwards it unchanged.
+   */
+  PackDetail: { slug: string; name: string; session?: PlaySession };
+  PackGuess: { slug: string; packName: string; session?: PlaySession };
+  PackResult: { slug: string; packName: string; result: PackGuessResult; imageUrl: string | null; sportSlug?: string | null; session?: PlaySession };
+  PackComplete: { slug: string; packName: string; completion?: PackCompletionSummary | null; /** Set only when the pack was completed just now (growth: review prompt). */ justCompleted?: boolean; session?: PlaySession };
   RankOverview: undefined;
   TrophyRoom: undefined;
   CreateLeague: undefined;
@@ -75,6 +89,17 @@ export type RootStackParamList = {
   WeeklyLeaderboard: undefined;
   FriendProfile: { userId: number; username: string };
   ScanFriendCode: undefined;
+  /* Clubs (only reachable while features.clubs is on). Clubs and
+     competitions are addressed by their public ULID. */
+  /** `scannedCode` is how ScanClubCodeScreen hands a scanned code back (joins right away). */
+  JoinClub: { scannedCode?: string } | undefined;
+  ScanClubCode: undefined;
+  ClubDetail: { clubId: string; name?: string; /** Banner after a join from JoinClub. */ notice?: 'joined' | 'alreadyMember' };
+  ClubPacks: { clubId: string; name?: string };
+  ClubLeaderboard: { clubId: string; name?: string };
+  ClubMembers: { clubId: string; name?: string };
+  /** Placeholder until the competitions follow-up implements the screen. */
+  ClubCompetition: { clubId: string; competitionId: string; name?: string; clubName?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -237,27 +262,28 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
             title: route.params.packName,
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label={t('nav.exit.packs')} onPress={() => goPacks(navigation)} />,
+            // "Return to origin": the Packs list, or the club for a club pack.
+            headerLeft: () => <HeaderExitButton label={t(exitLabelKey(route.params.session))} onPress={() => exitPlaySession(navigation, route.params.session)} />,
           })}
         />
         <Stack.Screen
           name="PackResult"
           component={PackResultScreen}
-          options={({ navigation }) => ({
+          options={({ route, navigation }) => ({
             title: t('nav.titles.packResult'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label={t('nav.exit.packs')} onPress={() => goPacks(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t(exitLabelKey(route.params.session))} onPress={() => exitPlaySession(navigation, route.params.session)} />,
           })}
         />
         <Stack.Screen
           name="PackComplete"
           component={PackCompleteScreen}
-          options={({ navigation }) => ({
+          options={({ route, navigation }) => ({
             title: t('nav.titles.packCompleted'),
             gestureEnabled: false,
             headerBackVisible: false,
-            headerLeft: () => <HeaderExitButton label={t('nav.exit.packs')} onPress={() => goPacks(navigation)} />,
+            headerLeft: () => <HeaderExitButton label={t(exitLabelKey(route.params.session))} onPress={() => exitPlaySession(navigation, route.params.session)} />,
           })}
         />
         <Stack.Screen name="RankOverview" component={RankOverviewScreen} options={{ title: t('nav.titles.allRanks') }} />
@@ -309,6 +335,13 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
         <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: t('nav.titles.weeklyLeaderboard') }} />
         <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={({ route }) => ({ title: `@${route.params.username}` })} />
         <Stack.Screen name="ScanFriendCode" component={ScanFriendCodeScreen} options={{ title: t('nav.titles.scanFriendCode') }} />
+        <Stack.Screen name="JoinClub" component={JoinClubScreen} options={{ title: t('nav.titles.joinClub') }} />
+        <Stack.Screen name="ScanClubCode" component={ScanClubCodeScreen} options={{ title: t('nav.titles.scanClubCode') }} />
+        <Stack.Screen name="ClubDetail" component={ClubDetailScreen} options={({ route }) => ({ title: route.params.name ?? t('nav.titles.club') })} />
+        <Stack.Screen name="ClubPacks" component={ClubPacksScreen} options={{ title: t('nav.titles.clubPacks') }} />
+        <Stack.Screen name="ClubLeaderboard" component={ClubLeaderboardScreen} options={{ title: t('nav.titles.clubLeaderboard') }} />
+        <Stack.Screen name="ClubMembers" component={ClubMembersScreen} options={{ title: t('nav.titles.clubMembers') }} />
+        <Stack.Screen name="ClubCompetition" component={ClubCompetitionScreen} options={({ route }) => ({ title: route.params.name ?? t('nav.titles.clubCompetition') })} />
       </Stack.Navigator>
     </NavigationContainer>
   );

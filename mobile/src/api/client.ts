@@ -31,18 +31,39 @@ import { API_BASE_URL } from '../utils/urls';
 /** A request that gets no answer at all must fail like a network error, not spin forever. */
 const REQUEST_TIMEOUT_MS = 20000;
 
+/**
+ * Thrown (instead of the network-style TypeError) when the CALLER aborted the
+ * request through `options.signal` — e.g. a search-as-you-type request that a
+ * newer keystroke superseded. Screens ignore it; it is never shown to a user.
+ */
+export const REQUEST_ABORTED = 'request_aborted';
+
+export function isRequestAborted(e: unknown): boolean {
+  return !!e && typeof e === 'object' && (e as { code?: unknown }).code === REQUEST_ABORTED;
+}
+
 async function fetchWithTimeout(input: string, init: RequestInit): Promise<Response> {
   if (typeof AbortController === 'undefined') return fetch(input, init);
+  const callerSignal = init.signal ?? null;
+  if (callerSignal?.aborted) throw { code: REQUEST_ABORTED, name: 'AbortError' };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  // An optional caller signal (search-as-you-type) aborts the same request.
+  const onCallerAbort = () => controller.abort();
+  callerSignal?.addEventListener?.('abort', onCallerAbort);
   try {
     return await fetch(input, { ...init, signal: controller.signal });
   } catch (e: unknown) {
-    // An abort surfaces as the same network-style failure the app already handles.
-    if ((e as { name?: string })?.name === 'AbortError') throw new TypeError('Network request failed');
+    if ((e as { name?: string })?.name === 'AbortError') {
+      // Aborted by the caller: a distinct, silent rejection.
+      if (callerSignal?.aborted) throw { code: REQUEST_ABORTED, name: 'AbortError' };
+      // Our own timeout surfaces as the same network-style failure the app already handles.
+      throw new TypeError('Network request failed');
+    }
     throw e;
   } finally {
     clearTimeout(timer);
+    callerSignal?.removeEventListener?.('abort', onCallerAbort);
   }
 }
 
@@ -73,7 +94,7 @@ async function request<T>(
       headers,
     });
   } catch (e: unknown) {
-    devLog(formatApiFailure(describeApiFailure(e, `${method} ${path}`)));
+    if (!isRequestAborted(e)) devLog(formatApiFailure(describeApiFailure(e, `${method} ${path}`)));
     throw e;
   }
 

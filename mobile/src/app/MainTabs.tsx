@@ -9,6 +9,8 @@ import { formatBadgeCount } from '../components/CollapsibleSection';
 import { FriendRequestsProvider, useFriendRequests } from './friendRequests';
 import { HomeScreen } from '../screens/HomeScreen';
 import { TournamentsScreen } from '../screens/TournamentsScreen';
+import { ClubsScreen } from '../screens/ClubsScreen';
+import { useClubsFeature } from '../hooks/useClubsFeature';
 import { FriendsScreen } from '../screens/FriendsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import type { RootStackParamList } from './AppNavigator';
@@ -17,6 +19,8 @@ import { useI18n } from '../i18n';
 export type MainTabParamList = {
   Play: undefined;
   Tournaments: undefined;
+  /** Only registered while GET /api/config features.clubs is true. */
+  Clubs: undefined;
   /** `scannedCode` is how ScanFriendCodeScreen hands a scanned code back. */
   Friends: { scannedCode?: string } | undefined;
   Profile: undefined;
@@ -44,6 +48,9 @@ function Tabs() {
   const insets = useSafeAreaInsets();
   const { incomingCount } = useFriendRequests();
   const { t } = useI18n();
+  // D13 tab order: Play → Tournaments → Clubs → Friends → Profile. The Clubs
+  // tab exists only while the backend flag is on (fails closed).
+  const clubsEnabled = useClubsFeature();
 
   // Give labels breathing room: a slightly taller bar plus explicit padding so
   // the 11pt labels are never clipped by the home-indicator inset on iPhone.
@@ -78,6 +85,13 @@ function Tabs() {
         component={TournamentsScreen}
         options={{ title: t('nav.tabs.tournaments'), tabBarIcon: icon('tournaments') }}
       />
+      {clubsEnabled ? (
+        <Tab.Screen
+          name="Clubs"
+          component={ClubsScreen}
+          options={{ title: t('nav.tabs.clubs'), tabBarIcon: icon('clubs') }}
+        />
+      ) : null}
       <Tab.Screen
         name="Friends"
         component={FriendsScreen}

@@ -1,7 +1,7 @@
 import React from 'react';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-export type TabIconName = 'play' | 'tournaments' | 'friends' | 'profile';
+export type TabIconName = 'play' | 'tournaments' | 'clubs' | 'friends' | 'profile';
 
 interface Props {
   name: TabIconName;
@@ -48,6 +48,15 @@ export function TabIcon({ name, color, focused, size = 24 }: Props) {
           <Path d="M12 13.5V17" {...common} />
           <Path d="M8.5 20h7" {...common} />
           <Path d="M12 17c-1.8 0-2.8 1.2-3 3M12 17c1.8 0 2.8 1.2 3 3" {...common} />
+        </Svg>
+      );
+    case 'clubs':
+      // A club crest: shield outline with a ball emblem and a sash.
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Path d="M12 3.4c2.4 1.3 4.6 1.9 7 2v5.4c0 4.4-2.8 7.7-7 9.8-4.2-2.1-7-5.4-7-9.8V5.4c2.4-.1 4.6-.7 7-2Z" {...common} />
+          <Circle cx={12} cy={11.4} r={2.6} stroke={color} strokeWidth={stroke} fill={focused ? color : 'none'} />
+          <Path d="M8.2 16.2c2.4.9 5.2.9 7.6 0" {...common} />
         </Svg>
       );
     case 'friends':

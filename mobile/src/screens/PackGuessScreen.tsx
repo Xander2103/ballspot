@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -7,21 +7,23 @@ import { AppButton } from '../components/AppButton';
 import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
-import { packApi } from '../api/packApi';
-import { goPacks, useHardwareBack } from '../app/navigationActions';
+import { playSessionApi } from '../api/playSessionApi';
+import { exitPlaySession, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { isPackAlreadyCompleted } from '../types/pack';
 import type { PackAttemptState, PackChallengeSummary, PackCompletionSummary } from '../types/pack';
-import { getApiErrorMessage } from '../utils/apiError';
+import { getClubErrorMessage } from '../utils/clubErrors';
+import { resolvePlaySession } from '../utils/playSession';
 import { useI18n } from '../i18n';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackGuess'>;
 
 export function PackGuessScreen({ route, navigation }: Props) {
-  useHardwareBack(useCallback(() => goPacks(navigation), [navigation]));
-  const { slug, packName } = route.params;
+  const { slug, packName, session: routeSession } = route.params;
+  useHardwareBack(useCallback(() => exitPlaySession(navigation, routeSession), [navigation, routeSession]));
+  const api = useMemo(() => playSessionApi(resolvePlaySession({ slug, session: routeSession })), [slug, routeSession]);
   const { theme } = useTheme();
   const { t } = useI18n();
   const styles = createStyles(theme);
@@ -36,13 +38,13 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const [fullscreen, setFullscreen] = useState(false);
 
   const showCompletion = useCallback((completion?: PackCompletionSummary | null) => {
-    navigation.replace('PackComplete', { slug, packName, completion: completion ?? null, justCompleted: true });
-  }, [navigation, slug, packName]);
+    navigation.replace('PackComplete', { slug, packName, completion: completion ?? null, justCompleted: true, session: routeSession });
+  }, [navigation, slug, packName, routeSession]);
 
   useEffect(() => {
     let cancelled = false;
     // start() resumes the active attempt and returns the current challenge.
-    packApi.start(slug)
+    api.start()
       .then((res) => {
         if (cancelled) return;
         if (res.attempt.status === 'completed') {
@@ -51,7 +53,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
         }
         if (!res.challenge) {
           // Nothing left to play — bounce back to the pack detail.
-          navigation.replace('PackDetail', { slug, name: packName });
+          navigation.replace('PackDetail', { slug, name: packName, session: routeSession });
           return;
         }
         setAttempt(res.attempt);
@@ -65,7 +67,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
           showCompletion(e.completion);
           return;
         }
-        setError(getApiErrorMessage(e, t('packs.guess.startError')));
+        setError(getClubErrorMessage(e, t('packs.guess.startError')));
         setLoading(false);
       });
     return () => { cancelled = true; };
@@ -91,12 +93,13 @@ export function PackGuessScreen({ route, navigation }: Props) {
     setSubmitting(true);
     setError('');
     try {
-      const result = await packApi.submitGuess(attempt.id, challenge.id, guessX, guessY);
+      const result = await api.submitGuess(attempt.id, challenge.id, guessX, guessY);
       navigation.replace('PackResult', {
         slug, packName, result,
         imageUrl: result.result.reveal_image_url ?? challenge.hidden_image_url,
         // The CHALLENGE's sport, not the pack's: a Mixed Sports pack has none.
         sportSlug: result.result.sport?.slug ?? challenge.sport?.slug ?? null,
+        session: routeSession,
       });
     } catch (e: unknown) {
       if (isPackAlreadyCompleted(e)) {
@@ -105,7 +108,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
         showCompletion(e.completion);
         return;
       }
-      setError(getApiErrorMessage(e, t('packs.guess.submitError')));
+      setError(getClubErrorMessage(e, t('packs.guess.submitError')));
       setSubmitting(false);
     }
   }
@@ -119,7 +122,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
       <Screen>
         <View style={styles.center}>
           <Text style={styles.errorText}>{error}</Text>
-          <AppButton title={t('common.buttons.back')} onPress={() => navigation.replace('PackDetail', { slug, name: packName })} variant="secondary" style={{ marginTop: spacing.md }} />
+          <AppButton title={t('common.buttons.back')} onPress={() => navigation.replace('PackDetail', { slug, name: packName, session: routeSession })} variant="secondary" style={{ marginTop: spacing.md }} />
         </View>
       </Screen>
     );

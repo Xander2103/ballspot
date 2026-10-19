@@ -27,6 +27,11 @@ export interface AppConfig {
   captcha_provider?: string;
   /** Public widget key when captcha_required; null otherwise. */
   captcha_site_key?: string | null;
+  /**
+   * Feature flags. `clubs` shows the Clubs tab. Absent on older backends —
+   * treated as off (fail closed, see utils/features.ts).
+   */
+  features?: { clubs?: boolean };
 }
 
 /** Safe defaults used while the request is in flight or when it fails. */
@@ -41,6 +46,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   default_language: 'en',
   captcha_required: false,
   captcha_site_key: null,
+  features: { clubs: false },
 };
 
 export const configApi = {
