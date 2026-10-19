@@ -124,6 +124,29 @@ class ClubMediaService
         );
     }
 
+    /**
+     * Copy an already stored (re-encoded) private club file to a new random
+     * path of another kind, e.g. a photo submission → a challenge original.
+     * The source stays untouched; returns the new path.
+     */
+    public function copyImage(string $sourcePath, Club $club, string $kind): string
+    {
+        $this->assertSafePath($sourcePath);
+        $dir = self::KIND_DIRECTORIES[$kind] ?? throw new \InvalidArgumentException("Unknown club media kind [{$kind}].");
+
+        $disk = Storage::disk($this->disk());
+        if (!str_starts_with($sourcePath, $club->id . '/') || !$disk->exists($sourcePath)) {
+            throw new ClubDomainException(ClubDomainException::PHOTO_INVALID, 422);
+        }
+
+        $path = $club->id . '/' . $dir . '/' . Str::random(40) . '.jpg';
+        if (!$disk->copy($sourcePath, $path)) {
+            throw new ClubDomainException(ClubDomainException::PHOTO_INVALID, 422);
+        }
+
+        return $path;
+    }
+
     /** Delete a private club file (no-op for unsafe paths). */
     public function delete(string $path): void
     {

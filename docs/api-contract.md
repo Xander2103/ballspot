@@ -2071,4 +2071,112 @@ bytes, club_note, rejection_reason, created_at }] }` — never other members, in
 admin notes or private file paths.
 
 Competition endpoints (`/api/clubs/{club}/competitions…`, `/api/club-competition-attempts/…`,
-`/api/me/club-finishes`) are documented by the Competitions track.
+`/api/me/club-finishes`): see "Clubs — competitions (member API)" below.
+
+## Clubs — competitions (member API)  *(Competitions track C1, feature-flagged)*
+
+Same gate, addressing, isolation and pagination rules as the member API above. `{competition}` binds by its ULID
+`public_id` **within** the club; `{slug}` binds by pack slug **within the competition's linked packs**. A competition
+of another club, a draft, an unlinked pack, an unknown id — all answer `404 club_not_found`. Design: plan §5.
+
+**Phase** (derived, never stored): `upcoming` (published, now < `starts_at`) → `active` (`starts_at` ≤ now <
+`ends_at`) → `ended` (now ≥ `ends_at`, not finalized) → `finalized`; plus `cancelled` / `voided`. Drafts are invisible.
+The window is server time only, `[starts_at, ends_at)` in UTC, shown in `timezone`; no grace period.
+
+**Rules** (`rules`): `replay_mode` `no_replay` (one attempt, only for players who never completed the pack — normal run
+or another competition) · `single_attempt` (default; one attempt, also after a normal completion) · `multiple_attempts`
+(`max_attempts` 2–10, `score_rule` `first` | `best`). `normal_play_policy` `blocked` (default: the normal pack start
+answers `409 pack_reserved_for_competition` from publish until finalize) | `allowed`. Rules, packs and `starts_at`
+lock at `starts_at`; `ends_at` can only be extended (audited).
+
+**Scoring.** Attempt score = sum of its in-window guesses (partial / expired attempts count, D16). Per pack: `first` =
+earliest non-voided attempt; `best` = highest score, equal → the attempt that reached it first. Entry total = Σ
+counted pack scores. Ranking: total desc → `score_reached_at` asc → `attempts_used` asc → shared rank (1, 2, 2, 4),
+display by username. Only active members with ≥ 1 in-window guess are ranked (left/removed/banned are hidden, D22).
+Voided attempts are ignored; a void never gives an extra attempt.
+
+### GET /api/clubs/{club}/competitions?phase=active|upcoming|completed&cursor=&limit=
+
+`phase` defaults to `active`; `completed` = ended + finalized. Order: active by `ends_at` asc, upcoming by `starts_at`
+asc, completed by `ends_at` desc (then id). `{ data: CompetitionCard[], meta: { next_cursor, per_page, phase } }`.
+
+```jsonc
+// CompetitionCard (same object as club detail competitions_preview)
+{ "id": "01J…", "name": "Autumn Cup", "description": "…"|null, "phase": "active",
+  "starts_at": "ISO", "ends_at": "ISO", "timezone": "Europe/Brussels",
+  "rules": { "replay_mode": "multiple_attempts", "max_attempts": 3, "score_rule": "best", "normal_play_policy": "blocked" },
+  "packs_count": 2, "participants_count": 61, "me": { "rank": 4, "total_score": 2140, "packs_completed": 1 } | null }
+```
+
+### GET /api/clubs/{club}/competitions/{competition}
+
+`{ data: CompetitionCard & { packs, my_entry, leaderboard_preview } }`:
+```jsonc
+"packs": [ { "id": 12, "slug": "…", "name": "…", "cover_image_url": "…"|null, "challenge_count": 8,   // snapshot size once locked
+             "state": { "attempts_used": 1, "attempts_remaining": 2, "next_attempt_number": 2|null, "can_start": true,
+                        "blocked_reason": null|"not_started"|"ended"|"limit_reached"|"already_played"|"attempt_in_progress"|"club_unavailable",
+                        "active_attempt_id": 91|null, "counted_score": 640|null, "best_score": 640|null, "first_score": 600|null } } ],
+"my_entry": { "rank": 4, "total_score": 2140, "packs_completed": 1, "attempts_used": 3, "score_reached_at": "ISO"|null } | null,
+"leaderboard_preview": [ ClubLeaderboardEntry … ≤ 5 ]
+```
+`attempts_used` counts every started attempt (voided included); `active_attempt_id` is only set while the phase is active.
+
+### POST /api/clubs/{club}/competitions/{competition}/packs/{slug}/attempts  `{ "attempt_number": 1 }`  *(throttle `gameplay`)*
+
+Start or resume, idempotent: the same `attempt_number` again → that attempt (200); an attempt in progress → that
+attempt (200, resume); otherwise the checks run and a new attempt is created (**201**). Body
+`{ attempt: CompetitionAttempt, challenge: Challenge|null }` (challenge = the pack challenge payload; club images are
+signed URLs, never the ball position). The first start locks the rules (snapshot) if the scheduler has not yet.
+Errors: `422 competition_not_started` · `422 competition_ended` · `422 competition_attempt_limit` ·
+`422 competition_pack_already_played` (no_replay) · `422` validation on `attempt_number` (must be the next number) ·
+`422 competition_invalid_pack` (pack has no snapshot challenges) · `423 club_unavailable`.
+
+```jsonc
+// CompetitionAttempt
+{ "id": 91, "competition_id": "01J…", "pack_slug": "…", "attempt_number": 2, "status": "active"|"completed"|"expired"|"voided",
+  "current_index": 3, "completed_count": 3, "total_challenges": 8, "total_score": 240, "is_rewarded_run": false,
+  "started_at": "ISO", "completed_at": "ISO"|null }
+```
+`is_rewarded_run` = this run holds the player's single reward claim for the pack (D3); every other run earns no XP.
+
+### GET /api/club-competition-attempts/{attempt}
+
+`{ attempt: CompetitionAttempt, challenge: Challenge|null }` — owner only (anyone else, or an owner who lost the
+membership: `404 club_not_found`). `challenge` is null once the attempt is not active.
+
+### POST /api/club-competition-attempts/{attempt}/guess  `{ challenge_id, guessed_x, guessed_y }`  *(throttle `gameplay`)*
+
+The pack guess shape plus competition fields:
+```jsonc
+{ "result": { "score", "distance", "guessed_x", "guessed_y", "ball_x_ratio", "ball_y_ratio", "reveal_image_url", "sport" },
+  "progress": CompetitionAttempt, "next_challenge": Challenge|null, "rank_progress": { "xp_gained": 80, "rank": {…} },
+  "rank_up": {…}|null, "new_badges": [], "pack_completed": false, "already_completed": false,
+  "final_score": null|1240, "completion_xp": null|250, "completion": null,
+  "replayed": false, "is_rewarded_run": true,
+  "competition": { "counted_score": 640|null, "total_score": 2140|null, "rank": 4|null, "attempts_remaining": 1 } }
+```
+A retry for a challenge already answered returns the stored result with `replayed: true` (totals unchanged, no XP) —
+also after the window closed. Errors: `422 unexpected_challenge` (not `challenge_ids[current_index]`, nothing stored) ·
+`409 attempt_not_active` (completed / expired / voided) · `422 competition_ended` (at/after `ends_at`; the attempt
+becomes `expired` and keeps its in-window score) · `404 club_not_found` (not the owner / lost membership) ·
+`423 club_unavailable`. XP / completion XP / badges only for the rewarded run (sources `club_competition_guess`,
+`club_competition_completion`).
+
+### GET /api/clubs/{club}/competitions/{competition}/leaderboard?cursor=&limit=
+
+`{ data: ClubLeaderboardEntry[], meta: LeaderboardMeta & { next_cursor, per_page, rules, phase } }` (entry and meta
+shapes as the club board above; offset cursor over the shared-rank ranking).
+
+### GET /api/clubs/{club}/competitions/{competition}/me/attempts
+
+`{ data: CompetitionAttempt[] }` — the caller's attempts (voided included), pack order then attempt number.
+
+### GET /api/me/club-finishes
+
+The caller's placements in finalized competitions of non-archived clubs, newest first. Club-only trophies — finishes
+award no global XP or badges (D3).
+```jsonc
+{ "data": [ { "competition": { "id": "01J…", "name": "Autumn Cup" }, "club": { "id": "01J…", "name": "…", "logo_url": "…"|null },
+              "placement": 2, "total_score": 2700, "total_players": 61, "finalized_at": "ISO" } ] }
+```
+Placements are shared on full ties (1, 2, 2, 4); one row per ranked player.

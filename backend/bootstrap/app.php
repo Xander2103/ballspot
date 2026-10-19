@@ -24,6 +24,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => \App\Http\Middleware\EnsureAccountIsActive::class,
             // `feature:clubs` — 404 `feature_disabled` while ballspot.clubs.enabled is off.
             'feature' => \App\Http\Middleware\EnsureFeatureEnabled::class,
+            // Club portal (/club): web session + verified portal sign-in + owner/admin of {club}.
+            'club.portal' => \App\Http\Middleware\EnsureClubPortalAccess::class,
         ]);
 
         // Trust the reverse proxy / load balancer so $request->ip() reflects the

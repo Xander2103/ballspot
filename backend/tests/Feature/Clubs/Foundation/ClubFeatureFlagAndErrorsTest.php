@@ -35,6 +35,8 @@ class ClubFeatureFlagAndErrorsTest extends TestCase
         'competition_attempt_in_progress' => 409, 'competition_rules_locked' => 422, 'competition_invalid_pack' => 422,
         'competition_not_editable' => 422, 'unexpected_challenge' => 422, 'attempt_not_active' => 409,
         'photo_invalid' => 422, 'photo_duplicate' => 422, 'portal_two_factor_required' => 403,
+        // Photos (D1).
+        'photo_status_invalid' => 422, 'photo_rights_required' => 422, 'photo_pending_limit' => 422, 'photo_pack_invalid' => 422,
     ];
 
     protected function setUp(): void
@@ -42,7 +44,8 @@ class ClubFeatureFlagAndErrorsTest extends TestCase
         parent::setUp();
 
         Route::middleware(['api', 'feature:clubs'])->get('/api/test-clubs-probe', fn () => response()->json(['ok' => true]));
-        Route::middleware(['web', 'feature:clubs'])->get('/club/test-probe', fn () => 'portal');
+        // `_` keeps the probe out of the portal's /club/{club:slug} pattern (D2).
+        Route::middleware(['web', 'feature:clubs'])->get('/club/_test-probe', fn () => 'portal');
         Route::middleware('api')->get('/api/test-club-error/{code}/{status}', function (string $code, int $status) {
             throw new ClubDomainException($code, $status, $code === 'club_join_locked' ? ['retry_after' => 30] : []);
         });
@@ -78,11 +81,11 @@ class ClubFeatureFlagAndErrorsTest extends TestCase
         $this->getJson('/api/test-clubs-probe')
             ->assertNotFound()
             ->assertExactJson(['message' => __('clubs.errors.feature_disabled'), 'code' => 'feature_disabled']);
-        $this->get('/club/test-probe')->assertNotFound();
+        $this->get('/club/_test-probe')->assertNotFound();
 
         $this->enableClubs(true);
         $this->getJson('/api/test-clubs-probe')->assertOk()->assertJsonPath('ok', true);
-        $this->get('/club/test-probe')->assertOk()->assertSee('portal');
+        $this->get('/club/_test-probe')->assertOk()->assertSee('portal');
     }
 
     public function test_the_member_api_group_is_behind_the_flag_inside_the_verified_group(): void

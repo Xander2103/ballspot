@@ -145,6 +145,10 @@ Rules:
 | attempt_not_active | 409 |
 | photo_invalid | 422 |
 | photo_duplicate | 422 |
+| photo_status_invalid | 422 (illegal photo workflow step, e.g. reject a converted photo or withdraw one BallPicker picked up — added by D1) |
+| photo_rights_required | 422 (club upload without the rights/consent confirmation — added by D1) |
+| photo_pending_limit | 422 (club already has `clubs.photos.max_open_per_club` open submissions — added by D1) |
+| photo_pack_invalid | 422 (convert → pack of another club, a BallPicker pack, archived or unknown — added by D1) |
 | portal_two_factor_required | 403 |
 
 ### 3.4 Audit
@@ -353,6 +357,80 @@ Central admin notes (B2, as built):
   §4.8 (validation error on `challenges`). Challenge/pack owner is chosen at creation and never changes (`club_id` prohibited on
   pack update, ignored on challenge update). Club challenges: `usage_pool = club`, images via `ClubMediaService::storeImage`.
 - Admin list helpers: `AdminClubIndexQuery`, `AdminClubAuditQuery`, `ClubStatsService::overview(Club)`.
+
+Photos notes (D1, as built):
+- `App\Services\Clubs\ClubPhotoReviewService` (admin + portal):
+  `submit(Club, UploadedFile, User $uploader, string $source, ?string $clubNote, bool $rightsConfirmed, string $actorKind = 'platform_admin'): ClubPhotoSubmission`,
+  `assign(sub, User $admin, ?User $assignee = null)`, `markInReview(sub, User)`, `startPreparation(sub, User)`,
+  `reject(sub, User, string $reason)` (3–500 chars, visible to club admins),
+  `convert(sub, User, array $challengeData, UploadedFile $hiddenImage, ?int $packId = null): array{submission, challenge, pack}`,
+  `withdraw(sub, User $actor, string $actorKind = 'club_admin'): void` (pending, unassigned club uploads only; row + file deleted, audit kept),
+  queries `queue(array $filters, User $viewer, int $perPage = 25)` (status `open`|`awaiting`|`all`|enum value; `club`; `assignee` ''|me|unassigned|id; oldest first),
+  `forClub(Club, ?string $status = null, int $perPage = 25)` (newest first), `statusCounts(?Club)`, `awaitingReviewCount(?Club)`,
+  `eligiblePacks(Club)`, `allowedNext(sub)`, `canTransition(sub, PhotoSubmissionStatus)`.
+- Transitions: pending → in_review | in_preparation | rejected | converted; in_review → in_preparation | rejected | converted;
+  in_preparation → rejected | converted; converted/rejected are final. A step assigns the actor when unassigned.
+- Submit: JPEG/PNG/WebP, ≤ `media.max_kb`, shortest edge ≥ `clubs.photos.min_edge` (320) else `photo_invalid`; sha256 of the
+  original bytes is unique per club across all statuses (`photo_duplicate`; withdrawn rows are gone, so re-submitting is possible).
+  Club uploads need `rightsConfirmed` and an active club; the open limit (`clubs.photos.max_open_per_club`, 100) applies to club
+  uploads only; archived clubs refuse every upload (`club_status_invalid`).
+- Convert: challenge via `App\Services\ChallengeCreator` (shared with `Admin\ChallengeController::store`), original = copy of the
+  submission photo (`ClubMediaService::copyImage`), sport = chosen → club sport → football. Optional pack: same club, not archived, not
+  linked to a published competition whose rules are locked (`competition_rules_locked`); appended at the end.
+- Audit actions added: `photo.in_review`, `photo.preparation_started`, `photo.withdrawn`, `challenge.created`, `challenge.updated`
+  (the latter two are also written by the admin challenge form for club challenges).
+- Admin routes: `admin.club-photos.{index,prepare,download,assign,in-review,start-preparation,reject,convert}` (`{submission}` by id)
+  and `admin.clubs.photos.store` (`POST /admin/clubs/{club}/photos`, `photos[]` ≤ 20). The nav badge counts `awaitingReview()`
+  (pending + in review).
+
+
+Competitions notes (C1, as built — see `docs/api-contract.md` "Clubs — competitions (member API)"):
+- Services (`App\Services\Clubs`): `ClubCompetitionService` (create / update(only present keys, `version`) / extend / publish /
+  cancel / void / voidAttempt / rebuildStandings, `normaliseRules`, `assertPacks`, `assertPlayablePacks`, `inProgressNormalAttempts`),
+  `ClubCompetitionRulesGuard` (`isEditable`, `assertCanChange`, idempotent `lock()` snapshot + `competition.rules_locked`),
+  `CompetitionEligibility` + `App\Contracts\ReplayPolicy` (`ReplayPolicies\{NoReplay,SingleAttempt,MultipleAttempts}Policy`),
+  `ClubCompetitionPlayService` (`start`, `guess`), `ClubStandingsService` (`recomputePlayer`, `computePlayer`, `rebuild` with diff,
+  `ranked`, `rankOf` = 1 + COUNT(strictly better), `myEntry`, `cardStandings`, `page`), `ClubCompetitionCloseService`
+  (`expireAttempts`, `finalize(…, refinalize)`), `ClubCompetitionQuery` (member reads). `ClubDetailService` competitions_preview
+  now ranks through `ClubStandingsService::cardStandings()` (one ranking implementation).
+- `attempts_used` in the per-pack `state` counts every started attempt incl. voided ones (a void never hands out an extra
+  attempt); pack results / entries count non-voided attempts only. Entries exist only with ≥ 1 in-window guess.
+- `best` tie inside one player's attempts: equal score → earlier `last_scored_at` (never scored = last) → lower attempt number.
+  `score_reached_at = null` ranks after any non-null at the same total.
+- Start returns **201** for a newly created attempt, 200 for an idempotent retry / resume (body identical). A next number
+  other than `attempts_used + 1` is a 422 validation error on `attempt_number`.
+- Guess: a stored guess for the challenge is answered (`replayed: true`) **before** the phase check, so a retry after a timeout
+  at the window end still gets its result. A guess at/after `ends_at` expires the attempt (committed) and answers
+  `competition_ended`. Response extras: `is_rewarded_run`, `completion: null`, `already_completed` (= replay of the last guess).
+- Voiding a competition expires active attempts and deletes its finishes; voiding an attempt of a finalized competition
+  re-finalizes (finishes rewritten, audit `competition.rebuilt`). Finishes: one row per ranked visible player, shared placements.
+- Admin routes `admin.clubs.competitions.{index,create,store,show,update,publish,cancel,extend,void,rebuild,finalize,attempts.void}`
+  (`/admin/clubs/{club}/competitions…`, ids, scoped bindings) + `admin.club-competitions.index`.
+- Not built: refusing to archive a pack linked to a non-finalized competition (`pack_in_competition`, plan §5.7) — the pack
+  admin is B2's; an archived linked pack gets an empty snapshot at lock and cannot be started (`competition_invalid_pack`).
+
+Club portal notes (D2, as built — see `docs/club-portal.md`):
+- 2FA uses a **dedicated table** `club_portal_login_codes` + `App\Services\ClubPortal\ClubPortalLoginCodeService` (not
+  `LoginVerificationService`: that one is token-bound — a verified id mints a Sanctum token — and its `start()` deletes the
+  user's pending app codes). Hash only, expiry / attempt lock / resend cooldown / per-address hourly mail ceiling from
+  `ballspot.clubs.portal.*` (`code_expiry_minutes`, `code_max_attempts`, `code_resend_cooldown_seconds`,
+  `code_emails_per_hour`, `idle_timeout_minutes` — added next to `two_factor_required`).
+- The password step does not sign in; `Auth::login()` happens after the code (session regenerated on both steps). Session
+  keys `club_portal.{pending,verified_at,verified_user,last_seen}` (`ClubPortalSession`). An `/admin` web session is not
+  a portal session.
+- Limiters `club-portal-login`, `club-portal-code` (AppServiceProvider, both in `rate_limiter.fail_closed`) +
+  `FailedLoginLimiter` scope `club-portal`. Middleware alias `club.portal` (`EnsureClubPortalAccess`, bootstrap/app.php).
+- Routes `/club/{club:slug}/…` (`login|verify|logout` reserved), nested bindings scoped, `{competition:public_id}`.
+  Outsider / platform admin without membership / archived → 404; member → 403; suspended → read-only. Unknown slugs
+  answer like hidden clubs (guest → login), so slugs cannot be probed. Test-only routes under `/club/` must not look
+  like a slug (the Foundation probe is now `/club/_test-probe`).
+- Portal role rules beyond the policies: `ClubPortalMemberRules` (no self-actions; owners only touchable by owners;
+  role change admin↔member and transfer owner-only). Admin-granting invite codes are owner-only (create, regenerate,
+  reveal, print); revoking any code is allowed to admins.
+- Competitions reuse `ClubCompetitionRequest` / `ExtendClubCompetitionRequest` / `ClubCompetitionActionRequest` via
+  subclasses that authorize `manageCompetitions` (and restrict packs to the club's active packs). Stricter than the
+  guard: after the lock only `extend` (no name/description edits). No void / rebuild / finalize routes.
+- Strings: `lang/{en,nl,fr,de,es}/club_portal.php` (key parity is tested).
 
 ---
 

@@ -760,3 +760,37 @@ diagnostics warns that no daily exists for today — run
 `php artisan ballspot:schedule-daily-challenges` or use Admin → Daily.
 Backups land in `../backups/ballspot-content/<timestamp>/` (override with
 `BALLPICKER_BACKUP_ROOT`).
+
+---
+
+## 7. BallPicker Clubs — competition scheduler & commands
+
+Design: `docs/clubs-architecture-plan.md` §5.10–5.11. All commands are idempotent and safe to re-run.
+
+| Schedule | Command | What it does |
+|---|---|---|
+| every minute, `withoutOverlapping`, only while `BALLSPOT_CLUBS_ENABLED=true` | `ballspot:clubs:competition-tick` | 1. locks the rules of published competitions whose start passed (snapshot of every linked pack, audit `competition.rules_locked`) · 2. expires attempts still active after the end (they keep their in-window score) · 3. finalizes ended competitions → `club_competition_finishes` with shared placements (club trophies only, **no XP**), audit `competition.finalized`. Normal play of `blocked` packs reopens after finalize. |
+| nightly 03:20, `withoutOverlapping` | `ballspot:clubs:reconcile-counters` | recounts `clubs.members_count / active_packs_count / live_competitions_count / needs_owner` and `club_competitions.participants_count` |
+
+Rule locking never depends on the cron (the first player start locks lazily, and rules count as locked from
+`starts_at` on), but **finalization does**: with the cron down, ended competitions stay "ended", their packs stay
+reserved and no club trophies appear. Check with `php artisan schedule:list` and the scheduler heartbeat.
+
+```bash
+# Preview / repair derived standings (attempt totals → pack results → entries) from attempts + guesses
+php artisan ballspot:clubs:rebuild-standings --dry-run            # every published / finalized / voided competition, diff only
+php artisan ballspot:clubs:rebuild-standings 01JB…ULID            # one competition (id or public id), apply + audit competition.rebuilt
+php artisan ballspot:clubs:rebuild-standings 42 --refinalize      # finalized: rebuild AND rewrite its finishes (audited)
+
+# Run the tick by hand (e.g. after a cron outage)
+php artisan ballspot:clubs:competition-tick
+```
+
+A finalized competition is skipped without `--refinalize`. The same actions exist in the admin: club → Competitions →
+competition → *Rebuild standings…* (dry-run preview first, then *Apply*), *Finalize now* (ended competitions), *Void
+attempt* (reason required, re-finalizes automatically when the competition is finalized).
+
+Events: `club.competition_tick {locked, expired, finalized, failed}` (only when something happened),
+`club.competition_tick_failed {competition_id, stage}` (one competition failed, the others still ran; the command
+exits non-zero), `club.competition_lock_empty_pack` (a linked pack had no ready challenges at the lock — it cannot be
+started), `club.counters_reconciled`.

@@ -39,6 +39,10 @@ return [
         'attempt_not_active'              => 'Dieser Versuch ist nicht mehr aktiv.',
         'photo_invalid'                   => 'Dieses Foto konnte nicht verarbeitet werden. Verwende ein JPG-, PNG- oder WebP-Bild.',
         'photo_duplicate'                 => 'Dieses Foto wurde für diesen Verein bereits eingereicht.',
+        'photo_status_invalid'            => 'Dieses Foto kann vom aktuellen Status aus nicht in diesen Schritt wechseln.',
+        'photo_rights_required'           => 'Bestätige, dass der Verein die Rechte an diesem Foto hat und die abgebildeten Personen zugestimmt haben.',
+        'photo_pending_limit'             => 'Für diesen Verein warten bereits zu viele Fotos auf die Prüfung. Bitte warte, bis einige bearbeitet sind.',
+        'photo_pack_invalid'              => 'Diese Challenge kann diesem Pack nicht hinzugefügt werden.',
         'portal_two_factor_required'      => 'Gib den Bestätigungscode ein, den wir dir per E-Mail geschickt haben, um fortzufahren.',
     ],
 
@@ -89,10 +93,17 @@ return [
             'voided' => 'Versuch annulliert',
         ],
         'photo' => [
-            'uploaded'  => 'Foto hochgeladen',
-            'assigned'  => 'Foto zugewiesen',
-            'rejected'  => 'Foto abgelehnt',
-            'converted' => 'Foto in eine Challenge umgewandelt',
+            'uploaded'            => 'Foto hochgeladen',
+            'assigned'            => 'Foto zugewiesen',
+            'rejected'            => 'Foto abgelehnt',
+            'converted'           => 'Foto in eine Challenge umgewandelt',
+            'in_review'           => 'Fotoprüfung begonnen',
+            'preparation_started' => 'Fotovorbereitung begonnen',
+            'withdrawn'           => 'Foto zurückgezogen',
+        ],
+        'challenge' => [
+            'created' => 'Vereins-Challenge erstellt',
+            'updated' => 'Vereins-Challenge aktualisiert',
         ],
     ],
 ];

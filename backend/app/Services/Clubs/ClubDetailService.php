@@ -2,12 +2,10 @@
 
 namespace App\Services\Clubs;
 
-use App\Enums\ClubMemberStatus;
 use App\Http\Resources\Clubs\ClubCardResource;
 use App\Http\Resources\Clubs\ClubCompetitionCardResource;
 use App\Models\Club;
 use App\Models\ClubCompetition;
-use App\Models\ClubCompetitionEntry;
 use App\Models\ClubMember;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -89,49 +87,9 @@ class ClubDetailService
      */
     private function standingsFor(Club $club, User $user, Collection $competitions): array
     {
-        if ($competitions->isEmpty()) {
-            return [];
-        }
-
-        $mine = ClubCompetitionEntry::where('user_id', $user->id)
-            ->whereIn('club_competition_id', $competitions->pluck('id'))
-            ->get();
-
-        $activeMembers = fn ($q) => $q->select('user_id')->from('club_members')
-            ->where('club_id', $club->id)
-            ->where('status', ClubMemberStatus::Active->value);
-
-        $out = [];
-        foreach ($mine as $entry) {
-            $total   = (int) $entry->total_score;
-            $reached = $entry->getRawOriginal('score_reached_at');
-            $used    = (int) $entry->attempts_used;
-
-            $better = DB::table('club_competition_entries')
-                ->where('club_competition_id', $entry->club_competition_id)
-                ->whereIn('user_id', $activeMembers)
-                ->where(function ($q) use ($total, $reached, $used) {
-                    $q->where('total_score', '>', $total)
-                        ->orWhere(function ($tie) use ($total, $reached, $used) {
-                            $tie->where('total_score', $total);
-                            if ($reached === null) {
-                                $tie->whereNotNull('score_reached_at');
-                            } else {
-                                $tie->where(fn ($t) => $t->where('score_reached_at', '<', $reached)
-                                    ->orWhere(fn ($tt) => $tt->where('score_reached_at', $reached)->where('attempts_used', '<', $used)));
-                            }
-                        });
-                })
-                ->count();
-
-            $out[$entry->club_competition_id] = [
-                'rank'            => $better + 1,
-                'total_score'     => $total,
-                'packs_completed' => (int) $entry->packs_completed,
-            ];
-        }
-
-        return $out;
+        // One ranking implementation for every surface (C1): the competition
+        // detail, leaderboard and this preview all rank through ClubStandingsService.
+        return app(ClubStandingsService::class)->cardStandings($competitions, $user);
     }
 
     private function touchSeen(ClubMember $member): void

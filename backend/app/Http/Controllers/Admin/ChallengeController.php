@@ -12,6 +12,8 @@ use App\Models\LeagueRound;
 use App\Models\PackAttemptGuess;
 use App\Models\Sport;
 use App\Models\Tag;
+use App\Services\ChallengeCreator;
+use App\Services\Clubs\ClubAuditLogger;
 use App\Services\Clubs\ClubContentScope;
 use App\Services\Clubs\ClubMediaService;
 use App\Support\AppLog;
@@ -21,11 +23,8 @@ use Illuminate\Validation\ValidationException;
 
 class ChallengeController extends Controller
 {
-    /**
-     * Ball coordinates are 0..1 ratios. Three decimals is about one pixel on a
-     * 1000px image — precise enough for scoring, short enough to hand-edit.
-     */
-    private const BALL_RATIO_DECIMALS = 3;
+    /** Ball coordinates are 0..1 ratios (see ChallengeCreator). */
+    private const BALL_RATIO_DECIMALS = ChallengeCreator::BALL_RATIO_DECIMALS;
 
     /** Warn when a sport has fewer unique tournament photos than the longest tournament (7 days). */
     private const LOW_TOURNAMENT_POOL = 7;
@@ -33,7 +32,12 @@ class ChallengeController extends Controller
     /** List sort options (query `sort`); anything else falls back to newest. */
     public const SORTS = ['newest', 'oldest', 'title'];
 
-    public function __construct(private ClubContentScope $scope, private ClubMediaService $clubMedia) {}
+    public function __construct(
+        private ClubContentScope $scope,
+        private ClubMediaService $clubMedia,
+        private ChallengeCreator $creator,
+        private ClubAuditLogger $audit,
+    ) {}
 
     public function index(Request $request)
     {
@@ -158,45 +162,19 @@ class ChallengeController extends Controller
             'club_id'                => ['nullable', 'integer', 'exists:clubs,id'],
         ]);
 
-        // Default to football to preserve existing behaviour.
-        $sportId = $data['sport_id'] ?? Sport::where('slug', 'football')->value('id');
-        $club    = !empty($data['club_id']) ? Club::find((int) $data['club_id']) : null;
+        $club = !empty($data['club_id']) ? Club::find((int) $data['club_id']) : null;
 
-        if ($club) {
-            // Club photos (G1/G6): private disk, GD re-encoded (EXIF stripped),
-            // usage pool `club` — never Daily, tournaments or public packs.
-            $hiddenPath = $this->clubMedia->storeImage($request->file('hidden_image'), $club, ClubMediaService::KIND_CHALLENGE_HIDDEN)['path'];
-            try {
-                $originalPath = $request->hasFile('original_image')
-                    ? $this->clubMedia->storeImage($request->file('original_image'), $club, ClubMediaService::KIND_CHALLENGE_ORIGINAL)['path']
-                    : null;
-            } catch (\Throwable $e) {
-                $this->clubMedia->delete($hiddenPath);
-                throw $e;
-            }
-        } else {
-            $hiddenPath = $request->file('hidden_image')->store('challenges/hidden', 'public');
-            $originalPath = $request->hasFile('original_image')
-                ? $request->file('original_image')->store('challenges/original', 'public')
-                : null;
+        // Club photos (G1/G6): private disk, GD re-encoded (EXIF stripped),
+        // usage pool `club` — never Daily, tournaments or public packs.
+        // Shared with the club photo conversion (ChallengeCreator).
+        $paths = $this->creator->storeImages($club, $request->file('hidden_image'), $request->file('original_image'));
+        $originalPath = $paths['original'];
+        try {
+            $challenge = $this->creator->create($data, $club, $paths['hidden'], $originalPath, $request->user());
+        } catch (\Throwable $e) {
+            $this->creator->discardImages($club, $paths);
+            throw $e;
         }
-
-        $challenge = Challenge::create([
-            'club_id'                => $club?->id,
-            'sport_id'               => $sportId,
-            'challenge_category_id'  => $data['challenge_category_id'] ?? null,
-            'title'                  => $data['title'],
-            'difficulty'             => $data['difficulty'],
-            'status'                 => $data['status'],
-            'usage_pool'             => $club ? Challenge::POOL_CLUB : ($data['usage_pool'] ?? Challenge::POOL_GENERAL),
-            'ball_x_ratio'           => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS),
-            'ball_y_ratio'           => round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS),
-            'hidden_image_path'      => $hiddenPath,
-            'original_image_path'    => $originalPath,
-        ]);
-
-        $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
-        $challenge->subcategories()->sync($data['subcategories'] ?? []);
 
         AppLog::event('admin.challenge_created', [
             'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
@@ -285,6 +263,19 @@ class ChallengeController extends Controller
         $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
         $challenge->subcategories()->sync($data['subcategories'] ?? []);
 
+        // Club challenges: club audit trail (Clubs D1 — closes the B2 gap).
+        if ($challenge->club_id !== null && ($club ??= $challenge->club()->first())) {
+            $this->audit->log($club, 'challenge.updated', $request->user(), $challenge, [
+                'challenge_id' => $challenge->id,
+                'name'         => $challenge->title,
+                'status'       => $challenge->status,
+                'fields'       => array_values(array_filter([
+                    $request->hasFile('hidden_image') ? 'hidden_image' : null,
+                    $request->hasFile('original_image') ? 'original_image' : null,
+                ])),
+            ]);
+        }
+
         AppLog::event('admin.challenge_updated', [
             'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
             'status' => $challenge->status, 'new_hidden_image' => $request->hasFile('hidden_image'),
@@ -329,25 +320,10 @@ class ChallengeController extends Controller
         }
     }
 
-    /**
-     * Turn a comma-separated tag string into tag IDs, creating missing tags.
-     * Text tags only — no copyrighted logos/imagery.
-     *
-     * @return int[]
-     */
+    /** Comma-separated text tags → tag IDs (shared with ChallengeCreator). */
     private function resolveTagIds(?string $tagString): array
     {
-        if (empty($tagString)) {
-            return [];
-        }
-
-        return collect(explode(',', $tagString))
-            ->map(fn ($name) => trim($name))
-            ->filter()
-            ->unique()
-            ->map(fn ($name) => Tag::findOrCreateByName($name)->id)
-            ->values()
-            ->all();
+        return $this->creator->resolveTagIds($tagString);
     }
 
     /**

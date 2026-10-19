@@ -106,8 +106,11 @@ class AdminClubDetailAndNavigationTest extends TestCase
         $packs->assertSee('+ New club pack')->assertSee('/admin/clubs/' . $club->id . '/packs/create');
         $this->actingAs($this->admin)->get('/admin/clubs/' . $club->id . '/packs/create')->assertRedirect('/admin/packs/create?club=' . $club->id);
 
-        $this->actingAs($this->admin)->get('/admin/clubs/' . $club->id . '?tab=competitions')->assertSee('The competition editor (replay rules, packs, publish, standings) is being built in this sprint');
-        $this->actingAs($this->admin)->get('/admin/clubs/' . $club->id . '?tab=photos')->assertSee('Read-only list.');
+        // C1 replaced the read-only list with the editor links (tests/Feature/Clubs/Competitions).
+        $this->actingAs($this->admin)->get('/admin/clubs/' . $club->id . '?tab=competitions')->assertSee('+ New competition')
+            ->assertSee('/admin/clubs/' . $club->id . '/competitions/create');
+        // D1 replaced the read-only list with the upload form + queue links.
+        $this->actingAs($this->admin)->get('/admin/clubs/' . $club->id . '?tab=photos')->assertSee('Upload photos for')->assertSee('Open this club in Photo review');
         $this->actingAs($this->admin)->get('/admin/clubs/' . $club->id . '?tab=settings')
             ->assertSee('Joining with invite codes enabled')
             ->assertSee('Owners &amp; admins only (default)', false)
@@ -151,10 +154,12 @@ class AdminClubDetailAndNavigationTest extends TestCase
 
     public function test_placeholder_pages_are_explicit(): void
     {
+        // C1 replaced the competition placeholder with the cross-club list (tests/Feature/Clubs/Competitions).
         $this->actingAs($this->admin)->get('/admin/club-competitions')->assertOk()
-            ->assertSee('Club competitions')->assertSee('Being built in this sprint')->assertSee('0 competitions exist');
+            ->assertSee('Club competitions')->assertSee('No club competitions yet (0).');
+        // D1 replaced the photo placeholder with the review queue (tests/Feature/Clubs/Photos).
         $this->actingAs($this->admin)->get('/admin/club-photos')->assertOk()
-            ->assertSee('Photo review')->assertSee('Being built in this sprint')->assertSee('0 open submissions');
+            ->assertSee('Photo review')->assertSee('No photos match these filters.');
     }
 
     public function test_global_and_club_audit_logs_filter(): void

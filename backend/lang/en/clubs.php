@@ -41,6 +41,10 @@ return [
         'attempt_not_active'              => 'This attempt is no longer active.',
         'photo_invalid'                   => 'This photo could not be processed. Use a JPG, PNG or WebP image.',
         'photo_duplicate'                 => 'This photo has already been submitted for this club.',
+        'photo_status_invalid'            => 'This photo cannot move to that step from its current status.',
+        'photo_rights_required'           => 'Confirm that the club holds the rights to this photo and that the people shown agreed.',
+        'photo_pending_limit'             => 'This club already has too many photos waiting for review. Please wait until some are processed.',
+        'photo_pack_invalid'              => 'This challenge cannot be added to that pack.',
         'portal_two_factor_required'      => 'Enter the verification code we emailed you to continue.',
     ],
 
@@ -91,10 +95,17 @@ return [
             'voided' => 'Attempt voided',
         ],
         'photo' => [
-            'uploaded'  => 'Photo uploaded',
-            'assigned'  => 'Photo assigned',
-            'rejected'  => 'Photo rejected',
-            'converted' => 'Photo converted to a challenge',
+            'uploaded'            => 'Photo uploaded',
+            'assigned'            => 'Photo assigned',
+            'rejected'            => 'Photo rejected',
+            'converted'           => 'Photo converted to a challenge',
+            'in_review'           => 'Photo review started',
+            'preparation_started' => 'Photo preparation started',
+            'withdrawn'           => 'Photo withdrawn',
+        ],
+        'challenge' => [
+            'created' => 'Club challenge created',
+            'updated' => 'Club challenge updated',
         ],
     ],
 ];

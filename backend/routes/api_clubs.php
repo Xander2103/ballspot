@@ -22,6 +22,8 @@
 */
 
 use App\Exceptions\ClubDomainException;
+use App\Http\Controllers\Api\Clubs\ClubCompetitionAttemptController;
+use App\Http\Controllers\Api\Clubs\ClubCompetitionController;
 use App\Http\Controllers\Api\Clubs\ClubController;
 use App\Http\Controllers\Api\Clubs\ClubLeaderboardController;
 use App\Http\Controllers\Api\Clubs\ClubPackController;
@@ -59,11 +61,22 @@ Route::name('api.clubs.')->missing($clubMissing)->group(function () {
     });
 
     // ---------------------------------------------------------------------
-    // Competitions section (C1 — Competitions):
-    //   GET  /clubs/{club}/competitions · GET /clubs/{club}/competitions/{competition}
-    //   POST /clubs/{club}/competitions/{competition}/packs/{slug}/attempts
-    //   GET  /club-competition-attempts/{attempt} · POST /club-competition-attempts/{attempt}/guess
-    //   GET  /clubs/{club}/competitions/{competition}/leaderboard
-    //   GET  /clubs/{club}/competitions/{competition}/me/attempts · GET /me/club-finishes
+    // Competitions section (C1 — Competitions). {competition} binds by
+    // public_id within the club, {pack} by slug within the competition's
+    // linked packs; attempts are addressed by id + owner check (404).
     // ---------------------------------------------------------------------
+    Route::scopeBindings()->prefix('/clubs/{club:public_id}/competitions')->name('competitions.')->group(function () {
+        Route::get('/', [ClubCompetitionController::class, 'index'])->name('index');
+        Route::get('/{competition:public_id}', [ClubCompetitionController::class, 'show'])->name('show');
+        Route::post('/{competition:public_id}/packs/{pack:slug}/attempts', [ClubCompetitionController::class, 'start'])
+            ->middleware('throttle:gameplay')->name('attempts.start');
+        Route::get('/{competition:public_id}/leaderboard', [ClubCompetitionController::class, 'leaderboard'])->name('leaderboard');
+        Route::get('/{competition:public_id}/me/attempts', [ClubCompetitionController::class, 'myAttempts'])->name('me.attempts');
+    });
+
+    Route::get('/club-competition-attempts/{attempt}', [ClubCompetitionAttemptController::class, 'show'])
+        ->whereNumber('attempt')->name('competition-attempts.show');
+    Route::post('/club-competition-attempts/{attempt}/guess', [ClubCompetitionAttemptController::class, 'guess'])
+        ->whereNumber('attempt')->middleware('throttle:gameplay')->name('competition-attempts.guess');
+    Route::get('/me/club-finishes', [ClubCompetitionController::class, 'myFinishes'])->name('me.finishes');
 });

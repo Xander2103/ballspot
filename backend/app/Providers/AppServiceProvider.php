@@ -272,6 +272,32 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // BallPicker Club Portal (/club) password step: per IP and per
+        // email+IP. The IP-independent per-email ceiling on FAILED attempts is
+        // FailedLoginLimiter scope `club-portal` (in the controller, failures
+        // only — see the admin-login note above).
+        RateLimiter::for('club-portal-login', function (Request $request) {
+            $email = strtolower(trim((string) $request->input('email')));
+
+            return [
+                Limit::perMinute(5)->by('club-portal-login-e|' . sha1($email) . '|' . $request->ip()),
+                Limit::perMinute(10)->by('club-portal-login-ip|' . $request->ip()),
+            ];
+        });
+
+        // Club Portal emailed code (verify + resend): per session and per IP.
+        // The per-code attempt lock, the resend cooldown and the per-address
+        // hourly email ceiling (ClubPortalLoginCodeService) are the real
+        // gates; this bounds automated fan-out.
+        RateLimiter::for('club-portal-code', function (Request $request) {
+            $session = $request->hasSession() ? $request->session()->getId() : 'none';
+
+            return [
+                Limit::perMinute(10)->by('club-portal-code-s|' . sha1((string) $session)),
+                Limit::perMinute(30)->by('club-portal-code-ip|' . $request->ip()),
+            ];
+        });
+
         // Resend: per verification_id+IP. The 60s cooldown is the real gate;
         // this caps automated fan-out.
         RateLimiter::for('login-resend', function (Request $request) {

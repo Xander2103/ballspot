@@ -60,3 +60,18 @@ Schedule::command('ballspot:send-daily-reminders')->everyFifteenMinutes()->witho
 // would take a cache lock, and a broken cache store is one of the things the
 // heartbeat exists to reveal.
 Schedule::command('ballspot:heartbeat')->everyFiveMinutes();
+
+// BallPicker Clubs competitions (docs/clubs-architecture-plan.md §5.11).
+// Lock rules at starts_at, expire attempts of ended competitions and finalize
+// them. Idempotent; rule locking never depends on it (players lock lazily)
+// but finalization does. Gated by the Clubs feature flag (BALLSPOT_CLUBS_ENABLED):
+// with the flag off nothing can be played, so nothing needs closing.
+Schedule::command('ballspot:clubs:competition-tick')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->when(fn () => (bool) config('ballspot.clubs.enabled', false))
+    ->description('Club competitions: lock / expire / finalize (skipped while BALLSPOT_CLUBS_ENABLED=false)');
+
+// Nightly recount of the denormalised Clubs counters (members, packs, live
+// competitions, participants). Harmless with the flag off, so not gated.
+Schedule::command('ballspot:clubs:reconcile-counters')->dailyAt('03:20')->withoutOverlapping();

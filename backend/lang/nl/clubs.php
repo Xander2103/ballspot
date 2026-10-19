@@ -39,6 +39,10 @@ return [
         'attempt_not_active'              => 'Deze poging is niet meer actief.',
         'photo_invalid'                   => 'Deze foto kon niet verwerkt worden. Gebruik een JPG-, PNG- of WebP-afbeelding.',
         'photo_duplicate'                 => 'Deze foto is al ingediend voor deze club.',
+        'photo_status_invalid'            => 'Deze foto kan vanuit de huidige status niet naar die stap.',
+        'photo_rights_required'           => 'Bevestig dat de club de rechten op deze foto heeft en dat de mensen op de foto akkoord gingen.',
+        'photo_pending_limit'             => 'Er wachten al te veel foto\'s van deze club op beoordeling. Wacht tot er enkele verwerkt zijn.',
+        'photo_pack_invalid'              => 'Deze uitdaging kan niet aan die pack worden toegevoegd.',
         'portal_two_factor_required'      => 'Vul de verificatiecode in die we je gemaild hebben om verder te gaan.',
     ],
 
@@ -89,10 +93,17 @@ return [
             'voided' => 'Poging ongeldig verklaard',
         ],
         'photo' => [
-            'uploaded'  => 'Foto geüpload',
-            'assigned'  => 'Foto toegewezen',
-            'rejected'  => 'Foto afgewezen',
-            'converted' => 'Foto omgezet in een uitdaging',
+            'uploaded'            => 'Foto geüpload',
+            'assigned'            => 'Foto toegewezen',
+            'rejected'            => 'Foto afgewezen',
+            'converted'           => 'Foto omgezet in een uitdaging',
+            'in_review'           => 'Beoordeling van foto gestart',
+            'preparation_started' => 'Voorbereiding van foto gestart',
+            'withdrawn'           => 'Foto ingetrokken',
+        ],
+        'challenge' => [
+            'created' => 'Club-uitdaging aangemaakt',
+            'updated' => 'Club-uitdaging bijgewerkt',
         ],
     ],
 ];

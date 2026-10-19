@@ -71,6 +71,24 @@ class ClubPhotoSubmission extends Model
         return $this->belongsTo(User::class, 'reviewed_by_user_id');
     }
 
+    /** Waiting for a reviewer (pending / in review) — the "Photo review" nav badge. */
+    public function scopeAwaitingReview(Builder $query): Builder
+    {
+        return $query->whereIn('status', [
+            PhotoSubmissionStatus::Pending->value,
+            PhotoSubmissionStatus::InReview->value,
+        ]);
+    }
+
+    public function isOpen(): bool
+    {
+        return in_array($this->status, [
+            PhotoSubmissionStatus::Pending,
+            PhotoSubmissionStatus::InReview,
+            PhotoSubmissionStatus::InPreparation,
+        ], true);
+    }
+
     /** Still waiting for BallPicker (pending / in review / in preparation). */
     public function scopeOpen(Builder $query): Builder
     {

@@ -110,13 +110,14 @@
             ['label' => 'Packs',         'url' => '/admin/packs',         'match' => 'admin/packs*'],
             ['label' => 'Sports',        'url' => '/admin/sports',        'match' => 'admin/sports*'],
         ]],
-        // BallPicker Clubs (B2). Photo review shows the open-submission count;
+        // BallPicker Clubs (B2). Photo review shows the photos awaiting a
+        // reviewer (pending + in review, D1);
         // rescue() keeps every admin page up if the clubs tables are missing.
         'clubs' => ['label' => 'Clubs', 'url' => '/admin/clubs', 'match' => ['admin/clubs', 'admin/clubs/*', 'admin/club-competitions*', 'admin/club-photos*', 'admin/club-audit*'], 'pages' => [
             ['label' => 'Clubs',        'url' => '/admin/clubs',             'match' => 'admin/clubs*'],
             ['label' => 'Competitions', 'url' => '/admin/club-competitions', 'match' => 'admin/club-competitions*'],
             ['label' => 'Photo review', 'url' => '/admin/club-photos',       'match' => 'admin/club-photos*',
-             'badge' => request()->is('admin/clubs*', 'admin/club-*') ? (int) rescue(fn () => \App\Models\ClubPhotoSubmission::query()->open()->count(), 0, false) : 0],
+             'badge' => request()->is('admin/clubs*', 'admin/club-*') ? (int) rescue(fn () => \App\Models\ClubPhotoSubmission::query()->awaitingReview()->count(), 0, false) : 0],
             ['label' => 'Audit log',    'url' => '/admin/club-audit',        'match' => 'admin/club-audit*'],
         ]],
         'game' => ['label' => 'Game', 'url' => '/admin/daily', 'match' => ['admin/daily*', 'admin/competition*'], 'pages' => [

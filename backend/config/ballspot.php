@@ -527,6 +527,12 @@ return [
             'signed_url_ttl_minutes' => 60,
             'logo_max_kb'            => 2048,
         ],
+        // Photo submissions (D1): open (pending/in review/in preparation)
+        // club uploads per club, and the smallest accepted edge in px.
+        'photos'   => [
+            'max_open_per_club' => 100,
+            'min_edge'          => 320,
+        ],
         'competition' => [
             'max_attempts_cap'           => 10,
             'default_replay_mode'        => 'single_attempt',
@@ -534,7 +540,18 @@ return [
             'max_duration_days'          => 120,
         ],
         'pagination' => ['default' => 20, 'max' => 50],
-        'portal'     => ['two_factor_required' => true],
+        // Club portal (/club, D2 — docs/club-portal.md): the emailed 6-digit
+        // code on every new portal session, its expiry / wrong-attempt lock /
+        // resend cooldown, the per-address hourly email ceiling, and the
+        // portal idle timeout (signed out after this many idle minutes).
+        'portal'     => [
+            'two_factor_required'          => true,
+            'code_expiry_minutes'          => 10,
+            'code_max_attempts'            => 5,
+            'code_resend_cooldown_seconds' => 60,
+            'code_emails_per_hour'         => 6,
+            'idle_timeout_minutes'         => 60,
+        ],
     ],
 
     'rate_limiter' => [
@@ -556,6 +573,8 @@ return [
             'admin-login', 'account-delete', 'export',
             // Invite-code guessing surface (BallPicker Clubs).
             'club-join',
+            // Club portal password + emailed-code steps.
+            'club-portal-login', 'club-portal-code',
         ],
 
         // false = the non-critical limiters fail closed as well (every

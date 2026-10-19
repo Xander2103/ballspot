@@ -54,6 +54,12 @@ class ClubDomainException extends \RuntimeException
     public const ATTEMPT_NOT_ACTIVE              = 'attempt_not_active';
     public const PHOTO_INVALID                   = 'photo_invalid';
     public const PHOTO_DUPLICATE                 = 'photo_duplicate';
+    // Photos (D1): illegal workflow step, missing rights confirmation,
+    // per-club open-submission cap, pack of another club / locked.
+    public const PHOTO_STATUS_INVALID            = 'photo_status_invalid';
+    public const PHOTO_RIGHTS_REQUIRED           = 'photo_rights_required';
+    public const PHOTO_PENDING_LIMIT             = 'photo_pending_limit';
+    public const PHOTO_PACK_INVALID              = 'photo_pack_invalid';
     public const PORTAL_TWO_FACTOR_REQUIRED      = 'portal_two_factor_required';
 
     private string $errorCode;

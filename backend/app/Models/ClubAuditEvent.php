@@ -37,6 +37,9 @@ class ClubAuditEvent extends Model
         'competition.rebuilt',
         'attempt.voided',
         'photo.uploaded', 'photo.assigned', 'photo.rejected', 'photo.converted',
+        // Photos (D1): review workflow steps + club withdrawal; club challenges.
+        'photo.in_review', 'photo.preparation_started', 'photo.withdrawn',
+        'challenge.created', 'challenge.updated',
     ];
 
     /**

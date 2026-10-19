@@ -145,28 +145,15 @@ class PackPlayController extends Controller
         /** @var Challenge $challenge */
         $challenge = $r['challenge'];
         $guess     = $r['guess'];
-        $challenge->loadMissing('sport');
 
         return response()->json([
-            'result' => [
-                'score'            => $r['score']['score'],
-                'distance'         => $r['score']['distance'],
-                'guessed_x'        => (float) $guess->guessed_x,
-                'guessed_y'        => (float) $guess->guessed_y,
-                // Safe to reveal AFTER the guess is scored.
-                'ball_x_ratio'     => (float) $challenge->ball_x_ratio,
-                'ball_y_ratio'     => (float) $challenge->ball_y_ratio,
-                'reveal_image_url' => \App\Support\ChallengeImageUrl::original($challenge),
-                // Marker object on the result screen (the CHALLENGE's sport —
-                // a Mixed Sports pack has no single sport).
-                'sport'            => $challenge->sport ? [
-                    'slug'          => $challenge->sport->slug,
-                    'name'          => $challenge->sport->name,
-                    'emoji'         => $challenge->sport->emoji,
-                    'object_name'   => $challenge->sport->object_name,
-                    'primary_color' => $challenge->sport->primary_color,
-                ] : null,
-            ],
+            'result'            => \App\Support\ChallengeReveal::result(
+                $challenge,
+                $r['score']['score'],
+                $r['score']['distance'],
+                (float) $guess->guessed_x,
+                (float) $guess->guessed_y,
+            ),
             'progress'          => $this->play->attemptState($r['attempt']),
             'next_challenge'    => $r['completed'] ? null : $this->play->challengePayload($this->play->currentChallenge($r['attempt'])),
             'rank_progress'     => $r['rank_progress'],

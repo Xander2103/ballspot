@@ -70,15 +70,46 @@ Route::prefix('clubs')->name('admin.clubs.')->whereNumber('club')->group(functio
 // Admin competitions (C1 — Competitions): per-club editor + publish/cancel/
 // void/extend/rebuild, attempt void, cross-club list admin.club-competitions.*.
 // -------------------------------------------------------------------------
-// B2 placeholder (route name stable): C1 replaces the controller body + view.
 Route::get('club-competitions', [ClubCompetitionController::class, 'index'])->name('admin.club-competitions.index');
+
+// Club-scoped editor. {club} by id; {competition} by id within the club and
+// {attempt} within the competition (scoped bindings: another club's
+// competition or another competition's attempt → 404).
+Route::prefix('clubs/{club}/competitions')->name('admin.clubs.competitions.')
+    ->whereNumber(['club', 'competition', 'attempt'])->scopeBindings()
+    ->controller(ClubCompetitionController::class)->group(function () {
+        Route::get('/', 'clubIndex')->name('index');
+        Route::get('create', 'create')->name('create');
+        Route::post('/', 'store')->name('store');
+        Route::get('{competition}', 'show')->name('show');
+        Route::put('{competition}', 'update')->name('update');
+        Route::post('{competition}/publish', 'publish')->name('publish');
+        Route::post('{competition}/cancel', 'cancel')->name('cancel');
+        Route::post('{competition}/extend', 'extend')->name('extend');
+        Route::post('{competition}/void', 'void')->name('void');
+        Route::post('{competition}/rebuild', 'rebuild')->name('rebuild');
+        Route::post('{competition}/finalize', 'finalize')->name('finalize');
+        Route::post('{competition}/attempts/{attempt}/void', 'voidAttempt')->name('attempts.void');
+    });
 
 // -------------------------------------------------------------------------
 // Admin photos (D1 — Photos): global review queue admin.club-photos.*,
 // upload on behalf of a club, assign / prepare / convert / reject.
 // -------------------------------------------------------------------------
-// B2 placeholder (route name stable): D1 replaces the controller body + view.
-Route::get('club-photos', [ClubPhotoController::class, 'index'])->name('admin.club-photos.index');
+// {submission} binds a ClubPhotoSubmission by id; actions authorize
+// admin.manage on its club. Workflow rules: ClubPhotoReviewService.
+Route::prefix('club-photos')->name('admin.club-photos.')->whereNumber('submission')->group(function () {
+    Route::get('/', [ClubPhotoController::class, 'index'])->name('index');
+    Route::get('{submission}/prepare', [ClubPhotoController::class, 'prepare'])->name('prepare');
+    Route::get('{submission}/original', [ClubPhotoController::class, 'download'])->name('download');
+    Route::post('{submission}/assign', [ClubPhotoController::class, 'assign'])->name('assign');
+    Route::post('{submission}/in-review', [ClubPhotoController::class, 'markInReview'])->name('in-review');
+    Route::post('{submission}/start-preparation', [ClubPhotoController::class, 'startPreparation'])->name('start-preparation');
+    Route::post('{submission}/reject', [ClubPhotoController::class, 'reject'])->name('reject');
+    Route::post('{submission}/convert', [ClubPhotoController::class, 'convert'])->name('convert');
+});
+// Upload on behalf of a club (multi-file), from the club detail Photos tab.
+Route::post('clubs/{club}/photos', [ClubPhotoController::class, 'store'])->whereNumber('club')->name('admin.clubs.photos.store');
 
 // -------------------------------------------------------------------------
 // Global audit log (B2): admin.club-audit.index.
