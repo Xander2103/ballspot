@@ -54,6 +54,18 @@ export function clubHeaderParts(
 }
 
 /** Locale tag for Date formatting (English uses day-month order like the rest of the app). */
+/** Compact club-homepage line: "Gent, BE · 214 members" (no club type — the header stays short). */
+export function clubDetailParts(
+  club: { city: string | null; country_code: string | null; members_count: number },
+  locale?: LanguageCode,
+): string[] {
+  const parts: string[] = [];
+  const place = [club.city, club.country_code].filter(Boolean).join(', ');
+  if (place) parts.push(place);
+  parts.push(translate('clubs.detail.members', { count: club.members_count ?? 0 }, locale));
+  return parts;
+}
+
 export function dateLocaleTag(locale: LanguageCode | string | undefined): string {
   if (!locale || locale === 'en') return 'en-GB';
   return locale;

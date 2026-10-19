@@ -5,12 +5,10 @@ import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
 import { EmptyState } from '../components/EmptyState';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { LeaderboardRow, LeaderboardSeparator } from '../components/LeaderboardList';
 import { ClubLogo } from '../components/clubs/ClubLogo';
 import { roleChipColor } from '../components/clubs/ClubCard';
 import { ClubPackRow } from '../components/clubs/ClubPackRow';
-import { CompetitionRow } from '../components/clubs/CompetitionRow';
-import { SegmentedControl } from '../components/clubs/SegmentedControl';
+import { ActiveCompetitionCard } from '../components/clubs/ActiveCompetitionCard';
 import { ActionSheet, type SheetAction } from '../components/clubs/ActionSheet';
 import { InlineBanner } from '../components/clubs/ListStates';
 import { clubApi } from '../api/clubApi';
@@ -19,16 +17,18 @@ import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
-import type { ClubDetail, ClubLeaderboardEntry, ClubPackCard, CompetitionCard } from '../types/club';
-import { clubHeaderParts, roleLabel, type CompetitionSegment } from '../utils/clubDisplay';
+import type { ClubDetail, ClubPackCard, CompetitionCard } from '../types/club';
+import { clubDetailParts, roleLabel } from '../utils/clubDisplay';
 import { getClubErrorMessage, hasClubErrorCode, isClubGoneError } from '../utils/clubErrors';
-import { mergePreviewRows, sharedRankFlags } from '../utils/sharedRank';
+import { activeCompetitions, homePacks, nextUpcoming, otherCompetitionsSummary, reservingCompetition } from '../utils/clubDetailLayout';
+import { competitionStatusLine } from '../utils/competition';
 import { clubAdminEntries } from '../utils/clubAdmin';
 import type { PlaySession } from '../utils/playSession';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClubDetail'>;
 
-const COMPLETED_PREVIEW = 5;
+/** Packs fetched for the homepage (ordered client-side: playable first, reserved last). */
+const HOME_PACK_FETCH = 12;
 
 export function ClubDetailScreen({ navigation, route }: Props) {
   const { clubId, notice } = route.params;
@@ -42,10 +42,9 @@ export function ClubDetailScreen({ navigation, route }: Props) {
   const [error, setError] = useState('');
   const [gone, setGone] = useState(false);
 
-  const [segment, setSegment] = useState<CompetitionSegment | null>(null);
-  const [completed, setCompleted] = useState<CompetitionCard[] | null>(null);
-  const [completedLoading, setCompletedLoading] = useState(false);
-  const [completedError, setCompletedError] = useState('');
+  // First page of the club's packs: the detail preview holds only a few in server
+  // order, the homepage wants the playable ones first. Falls back to the preview.
+  const [packs, setPacks] = useState<ClubPackCard[] | null>(null);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -59,13 +58,15 @@ export function ClubDetailScreen({ navigation, route }: Props) {
     if (mode === 'initial') setLoading(true);
     if (mode === 'refresh') setRefreshing(true);
     try {
-      const res = await clubApi.get(clubId);
+      const [res, packPage] = await Promise.all([
+        clubApi.get(clubId),
+        clubApi.packs(clubId, { limit: HOME_PACK_FETCH }).catch(() => null),
+      ]);
       setClub(res.data);
+      setPacks(packPage?.data ?? null);
       setError('');
       setGone(false);
       loadedOnce.current = true;
-      // A refresh may change the completed count: re-fetch that segment lazily.
-      setCompleted(null);
     } catch (e: unknown) {
       if (isClubGoneError(e)) {
         setGone(true);
@@ -82,37 +83,15 @@ export function ClubDetailScreen({ navigation, route }: Props) {
   // Progress / standings change after playing: refresh silently on focus.
   useEffect(() => navigation.addListener('focus', () => { if (loadedOnce.current) void load('silent'); }), [navigation, load]);
 
-  // Default segment: whatever has content (Active → Upcoming), once.
-  useEffect(() => {
-    if (!club || segment) return;
-    const preview = club.competitions_preview;
-    setSegment(preview.active.length > 0 ? 'active' : preview.upcoming.length > 0 ? 'upcoming' : 'active');
-  }, [club, segment]);
-
-  const loadCompleted = useCallback(async () => {
-    setCompletedLoading(true);
-    setCompletedError('');
-    try {
-      const res = await clubApi.competitions(clubId, { phase: 'completed', limit: COMPLETED_PREVIEW });
-      setCompleted(res.data ?? []);
-    } catch (e: unknown) {
-      setCompletedError(getClubErrorMessage(e, t('clubs.competitions.loadError')));
-    } finally {
-      setCompletedLoading(false);
-    }
-  }, [clubId, t]);
-
-  useEffect(() => {
-    if (segment !== 'completed' || !club || completed !== null || completedLoading || completedError) return;
-    if (club.competitions_preview.completed_count === 0) { setCompleted([]); return; }
-    void loadCompleted();
-  }, [segment, club, completed, completedLoading, completedError, loadCompleted]);
-
   const clubName = club?.name ?? route.params.name ?? '';
 
   const sheetActions = useMemo<SheetAction[]>(() => {
     if (!club) return [];
-    const actions: SheetAction[] = [];
+    const actions: SheetAction[] = [
+      // The club-wide leaderboard stays available, one level down: competition
+      // standings live inside each competition.
+      { key: 'leaderboard', label: t('clubs.detail.clubLeaderboard'), onPress: () => navigation.navigate('ClubLeaderboard', { clubId, name: club.name }) },
+    ];
     // Club admin entries follow the server's abilities (fail closed); the backend enforces them anyway.
     const admin = clubAdminEntries(club.abilities);
     if (admin.members) {
@@ -147,7 +126,8 @@ export function ClubDetailScreen({ navigation, route }: Props) {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: clubName || t('nav.titles.club'),
+      // The compact header below carries the name: no duplicate title in the nav bar.
+      title: '',
       headerRight: sheetActions.length > 0
         ? () => (
           <TouchableOpacity
@@ -161,7 +141,7 @@ export function ClubDetailScreen({ navigation, route }: Props) {
         )
         : undefined,
     });
-  }, [navigation, clubName, sheetActions.length, t, theme.primary]);
+  }, [navigation, sheetActions.length, t, theme.primary]);
 
   async function handleLeave() {
     if (leaving) return;
@@ -184,6 +164,12 @@ export function ClubDetailScreen({ navigation, route }: Props) {
   }
 
   function openPack(pack: ClubPackCard) {
+    // A competition-reserved pack is played through its competition.
+    const reservedIn = reservingCompetition(pack);
+    if (reservedIn) {
+      navigation.navigate('ClubCompetition', { clubId, competitionId: reservedIn.id, name: reservedIn.name, clubName: clubName || undefined });
+      return;
+    }
     const session: PlaySession = { kind: 'pack', packSlug: pack.slug, clubId, clubName: clubName || null };
     navigation.navigate('PackDetail', { slug: pack.slug, name: pack.name, session });
   }
@@ -226,13 +212,10 @@ export function ClubDetailScreen({ navigation, route }: Props) {
   }
 
   const suspended = club.status === 'suspended';
-  const preview = club.competitions_preview;
-  const competitionItems: CompetitionCard[] =
-    segment === 'upcoming' ? preview.upcoming : segment === 'completed' ? (completed ?? []) : preview.active;
-  const emptyCompetitionKey =
-    segment === 'upcoming' ? 'clubs.competitions.emptyUpcoming' : segment === 'completed' ? 'clubs.competitions.emptyCompleted' : 'clubs.competitions.emptyActive';
-  const boardRows: ClubLeaderboardEntry[] = mergePreviewRows(club.leaderboard_preview.top, club.leaderboard_preview.me);
-  const boardShared = sharedRankFlags(boardRows);
+  const active = activeCompetitions(club);
+  const next = active.length === 0 ? nextUpcoming(club) : null;
+  const others = otherCompetitionsSummary(club);
+  const shownPacks = homePacks(packs ?? club.packs_preview);
   const roleColor = roleChipColor(club.role, theme);
 
   return (
@@ -245,16 +228,20 @@ export function ClubDetailScreen({ navigation, route }: Props) {
         {notice === 'alreadyMember' ? <InlineBanner text={t('clubs.detail.alreadyMemberNotice', { name: club.name })} /> : null}
         {error ? <InlineBanner text={error} tone="error" /> : null}
 
-        {/* Identity header */}
+        {/* 1. Compact identity */}
         <View style={styles.header}>
-          <ClubLogo uri={club.logo_url} name={club.name} emoji={club.sport?.emoji} size={64} dimmed={suspended} />
+          <ClubLogo uri={club.logo_url} name={club.name} emoji={club.sport?.emoji} size={52} dimmed={suspended} />
           <View style={styles.headerText}>
-            <Text style={styles.name}>{club.name}</Text>
-            <Text style={styles.headerMeta}>{clubHeaderParts(club, locale).join(' · ')}</Text>
-            <Text style={[styles.role, { color: roleColor }]}>{t('clubs.detail.yourRole', { role: roleLabel(club.role, locale) })}</Text>
+            <Text style={styles.name} numberOfLines={2}>{club.name}</Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.headerMeta} numberOfLines={1}>{clubDetailParts(club, locale).join(' · ')}</Text>
+              <View style={[styles.roleChip, { borderColor: roleColor + '66', backgroundColor: roleColor + '14' }]}>
+                <Text style={[styles.roleText, { color: roleColor }]}>{roleLabel(club.role, locale)}</Text>
+              </View>
+            </View>
           </View>
         </View>
-        {club.description ? <Text style={styles.description}>{club.description}</Text> : null}
+        {club.description ? <Text style={styles.description} numberOfLines={2}>{club.description}</Text> : null}
 
         {suspended ? (
           <View style={styles.suspendedCard}>
@@ -263,80 +250,62 @@ export function ClubDetailScreen({ navigation, route }: Props) {
           </View>
         ) : null}
 
-        {/* Competitions */}
-        <View style={styles.section}>
-          <SectionHeader
-            title={t('clubs.sections.competitions')}
-            seeAll={t('clubs.sections.seeAll')}
-            seeAllA11y={t('clubs.sections.seeAllA11y', { section: t('clubs.sections.competitions') })}
-            onSeeAll={() => navigation.navigate('ClubCompetitions', { clubId, phase: segment ?? 'active', name: club.name })}
-            styles={styles}
-          />
-          <SegmentedControl<CompetitionSegment>
-            segments={[
-              { key: 'active', label: t('clubs.competitions.segmentActive') },
-              { key: 'upcoming', label: t('clubs.competitions.segmentUpcoming') },
-              { key: 'completed', label: t('clubs.competitions.segmentCompleted') },
-            ]}
-            value={segment ?? 'active'}
-            onChange={setSegment}
-          />
-          <View style={styles.sectionBody}>
-            {segment === 'completed' && !completedError && (completedLoading || completed === null) ? (
-              <ActivityIndicator color={theme.primary} style={{ marginVertical: spacing.md }} />
-            ) : segment === 'completed' && completedError ? (
-              <EmptyState compact message={completedError} actions={[{ label: t('common.buttons.retry'), onPress: () => { void loadCompleted(); } }]} />
-            ) : competitionItems.length === 0 ? (
-              <Text style={styles.muted}>{t(emptyCompetitionKey)}</Text>
-            ) : (
-              competitionItems.map((c) => <CompetitionRow key={c.id} competition={c} onPress={() => openCompetition(c)} />)
-            )}
+        {/* 2. Active competitions — the primary section */}
+        {active.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{t('clubs.detail.activeTitle')}</Text>
+            {active.map((c) => <ActiveCompetitionCard key={c.id} competition={c} onPress={() => openCompetition(c)} />)}
           </View>
-        </View>
+        ) : (
+          <View style={styles.section}>
+            <View style={styles.quietCard}>
+              <Text style={styles.quietTitle}>{t('clubs.detail.noActiveTitle')}</Text>
+              {next ? (
+                <TouchableOpacity onPress={() => openCompetition(next)} accessibilityRole="button" hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Text style={styles.quietLink} numberOfLines={2}>
+                    {t('clubs.detail.nextUp', { name: next.name, when: competitionStatusLine(next, Date.now(), locale) })} ›
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.quietText}>{t('clubs.detail.noActiveText')}</Text>
+              )}
+            </View>
+          </View>
+        )}
 
-        {/* Packs */}
+        {/* 3. Packs — always visible, playable first */}
         <View style={styles.section}>
           <SectionHeader
             title={t('clubs.sections.packs')}
-            seeAll={club.packs_count > 0 ? t('clubs.sections.seeAll') : null}
+            seeAll={club.packs_count > shownPacks.length ? t('clubs.sections.seeAll') : null}
             seeAllA11y={t('clubs.sections.seeAllA11y', { section: t('clubs.sections.packs') })}
             onSeeAll={() => navigation.navigate('ClubPacks', { clubId, name: club.name })}
             styles={styles}
           />
-          {club.packs_preview.length === 0 ? (
+          {shownPacks.length === 0 ? (
             <Text style={styles.muted}>{t('clubs.packs.empty')}</Text>
           ) : (
-            club.packs_preview.map((p) => <ClubPackRow key={p.id} pack={p} onPress={() => openPack(p)} />)
+            shownPacks.map((p) => <ClubPackRow key={p.id} pack={p} onPress={() => openPack(p)} />)
           )}
         </View>
 
-        {/* Leaderboard */}
-        <View style={styles.section}>
-          <SectionHeader
-            title={t('clubs.sections.leaderboard')}
-            seeAll={boardRows.length > 0 ? t('clubs.sections.seeAll') : null}
-            seeAllA11y={t('clubs.sections.seeAllA11y', { section: t('clubs.sections.leaderboard') })}
-            onSeeAll={() => navigation.navigate('ClubLeaderboard', { clubId, name: club.name })}
-            styles={styles}
-          />
-          {boardRows.length === 0 ? (
-            <Text style={styles.muted}>{t('clubs.leaderboard.previewEmpty')}</Text>
-          ) : (
-            <View style={styles.board}>
-              {boardRows.map((row, i) => (
-                <React.Fragment key={row.user_id}>
-                  {i > 0 ? <LeaderboardSeparator /> : null}
-                  <LeaderboardRow
-                    item={row}
-                    shared={boardShared[i]}
-                    showAvatar
-                    subtitle={(e) => t('clubs.leaderboard.packsCompleted', { count: e.packs_completed })}
-                  />
-                </React.Fragment>
-              ))}
-            </View>
-          )}
-        </View>
+        {/* 4. Other competitions — one compact entry to the full list */}
+        <TouchableOpacity
+          style={styles.otherRow}
+          onPress={() => navigation.navigate('ClubCompetitions', { clubId, phase: others.openPhase, name: club.name })}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+        >
+          <View style={styles.otherBody}>
+            <Text style={styles.otherTitle}>{t('clubs.detail.otherCompetitions')}</Text>
+            <Text style={styles.otherMeta} numberOfLines={1}>
+              {others.upcoming === 0 && others.finished === 0
+                ? t('clubs.detail.allCompetitions')
+                : [t('clubs.detail.upcomingCount', { count: others.upcoming }), t('clubs.detail.finishedCount', { count: others.finished })].join(' · ')}
+            </Text>
+          </View>
+          <Text style={styles.otherChevron}>›</Text>
+        </TouchableOpacity>
 
       </ScrollView>
 
@@ -391,13 +360,15 @@ function SectionHeader({ title, seeAll, seeAllA11y, onSeeAll, styles }: {
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
     center: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 240 },
-    content: { padding: spacing.md, paddingBottom: spacing.xxl },
-    header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xs },
+    content: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.xxl },
+    header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     headerText: { flex: 1, minWidth: 0 },
-    name: { fontSize: 22, fontWeight: '800', color: theme.text },
-    headerMeta: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },
-    role: { fontSize: 13, fontWeight: '700', marginTop: 4 },
-    description: { fontSize: 14, color: theme.textSecondary, lineHeight: 20, marginTop: spacing.md },
+    name: { fontSize: 20, fontWeight: '800', color: theme.text, lineHeight: 25 },
+    metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 4 },
+    headerMeta: { flexShrink: 1, fontSize: 13, color: theme.textSecondary },
+    roleChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1 },
+    roleText: { fontSize: 11, fontWeight: '700' },
+    description: { fontSize: 13, color: theme.textMuted, lineHeight: 18, marginTop: spacing.sm },
     suspendedCard: {
       marginTop: spacing.md, padding: spacing.md, borderRadius: 12, borderWidth: 1,
       borderColor: theme.warning + '66', backgroundColor: theme.warning + '14',
@@ -408,8 +379,22 @@ function createStyles(theme: ThemeTokens) {
     sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
     sectionTitle: { fontSize: 17, fontWeight: '800', color: theme.text, marginBottom: spacing.sm },
     seeAll: { fontSize: 14, fontWeight: '700', color: theme.primary, marginBottom: spacing.sm },
-    sectionBody: { marginTop: spacing.sm },
     muted: { fontSize: 13, color: theme.textMuted, paddingVertical: spacing.sm },
-    board: { backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
+    quietCard: {
+      borderRadius: 14, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface,
+      paddingVertical: spacing.sm + 4, paddingHorizontal: spacing.md,
+    },
+    quietTitle: { fontSize: 14, fontWeight: '700', color: theme.textSecondary },
+    quietText: { fontSize: 13, color: theme.textMuted, marginTop: 2 },
+    quietLink: { fontSize: 13, fontWeight: '600', color: theme.primary, marginTop: 2 },
+    otherRow: {
+      flexDirection: 'row', alignItems: 'center', marginTop: spacing.md,
+      borderRadius: 14, borderWidth: 1, borderColor: theme.border,
+      paddingVertical: spacing.sm + 4, paddingHorizontal: spacing.md,
+    },
+    otherBody: { flex: 1, minWidth: 0 },
+    otherTitle: { fontSize: 14, fontWeight: '700', color: theme.text },
+    otherMeta: { fontSize: 12, color: theme.textSecondary, marginTop: 2 },
+    otherChevron: { fontSize: 22, color: theme.textMuted },
   });
 }

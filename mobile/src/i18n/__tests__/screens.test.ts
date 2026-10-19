@@ -59,6 +59,7 @@ const LAUNCH_CRITICAL = [
   'screens/ClubReportScreen.tsx',
   'components/clubs/ClubCard.tsx',
   'components/clubs/ClubPackRow.tsx',
+  'components/clubs/ActiveCompetitionCard.tsx',
   'components/LeaderboardList.tsx',
   'components/YourPositionCard.tsx',
   'components/ConfirmModal.tsx',
