@@ -14,6 +14,15 @@ class ChallengeSubcategory extends Model
         'difficulty', 'moment_type', 'player_type', 'custom',
     ];
 
+    /**
+     * Admin label for a type. `club` tags real-world clubs shown in a photo
+     * (e.g. a team) — not BallPicker Clubs, hence the explicit label.
+     */
+    public static function typeLabel(string $type): string
+    {
+        return $type === 'club' ? 'Team / club (content tag)' : $type;
+    }
+
     protected $fillable = [
         'sport_id', 'name', 'slug', 'type',
         'description', 'color', 'icon', 'is_active', 'sort_order',

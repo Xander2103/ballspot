@@ -27,7 +27,7 @@
         <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
             <option value="">All types</option>
             @foreach($types as $t)
-                <option value="{{ $t }}" {{ $filterType === $t ? 'selected' : '' }}>{{ $t }}</option>
+                <option value="{{ $t }}" {{ $filterType === $t ? 'selected' : '' }}>{{ \App\Models\ChallengeSubcategory::typeLabel($t) }}</option>
             @endforeach
         </select>
     </div>
@@ -59,7 +59,7 @@
                         @if($sub->color)<span class="d-inline-block rounded-circle me-1" style="width:10px;height:10px;background:{{ $sub->color }}"></span>@endif
                         {{ $sub->icon ? $sub->icon.' ' : '' }}{{ $sub->name }}
                     </td>
-                    <td><span class="badge bg-secondary">{{ $sub->type }}</span></td>
+                    <td><span class="badge bg-secondary">{{ \App\Models\ChallengeSubcategory::typeLabel($sub->type) }}</span></td>
                     <td class="small text-muted">{{ $sub->sport->name ?? 'Global' }}</td>
                     <td class="small text-muted font-monospace">{{ $sub->slug }}</td>
                     <td class="small">{{ $sub->challenges_count }}</td>

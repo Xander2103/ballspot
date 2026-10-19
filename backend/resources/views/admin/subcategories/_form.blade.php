@@ -13,7 +13,7 @@
         <label for="type" class="form-label fw-semibold">Type <span class="text-danger">*</span></label>
         <select id="type" name="type" class="form-select @error('type') is-invalid @enderror" required>
             @foreach($types as $t)
-                <option value="{{ $t }}" {{ old('type', $subcategory->type ?? '') === $t ? 'selected' : '' }}>{{ $t }}</option>
+                <option value="{{ $t }}" {{ old('type', $subcategory->type ?? '') === $t ? 'selected' : '' }}>{{ \App\Models\ChallengeSubcategory::typeLabel($t) }}</option>
             @endforeach
         </select>
         @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror

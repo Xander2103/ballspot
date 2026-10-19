@@ -67,6 +67,15 @@ class SubcategoryTest extends TestCase
         $this->actingAs($admin)->get("/admin/challenges/{$challenge->id}/edit")->assertOk();
     }
 
+    public function test_club_type_is_labelled_as_a_content_tag_not_a_ballpicker_club(): void
+    {
+        ChallengeSubcategory::create(['name' => 'Club Brugge', 'slug' => 'club-brugge', 'type' => 'club']);
+
+        $this->actingAs($this->admin())->get('/admin/subcategories')->assertOk()
+            ->assertSee('Team / club (content tag)')
+            ->assertSee('value="club"', false);
+    }
+
     public function test_invalid_type_is_rejected(): void
     {
         $this->actingAs($this->admin())->post('/admin/subcategories', [
