@@ -307,6 +307,15 @@ export function ClubCompetitionScreen({ navigation, route }: Props) {
             )}
           </View>
         ) : null}
+
+        {/* Report (any member) */}
+        <TouchableOpacity
+          style={styles.reportLink}
+          onPress={() => navigation.navigate('ClubReport', { clubId, subjectType: 'competition', subjectId: competitionId, subjectLabel: detail.name })}
+          accessibilityRole="button"
+        >
+          <Text style={styles.reportText}>{t('clubs.report.reportCompetition')}</Text>
+        </TouchableOpacity>
       </ScrollView>
     </Screen>
   );
@@ -349,5 +358,7 @@ function createStyles(theme: ThemeTokens) {
     blocked: { fontSize: 13, color: theme.textMuted, marginTop: spacing.sm, fontStyle: 'italic' },
     packError: { fontSize: 13, color: theme.danger, marginTop: spacing.xs },
     board: { backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' },
+    reportLink: { alignSelf: 'center', marginTop: spacing.lg, padding: spacing.sm },
+    reportText: { fontSize: 13, color: theme.textMuted, textDecorationLine: 'underline' },
   });
 }

@@ -4,6 +4,11 @@ export interface NotificationSettings {
   daily_reminder_enabled: boolean;
   tournament_reminder_enabled: boolean;
   admin_notifications_enabled: boolean;
+  /**
+   * BallPicker Clubs: competition published / started / finalized pushes
+   * (default on). Absent on backends without Clubs — the toggle is hidden.
+   */
+  club_updates?: boolean;
   /** 24-hour HH:mm. */
   reminder_time: string;
   timezone: string | null;

@@ -15,7 +15,7 @@ import type { Badge } from '../types/badge';
 import type { RankProgress, RankUp } from '../types/auth';
 import type { TournamentCompletion } from '../types/guess';
 import type { PackGuessResult, PackCompletionSummary } from '../types/pack';
-import type { CompetitionListPhase, CompetitionOutcome } from '../types/club';
+import type { ClubRole, CompetitionListPhase, CompetitionOutcome, ReportSubjectType } from '../types/club';
 import { LoginScreen } from '../screens/LoginScreen';
 import { LoginVerificationScreen } from '../screens/LoginVerificationScreen';
 import { EmailVerificationScreen } from '../screens/EmailVerificationScreen';
@@ -50,6 +50,10 @@ import { ClubLeaderboardScreen } from '../screens/ClubLeaderboardScreen';
 import { ClubMembersScreen } from '../screens/ClubMembersScreen';
 import { ClubCompetitionScreen } from '../screens/ClubCompetitionScreen';
 import { ClubCompetitionsScreen } from '../screens/ClubCompetitionsScreen';
+import { ClubInviteScreen } from '../screens/ClubInviteScreen';
+import { ClubPhotosScreen } from '../screens/ClubPhotosScreen';
+import { ClubReportScreen } from '../screens/ClubReportScreen';
+import { useNotificationRouting } from './notificationRouting';
 import { HeaderExitButton } from '../components/HeaderExitButton';
 import { exitPlaySession, goHome } from './navigationActions';
 import { exitLabelKey, type PlaySession } from '../utils/playSession';
@@ -103,6 +107,10 @@ export type RootStackParamList = {
   ClubCompetitions: { clubId: string; phase?: CompetitionListPhase; name?: string };
   ClubMembers: { clubId: string; name?: string };
   ClubCompetition: { clubId: string; competitionId: string; name?: string; clubName?: string };
+  /* Club admin in the app (abilities manage_codes / upload_photos) and reports (any member). */
+  ClubInvites: { clubId: string; name?: string; /** Caller's role: admin-granting codes are owner-only. */ role?: ClubRole };
+  ClubPhotos: { clubId: string; name?: string };
+  ClubReport: { clubId: string; subjectType: ReportSubjectType; /** Competition public_id or member user id. */ subjectId?: string; subjectLabel?: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -153,6 +161,9 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
   // App-start /me failed for a recoverable reason (offline / 5xx): the stored
   // token may well be fine, so offer Retry + Logout instead of guessing.
   const [recoverable, setRecoverable] = useState(false);
+  // Push taps route only once the container is mounted (auth-gated inside).
+  const [navReady, setNavReady] = useState(false);
+  useNotificationRouting(navigationRef, navReady);
 
   const resolveInitialRoute = useCallback(async () => {
     setRecoverable(false);
@@ -246,7 +257,7 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
   }
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking}>
+    <NavigationContainer ref={navigationRef} linking={linking} onReady={() => setNavReady(true)}>
       <Stack.Navigator initialRouteName={initialRoute} screenOptions={screenOptions}>
         <Stack.Screen name="Login" component={LoginScreen} initialParams={initialParams} options={{ headerShown: false }} />
         <Stack.Screen name="LoginVerification" component={LoginVerificationScreen} options={{ title: t('nav.titles.verifyLogin') }} />
@@ -344,6 +355,9 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
         <Stack.Screen name="ClubPacks" component={ClubPacksScreen} options={{ title: t('nav.titles.clubPacks') }} />
         <Stack.Screen name="ClubLeaderboard" component={ClubLeaderboardScreen} options={{ title: t('nav.titles.clubLeaderboard') }} />
         <Stack.Screen name="ClubMembers" component={ClubMembersScreen} options={{ title: t('nav.titles.clubMembers') }} />
+        <Stack.Screen name="ClubInvites" component={ClubInviteScreen} options={{ title: t('nav.titles.clubInvites') }} />
+        <Stack.Screen name="ClubPhotos" component={ClubPhotosScreen} options={{ title: t('nav.titles.clubPhotos') }} />
+        <Stack.Screen name="ClubReport" component={ClubReportScreen} options={{ title: t('nav.titles.clubReport') }} />
         <Stack.Screen name="ClubCompetitions" component={ClubCompetitionsScreen} options={{ title: t('nav.titles.clubCompetitions') }} />
         <Stack.Screen name="ClubCompetition" component={ClubCompetitionScreen} options={({ route }) => ({ title: route.params.name ?? t('nav.titles.clubCompetition') })} />
       </Stack.Navigator>

@@ -83,6 +83,19 @@ describe('store build config', () => {
     // One wording in all three places, so the iOS prompt never depends on which plugin wrote it last.
     expect(new Set(strings).size).toBe(1);
   });
+
+  it('the photo-library purpose string covers every photo picker the app has (profile picture and club photo submissions), everywhere it is declared', () => {
+    const strings = [
+      app.expo.ios.infoPlist.NSPhotoLibraryUsageDescription,
+      pluginConfig('expo-image-picker').photosPermission,
+    ];
+    for (const s of strings) {
+      expect(typeof s).toBe('string');
+      expect(s).toMatch(/profile picture/i);
+      expect(s).toMatch(/club photo/i);
+    }
+    expect(new Set(strings).size).toBe(1);
+  });
 });
 
 describe('auth error copy', () => {

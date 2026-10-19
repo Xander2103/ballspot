@@ -23,6 +23,10 @@ export const notifications = {
       label: 'Announcements',
       hint: 'Occasional news from the BallPicker team.',
     },
+    clubs: {
+      label: 'Club updates',
+      hint: 'New, starting and finished competitions in your clubs.',
+    },
     reminderTime: 'Reminder time',
     reminderTimeHint: 'When daily / tournament reminders arrive.',
     enabled: '● Notifications enabled',

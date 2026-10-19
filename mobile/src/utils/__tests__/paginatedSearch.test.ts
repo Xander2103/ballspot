@@ -158,6 +158,24 @@ describe('paginatedReducer', () => {
     expect(s.inFlight).toBe('more');
   });
 
+  it('mutate edits loaded rows (optimistic update / revert / prepend) without duplicates', () => {
+    const loaded = run([
+      { type: 'request', seq: 1, kind: 'initial', query: '' },
+      { type: 'success', seq: 1, kind: 'initial', query: '', items: items('a', 'b'), nextCursor: 'c2' },
+    ]);
+    const prepended = run([{ type: 'mutate', update: (xs) => [...items('z', 'a'), ...xs] }], loaded);
+    expect(prepended.items.map(key)).toEqual(['z', 'a', 'b']);
+    expect(prepended.nextCursor).toBe('c2');
+    const removed = run([{ type: 'mutate', update: (xs) => xs.filter((x) => x.id !== 'a') }], prepended);
+    expect(removed.items.map(key)).toEqual(['z', 'b']);
+    // An empty loaded list that gains a row leaves the empty state.
+    const empty = run([
+      { type: 'request', seq: 1, kind: 'initial', query: '' },
+      { type: 'success', seq: 1, kind: 'initial', query: '', items: [], nextCursor: null },
+    ]);
+    expect(paginatedView(run([{ type: 'mutate', update: () => items('new') }], empty))).toBe('list');
+  });
+
   it('reset returns to the initial state', () => {
     const s = run([
       { type: 'request', seq: 1, kind: 'initial', query: '' },

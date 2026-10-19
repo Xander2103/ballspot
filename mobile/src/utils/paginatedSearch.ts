@@ -49,6 +49,8 @@ export type PaginatedAction<T, M = unknown> =
   | { type: 'request'; seq: number; kind: RequestKind; query: string }
   | { type: 'success'; seq: number; kind: RequestKind; query: string; items: T[]; nextCursor: string | null; meta?: M | null }
   | { type: 'failure'; seq: number; kind: RequestKind; error: unknown }
+  /** Local edit of the loaded rows (optimistic update / revert, prepend a created item). */
+  | { type: 'mutate'; update: (items: T[]) => T[] }
   | { type: 'reset' };
 
 export function initialPaginatedState<T, M = unknown>(query = ''): PaginatedState<T, M> {
@@ -90,6 +92,14 @@ export function paginatedReducer<T, M = unknown>(
   switch (action.type) {
     case 'reset':
       return initialPaginatedState<T, M>();
+
+    case 'mutate': {
+      // In-flight responses still apply afterwards (their seq is unchanged):
+      // a refresh always reflects the server, edits are only a preview.
+      const items = uniqueByKey(action.update(state.items), getKey);
+      // Prepending into an empty, loaded list must leave the empty state.
+      return { ...state, items };
+    }
 
     case 'request':
       return {

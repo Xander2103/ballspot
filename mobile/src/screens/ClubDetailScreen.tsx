@@ -23,6 +23,7 @@ import type { ClubDetail, ClubLeaderboardEntry, ClubPackCard, CompetitionCard } 
 import { clubHeaderParts, roleLabel, type CompetitionSegment } from '../utils/clubDisplay';
 import { getClubErrorMessage, hasClubErrorCode, isClubGoneError } from '../utils/clubErrors';
 import { mergePreviewRows, sharedRankFlags } from '../utils/sharedRank';
+import { clubAdminEntries } from '../utils/clubAdmin';
 import type { PlaySession } from '../utils/playSession';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClubDetail'>;
@@ -112,9 +113,22 @@ export function ClubDetailScreen({ navigation, route }: Props) {
   const sheetActions = useMemo<SheetAction[]>(() => {
     if (!club) return [];
     const actions: SheetAction[] = [];
-    if (club.abilities.view_members) {
+    // Club admin entries follow the server's abilities (fail closed); the backend enforces them anyway.
+    const admin = clubAdminEntries(club.abilities);
+    if (admin.members) {
       actions.push({ key: 'members', label: t('clubs.detail.viewMembers'), onPress: () => navigation.navigate('ClubMembers', { clubId, name: club.name }) });
     }
+    if (admin.invites) {
+      actions.push({ key: 'invites', label: t('clubs.detail.invites'), onPress: () => navigation.navigate('ClubInvites', { clubId, name: club.name, role: club.role }) });
+    }
+    if (admin.photos) {
+      actions.push({ key: 'photos', label: t('clubs.detail.photos'), onPress: () => navigation.navigate('ClubPhotos', { clubId, name: club.name }) });
+    }
+    actions.push({
+      key: 'report',
+      label: t('clubs.detail.reportClub'),
+      onPress: () => navigation.navigate('ClubReport', { clubId, subjectType: 'club', subjectLabel: club.name }),
+    });
     if (club.abilities.leave || club.role === 'owner') {
       actions.push({
         key: 'leave',

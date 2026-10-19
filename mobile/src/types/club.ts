@@ -137,6 +137,10 @@ export interface ClubAbilities {
   view_members: boolean;
   leave: boolean;
   manage: boolean;
+  /** Wave F club admin (absent on older backends → treated as false). */
+  manage_codes?: boolean;
+  manage_members?: boolean;
+  upload_photos?: boolean;
 }
 
 /** `GET /api/clubs/{club}` */
@@ -157,12 +161,20 @@ export interface ClubDetail extends ClubCard {
   };
 }
 
+/** What the CALLER may do with this member (server-computed; all false for plain members). */
+export interface ClubMemberActions {
+  change_role: boolean;
+  remove: boolean;
+  ban: boolean;
+}
+
 export interface ClubMember {
   user_id: number;
   username: string;
   avatar_url: string | null;
   role: ClubRole;
   joined_at: string | null;
+  actions?: ClubMemberActions;
 }
 
 export interface ClubMembersMeta extends CursorMeta {
@@ -280,4 +292,52 @@ export interface CompetitionOutcome {
   totalChallenges: number;
   isRewardedRun: boolean;
   completionXp: number;
+}
+
+// --- Club admin in the app (contracts §9 Wave F) ------------------------------
+
+export interface InviteCode {
+  id: number;
+  /** Display form, e.g. "ABCD-EFGH". */
+  code: string;
+  /** QR content, e.g. "ballpicker:club:ABCDEFGH". */
+  qr_payload: string;
+  label: string | null;
+  grants_role: 'member' | 'admin';
+  uses_count: number;
+  max_uses: number | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+  is_usable: boolean;
+  created_at: string | null;
+}
+
+export interface CreateInviteCodeBody {
+  label?: string;
+  max_uses?: number;
+  expires_at?: string;
+  grants_role?: 'member' | 'admin';
+}
+
+export type PhotoSubmissionStatus = 'pending' | 'in_review' | 'in_preparation' | 'converted' | 'rejected';
+
+export interface PhotoSubmission {
+  id: number;
+  status: PhotoSubmissionStatus;
+  club_note: string | null;
+  rejection_reason: string | null;
+  /** Signed, short-lived URL. */
+  thumbnail_url: string | null;
+  created_at: string | null;
+}
+
+export type ReportSubjectType = 'club' | 'competition' | 'member';
+export type ReportReason = 'inappropriate' | 'offensive' | 'spam' | 'privacy' | 'other';
+
+export interface ClubReportBody {
+  subject_type: ReportSubjectType;
+  /** Competition public_id or member user id (as a string). Absent for the club itself. */
+  subject_id?: string;
+  reason: ReportReason;
+  details?: string;
 }

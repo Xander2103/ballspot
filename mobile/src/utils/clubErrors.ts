@@ -31,6 +31,13 @@ export const CLUB_ERROR_CODES = [
   'competition_invalid_pack',
   'unexpected_challenge',
   'attempt_not_active',
+  // Club admin in the app (Wave F)
+  'club_code_limit',
+  'club_member_not_found',
+  'photo_invalid',
+  'photo_duplicate',
+  'photo_rights_required',
+  'photo_pending_limit',
 ] as const;
 
 export type ClubErrorCode = (typeof CLUB_ERROR_CODES)[number];

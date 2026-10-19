@@ -160,3 +160,50 @@ describe('competitions wiring', () => {
     expect(source).toMatch(/useTheme\(\)/);
   });
 });
+
+describe('club admin + reports + notifications wiring (Wave F)', () => {
+  it('club admin entries in the club menu follow the abilities; Report is open to everyone', () => {
+    const source = read('screens/ClubDetailScreen.tsx');
+    expect(source).toMatch(/clubAdminEntries\(club\.abilities\)/);
+    expect(source).toMatch(/navigation\.navigate\('ClubInvites'/);
+    expect(source).toMatch(/navigation\.navigate\('ClubPhotos'/);
+    expect(source).toMatch(/navigation\.navigate\('ClubReport', \{ clubId, subjectType: 'club'/);
+    expect(read('screens/ClubCompetitionScreen.tsx')).toMatch(/subjectType: 'competition', subjectId: competitionId/);
+    expect(read('screens/ClubMembersScreen.tsx')).toMatch(/subjectType: 'member', subjectId: String\(member\.user_id\)/);
+  });
+
+  it('member actions come from the per-item flags and are optimistic with revert', () => {
+    const source = read('screens/ClubMembersScreen.tsx');
+    expect(source).toMatch(/memberActions\(item, meId\)/);
+    expect(source).toMatch(/clubApi\.changeMemberRole\(/);
+    expect(source).toMatch(/role: previous/);
+  });
+
+  it('invites: QR from qr_payload, copy, share text', () => {
+    const source = read('screens/ClubInviteScreen.tsx');
+    expect(source).toMatch(/<QRCode value=\{qrCode\.qr_payload\}/);
+    expect(source).toMatch(/Clipboard\.setStringAsync\(code\.code\)/);
+    expect(source).toMatch(/Share\.share\(\{ message: buildInviteShareMessage\(/);
+  });
+
+  it('photos: library picker (images, multiple), consent sent with every upload', () => {
+    const source = read('screens/ClubPhotosScreen.tsx');
+    expect(source).toMatch(/launchImageLibraryAsync\(\{\s*mediaTypes: \['images'\],\s*allowsMultipleSelection: true/);
+    expect(source).toMatch(/uploadPhoto\(clubId, photo, \{ rightsConfirmed: rights, note \}\)/);
+    expect(read('api/clubApi.ts')).toMatch(/form\.append\('rights_confirmed'/);
+  });
+
+  it('push taps route through the auth gate', () => {
+    const source = read('app/notificationRouting.ts');
+    expect(source).toMatch(/routeForNotificationData\(response\.notification\.request\.content\.data\)/);
+    expect(source).toMatch(/canOpenFromNotification\(names, !!token\)/);
+    expect(source).toMatch(/addNotificationResponseReceivedListener/);
+    expect(read('app/AppNavigator.tsx')).toMatch(/useNotificationRouting\(navigationRef, navReady\)/);
+  });
+
+  it('the Club updates toggle binds club_updates and hides on backends without it', () => {
+    const source = read('components/NotificationSettingsCard.tsx');
+    expect(source).toMatch(/key: 'club_updates'/);
+    expect(source).toMatch(/typeof settings\[toggle\.key\] === 'boolean'/);
+  });
+});

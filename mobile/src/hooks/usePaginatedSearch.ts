@@ -47,6 +47,8 @@ export interface PaginatedSearch<T, M> {
   refresh: () => void;
   /** Silent refresh (screen focus); does the first load if nothing loaded yet. */
   reload: () => void;
+  /** Edit the loaded rows locally (optimistic update / revert / prepend). */
+  mutate: (update: (items: T[]) => T[]) => void;
 }
 
 /**
@@ -159,7 +161,10 @@ export function usePaginatedSearch<T, M = unknown>({
     if (shouldSilentReload(s)) run('reload', requestedQuery.current);
   }, [run]);
 
+  const mutate = useCallback((update: (items: T[]) => T[]) => dispatch({ type: 'mutate', update }), []);
+
   return {
+    mutate,
     text,
     setText,
     clear,

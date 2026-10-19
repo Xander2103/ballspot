@@ -15,13 +15,16 @@ import {
 type ToggleKey =
   | 'daily_reminder_enabled'
   | 'tournament_reminder_enabled'
-  | 'admin_notifications_enabled';
+  | 'admin_notifications_enabled'
+  | 'club_updates';
 
 /** Labels resolve via t() inside the component (locale-aware). */
 const TOGGLES: { key: ToggleKey; labelKey: string; hintKey: string }[] = [
   { key: 'daily_reminder_enabled', labelKey: 'notifications.settings.daily.label', hintKey: 'notifications.settings.daily.hint' },
   { key: 'tournament_reminder_enabled', labelKey: 'notifications.settings.tournament.label', hintKey: 'notifications.settings.tournament.hint' },
   { key: 'admin_notifications_enabled', labelKey: 'notifications.settings.announcements.label', hintKey: 'notifications.settings.announcements.hint' },
+  // Clubs: only shown when the backend sends the field (older backends / Clubs off → hidden).
+  { key: 'club_updates', labelKey: 'notifications.settings.clubs.label', hintKey: 'notifications.settings.clubs.hint' },
 ];
 
 export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = {}) {
@@ -121,14 +124,14 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
     <View style={cardStyle}>
       <PermissionBanner styles={styles} perm={perm} onEnable={enablePermission} />
 
-      {TOGGLES.map((toggle, i) => (
+      {TOGGLES.filter((toggle) => typeof settings[toggle.key] === 'boolean').map((toggle, i) => (
         <View key={toggle.key} style={[styles.row, i > 0 && styles.rowBorder]}>
           <View style={styles.rowText}>
             <Text style={styles.rowLabel}>{t(toggle.labelKey)}</Text>
             <Text style={styles.rowHint}>{t(toggle.hintKey)}</Text>
           </View>
           <Switch
-            value={settings[toggle.key]}
+            value={settings[toggle.key] === true}
             disabled={savingKey === toggle.key}
             onValueChange={(v) => persist({ [toggle.key]: v } as NotificationSettingsUpdate, toggle.key)}
             trackColor={{ true: theme.primary, false: theme.border }}

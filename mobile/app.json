@@ -12,7 +12,7 @@
       "buildNumber": "33.0.0",
       "supportsTablet": false,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "BallPicker needs access to your photos so you can choose a profile picture.",
+        "NSPhotoLibraryUsageDescription": "BallPicker needs access to your photos so you can choose a profile picture and, for club admins, submit club photos for new challenges.",
         "NSCameraUsageDescription": "BallPicker needs your camera only to scan QR codes: a friend's code or your club's invite code. Nothing is recorded.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -40,7 +40,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "BallPicker needs access to your photos so you can choose a profile picture.",
+          "photosPermission": "BallPicker needs access to your photos so you can choose a profile picture and, for club admins, submit club photos for new challenges.",
           "cameraPermission": "BallPicker needs your camera only to scan QR codes: a friend's code or your club's invite code. Nothing is recorded.",
           "microphonePermission": false
         }

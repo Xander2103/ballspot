@@ -36,6 +36,9 @@ export const nav = {
     clubMembers: 'Members',
     clubCompetition: 'Competition',
     clubCompetitions: 'Competitions',
+    clubInvites: 'Invite codes',
+    clubPhotos: 'Club photos',
+    clubReport: 'Report',
   },
   backTo: 'Back to {{label}}',
   exit: {
