@@ -341,7 +341,8 @@ class DiagnosticsService
         $sports = Sport::orderBy('sort_order')->orderBy('name')->get();
 
         $perSport = $sports->map(function (Sport $sport) {
-            $base = fn () => Challenge::where('sport_id', $sport->id);
+            // BallPicker catalogue only: club photos are private and never part of a pool.
+            $base = fn () => Challenge::publicContent()->where('sport_id', $sport->id);
 
             $row = [
                 'sport_id'            => $sport->id,
@@ -368,15 +369,15 @@ class DiagnosticsService
         })->values()->all();
 
         return [
-            'active_ready'        => Challenge::where('status', 'active')->readySql()->count(),
-            'daily_pool'          => Challenge::dailyPool()->readySql()->count(),
-            'daily_available'     => Challenge::dailyPool()->readySql()->notDailyUsed()->count(),
-            'tournament_eligible' => Challenge::tournamentEligibleStrict()->count(),
-            'pack_only'           => Challenge::where('status', 'active')->where('usage_pool', Challenge::POOL_PACK)->readySql()->count(),
-            'used_as_daily'       => Challenge::dailyUsed()->count(),
-            'total'               => Challenge::count(),
-            'draft'               => Challenge::where('status', 'draft')->count(),
-            'archived'            => Challenge::where('status', 'archived')->count(),
+            'active_ready'        => Challenge::publicContent()->where('status', 'active')->readySql()->count(),
+            'daily_pool'          => Challenge::publicContent()->dailyPool()->readySql()->count(),
+            'daily_available'     => Challenge::publicContent()->dailyPool()->readySql()->notDailyUsed()->count(),
+            'tournament_eligible' => Challenge::publicContent()->tournamentEligibleStrict()->count(),
+            'pack_only'           => Challenge::publicContent()->where('status', 'active')->where('usage_pool', Challenge::POOL_PACK)->readySql()->count(),
+            'used_as_daily'       => Challenge::publicContent()->dailyUsed()->count(),
+            'total'               => Challenge::publicContent()->count(),
+            'draft'               => Challenge::publicContent()->where('status', 'draft')->count(),
+            'archived'            => Challenge::publicContent()->where('status', 'archived')->count(),
             'per_sport'           => $perSport,
             'thresholds'          => [
                 'tournament' => self::TOURNAMENT_POOL_LOW,

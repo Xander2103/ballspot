@@ -13,6 +13,7 @@ use App\Models\ClubInviteCode;
 use App\Models\ClubMember;
 use App\Models\ClubPackRewardClaim;
 use App\Models\ClubPhotoSubmission;
+use App\Models\ClubPortalLoginCode;
 use App\Models\PackAttempt;
 use App\Models\User;
 
@@ -55,8 +56,11 @@ class ClubPrivacyTest extends ClubApiTestCase
 
         $code   = ClubInviteCode::factory()->create(['club_id' => $joined->id, 'created_by_user_id' => $user->id]);
         $photo  = $this->photo($joined->id, $user->id);
+        ClubPortalLoginCode::create(['challenge_id' => (string) \Illuminate\Support\Str::uuid(), 'user_id' => $user->id,
+            'code_hash' => bcrypt('123456'), 'sent_at' => now(), 'expires_at' => now()->addMinutes(10)]);
 
         $this->api($user)->deleteJson('/api/account')->assertSuccessful();
+        $this->assertSame(0, ClubPortalLoginCode::where('user_id', $user->id)->count(), 'pending portal sign-in codes die with the account');
 
         // Memberships → removed (banned stays banned), counters + needs_owner (D6).
         $this->assertSame(ClubMemberStatus::Removed, ClubMember::where('club_id', $soleOwned->id)->where('user_id', $user->id)->first()->status);

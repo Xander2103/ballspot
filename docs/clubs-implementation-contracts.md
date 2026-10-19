@@ -26,7 +26,7 @@ Branch: `feature/ballpicker-clubs`. Local commits are allowed; pushing, merging,
 | D12 | Leaderboards show usernames + avatars only. |
 | D13 | Tab order: Play → Tournaments → **Clubs** → Friends → Profile. |
 | D14 | No payments or billing. |
-| D15 | Configurable per competition: `normal_play_policy` = `blocked` (**default**: normal play of linked packs is refused from publish until finalize) \| `allowed`. Locked at start like the other rules. |
+| D15 | Configurable per competition: `normal_play_policy` = `blocked` (**default**: normal play of linked packs is refused from publish until finalize) \| `allowed`. Locked at start like the other rules. Security review 2026-10: with `blocked`, normal attempts already in progress are **frozen** (not finished) until finalize/cancel/void; with `allowed`, a player never has a normal and a competition run open on the same pack at once (sequential play — finish one, then the other — stays allowed in `single_attempt` / `multiple_attempts`; `no_replay` refuses anyone with a guess on the pack). One published competition per pack and overlapping window. |
 | D16 | Partial attempts count their in-window score. |
 | D17 | Tie-break: total desc → `score_reached_at` asc → `attempts_used` asc → shared rank. |
 | D18 | Archived clubs are hidden from My Clubs. Suspended clubs are shown flagged and read-only. |
@@ -96,7 +96,7 @@ Rules:
   'limits'   => ['max_members' => 500, 'max_clubs_per_user' => 50, 'max_active_codes' => 20,
                  'max_packs' => 100, 'max_competitions_active' => 10],
   'codes'    => ['length' => 8, 'alphabet' => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'],
-  'join'     => ['per_user_per_minute' => 10, 'per_ip_per_hour' => 30, 'failures_per_hour' => 15],
+  'join'     => ['per_user_per_minute' => 10, 'per_ip_per_hour' => 300, 'failures_per_hour' => 15, 'failures_per_ip_per_hour' => 60],
   'media'    => ['disk' => 'club_private', 'max_kb' => 15360, 'max_edge' => 2560, 'signed_url_ttl_minutes' => 60,
                  'logo_max_kb' => 2048],
   'competition' => ['max_attempts_cap' => 10, 'default_replay_mode' => 'single_attempt',
@@ -133,6 +133,7 @@ Rules:
 | club_member_banned | 422 (admin add of a banned user: unban first — added by Foundation) |
 | stale_version | 409 |
 | pack_reserved_for_competition | 409 |
+| pack_in_competition | 422 (admin: club pack linked to a published, not finished competition cannot be archived, drafted or hidden) |
 | competition_not_started | 422 |
 | competition_ended | 422 |
 | competition_attempt_limit | 422 |
@@ -184,11 +185,16 @@ Rules:
 ### 3.7 Gameplay hooks
 - `App\Contracts\PackAccessGate::assertCanPlay(User, ChallengePack): void`.
   Plus `assertCanContinue(User, ChallengePack): void` for an attempt that already exists (each guess): same access rules
-  without the reservation and pack-status checks, so in-progress attempts may finish (added by Foundation).
+  without the pack-status check (added by Foundation). Club packs KEEP the reservation check on every guess (security
+  review 2026-10): an in-progress normal attempt on a reserved pack is frozen, because its reveal (ball_x/y) would be the
+  answer key for the competition attempt.
   - `PublicPackAccess` = active + public + `club_id` null, else 404 (identical to today).
   - `ClubPackAccess` = active member (not banned) of an active club + pack active, else `club_not_found`/`club_unavailable`.
-  - Also throws `pack_reserved_for_competition` when a linked competition with `normal_play_policy=blocked` is published and not
-    finalized/cancelled/voided.
+  - Also throws `pack_reserved_for_competition` (start AND guess) when a linked competition with `normal_play_policy=blocked` is
+    published and not finalized/cancelled/voided, or while the player has an active competition attempt on the pack in a
+    competition whose window is open (any policy).
+  - Club packs answer 404 `feature_disabled` while `ballspot.clubs.enabled` is off — also on the generic
+    `POST /api/pack-attempts/{id}/guess`, which is outside the `feature:clubs` group.
   - The resolver picks by `pack.club_id`.
 - `ClubRewardService::claim(User, ChallengePack, string $sourceType, int $sourceId): bool` (true = this run is rewarded; a unique insert
   settles races) and `isRewarded(User, ChallengePack, string $sourceType, int $sourceId): bool`.
@@ -325,6 +331,22 @@ Member API notes (B1, as built — see `docs/api-contract.md` "Clubs (member API
   `awardCompetitionCompletion(User, ClubCompetitionAttempt): array{completion_xp, new_badges}` on completion
   (XpEvent sources `club_competition_guess` / `club_competition_completion`).
 
+Contract integration notes (Wave E, as built — mobile ↔ backend):
+- Permanent guard: `backend/tests/Feature/Clubs/Api/MobileContractShapeTest.php` calls every member endpoint the app calls
+  (with the params/bodies `mobile/src/api/clubApi.ts` sends) and asserts each key of the TS types in
+  `mobile/src/types/club.ts` / `types/pack.ts` with its JSON type and nullability; it also walks every cursor list the way
+  `usePaginatedSearch` does (no duplicates, chain ends, `limit` clamped, broken cursor = 422 `cursor`) and checks that every
+  member-facing error code has app copy (`CLUB_ERROR_CODES`). Change a payload → change the TS type, that schema and §5 together.
+- All payload shapes matched §5 / the as-built notes; no backend payload changed in Wave E.
+- App side: `competition_invalid_pack` (422 on start, pack without snapshot challenges) is now mapped to copy, and a start with a
+  stale `attempt_number` (plain 422 validation error on `attempt_number`, no `code`) shows translated copy
+  (`clubs.errors.competition_attempt_stale`) and reloads the pack states instead of showing the English server sentence. The
+  competition screen also reloads on `competition_pack_already_played` / `competition_invalid_pack`.
+- `429 club_join_rate_limited` (request limiter) deliberately has no club copy: the client keeps the code but shows its generic
+  "try again in N seconds" from `Retry-After`. `429 club_join_locked` (failed-code lock) has its own copy.
+- A replayed competition guess (`replayed: true`) reads `result` back from the stored row, so `distance` is the column-rounded
+  value (e.g. 0.08 vs 0.0799…); every other `result` field is identical.
+
 ---
 
 ## 6. Admin & portal conventions
@@ -406,8 +428,39 @@ Competitions notes (C1, as built — see `docs/api-contract.md` "Clubs — compe
   re-finalizes (finishes rewritten, audit `competition.rebuilt`). Finishes: one row per ranked visible player, shared placements.
 - Admin routes `admin.clubs.competitions.{index,create,store,show,update,publish,cancel,extend,void,rebuild,finalize,attempts.void}`
   (`/admin/clubs/{club}/competitions…`, ids, scoped bindings) + `admin.club-competitions.index`.
-- Not built: refusing to archive a pack linked to a non-finalized competition (`pack_in_competition`, plan §5.7) — the pack
-  admin is B2's; an archived linked pack gets an empty snapshot at lock and cannot be started (`competition_invalid_pack`).
+- Built in Wave E (orchestrator): the admin pack edit form and quick status action refuse to archive, draft or hide a club pack
+  linked to a published, not finalized/cancelled/voided competition (`pack_in_competition`, plan §5.7;
+  `AdminClubPackCompetitionGuardTest`).
+
+Security fixes (Wave E, security review 2026-10, as built — tests in `backend/tests/Feature/Clubs/Security/`):
+- Answer key across tracks (HIGH). `ClubPackAccess::assertCanContinue` applies the reservation (frozen normal attempts →
+  409 `pack_reserved_for_competition`; they resume after finalize/cancel/void). `CompetitionEligibility::blockedReason` adds
+  rule 5 *another run in progress* → `attempt_in_progress` (start: 409 `competition_attempt_in_progress`, state
+  `active_attempt_id` null): an active normal attempt on the pack when the policy is `allowed`, or an active attempt on the
+  pack in another live competition. With `blocked` an active normal attempt does NOT block the start (it is frozen).
+  Sequential play (finish the normal pack, then compete) stays allowed by design in `single_attempt` / `multiple_attempts`;
+  admin helper sentence: `lang/*/clubs.php` `competition_messages.normal_play_allowed_helper`.
+- `no_replay` "already played" = any run with ≥ 1 guess: a normal attempt with `current_index > 0` or completed, or an
+  attempt with `guesses_count > 0` (or completed) in ANY other competition, voided/expired included (`NoReplayPolicy::playedAnywhere`).
+- One live competition per pack: `ClubCompetitionService::assertNoOverlappingCompetition` (create, `pack_ids` change, window
+  change, publish — admin and portal) refuses a pack already linked to another **published** competition of the club whose
+  window `[starts_at, ends_at)` overlaps → 422 `competition_invalid_pack` + `reason: pack_in_overlapping_competition`,
+  `pack_id`, `competition_id` (public id) and a specific message (`competition_messages.pack_in_overlapping_competition`).
+  Drafts never conflict with each other; the second publish does. `ClubDomainException` takes an optional 4th `$message`.
+- Content after lock: `App\Services\Clubs\CompetitionContentLock` (shared with the photo review's `resolvePack`).
+  `Admin\ChallengeController::update` / `updateStatus` refuse a new ball position, new images or a status other than
+  `active` for a challenge in the (effective) snapshot of a published, locked competition (`competition_rules_locked`; before
+  the lazy lock writes the snapshot the pack's current challenges count). `destroy` refuses while the challenge is in a
+  published or voided competition's snapshot (or a published one's pack before the snapshot), played or not. Applies to
+  BallPicker challenges used in a club pack too. `ClubCompetitionPlayService::guess` / `currentChallenge` answer 422
+  `competition_invalid_pack` + `reason: challenge_unavailable` if a snapshotted challenge row is gone.
+- Join limits: `club-join` per IP 300/h (was 30/h) + per-IP FAILED-code counter `clubs.join.failures_per_ip_per_hour` = 60
+  next to the per-user 15 (`ClubJoinFailureCounter`, both → 429 `club_join_locked`).
+- Portal code: `ClubPortalLoginCodeService::verify` reserves the attempt with an atomic
+  `UPDATE … SET attempts = attempts + 1 WHERE id = ? AND attempts < max` before `Hash::check`; 0 rows → `locked`.
+- Club pack covers go through `ClubMediaService::storePackCover` (GD re-encode, public disk `packs/covers/{random40}.webp|jpg`);
+  BallPicker covers unchanged.
+- `SportReadinessService::for` and the diagnostics content totals count BallPicker challenges only (`publicContent()`).
 
 Club portal notes (D2, as built — see `docs/club-portal.md`):
 - 2FA uses a **dedicated table** `club_portal_login_codes` + `App\Services\ClubPortal\ClubPortalLoginCodeService` (not

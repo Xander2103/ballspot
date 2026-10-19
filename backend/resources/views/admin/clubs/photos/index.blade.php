@@ -89,7 +89,7 @@
                             · {{ $s->created_at?->format('Y-m-d H:i') }} · <span title="Age">{{ $s->created_at?->diffForHumans(null, true) }} old</span>
                         </div>
                     </td>
-                    <td class="small text-nowrap">{{ number_format(($s->bytes ?? 0) / 1048576, 1) }} MB<div class="text-muted" style="font-size:.75rem">{{ $s->width }}×{{ $s->height }}</div>
+                    <td class="small text-nowrap">{{ \App\Http\Controllers\Admin\Clubs\ClubPhotoController::humanSize($s->bytes) }}<div class="text-muted" style="font-size:.75rem">{{ $s->width }}×{{ $s->height }}</div>
                         @if($s->rights_confirmed_at)<span class="text-success" style="font-size:.75rem" title="Rights confirmed {{ $s->rights_confirmed_at->format('Y-m-d') }}">rights ✓</span>@else<span class="text-muted" style="font-size:.75rem">rights —</span>@endif
                     </td>
                     <td class="small" style="max-width: 16rem;">
@@ -113,7 +113,13 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="text-center text-muted py-4">No photos match these filters.</td></tr>
+                <tr><td colspan="7" class="text-center text-muted py-4">
+                    @if($currentStatus === 'open' && !$filters['club'] && $filters['assignee'] === '')
+                        No open photos — the review queue is empty. Clubs upload photos from the Club Portal; you can also upload on a club's Photos tab.
+                    @else
+                        No photos match these filters.
+                    @endif
+                </td></tr>
             @endforelse
             </tbody>
         </table>

@@ -63,9 +63,9 @@
                                     <div class="small text-muted font-sans-serif">{{ __('club_portal.codes.admin_code_hidden') }}</div>
                                 @endif
                             </td>
-                            <td class="small">{{ $code->label ?? __('club_portal.common.none') }}<div class="text-muted" style="font-size:.7rem">{{ $code->created_at?->format('Y-m-d') }}@if($code->createdBy) · {{ $code->createdBy->username }}@endif</div></td>
+                            <td class="small" style="min-width:10rem">{{ $code->label ?? __('club_portal.common.none') }}<div class="text-muted" style="font-size:.7rem">{{ $code->created_at?->format('Y-m-d') }}@if($code->createdBy) · {{ $code->createdBy->username }}@endif</div></td>
                             <td class="small"><span class="badge badge-role-{{ $code->grants_role->value }}">{{ __('club_portal.roles.' . $code->grants_role->value) }}</span></td>
-                            <td class="text-end small">{{ $code->uses_count }}@if($code->max_uses) / {{ $code->max_uses }}@endif</td>
+                            <td class="text-end small text-nowrap">{{ $code->uses_count }}@if($code->max_uses) / {{ $code->max_uses }}@endif</td>
                             <td class="small text-nowrap">{{ $code->expires_at?->format('Y-m-d') ?? __('club_portal.common.never') }}</td>
                             <td><span class="badge {{ $stateClass }}">{{ $stateLabel }}</span></td>
                             <td class="text-end text-nowrap">

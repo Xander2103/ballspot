@@ -24,7 +24,7 @@
     <a href="{{ route('admin.clubs.show', ['club' => $club, 'tab' => 'photos']) }}">{{ $club->name }}</a>
     · {{ $submission->source === 'club_upload' ? 'uploaded by club admin' : 'uploaded by BallPicker' }}@if($submission->uploadedBy) ({{ $submission->uploadedBy->username }})@endif
     · {{ $submission->created_at?->format('Y-m-d H:i') }} ({{ $submission->created_at?->diffForHumans() }})
-    · {{ number_format(($submission->bytes ?? 0) / 1048576, 1) }} MB {{ $submission->width }}×{{ $submission->height }}
+    · {{ \App\Http\Controllers\Admin\Clubs\ClubPhotoController::humanSize($submission->bytes) }} {{ $submission->width }}×{{ $submission->height }}
     · assignee: {{ $submission->assignedTo?->username ?? 'nobody' }}
 </p>
 

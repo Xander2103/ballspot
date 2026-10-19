@@ -33,7 +33,7 @@
                     <th class="text-end">Packs</th>
                     <th class="text-end">Attempts</th>
                     <th>Reached at ({{ $tz }})</th>
-                    <th>Attempts</th>
+                    <th>Attempt details</th>
                 </tr>
             </thead>
             <tbody>
@@ -47,7 +47,7 @@
                     <td class="small text-nowrap">{{ $row['score_reached_at'] ? \Carbon\Carbon::parse($row['score_reached_at'], 'UTC')->setTimezone($tz)->format('Y-m-d H:i:s') : '—' }}</td>
                     <td class="small">
                         <details>
-                            <summary>{{ ($attemptsByUser[$row['user_id']] ?? collect())->count() }} attempts ▸</summary>
+                            <summary>{{ \Illuminate\Support\Str::plural('attempt', ($attemptsByUser[$row['user_id']] ?? collect())->count(), true) }}</summary>
                             <table class="table table-sm mb-0 mt-1">
                                 @foreach($attemptsByUser[$row['user_id']] ?? [] as $a)
                                     <tr data-attempt="{{ $a->id }}">

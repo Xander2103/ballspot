@@ -125,7 +125,7 @@ class ClubsConcurrencyTest extends ConcurrencyTestCase
         $this->assertSame(1, XpEvent::where('user_id', $user->id)->where('source_type', XpEvent::SOURCE_CLUB_COMPETITION_GUESS)->count());
     }
 
-    public function test_parallel_first_runs_on_both_tracks_claim_one_reward(): void
+    public function test_parallel_first_runs_on_both_tracks_claim_one_reward_and_never_run_in_parallel(): void
     {
         [$user, $competition, $pack] = $this->liveCompetition(['normal_play_policy' => NormalPlayPolicy::Allowed->value]);
 
@@ -139,10 +139,22 @@ class ClubsConcurrencyTest extends ConcurrencyTestCase
 
         $results = $this->runWorkers($scenarioOf, $payloads);
 
-        $this->assertSame(10, $this->okCount($results), json_encode($results));
+        // Security review 2026-10: under `allowed` a competition start is refused
+        // while the player's normal run on the pack is active (and the normal
+        // gate refuses the reverse), so the tracks never run in parallel. The
+        // worker's pack_start calls PackPlayService directly (no gate), so only
+        // the competition side can be refused here — always with the same code.
+        $refused = array_values(array_filter($results, fn ($r) => !($r['ok'] ?? false)));
+        foreach ($refused as $r) {
+            $this->assertSame('competition_attempt_in_progress', $r['code'] ?? null, json_encode($results));
+        }
+        $this->assertGreaterThanOrEqual(5, $this->okCount($results), json_encode($results));
         $this->assertSame(1, ClubPackRewardClaim::where('user_id', $user->id)->where('challenge_pack_id', $pack->id)->count());
         $this->assertSame(1, PackAttempt::where('user_id', $user->id)->where('challenge_pack_id', $pack->id)->count());
-        $this->assertSame(1, ClubCompetitionAttempt::where('user_id', $user->id)->count());
+        $this->assertLessThanOrEqual(1, ClubCompetitionAttempt::where('user_id', $user->id)->count());
+        if ($refused !== []) {
+            $this->assertSame(0, ClubCompetitionAttempt::where('user_id', $user->id)->count(), 'a refused start never leaves an attempt');
+        }
     }
 
     /**

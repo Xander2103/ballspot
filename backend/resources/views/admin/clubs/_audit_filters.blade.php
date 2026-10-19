@@ -29,11 +29,11 @@
             @endforeach
         </select>
     </div>
-    <div class="col-6 col-md-1">
+    <div class="col-6 col-md-2">
         <label for="a-from" class="small text-muted mb-1">From</label>
         <input id="a-from" type="date" name="from" value="{{ $auditFilters['from'] }}" class="form-control form-control-sm">
     </div>
-    <div class="col-6 col-md-1">
+    <div class="col-6 col-md-2">
         <label for="a-to" class="small text-muted mb-1">To</label>
         <input id="a-to" type="date" name="to" value="{{ $auditFilters['to'] }}" class="form-control form-control-sm">
     </div>

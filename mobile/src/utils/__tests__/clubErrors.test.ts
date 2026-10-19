@@ -7,6 +7,7 @@ import { de } from '../../i18n/locales/de';
 import { es } from '../../i18n/locales/es';
 import {
   CLUB_ERROR_CODES, clubErrorCode, clubErrorKey, getClubErrorMessage, hasClubErrorCode, isClubGoneError, isPackReservedError,
+  isStaleAttemptNumberError,
 } from '../clubErrors';
 import { isPackAlreadyCompleted } from '../../types/pack';
 
@@ -32,6 +33,24 @@ describe('club error mapping', () => {
     const e = { status: 429, retry_after: 30, message: translate('errors.rateLimited', { seconds: 30 }) };
     expect(clubErrorCode(e)).toBeNull();
     expect(getClubErrorMessage(e, 'fallback')).toBe(translate('errors.rateLimited', { seconds: 30 }));
+  });
+
+  it('the club-join request limiter (429 club_join_rate_limited) keeps the "try again in N seconds" copy', () => {
+    // The client keeps the backend code on a 429 but replaces the message with the Retry-After copy.
+    const e = { status: 429, retry_after: 42, code: 'club_join_rate_limited', message: translate('errors.rateLimited', { seconds: 42 }) };
+    expect(clubErrorCode(e)).toBeNull();
+    expect(getClubErrorMessage(e, 'fallback')).toBe(translate('errors.rateLimited', { seconds: 42 }));
+  });
+
+  it('a stale attempt_number (422 validation, no code) gets translated copy, not the English server sentence', () => {
+    const e = { status: 422, message: 'The next attempt number is 2.', errors: { attempt_number: ['The next attempt number is 2.'] } };
+    expect(isStaleAttemptNumberError(e)).toBe(true);
+    expect(isStaleAttemptNumberError({ status: 422, errors: { guessed_x: ['x'] } })).toBe(false);
+    expect(isStaleAttemptNumberError({ status: 409, errors: { attempt_number: ['x'] } })).toBe(false);
+    expect(getClubErrorMessage(e, 'fallback')).toBe(translate('clubs.errors.competition_attempt_stale'));
+    for (const locale of ['en', 'nl', 'fr', 'de', 'es'] as const) {
+      expect({ locale, has: hasTranslation('clubs.errors.competition_attempt_stale', locale) }).toEqual({ locale, has: true });
+    }
   });
 
   it('unknown codes, network and server errors fall back to the generic mapping', () => {

@@ -59,6 +59,7 @@ class ClubCompetitionService
         ]);
         $this->assertWindow($data['starts_at'], $data['ends_at']);
         $packIds = $this->assertPacks($club, $data['pack_ids'] ?? []);
+        $this->assertNoOverlappingCompetition($club, $packIds, $data['starts_at'], $data['ends_at']);
 
         return DB::transaction(function () use ($club, $data, $rules, $packIds, $actor, $actorKind) {
             $competition = ClubCompetition::create([
@@ -137,7 +138,12 @@ class ClubCompetitionService
                 if ($row->state === CompetitionState::Published) {
                     $this->assertPlayablePacks($row->club, $packIds);
                 }
+                $this->assertNoOverlappingCompetition($row->club, $packIds, $startsAt, $endsAt, $row->id);
                 $this->syncPacks($row, $packIds, $actor, $actorKind);
+            } elseif ((isset($changes['starts_at']) || isset($changes['ends_at']))
+                && in_array($row->state, [CompetitionState::Draft, CompetitionState::Published], true)) {
+                // A moved window may now overlap another competition on the same pack.
+                $this->assertNoOverlappingCompetition($row->club, $this->linkedPackIds($row), $startsAt, $endsAt, $row->id);
             }
 
             $row->updated_by_user_id = $actor->id;
@@ -192,6 +198,7 @@ class ClubCompetitionService
                 throw new ClubDomainException(ClubDomainException::COMPETITION_INVALID_PACK, 422);
             }
             $this->assertPlayablePacks($row->club, $packIds);
+            $this->assertNoOverlappingCompetition($row->club, $packIds, $row->starts_at, $row->ends_at, $row->id);
 
             $row->forceFill([
                 'state'              => CompetitionState::Published,
@@ -435,6 +442,63 @@ class ClubCompetitionService
                 throw new ClubDomainException(ClubDomainException::COMPETITION_INVALID_PACK, 422, ['pack_id' => (int) $id]);
             }
         }
+    }
+
+    /**
+     * One live competition per pack at a time (security review 2026-10): a
+     * pack may not be linked to / published in a competition while it is
+     * linked to ANOTHER published (= not finalized, cancelled or voided)
+     * competition of the club whose window [starts_at, ends_at) overlaps.
+     * Two parallel competitions on one pack would let a player read ball_x/y
+     * from one competition's reveal and submit it to the other. Drafts never
+     * conflict with each other; the second one fails at publish.
+     *
+     * @param list<int> $packIds
+     */
+    public function assertNoOverlappingCompetition(Club $club, array $packIds, CarbonInterface $startsAt, CarbonInterface $endsAt, ?int $exceptCompetitionId = null): void
+    {
+        if ($packIds === []) {
+            return;
+        }
+
+        $conflict = ClubCompetitionPack::query()
+            ->with('competition:id,public_id,name')
+            ->whereIn('challenge_pack_id', $packIds)
+            ->whereHas('competition', fn ($q) => $q
+                ->where('club_id', $club->id)
+                ->where('state', CompetitionState::Published->value)
+                ->when($exceptCompetitionId !== null, fn ($qq) => $qq->whereKeyNot($exceptCompetitionId))
+                ->where('starts_at', '<', $endsAt)
+                ->where('ends_at', '>', $startsAt))
+            ->orderBy('id')
+            ->first();
+
+        if ($conflict === null) {
+            return;
+        }
+
+        $pack = ChallengePack::find($conflict->challenge_pack_id);
+
+        throw new ClubDomainException(
+            ClubDomainException::COMPETITION_INVALID_PACK,
+            422,
+            [
+                'reason'         => 'pack_in_overlapping_competition',
+                'pack_id'        => (int) $conflict->challenge_pack_id,
+                'competition_id' => $conflict->competition?->public_id,
+            ],
+            (string) __('clubs.competition_messages.pack_in_overlapping_competition', [
+                'pack'        => $pack?->name ?? '#' . $conflict->challenge_pack_id,
+                'competition' => $conflict->competition?->name ?? '',
+            ]),
+        );
+    }
+
+    /** @return list<int> */
+    private function linkedPackIds(ClubCompetition $competition): array
+    {
+        return ClubCompetitionPack::where('club_competition_id', $competition->id)->orderBy('sort_order')->orderBy('id')
+            ->pluck('challenge_pack_id')->map(fn ($id) => (int) $id)->all();
     }
 
     /**

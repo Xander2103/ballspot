@@ -55,6 +55,8 @@ return [
     ],
 
     'common' => [
+
+        'ballpicker_team' => 'Équipe BallPicker',
         'save'           => 'Enregistrer',
         'cancel'         => 'Annuler',
         'confirm'        => 'Confirmer',
@@ -133,7 +135,7 @@ return [
         'intro'   => 'Vous gérez ces clubs.',
         'open'    => 'Ouvrir',
         'empty'   => 'Vous ne gérez aucun club pour le moment.',
-        'members' => ':count membres',
+        'members' => '{1} :count membre|[0,*] :count membres',
     ],
 
     'dashboard' => [
@@ -157,7 +159,7 @@ return [
         'recent_activity'       => 'Activité récente',
         'no_activity'           => 'Rien ne s’est encore passé.',
         'view_all'              => 'Tout voir',
-        'drafts'                => ':count brouillons',
+        'drafts'                => '{1} :count brouillon|[0,*] :count brouillons',
         'joins_30d'             => ':count inscrits ces 30 derniers jours',
     ],
 
@@ -375,7 +377,7 @@ return [
         'pack_not_active' => 'Seuls les packs actifs de ce club peuvent être liés.',
         'max_attempts_required' => 'Choisissez le nombre maximal de tentatives.',
         'replay_rules'   => 'Règles de rejeu',
-        'mode_no_replay' => 'Sans rejeu — les joueurs ayant déjà terminé un pack ne peuvent pas le jouer',
+        'mode_no_replay' => 'Sans rejeu — les joueurs ayant déjà joué un pack (au moins une réponse) ne peuvent pas le jouer',
         'mode_single'    => 'Une tentative de compétition par pack (recommandé)',
         'mode_multiple'  => 'Plusieurs tentatives',
         'max'            => 'Max.',

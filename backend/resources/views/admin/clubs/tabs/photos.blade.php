@@ -60,11 +60,11 @@
                         @endif
                     </td>
                     <td class="small text-nowrap">{{ $photo->created_at?->format('Y-m-d H:i') }}<div class="text-muted" style="font-size:.7rem">{{ $photo->uploadedBy?->username ?? '—' }} · {{ str_replace('_', ' ', $photo->source) }}</div></td>
-                    <td><span class="badge {{ $statusClass[$photo->status->value] ?? 'badge-soft' }}">{{ $statusLabels[$photo->status->value] ?? $photo->status->value }}</span>@if($photo->rights_confirmed_at) <span class="text-success small" title="Rights confirmed">rights ✓</span>@endif</td>
-                    <td class="small text-nowrap">{{ $photo->width }}×{{ $photo->height }}<div class="text-muted" style="font-size:.7rem">{{ number_format(($photo->bytes ?? 0) / 1048576, 1) }} MB</div></td>
+                    <td class="text-nowrap"><span class="badge {{ $statusClass[$photo->status->value] ?? 'badge-soft' }}">{{ $statusLabels[$photo->status->value] ?? $photo->status->value }}</span>@if($photo->rights_confirmed_at) <span class="text-success small" title="Rights confirmed">rights ✓</span>@endif</td>
+                    <td class="small text-nowrap">{{ $photo->width }}×{{ $photo->height }}<div class="text-muted" style="font-size:.7rem">{{ \App\Http\Controllers\Admin\Clubs\ClubPhotoController::humanSize($photo->bytes) }}</div></td>
                     <td class="small">{{ \Illuminate\Support\Str::limit($photo->club_note ?? '', 80) ?: '—' }}@if($photo->rejection_reason)<div class="text-danger" style="font-size:.7rem">{{ \Illuminate\Support\Str::limit($photo->rejection_reason, 80) }}</div>@endif</td>
                     <td class="small">{{ $photo->assignedTo?->username ?? '—' }}</td>
-                    <td class="text-end"><a href="{{ route('admin.club-photos.prepare', $photo) }}" class="btn btn-sm {{ $photo->isOpen() ? 'btn-outline-primary' : 'btn-outline-secondary' }}">{{ $photo->isOpen() ? 'Prepare →' : 'View' }}</a></td>
+                    <td class="text-end"><a href="{{ route('admin.club-photos.prepare', $photo) }}" class="btn btn-sm text-nowrap {{ $photo->isOpen() ? 'btn-outline-primary' : 'btn-outline-secondary' }}">{{ $photo->isOpen() ? 'Prepare →' : 'View' }}</a></td>
                 </tr>
             @empty
                 <tr><td colspan="7" class="text-center text-muted py-4">No photo submissions{{ $photoStatus !== '' ? ' with this status' : ' yet' }}.</td></tr>

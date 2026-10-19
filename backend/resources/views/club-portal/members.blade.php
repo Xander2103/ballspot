@@ -71,7 +71,7 @@
                         @if($allowed === [])
                             @if(!$isSelf && !$readOnly && $member->role->value === 'owner')<span class="small text-muted">{{ __('club_portal.members.owner_protected') }}</span>@endif
                         @else
-                            <div class="d-inline-flex flex-wrap gap-1 justify-content-end">
+                            <div class="d-inline-flex flex-nowrap text-nowrap gap-1 justify-content-end">
                                 @if(in_array(Rules::ROLE, $allowed, true))
                                     <form method="POST" action="{{ route('club-portal.members.role', [$club, $member]) }}">
                                         @csrf @method('PATCH')

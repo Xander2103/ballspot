@@ -23,7 +23,8 @@ use Illuminate\Support\Str;
  *    Api\AvatarController). The EXIF orientation is applied first so phone
  *    photos keep their rotation; the longest edge is capped at max_edge.
  *  - Logos are low-sensitivity and live on the PUBLIC disk under random
- *    names (D24): clubs/logos/{random40}.webp|jpg.
+ *    names (D24): clubs/logos/{random40}.webp|jpg. Club pack covers too:
+ *    packs/covers/{random40}.webp|jpg (re-encoded, so no EXIF/GPS).
  *
  * Unlike the avatar flow there is no raw-store fallback: a file GD cannot
  * decode is refused with `photo_invalid`, so metadata can never slip through.
@@ -41,9 +42,12 @@ class ClubMediaService
     ];
 
     public const LOGO_DIRECTORY = 'clubs/logos';
+    /** Same directory as BallPicker pack covers (served from /storage like them). */
+    public const PACK_COVER_DIRECTORY = 'packs/covers';
 
     private const JPEG_QUALITY = 85;
     private const LOGO_MAX_EDGE = 1024;
+    private const PACK_COVER_MAX_EDGE = 2048;
     /** Decompression-bomb guard: refuse before GD allocates the bitmap (~240 MB at 60 MP). */
     private const MAX_INPUT_PIXELS = 60_000_000;
     private const ALLOWED_TYPES = [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP];
@@ -87,8 +91,24 @@ class ClubMediaService
     /** Re-encode and store a club logo on the PUBLIC disk; returns its path. */
     public function storeLogo(UploadedFile $file, Club $club): string
     {
-        $contents = $this->readUpload($file, (int) config('ballspot.clubs.media.logo_max_kb', 2048));
-        $image    = $this->scaleDown($this->decode($contents), self::LOGO_MAX_EDGE);
+        return $this->storePublicImage($file, self::LOGO_DIRECTORY, (int) config('ballspot.clubs.media.logo_max_kb', 2048), self::LOGO_MAX_EDGE);
+    }
+
+    /**
+     * Re-encode and store a CLUB pack cover on the PUBLIC disk under a random
+     * name (packs/covers/{random40}.webp|jpg) — EXIF/GPS dropped like every
+     * other club image. BallPicker pack covers keep the plain upload.
+     */
+    public function storePackCover(UploadedFile $file, Club $club): string
+    {
+        return $this->storePublicImage($file, self::PACK_COVER_DIRECTORY, (int) config('ballspot.clubs.media.max_kb', 15360), self::PACK_COVER_MAX_EDGE);
+    }
+
+    /** GD re-encode (WebP with alpha, JPEG fallback) onto the public disk; returns the path. */
+    private function storePublicImage(UploadedFile $file, string $directory, int $maxKb, int $maxEdge): string
+    {
+        $contents = $this->readUpload($file, $maxKb);
+        $image    = $this->scaleDown($this->decode($contents), $maxEdge);
 
         $webp = function_exists('imagewebp');
         ob_start();
@@ -106,7 +126,7 @@ class ClubMediaService
             throw new ClubDomainException(ClubDomainException::PHOTO_INVALID, 422);
         }
 
-        $path = self::LOGO_DIRECTORY . '/' . Str::random(40) . ($webp ? '.webp' : '.jpg');
+        $path = $directory . '/' . Str::random(40) . ($webp ? '.webp' : '.jpg');
         Storage::disk('public')->put($path, $binary);
 
         return $path;

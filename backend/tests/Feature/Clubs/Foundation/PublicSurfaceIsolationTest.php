@@ -261,8 +261,8 @@ class PublicSurfaceIsolationTest extends TestCase
         $e = $this->assertDomain(ClubDomainException::PACK_RESERVED_FOR_COMPETITION, fn () => $gate->assertCanPlay($member, $pack));
         $this->assertSame(409, $e->status());
         $this->assertTrue($gate->isReservedForCompetition($pack));
-        // In-flight attempts may finish.
-        $gate->assertCanContinue($member, $pack);
+        // In-flight attempts are frozen too (security review 2026-10).
+        $this->assertDomain(ClubDomainException::PACK_RESERVED_FOR_COMPETITION, fn () => $gate->assertCanContinue($member, $pack));
 
         $competition->update(['normal_play_policy' => NormalPlayPolicy::Allowed]);
         $gate->assertCanPlay($member, $pack);

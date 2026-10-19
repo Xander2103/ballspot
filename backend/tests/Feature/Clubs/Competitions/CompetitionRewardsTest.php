@@ -101,18 +101,20 @@ class CompetitionRewardsTest extends CompetitionTestCase
         $a    = $this->member('alpha');
         $b    = $this->member('beta');
 
-        // Competition first, then normal.
-        $this->startAttempt($a, $c, $pack)->assertCreated()->assertJsonPath('attempt.is_rewarded_run', true);
+        // Competition first, then normal (tracks run one after the other:
+        // parallel runs on one pack are refused, security review 2026-10).
+        $this->play($a, $c, $pack, [100, 100]);
         $normal = $this->startClubPack($a, $this->club, $pack)->assertOk()->json('attempt.id');
         $this->assertFalse(app(ClubRewardService::class)->isRewarded($a, $pack, ClubPackRewardClaim::SOURCE_PACK_ATTEMPT, $normal));
+        $this->assertTrue((bool) \App\Models\ClubCompetitionAttempt::where('user_id', $a->id)->value('is_rewarded_run'));
 
         // Normal first, then competition.
-        $this->startClubPack($b, $this->club, $pack)->assertOk();
+        $this->playClubPack($b, $this->club, $pack)->assertJsonPath('pack_completed', true);
         $this->startAttempt($b, $c, $pack)->assertCreated()->assertJsonPath('attempt.is_rewarded_run', false);
 
         // A lost race: the other track committed its claim between our check and insert.
         $racer = $this->member('racer');
-        $attemptId = PackAttempt::create(['user_id' => $racer->id, 'challenge_pack_id' => $pack->id, 'status' => 'active',
+        $attemptId = PackAttempt::create(['user_id' => $racer->id, 'challenge_pack_id' => $pack->id, 'status' => 'completed',
             'started_at' => now(), 'metadata' => ['challenge_ids' => []]])->id;
         ClubPackRewardClaim::create(['user_id' => $racer->id, 'challenge_pack_id' => $pack->id, 'source_type' => 'pack_attempt',
             'source_id' => $attemptId, 'claimed_at' => now()]);

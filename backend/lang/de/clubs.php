@@ -27,6 +27,7 @@ return [
         'club_member_banned'              => 'Dieser Nutzer ist aus dem Verein verbannt. Hebe die Sperre zuerst auf.',
         'stale_version'                   => 'Jemand anderes hat dies inzwischen geändert. Lade die Seite neu und versuche es erneut.',
         'pack_reserved_for_competition'   => 'Dieses Pack ist gerade für einen Wettbewerb reserviert. Spiele es im Wettbewerb.',
+        'pack_in_competition'             => 'Dieses Pack gehört zu einem Wettbewerb, der noch nicht abgeschlossen ist. Es muss aktiv bleiben, bis der Wettbewerb abgeschlossen oder abgesagt ist.',
         'competition_not_started'         => 'Dieser Wettbewerb hat noch nicht begonnen.',
         'competition_ended'               => 'Dieser Wettbewerb ist beendet.',
         'competition_attempt_limit'       => 'Du hast alle Versuche für dieses Pack verbraucht.',
@@ -105,5 +106,12 @@ return [
             'created' => 'Vereins-Challenge erstellt',
             'updated' => 'Vereins-Challenge aktualisiert',
         ],
+    ],
+
+    // Specific sentences for ClubDomainException messages and admin helper
+    // texts (not error codes — see `errors` for those).
+    'competition_messages' => [
+        'pack_in_overlapping_competition' => 'Das Paket ":pack" ist bereits im veröffentlichten Wettbewerb ":competition", dessen Zeitraum sich überschneidet. Wähle andere Daten oder ein anderes Paket.',
+        'normal_play_allowed_helper'      => 'Mit "Normales Spielen erlaubt" können Mitglieder das Paket nicht normal spielen, solange ein Wettbewerbsversuch darauf läuft, und keinen Wettbewerbsversuch starten, solange ein normaler Versuch läuft. Das Paket zuerst normal fertig zu spielen und danach teilzunehmen bleibt bei Ein Versuch und Mehrere Versuche möglich; wähle Keine Wiederholung oder "Normales Spielen gesperrt", um das zu verhindern.',
     ],
 ];

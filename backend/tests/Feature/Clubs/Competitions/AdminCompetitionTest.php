@@ -59,7 +59,7 @@ class AdminCompetitionTest extends CompetitionTestCase
         PackAttempt::create(['user_id' => $this->member('busy')->id, 'challenge_pack_id' => $b->id, 'status' => 'active', 'started_at' => now(), 'metadata' => ['challenge_ids' => []]]);
 
         $create = $this->actingAs($this->admin)->get($this->base() . '/create')->assertOk();
-        foreach (['New competition', 'Autumn Pack 1', 'Derby Pack', '⚠ "Derby Pack" has 1 normal attempt in progress', 'No replay — players who already completed a pack cannot play it',
+        foreach (['New competition', 'Autumn Pack 1', 'Derby Pack', '⚠ "Derby Pack" has 1 normal attempt in progress', 'No replay — players who already played a pack (at least one guess) cannot play it',
                   'One competition attempt per pack', 'Multiple attempts', 'Tie-break:', 'total score → reached first → fewer attempts (shared rank if equal)',
                   '🔒 Rules lock automatically at the start time.', 'club time: Europe/Brussels', 'Save draft'] as $needle) {
             $create->assertSee($needle, false);

@@ -14,7 +14,7 @@ import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { isPackAlreadyCompleted } from '../types/pack';
 import type { PackAttemptState, PackChallengeSummary, PackCompletionSummary } from '../types/pack';
-import { getClubErrorMessage } from '../utils/clubErrors';
+import { getClubErrorMessage, isPackReservedError } from '../utils/clubErrors';
 import { isCompetitionSession, resolvePlaySession, withAttempt } from '../utils/playSession';
 import { useI18n } from '../i18n';
 
@@ -114,6 +114,12 @@ export function PackGuessScreen({ route, navigation }: Props) {
         return;
       }
       setError(getClubErrorMessage(e, t('packs.guess.submitError')));
+      if (isPackReservedError(e)) {
+        // A competition now reserves this pack (normal attempts are paused
+        // until it is finalized): retrying cannot succeed, so switch to the
+        // error view with its Back button.
+        setChallenge(null);
+      }
       setSubmitting(false);
     }
   }

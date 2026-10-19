@@ -49,7 +49,7 @@ class ClubPhotoWorkflowTest extends ClubPhotoTestCase
         $queue->assertSeeInOrder(['#' . $submission->id, '#' . ($submission->id + 1)])
               ->assertSee('KFC Example')->assertSee('rights ✓')->assertSee('derby goal min 89')
               ->assertSee('/media/clubs/', false)->assertSee('signature=', false)
-              ->assertSee('Prepare challenge →')->assertSee('title="2 open"', false);
+              ->assertSee('Prepare challenge →')->assertSee('title="2 awaiting review"', false);
 
         // 2. Assign to me → shows under the "Me" filter.
         $this->actingAs($this->admin)->post(route('admin.club-photos.assign', $submission))->assertRedirect();

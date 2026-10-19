@@ -95,6 +95,18 @@ class PortalSettingsAndAuditTest extends PortalTestCase
         $this->portalAs($this->owner)->get($this->url('/audit?action=code.created'))->assertOk()->assertSee('No events match these filters.');
     }
 
+    public function test_platform_admin_actions_show_as_the_ballpicker_team_without_staff_usernames(): void
+    {
+        $staff = User::factory()->create(['is_admin' => true, 'username' => 'staff_reviewer_7']);
+        app(ClubAuditLogger::class)->log($this->club, 'club.updated', $staff, $this->club, [], 'platform_admin');
+
+        foreach (['/audit', ''] as $page) {
+            $this->portalAs($this->owner)->get($this->url($page))->assertOk()
+                ->assertSee(__('club_portal.common.ballpicker_team'))
+                ->assertDontSee('staff_reviewer_7');
+        }
+    }
+
     public function test_dashboard_shows_stats_photos_and_recent_activity(): void
     {
         $this->userWithRole(ClubRole::Member);

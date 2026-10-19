@@ -55,6 +55,8 @@ return [
     ],
 
     'common' => [
+
+        'ballpicker_team' => 'BallPicker-team',
         'save'           => 'Opslaan',
         'cancel'         => 'Annuleren',
         'confirm'        => 'Bevestigen',
@@ -133,7 +135,7 @@ return [
         'intro'   => 'Je beheert deze clubs.',
         'open'    => 'Openen',
         'empty'   => 'Je beheert op dit moment geen club.',
-        'members' => ':count leden',
+        'members' => '{1} :count lid|[0,*] :count leden',
     ],
 
     'dashboard' => [
@@ -157,7 +159,7 @@ return [
         'recent_activity'       => 'Recente activiteit',
         'no_activity'           => 'Nog niets gebeurd.',
         'view_all'              => 'Alles bekijken',
-        'drafts'                => ':count concepten',
+        'drafts'                => '{1} :count concept|[0,*] :count concepten',
         'joins_30d'             => ':count lid geworden in de laatste 30 dagen',
     ],
 
@@ -375,7 +377,7 @@ return [
         'pack_not_active' => 'Alleen actieve packs van deze club kunnen gekoppeld worden.',
         'max_attempts_required' => 'Kies het maximum aantal pogingen.',
         'replay_rules'   => 'Herspeelregels',
-        'mode_no_replay' => 'Niet opnieuw spelen — wie een pack al voltooide, kan het niet spelen',
+        'mode_no_replay' => 'Niet opnieuw spelen — wie een pack al speelde (minstens één gok), kan het niet spelen',
         'mode_single'    => 'Eén competitiepoging per pack (aanbevolen)',
         'mode_multiple'  => 'Meerdere pogingen',
         'max'            => 'Max.',

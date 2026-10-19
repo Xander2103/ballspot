@@ -3,13 +3,17 @@
 namespace App\Services\Clubs;
 
 use App\Contracts\ReplayPolicy;
+use App\Enums\CompetitionAttemptStatus;
 use App\Enums\CompetitionPhase;
+use App\Enums\CompetitionState;
+use App\Enums\NormalPlayPolicy;
 use App\Enums\ReplayMode;
 use App\Exceptions\ClubDomainException;
 use App\Models\Club;
 use App\Models\ClubCompetition;
 use App\Models\ClubCompetitionAttempt;
 use App\Models\ClubCompetitionPackResult;
+use App\Models\PackAttempt;
 use App\Models\User;
 use App\Services\Clubs\ReplayPolicies\MultipleAttemptsPolicy;
 use App\Services\Clubs\ReplayPolicies\NoReplayPolicy;
@@ -27,7 +31,16 @@ use Illuminate\Support\Collection;
  *  2. phase upcoming / draft            → not_started
  *  3. phase ended / finalized / cancelled / voided → ended
  *  4. an attempt is in progress         → attempt_in_progress (+ active_attempt_id)
- *  5. the replay policy (limit, no-replay "completed anywhere")
+ *  5. another run on the same pack is in progress → attempt_in_progress
+ *     (active_attempt_id null): an active NORMAL attempt when the
+ *     competition's normal_play_policy = allowed, or an active attempt on the
+ *     same pack in ANOTHER live competition. Parallel tracks would let the
+ *     player read ball_x/y from one track's reveal and submit it to the
+ *     other (security review 2026-10). With `blocked` the normal attempt is
+ *     frozen by ClubPackAccess instead, so it never blocks the start here.
+ *     Sequential play (finish the normal run, then compete) stays allowed in
+ *     single/multiple modes by design; no_replay refuses it.
+ *  6. the replay policy (limit, no-replay "played anywhere")
  *
  * attempts_used counts every attempt started on the pack in this competition
  * (voided ones included), so next_attempt_number = attempts_used + 1 and a void
@@ -119,11 +132,32 @@ class CompetitionEligibility
         if ($phase !== CompetitionPhase::Active) {
             return self::REASON_ENDED;
         }
-        if ($hasActiveAttempt) {
+        if ($hasActiveAttempt || $this->otherRunInProgress($competition, $packId, $user)) {
             return self::REASON_ATTEMPT_IN_PROGRESS;
         }
 
         return $this->policyFor($competition)->blockedReason($competition, $packId, $user, $attemptsUsed);
+    }
+
+    /** Rule 5 of the class doc: a parallel run on the same pack in another track. */
+    public function otherRunInProgress(ClubCompetition $competition, int $packId, User $user): bool
+    {
+        if ($competition->normal_play_policy === NormalPlayPolicy::Allowed
+            && PackAttempt::where('user_id', $user->id)
+                ->where('challenge_pack_id', $packId)
+                ->where('status', PackAttempt::STATUS_ACTIVE)
+                ->exists()) {
+            return true;
+        }
+
+        return ClubCompetitionAttempt::where('user_id', $user->id)
+            ->where('challenge_pack_id', $packId)
+            ->where('club_competition_id', '!=', $competition->id)
+            ->where('status', CompetitionAttemptStatus::Active->value)
+            ->whereHas('competition', fn ($q) => $q
+                ->where('state', CompetitionState::Published->value)
+                ->where('ends_at', '>', now()))
+            ->exists();
     }
 
     /** The domain error for a blocked reason (start re-check). */

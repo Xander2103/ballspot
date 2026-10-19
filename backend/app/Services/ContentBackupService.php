@@ -70,6 +70,7 @@ class ContentBackupService
             'notes'                 => [
                 'Restore DB: copy database/database.sqlite back to backend/database/',
                 'Restore images: copy storage/ back to backend/storage/app/public/',
+                'Restore club media: copy storage-private-clubs/ back to backend/storage/app/private/clubs/',
                 'Restore dailies: daily_challenges.json holds every row (guesses are not exported)',
                 'Run php artisan ballspot:recover-challenges for orphaned images',
                 'NEVER run migrate:fresh without backing up first',
@@ -113,6 +114,17 @@ class ContentBackupService
         }
         $this->copyDir($src, "{$dest}/storage");
         $this->line('  [Storage] Copied storage/app/public');
+
+        // BallPicker Clubs: club photos and club challenge images live on the
+        // private `club_private` disk, outside storage/app/public. They are
+        // club content and must be restorable too (the backup folder is
+        // already private and never committed).
+        $private = (string) config('filesystems.disks.club_private.root', storage_path('app/private/clubs'));
+        if (is_dir($private)) {
+            $this->copyDir($private, "{$dest}/storage-private-clubs");
+            $this->line('  [Storage] Copied private club media');
+        }
+
         return true;
     }
 

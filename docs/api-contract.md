@@ -1977,8 +1977,8 @@ Any case, dashes/spaces ignored. `200 { "data": ClubCard, "joined": true }`; an 
 | Status | `code` | When |
 |---|---|---|
 | 422 | `club_code_invalid` | unknown / revoked / expired / exhausted code, joining disabled, club not active, banned user — one identical body (D23); counts as a failure |
-| 429 | `club_join_locked` (+ `retry_after`, `Retry-After`) | 15 failed codes in the rolling hour (`clubs.join.failures_per_hour`) |
-| 429 | `club_join_rate_limited` | request limiter: 10/min per user, 30/hour per IP |
+| 429 | `club_join_locked` (+ `retry_after`, `Retry-After`) | 15 failed codes per user (`clubs.join.failures_per_hour`) or 60 failed codes per IP (`clubs.join.failures_per_ip_per_hour`) in the rolling hour |
+| 429 | `club_join_rate_limited` | request limiter: 10/min per user, 300/hour per IP |
 | 422 | `club_full` / `club_membership_limit` | club at its member cap / player at 50 clubs |
 | 422 | Laravel validation | `code` missing |
 
@@ -2030,13 +2030,16 @@ photos cannot be previewed outside the competition); `challenge_count` stays.
 
 Same bodies as `POST /api/packs/{slug}/start` / `GET /api/packs/{slug}/attempt` (same code path), including the 409
 replay contract for a completed pack. Start also answers `409 pack_reserved_for_competition` while a blocked
-competition is published (attempts already in progress may still finish and stay readable) and
+competition is published (attempts already in progress stay readable but are frozen — see the guess below — until the
+competition is finalized, cancelled or voided) or while the player has an active competition attempt on the pack, and
 `423 club_unavailable` for a suspended club. The attempt read works in a suspended club.
 
 ### POST /api/pack-attempts/{attempt}/guess  *(existing route)*
 
 Unchanged contract. For club packs every guess re-checks access: a removed/left/banned member → `404 club_not_found`,
-a suspended club → `423 club_unavailable`; nothing is stored.
+a suspended club → `423 club_unavailable`, the pack reserved by a blocked competition or the player's own competition
+attempt on it in progress → `409 pack_reserved_for_competition` (no `result`, nothing stored — the reveal would leak the
+answer key), Clubs switched off → `404 feature_disabled`; nothing is stored.
 
 **Rewards (D3).** The first run of a player on a club pack — normal attempt or competition attempt — holds the single
 reward claim (`club_pack_reward_claims`, unique per player × pack). Only that run earns per-guess XP (`pack_guess`),
@@ -2083,11 +2086,13 @@ of another club, a draft, an unlinked pack, an unknown id — all answer `404 cl
 `ends_at`) → `ended` (now ≥ `ends_at`, not finalized) → `finalized`; plus `cancelled` / `voided`. Drafts are invisible.
 The window is server time only, `[starts_at, ends_at)` in UTC, shown in `timezone`; no grace period.
 
-**Rules** (`rules`): `replay_mode` `no_replay` (one attempt, only for players who never completed the pack — normal run
-or another competition) · `single_attempt` (default; one attempt, also after a normal completion) · `multiple_attempts`
+**Rules** (`rules`): `replay_mode` `no_replay` (one attempt, only for players who never played the pack — no guess in a
+normal run or another competition) · `single_attempt` (default; one attempt, also after a normal completion) · `multiple_attempts`
 (`max_attempts` 2–10, `score_rule` `first` | `best`). `normal_play_policy` `blocked` (default: the normal pack start
-answers `409 pack_reserved_for_competition` from publish until finalize) | `allowed`. Rules, packs and `starts_at`
-lock at `starts_at`; `ends_at` can only be extended (audited).
+answers `409 pack_reserved_for_competition` from publish until finalize, also for guesses on normal attempts already
+in progress) | `allowed` (normal play stays open, but never in parallel with the player's own competition attempt on the
+pack: `blocked_reason: attempt_in_progress` while a normal attempt is active). A pack is in at most one published
+competition per overlapping window. Rules, packs and `starts_at` lock at `starts_at`; `ends_at` can only be extended (audited).
 
 **Scoring.** Attempt score = sum of its in-window guesses (partial / expired attempts count, D16). Per pack: `first` =
 earliest non-voided attempt; `best` = highest score, equal → the attempt that reached it first. Entry total = Σ
@@ -2129,7 +2134,9 @@ attempt (200, resume); otherwise the checks run and a new attempt is created (**
 signed URLs, never the ball position). The first start locks the rules (snapshot) if the scheduler has not yet.
 Errors: `422 competition_not_started` · `422 competition_ended` · `422 competition_attempt_limit` ·
 `422 competition_pack_already_played` (no_replay) · `422` validation on `attempt_number` (must be the next number) ·
-`422 competition_invalid_pack` (pack has no snapshot challenges) · `423 club_unavailable`.
+`422 competition_invalid_pack` (pack has no snapshot challenges; `reason: challenge_unavailable` when a snapshot photo
+was removed — also on guess / attempt read) · `409 competition_attempt_in_progress` (a normal attempt on the pack is
+active under `allowed`, or an attempt on the pack is active in another competition) · `423 club_unavailable`.
 
 ```jsonc
 // CompetitionAttempt
@@ -2156,7 +2163,7 @@ The pack guess shape plus competition fields:
   "competition": { "counted_score": 640|null, "total_score": 2140|null, "rank": 4|null, "attempts_remaining": 1 } }
 ```
 A retry for a challenge already answered returns the stored result with `replayed: true` (totals unchanged, no XP) —
-also after the window closed. Errors: `422 unexpected_challenge` (not `challenge_ids[current_index]`, nothing stored) ·
+also after the window closed (`result.distance` is then the stored, column-rounded value). Errors: `422 unexpected_challenge` (not `challenge_ids[current_index]`, nothing stored) ·
 `409 attempt_not_active` (completed / expired / voided) · `422 competition_ended` (at/after `ends_at`; the attempt
 becomes `expired` and keeps its in-window score) · `404 club_not_found` (not the owner / lost membership) ·
 `423 club_unavailable`. XP / completion XP / badges only for the rewarded run (sources `club_competition_guess`,

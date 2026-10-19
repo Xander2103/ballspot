@@ -225,6 +225,7 @@ class AdminClubLifecycleTest extends TestCase
 
     public function test_suspend_blocks_play_and_join_and_reactivate_restores(): void
     {
+        config(['ballspot.clubs.enabled' => true]); // the pack gate refuses club packs while the flag is off
         $club   = $this->makeClub([], User::factory()->create());
         $member = User::factory()->create();
         $this->addMember($club, $member);

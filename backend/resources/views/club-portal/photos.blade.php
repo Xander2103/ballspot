@@ -70,8 +70,8 @@
                         @endif
                     </td>
                     <td class="small text-nowrap">{{ $photo->created_at?->copy()->setTimezone($tz)->format('Y-m-d H:i') }}<div class="text-muted" style="font-size:.7rem">{{ __('club_portal.photos.by', ['name' => $photo->uploadedBy?->username ?? __('club_portal.common.deleted_user')]) }}</div></td>
-                    <td><span class="badge {{ $badge[$photo->status->value] ?? 'badge-soft' }}">{{ __('club_portal.photo_status.' . $photo->status->value) }}</span></td>
-                    <td class="small">
+                    <td class="text-nowrap"><span class="badge {{ $badge[$photo->status->value] ?? 'badge-soft' }}">{{ __('club_portal.photo_status.' . $photo->status->value) }}</span></td>
+                    <td class="small" style="min-width:14rem">
                         {{ \Illuminate\Support\Str::limit($photo->club_note ?? '', 100) ?: __('club_portal.common.none') }}
                         @if($photo->status->value === 'rejected' && $photo->rejection_reason)
                             <div class="text-danger small">{{ __('club_portal.photos.rejection', ['reason' => $photo->rejection_reason]) }}</div>

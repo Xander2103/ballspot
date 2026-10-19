@@ -13,7 +13,7 @@
                     @if($c->logoUrl())<img src="{{ $c->logoUrl() }}" alt="" width="40" height="40" class="rounded">@endif
                     <div>
                         <div class="fw-bold">{{ $c->name }}</div>
-                        <div class="small text-muted">{{ $c->city }}@if($c->city) · @endif{{ __('club_portal.home.members', ['count' => (int) $c->members_count]) }}</div>
+                        <div class="small text-muted">{{ $c->city }}@if($c->city) · @endif{{ trans_choice('club_portal.home.members', (int) $c->members_count, ['count' => (int) $c->members_count]) }}</div>
                     </div>
                 </div>
                 <div class="mt-2">

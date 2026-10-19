@@ -1250,6 +1250,8 @@ export const nl: Translations = {
       competition_attempt_limit: 'Je hebt al je pogingen voor dit pakket gebruikt.',
       competition_pack_already_played: 'Je hebt dit pakket al gespeeld, dus het telt niet mee in deze competitie.',
       competition_attempt_in_progress: 'Rond eerst je huidige poging af.',
+      competition_invalid_pack: 'Dit pakket kan niet gespeeld worden in deze competitie.',
+      competition_attempt_stale: 'Deze competitie is bijgewerkt. Bekijk de nieuwste stand en probeer het opnieuw.',
       unexpected_challenge: 'Deze uitdaging is niet meer actueel. Ga terug en probeer het opnieuw.',
       attempt_not_active: 'Deze poging is niet meer actief.',
     },

@@ -30,7 +30,7 @@ class ClubFeatureFlagAndErrorsTest extends TestCase
         'club_join_locked' => 429, 'club_full' => 422, 'club_membership_limit' => 422, 'club_unavailable' => 423,
         'club_owner_must_transfer' => 422, 'club_last_owner' => 422, 'club_has_history' => 422, 'club_code_limit' => 422,
         'club_status_invalid' => 422, 'club_member_not_found' => 404, 'club_member_banned' => 422,
-        'stale_version' => 409, 'pack_reserved_for_competition' => 409, 'competition_not_started' => 422,
+        'stale_version' => 409, 'pack_reserved_for_competition' => 409, 'pack_in_competition' => 422, 'competition_not_started' => 422,
         'competition_ended' => 422, 'competition_attempt_limit' => 422, 'competition_pack_already_played' => 422,
         'competition_attempt_in_progress' => 409, 'competition_rules_locked' => 422, 'competition_invalid_pack' => 422,
         'competition_not_editable' => 422, 'unexpected_challenge' => 422, 'attempt_not_active' => 409,
@@ -174,7 +174,7 @@ class ClubFeatureFlagAndErrorsTest extends TestCase
         $limits = RateLimiter::limiter('club-join')($request);
         $this->assertCount(2, $limits);
         $this->assertContainsOnlyInstancesOf(Limit::class, $limits);
-        $this->assertSame([10, 30], array_map(fn (Limit $l) => $l->maxAttempts, $limits));
+        $this->assertSame([10, 300], array_map(fn (Limit $l) => $l->maxAttempts, $limits));
         $this->assertSame([60, 3600], array_map(fn (Limit $l) => $l->decaySeconds, $limits));
         $this->assertSame('club-join-u|' . $user->id, $limits[0]->key);
         $this->assertSame('club-join-ip|203.0.113.9', $limits[1]->key);

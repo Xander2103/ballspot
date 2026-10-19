@@ -17,7 +17,8 @@ class SportReadinessService
      */
     public function for(Sport $sport): array
     {
-        $ready = Challenge::where('sport_id', $sport->id)
+        // BallPicker catalogue only: club photos never feed a sport's public pools.
+        $ready = Challenge::publicContent()->where('sport_id', $sport->id)
             ->where('status', 'active')
             ->whereNotNull('hidden_image_path')
             ->where('hidden_image_path', '!=', '')

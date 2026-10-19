@@ -58,7 +58,7 @@
         </div>
         <div class="portal-card p-3 mb-3" data-section="upcoming-competitions">
             <h2 class="h6">{{ __('club_portal.dashboard.upcoming_competitions') }} <span class="badge badge-soft">{{ $stats['competitions']['upcoming'] }}</span>
-                @if($stats['competitions']['drafts'] > 0)<span class="small text-muted fw-normal ms-1">{{ __('club_portal.dashboard.drafts', ['count' => $stats['competitions']['drafts']]) }}</span>@endif
+                @if($stats['competitions']['drafts'] > 0)<span class="small text-muted fw-normal ms-1">{{ trans_choice('club_portal.dashboard.drafts', $stats['competitions']['drafts'], ['count' => $stats['competitions']['drafts']]) }}</span>@endif
             </h2>
             @forelse($upcoming as $c)
                 <div class="d-flex justify-content-between border-top py-2 small">

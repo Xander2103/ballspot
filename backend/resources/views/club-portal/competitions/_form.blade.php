@@ -32,7 +32,7 @@
     </div>
 </div>
 
-<h2 class="h6 text-uppercase text-muted small mb-3">{{ __('club_portal.competitions.window') }} <span class="text-lowercase fw-normal">({{ __('club_portal.competitions.club_time', ['tz' => $tz]) }})</span></h2>
+<h2 class="h6 text-uppercase text-muted small mb-3">{{ __('club_portal.competitions.window') }} <span class="fw-normal" style="text-transform:none">({{ __('club_portal.competitions.club_time', ['tz' => $tz]) }})</span></h2>
 <div class="row g-3 mb-4" data-section="window">
     <div class="col-md-4">
         <label for="starts_at" class="form-label fw-semibold">{{ __('club_portal.competitions.starts') }}{{ $lock('starts_at') }}</label>
@@ -105,6 +105,7 @@
             <label class="form-check-label" for="policy-{{ $value }}">{{ __('club_portal.competitions.' . $key) }}</label>
         </div>
     @endforeach
+    <div class="form-text">{{ __('clubs.competition_messages.normal_play_allowed_helper') }}</div>
 </div>
 
 <div class="alert alert-light border small mb-3">{{ __('club_portal.competitions.tie_break') }}</div>

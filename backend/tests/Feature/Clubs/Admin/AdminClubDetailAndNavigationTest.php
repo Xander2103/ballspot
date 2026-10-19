@@ -143,13 +143,13 @@ class AdminClubDetailAndNavigationTest extends TestCase
                 $this->assertStringContainsString($link, $html);
             }
         }
-        $this->assertStringContainsString('>Photo review<span class="badge rounded-pill bg-danger ms-1" title="3 open">3</span></a>',
+        $this->assertStringContainsString('>Photo review<span class="badge rounded-pill bg-danger ms-1" title="3 awaiting review">3</span></a>',
             $this->actingAs($this->admin)->get('/admin/clubs')->getContent());
 
         // Other admin pages link the Clubs group but do not pay for the badge query.
         $other = $this->actingAs($this->admin)->get('/admin/categories')->getContent();
         $this->assertStringContainsString('href="/admin/clubs"', $other);
-        $this->assertStringNotContainsString('title="3 open"', $other);
+        $this->assertStringNotContainsString('title="3 awaiting review"', $other);
     }
 
     public function test_placeholder_pages_are_explicit(): void
@@ -159,7 +159,7 @@ class AdminClubDetailAndNavigationTest extends TestCase
             ->assertSee('Club competitions')->assertSee('No club competitions yet (0).');
         // D1 replaced the photo placeholder with the review queue (tests/Feature/Clubs/Photos).
         $this->actingAs($this->admin)->get('/admin/club-photos')->assertOk()
-            ->assertSee('Photo review')->assertSee('No photos match these filters.');
+            ->assertSee('Photo review')->assertSee('No open photos — the review queue is empty.');
     }
 
     public function test_global_and_club_audit_logs_filter(): void

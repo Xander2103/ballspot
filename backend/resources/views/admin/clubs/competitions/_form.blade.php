@@ -33,7 +33,7 @@
     </div>
 </div>
 
-<h2 class="h6 text-uppercase text-muted small mb-3">Window <span class="text-muted text-lowercase fw-normal">(club time: {{ $tz }})</span></h2>
+<h2 class="h6 text-uppercase text-muted small mb-3">Window <span class="text-muted fw-normal" style="text-transform:none">(club time: {{ $tz }})</span></h2>
 <div class="row g-3 mb-4" data-section="window">
     <div class="col-md-4">
         <label for="starts_at" class="form-label fw-semibold">Starts{{ $lock('starts_at') }}</label>
@@ -41,8 +41,8 @@
         @error('starts_at')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
     <div class="col-md-4">
-        <label for="ends_at" class="form-label fw-semibold">Ends{{ $locked ? ' 🔒' : '' }}</label>
-        <input type="datetime-local" id="ends_at" name="ends_at" class="form-control @error('ends_at') is-invalid @enderror" value="{{ old('ends_at', $fmt($competition->ends_at)) }}" {{ $locked ? 'disabled' : '' }} required>
+        <label for="ends_at" class="form-label fw-semibold">Ends{{ ($locked || !$editable['ends_at']) ? ' 🔒' : '' }}</label>
+        <input type="datetime-local" id="ends_at" name="ends_at" class="form-control @error('ends_at') is-invalid @enderror" value="{{ old('ends_at', $fmt($competition->ends_at)) }}" {{ ($locked || !$editable['ends_at']) ? 'disabled' : '' }} required>
         @if($locked && $editable['ends_at'])<div class="form-text">After the start the end can only move later — use <strong>Extend end</strong>.</div>@endif
         @error('ends_at')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
@@ -60,7 +60,7 @@
                 {{ $pack->name }} <span class="text-muted small">({{ $linked->get($pack->id)?->challenge_ids !== null ? count($linked->get($pack->id)->challenge_ids) . ' in snapshot' : $ready . ' ready' }})</span>
                 @if($pack->status !== 'active')<span class="badge badge-{{ $pack->status }}">{{ ucfirst($pack->status) }}</span>@endif
             </label>
-            @if($busy > 0)<div class="small text-warning-emphasis" data-warning="in-progress">⚠ "{{ $pack->name }}" has {{ $busy }} normal {{ $busy === 1 ? 'attempt' : 'attempts' }} in progress (they may still finish).</div>@endif
+            @if($busy > 0)<div class="small text-warning-emphasis" data-warning="in-progress">⚠ "{{ $pack->name }}" has {{ $busy }} normal {{ $busy === 1 ? 'attempt' : 'attempts' }} in progress (with Blocked they are paused until the competition is finalized; with Allowed the player must finish them before competing).</div>@endif
         </div>
     @empty
         <div class="text-muted small">This club has no packs yet. <a href="{{ route('admin.clubs.packs.create', $club) }}">Create a club pack</a> first.</div>
@@ -74,7 +74,7 @@
 <div class="mb-3" data-section="replay-rules">
     <div class="form-check">
         <input class="form-check-input" type="radio" name="replay_mode" id="mode-no-replay" value="no_replay" @checked($mode === 'no_replay') {{ $dis('replay_mode') }}>
-        <label class="form-check-label" for="mode-no-replay">No replay — players who already completed a pack cannot play it</label>
+        <label class="form-check-label" for="mode-no-replay">No replay — players who already played a pack (at least one guess) cannot play it</label>
     </div>
     <div class="form-check">
         <input class="form-check-input" type="radio" name="replay_mode" id="mode-single" value="single_attempt" @checked($mode === 'single_attempt') {{ $dis('replay_mode') }}>
@@ -117,6 +117,7 @@
         <input class="form-check-input" type="radio" name="normal_play_policy" id="policy-allowed" value="allowed" @checked($policy === 'allowed') {{ $dis('normal_play_policy') }}>
         <label class="form-check-label" for="policy-allowed">Allowed — the packs stay playable outside the competition</label>
     </div>
+    <div class="form-text" data-help="normal-play-allowed">{{ __('clubs.competition_messages.normal_play_allowed_helper') }}</div>
 </div>
 
 <div class="alert alert-light border small mb-3" data-section="tie-break">

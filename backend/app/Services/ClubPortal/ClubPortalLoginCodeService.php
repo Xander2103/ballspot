@@ -84,10 +84,26 @@ class ClubPortalLoginCodeService
             $this->fail($record, ClubPortalCodeException::EXPIRED);
         }
 
+        // Reserve one attempt atomically BEFORE comparing: N parallel guesses
+        // can only ever consume the remaining budget (a check-then-increment
+        // let every request that read the row before the first increment
+        // compare a code). 0 rows = budget spent (or the row is gone).
+        $reserved = ClubPortalLoginCode::whereKey($record->id)
+            ->where('attempts', '<', $this->maxAttempts())
+            ->update(['attempts' => DB::raw('attempts + 1'), 'updated_at' => now()]);
+        if ($reserved === 0) {
+            $record = ClubPortalLoginCode::find($record->id);
+            $record === null
+                ? $this->fail(null, ClubPortalCodeException::SESSION, $userId)
+                : $this->fail($record, ClubPortalCodeException::LOCKED);
+        }
+
         if (!preg_match('/^\d{6}$/', $code) || !Hash::check($code, $record->code_hash)) {
-            // Atomic increment: parallel guesses cannot share one attempt.
-            ClubPortalLoginCode::whereKey($record->id)->increment('attempts');
-            $record->refresh();
+            $record = ClubPortalLoginCode::find($record->id);
+            if ($record === null) {
+                // A parallel request with the right code already used it.
+                $this->fail(null, ClubPortalCodeException::SESSION, $userId);
+            }
 
             $this->fail($record, $record->isLocked($this->maxAttempts())
                 ? ClubPortalCodeException::LOCKED

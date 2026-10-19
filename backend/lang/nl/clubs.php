@@ -27,6 +27,7 @@ return [
         'club_member_banned'              => 'Deze gebruiker is verbannen uit de club. Hef de ban eerst op.',
         'stale_version'                   => 'Iemand anders heeft dit intussen gewijzigd. Herlaad de pagina en probeer het opnieuw.',
         'pack_reserved_for_competition'   => 'Deze pack is nu voorbehouden voor een competitie. Speel hem in de competitie.',
+        'pack_in_competition'             => 'Deze pack hoort bij een competitie die nog niet is afgerond. Hij moet actief blijven tot de competitie is afgesloten of geannuleerd.',
         'competition_not_started'         => 'Deze competitie is nog niet begonnen.',
         'competition_ended'               => 'Deze competitie is afgelopen.',
         'competition_attempt_limit'       => 'Je hebt al je pogingen voor deze pack gebruikt.',
@@ -105,5 +106,12 @@ return [
             'created' => 'Club-uitdaging aangemaakt',
             'updated' => 'Club-uitdaging bijgewerkt',
         ],
+    ],
+
+    // Specific sentences for ClubDomainException messages and admin helper
+    // texts (not error codes — see `errors` for those).
+    'competition_messages' => [
+        'pack_in_overlapping_competition' => 'Het pakket ":pack" zit al in de gepubliceerde competitie ":competition", waarvan de data overlappen. Kies andere data of een ander pakket.',
+        'normal_play_allowed_helper'      => 'Met "Normaal spelen toegestaan" kunnen leden het pakket niet normaal spelen zolang er een competitiepoging op loopt, en geen competitiepoging starten zolang er een normale poging loopt. Het pakket eerst normaal uitspelen en daarna meedoen blijft mogelijk bij Eén poging en Meerdere pogingen; kies Geen herhaling of "Normaal spelen geblokkeerd" om dat te voorkomen.',
     ],
 ];

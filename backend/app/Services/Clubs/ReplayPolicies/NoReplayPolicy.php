@@ -12,9 +12,13 @@ use App\Models\User;
 use App\Services\Clubs\CompetitionEligibility;
 
 /**
- * `no_replay`: one attempt, and only for players who have NOT completed the
- * pack anywhere before — no completed normal pack attempt and no completed
- * attempt in another competition (they already know every photo).
+ * `no_replay`: one attempt, and only for players who have NOT played the
+ * pack anywhere before — "played" = any run with at least one guess: a
+ * normal pack attempt with current_index > 0 (or completed), or an attempt
+ * with a guess (or completed) in ANY other competition, voided ones
+ * included. A run that was only started (no guess) reveals nothing and does
+ * not count. (Security review 2026-10: completed-only let a player guess
+ * most of a pack on the normal track first.)
  */
 class NoReplayPolicy implements ReplayPolicy
 {
@@ -34,20 +38,20 @@ class NoReplayPolicy implements ReplayPolicy
             return CompetitionEligibility::REASON_LIMIT_REACHED;
         }
 
-        return $this->completedAnywhere($competition, $packId, $user) ? CompetitionEligibility::REASON_ALREADY_PLAYED : null;
+        return $this->playedAnywhere($competition, $packId, $user) ? CompetitionEligibility::REASON_ALREADY_PLAYED : null;
     }
 
-    public function completedAnywhere(ClubCompetition $competition, int $packId, User $user): bool
+    public function playedAnywhere(ClubCompetition $competition, int $packId, User $user): bool
     {
         $normal = PackAttempt::where('user_id', $user->id)
             ->where('challenge_pack_id', $packId)
-            ->where('status', PackAttempt::STATUS_COMPLETED)
+            ->where(fn ($q) => $q->where('current_index', '>', 0)->orWhere('status', PackAttempt::STATUS_COMPLETED))
             ->exists();
 
         return $normal || ClubCompetitionAttempt::where('user_id', $user->id)
             ->where('challenge_pack_id', $packId)
             ->where('club_competition_id', '!=', $competition->id)
-            ->where('status', CompetitionAttemptStatus::Completed->value)
+            ->where(fn ($q) => $q->where('guesses_count', '>', 0)->orWhere('status', CompetitionAttemptStatus::Completed->value))
             ->exists();
     }
 }

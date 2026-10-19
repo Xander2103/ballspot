@@ -16,7 +16,7 @@ import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
 import type { CompetitionDetail, CompetitionPack } from '../types/club';
-import { getClubErrorMessage, hasClubErrorCode, isClubGoneError } from '../utils/clubErrors';
+import { getClubErrorMessage, hasClubErrorCode, isClubGoneError, isStaleAttemptNumberError } from '../utils/clubErrors';
 import {
   attemptsLabel, competitionGroup, competitionPackAction, competitionStatusLine, competitionWindow, countdownTo,
   describeRulesText, packScoreParts,
@@ -123,7 +123,9 @@ export function ClubCompetitionScreen({ navigation, route }: Props) {
       setPackErrors((prev) => ({ ...prev, [pack.slug]: getClubErrorMessage(e, t('packs.detail.startError')) }));
       // The server state moved on (attempt running elsewhere, window closed…): show the fresh buttons.
       if (hasClubErrorCode(e, 'competition_attempt_in_progress') || hasClubErrorCode(e, 'competition_ended')
-        || hasClubErrorCode(e, 'competition_not_started') || hasClubErrorCode(e, 'competition_attempt_limit')) {
+        || hasClubErrorCode(e, 'competition_not_started') || hasClubErrorCode(e, 'competition_attempt_limit')
+        || hasClubErrorCode(e, 'competition_pack_already_played') || hasClubErrorCode(e, 'competition_invalid_pack')
+        || isStaleAttemptNumberError(e)) {
         void load('silent');
       }
     } finally {

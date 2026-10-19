@@ -231,6 +231,14 @@ class ClubPhotoController extends AdminClubController
             : null;
     }
 
+    /** File size for the photo views: KB below 1 MB (a 300 KB photo never reads "0.3 MB" / "0.0 MB"). */
+    public static function humanSize(?int $bytes): string
+    {
+        $bytes = (int) $bytes;
+
+        return $bytes < 1048576 ? max(1, (int) round($bytes / 1024)) . ' KB' : number_format($bytes / 1048576, 1) . ' MB';
+    }
+
     /** Shared labels/classes for the photo views. */
     public static function statusLabels(): array
     {

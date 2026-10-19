@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ClubInviteCode;
+use App\Models\ClubPortalLoginCode;
 use App\Models\ClubPhotoSubmission;
 use App\Models\EmailVerificationCode;
 use App\Models\FriendRequest;
@@ -52,6 +53,7 @@ class AccountDeletionService
             NotificationSetting::where('user_id', $id)->delete();
             EmailVerificationCode::where('user_id', $id)->delete();
             LoginVerificationCode::where('user_id', $id)->delete();
+            ClubPortalLoginCode::where('user_id', $id)->delete();
             // A pending password-reset link for the old address must die with
             // the account: the address becomes free to register again.
             DB::table(config('auth.passwords.users.table', 'password_reset_tokens'))->where('email', $user->email)->delete();

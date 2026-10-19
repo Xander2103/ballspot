@@ -9,7 +9,8 @@ use Carbon\Carbon;
 /**
  * normal_play_policy (D15) against the NORMAL pack routes (AT-CMP-13):
  * `blocked` reserves linked packs from publish until finalize; `allowed`
- * leaves normal play open. In-progress normal attempts may always finish.
+ * leaves normal play open. In-progress normal attempts on a reserved pack
+ * are frozen until finalize/cancel/void (security review 2026-10).
  */
 class CompetitionNormalPlayPolicyTest extends CompetitionTestCase
 {
@@ -50,14 +51,19 @@ class CompetitionNormalPlayPolicyTest extends CompetitionTestCase
         $this->assertNotNull($c);
     }
 
-    public function test_an_in_progress_normal_attempt_may_finish_after_the_pack_is_reserved(): void
+    public function test_an_in_progress_normal_attempt_is_frozen_while_reserved_and_resumes_after_finalize(): void
     {
         $pack = $this->makeClubPack($this->club, 2);
         $user = $this->member('player');
         $attemptId = $this->startClubPack($user, $this->club, $pack)->assertOk()->json('attempt.id');
         $this->guessCurrent($user, $attemptId)->assertOk();
 
-        $this->liveCompetition([$pack]);
+        $c = $this->liveCompetition([$pack]);
+        $this->guessCurrent($user, $attemptId)->assertStatus(409)->assertJsonPath('code', 'pack_reserved_for_competition');
+        $this->assertSame(1, PackAttempt::find($attemptId)->current_index);
+
+        Carbon::setTestNow($c->ends_at->copy()->addMinute());
+        app(ClubCompetitionCloseService::class)->finalize($c->fresh());
         $this->guessCurrent($user, $attemptId)->assertOk()->assertJsonPath('pack_completed', true);
         $this->assertSame(PackAttempt::STATUS_COMPLETED, PackAttempt::find($attemptId)->status);
     }
@@ -72,9 +78,12 @@ class CompetitionNormalPlayPolicyTest extends CompetitionTestCase
         $this->playClubPack($user, $this->club, $pack)->assertJsonPath('pack_completed', true);
 
         // single_attempt: a completed normal run does not block the competition attempt.
-        $this->startAttempt($user, $single, $pack)->assertCreated()->assertJsonPath('attempt.is_rewarded_run', false);
+        $attemptId = (int) $this->startAttempt($user, $single, $pack)->assertCreated()->assertJsonPath('attempt.is_rewarded_run', false)->json('attempt.id');
+        $this->guess($user, $attemptId)->assertOk();
+        $this->guess($user, $attemptId)->assertOk()->assertJsonPath('pack_completed', true);
 
-        // no_replay: it does.
+        // no_replay: it does (in a later competition — one live competition per pack).
+        Carbon::setTestNow($single->ends_at->copy()->addMinute());
         $noReplay = $this->liveCompetition([$pack], ['normal_play_policy' => 'allowed', 'replay_mode' => 'no_replay']);
         $this->startAttempt($user, $noReplay, $pack)->assertStatus(422)->assertJsonPath('code', 'competition_pack_already_played');
 

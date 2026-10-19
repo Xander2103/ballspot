@@ -181,7 +181,7 @@ class ClubCompetitionPlayService
                 throw new ClubDomainException(ClubDomainException::UNEXPECTED_CHALLENGE, 422);
             }
 
-            $challenge = Challenge::findOrFail($challengeId);
+            $challenge = $this->snapshotChallenge($challengeId);
             $score     = $this->scores->calculate($x, $y, (float) $challenge->ball_x_ratio, (float) $challenge->ball_y_ratio);
 
             try {
@@ -249,7 +249,7 @@ class ClubCompetitionPlayService
 
         return [
             'attempt'       => $row,
-            'challenge'     => Challenge::findOrFail($guess->challenge_id),
+            'challenge'     => $this->snapshotChallenge((int) $guess->challenge_id),
             'guess'         => $guess,
             'completed'     => $outcome['completed'],
             'replayed'      => $outcome['replayed'],
@@ -268,6 +268,24 @@ class ClubCompetitionPlayService
         }
         $id = $attempt->challengeIds()[$attempt->current_index] ?? null;
 
-        return $id ? Challenge::find($id) : null;
+        return $id ? $this->snapshotChallenge((int) $id) : null;
+    }
+
+    /**
+     * A challenge of an attempt's snapshot. Deleting one is refused while a
+     * competition is open (CompetitionContentLock), but a row removed anyway
+     * (e.g. directly in the database) must answer a stable domain error
+     * instead of a bare 404 / 500.
+     */
+    private function snapshotChallenge(int $id): Challenge
+    {
+        $challenge = Challenge::find($id);
+        if ($challenge === null) {
+            AppLog::warn('club.competition_challenge_missing', ['challenge_id' => $id]);
+
+            throw new ClubDomainException(ClubDomainException::COMPETITION_INVALID_PACK, 422, ['reason' => 'challenge_unavailable']);
+        }
+
+        return $challenge;
     }
 }

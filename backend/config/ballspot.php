@@ -516,9 +516,13 @@ return [
             'alphabet' => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
         ],
         'join'     => [
-            'per_user_per_minute' => 10,
-            'per_ip_per_hour'     => 30,
-            'failures_per_hour'   => 15,
+            'per_user_per_minute'      => 10,
+            // Raw request volume per IP: generous, so a club onboarding a
+            // whole team behind one NAT / venue Wi-Fi is never blocked.
+            'per_ip_per_hour'          => 300,
+            // Guessing gates: FAILED codes only (successful joins never count).
+            'failures_per_hour'        => 15,   // per user
+            'failures_per_ip_per_hour' => 60,   // per IP, across accounts
         ],
         'media'    => [
             'disk'                   => 'club_private',

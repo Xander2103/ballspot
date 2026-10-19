@@ -67,7 +67,7 @@
                         <div class="text-muted small font-monospace">#{{ $c->id }} · {{ $c->public_id }}</div>
                     </td>
                     <td class="small"><a href="{{ route('admin.clubs.show', ['club' => $c->club_id, 'tab' => 'competitions']) }}">{{ $c->club?->name }}</a></td>
-                    <td>@include('admin.clubs.competitions._phase', ['competition' => $c])</td>
+                    <td class="text-nowrap">@include('admin.clubs.competitions._phase', ['competition' => $c])</td>
                     <td class="small text-nowrap">
                         {{ $c->starts_at?->copy()->setTimezone($c->timezone)->format('Y-m-d H:i') }}
                         – {{ $c->ends_at?->copy()->setTimezone($c->timezone)->format('Y-m-d H:i') }}

@@ -37,6 +37,7 @@ reviewed by a lawyer before public launch.**
 | Club memberships | `club_members` (club_id, user_id, role, status active/left/removed/banned, joined_at, left_at, last_seen_at, invite_code_id, added_by/removed_by user ids, admin-only `removal_reason`) | BallPicker Clubs: who belongs to which private club and with which role; `last_seen_at` orders My Clubs | Contract (a club the player chose to join with a code) | Rows kept as history; on account deletion every active membership becomes `removed` (`removal_reason = account_deleted`) | The member (own); club owners/admins and — only when the club allows it (D9) — other members see username + avatar + role; platform admins |
 | Club competition play | `club_competition_attempts`, `club_competition_attempt_guesses`, derived `club_competition_pack_results` / `club_competition_entries`, `club_competition_finishes`, `club_pack_reward_claims` | Club competitions, club leaderboards, the once-per-pack global reward | Contract | Retained after deletion like all gameplay, linked to the anonymized row; finishes show "Deleted User" | Club members see usernames, avatars and scores on club leaderboards (D12); left/removed members are hidden from live standings |
 | Club photo submissions | `club_photo_submissions` (club, `uploaded_by_user_id`, private file on the `club_private` disk, mime/size/sha256, notes, status) + the private files under `storage/app/private/clubs` | Club-supplied photos turned into club challenges | Contract / club agreement (D8) | Uploader id nulled on account deletion; the photo stays club content | Club admins (own club), platform admins; files only via short-lived signed URLs |
+| Club portal sign-in codes | `club_portal_login_codes` (user_id, bcrypt hash of the emailed code, sent/expiry, attempts, sends, IP, user agent) | Mandatory email code for the club portal (`/club`) | Legitimate interest (account security) | At most one row per user, deleted when used or replaced; removed on account deletion | Nobody — never exposed; the plain code exists only in the email |
 | Club invite codes | `club_invite_codes` (code, label, limits, `created_by_user_id` / `revoked_by_user_id`) | Joining a club | Contract | Creator/revoker ids nulled on account deletion; the code keeps working | Club admins and platform admins only — never in an export or a member payload |
 | Club contact + audit | `clubs.contact_name`, `clubs.contact_email` (admin-only, hidden from every API), `club_audit_events` (actor id, allow-listed metadata, codes masked) | Club administration, accountability | Legitimate interest | Kept with the club; the actor of a deleted account is the anonymized row | Platform admins only |
 
@@ -143,7 +144,7 @@ Retained, deliberately, linked to the anonymized row: guesses, XP events,
 badges, tournament/competition finishes, pack attempts. Rationale: leaderboard
 and other players' history integrity.
 
-**BallPicker Clubs (2026-10).** Account deletion also: sets every active club
+**BallPicker Clubs (2026-10).** Account deletion also: deletes pending club portal sign-in codes, sets every active club
 membership to `removed` (audited; a club that loses its last owner is flagged
 `needs_owner` for platform admins, D6), nulls `club_invite_codes.created_by_user_id`
 / `revoked_by_user_id` (the codes stay valid) and

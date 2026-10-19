@@ -42,6 +42,7 @@ class ClubDomainException extends \RuntimeException
     public const CLUB_MEMBER_BANNED              = 'club_member_banned';
     public const STALE_VERSION                   = 'stale_version';
     public const PACK_RESERVED_FOR_COMPETITION   = 'pack_reserved_for_competition';
+    public const PACK_IN_COMPETITION             = 'pack_in_competition';
     public const COMPETITION_NOT_STARTED         = 'competition_not_started';
     public const COMPETITION_ENDED               = 'competition_ended';
     public const COMPETITION_ATTEMPT_LIMIT       = 'competition_attempt_limit';
@@ -66,13 +67,18 @@ class ClubDomainException extends \RuntimeException
     private int $status;
     private array $extra;
 
-    public function __construct(string $code, int $status, array $extra = [])
+    /**
+     * $message overrides the generic per-code sentence when a more specific,
+     * already translated one helps (e.g. which rule refused a pack). The code
+     * stays the contract.
+     */
+    public function __construct(string $code, int $status, array $extra = [], ?string $message = null)
     {
         $this->errorCode = $code;
         $this->status    = $status;
         $this->extra     = $extra;
 
-        parent::__construct(self::translate($code));
+        parent::__construct($message ?? self::translate($code));
     }
 
     /** Stable snake_case code (Exception::getCode() is the unrelated int code). */

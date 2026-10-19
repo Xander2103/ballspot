@@ -55,6 +55,8 @@ return [
     ],
 
     'common' => [
+
+        'ballpicker_team' => 'BallPicker-Team',
         'save'           => 'Speichern',
         'cancel'         => 'Abbrechen',
         'confirm'        => 'Bestätigen',
@@ -133,7 +135,7 @@ return [
         'intro'   => 'Du verwaltest diese Vereine.',
         'open'    => 'Öffnen',
         'empty'   => 'Du verwaltest derzeit keinen Verein.',
-        'members' => ':count Mitglieder',
+        'members' => '{1} :count Mitglied|[0,*] :count Mitglieder',
     ],
 
     'dashboard' => [
@@ -157,7 +159,7 @@ return [
         'recent_activity'       => 'Letzte Aktivität',
         'no_activity'           => 'Noch nichts passiert.',
         'view_all'              => 'Alle anzeigen',
-        'drafts'                => ':count Entwürfe',
+        'drafts'                => '{1} :count Entwurf|[0,*] :count Entwürfe',
         'joins_30d'             => ':count in den letzten 30 Tagen beigetreten',
     ],
 
@@ -375,7 +377,7 @@ return [
         'pack_not_active' => 'Nur aktive Packs dieses Vereins können verknüpft werden.',
         'max_attempts_required' => 'Wähle die maximale Anzahl an Versuchen.',
         'replay_rules'   => 'Wiederholungsregeln',
-        'mode_no_replay' => 'Keine Wiederholung — wer ein Pack schon abgeschlossen hat, kann es nicht spielen',
+        'mode_no_replay' => 'Keine Wiederholung — wer ein Pack schon gespielt hat (mindestens ein Tipp), kann es nicht spielen',
         'mode_single'    => 'Ein Wettbewerbsversuch pro Pack (empfohlen)',
         'mode_multiple'  => 'Mehrere Versuche',
         'max'            => 'Max.',

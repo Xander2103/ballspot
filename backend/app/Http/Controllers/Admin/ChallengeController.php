@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers\Admin;
 
+use App\Exceptions\ClubDomainException;
 use App\Http\Controllers\Controller;
 use App\Models\Challenge;
 use App\Models\ChallengeCategory;
@@ -16,6 +17,7 @@ use App\Services\ChallengeCreator;
 use App\Services\Clubs\ClubAuditLogger;
 use App\Services\Clubs\ClubContentScope;
 use App\Services\Clubs\ClubMediaService;
+use App\Services\Clubs\CompetitionContentLock;
 use App\Support\AppLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +39,7 @@ class ChallengeController extends Controller
         private ClubMediaService $clubMedia,
         private ChallengeCreator $creator,
         private ClubAuditLogger $audit,
+        private CompetitionContentLock $contentLock,
     ) {}
 
     public function index(Request $request)
@@ -219,6 +222,16 @@ class ChallengeController extends Controller
             return back()->withErrors(['status' => 'Cannot activate a challenge without a hidden image.'])->withInput();
         }
 
+        // Competition content freezes at the rule lock (plan §5.7): no new
+        // ball position, images or deactivation while the challenge is in a
+        // locked competition's snapshot — scores would no longer compare.
+        $this->assertContentEditable($challenge, [
+            'ball'   => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS) !== round((float) $challenge->ball_x_ratio, self::BALL_RATIO_DECIMALS)
+                     || round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS) !== round((float) $challenge->ball_y_ratio, self::BALL_RATIO_DECIMALS),
+            'images' => $request->hasFile('hidden_image') || $request->hasFile('original_image'),
+            'status' => $data['status'] !== $challenge->status && $data['status'] !== 'active',
+        ]);
+
         // Ownership never changes after creation (club photos never become
         // public); a submitted club_id is ignored.
         if ($challenge->club_id !== null) {
@@ -287,6 +300,29 @@ class ChallengeController extends Controller
     }
 
     /**
+     * Refuse (competition_rules_locked) a change of the given kinds when the
+     * challenge is in the snapshot of a published competition with locked
+     * rules. $changes: kind => whether it changes.
+     *
+     * @param array<string, bool> $changes
+     */
+    private function assertContentEditable(Challenge $challenge, array $changes): void
+    {
+        $changed = array_keys(array_filter($changes));
+        if ($changed === [] || !$this->contentLock->challengeIsLocked($challenge)) {
+            return;
+        }
+
+        AppLog::warn('admin.challenge_edit_refused', [
+            'challenge_id' => $challenge->id,
+            'reason'       => 'competition_rules_locked',
+            'fields'       => $changed,
+        ]);
+
+        throw new ClubDomainException(ClubDomainException::COMPETITION_RULES_LOCKED, 422, ['fields' => $changed]);
+    }
+
+    /**
      * Validate the challenge form and log the failing FIELD NAMES (never the
      * values) so "my upload keeps failing" can be diagnosed from the log.
      */
@@ -349,6 +385,8 @@ class ChallengeController extends Controller
         if ($data['status'] === 'active' && !$challenge->hidden_image_path) {
             return back()->with('error', "Cannot activate \"{$challenge->title}\" — no hidden image is set.");
         }
+
+        $this->assertContentEditable($challenge, ['status' => $data['status'] !== $challenge->status && $data['status'] !== 'active']);
 
         $challenge->update(['status' => $data['status']]);
         AppLog::event('admin.challenge_updated', [
@@ -426,6 +464,21 @@ class ChallengeController extends Controller
             'pack'       => PackAttemptGuess::where('challenge_id', $challenge->id)->exists(),
             'competition' => ClubCompetitionAttemptGuess::where('challenge_id', $challenge->id)->exists(),
         ]));
+
+        // In the snapshot of a competition that is not finalized (published /
+        // voided): its attempts would point at a missing photo. Played or not.
+        if ($usedIn === [] && $this->contentLock->challengeInOpenSnapshot($challenge)) {
+            AppLog::warn('admin.challenge_delete_refused', [
+                'challenge_id'  => $challenge->id,
+                'used_in'       => ['competition_snapshot'],
+                'admin_user_id' => $request->user()->id,
+            ]);
+
+            return redirect('/admin/challenges')->with(
+                'error',
+                "\"{$challenge->title}\" is part of a club competition that has not been finalized and cannot be deleted."
+            );
+        }
 
         if ($usedIn !== []) {
             AppLog::warn('admin.challenge_delete_refused', [

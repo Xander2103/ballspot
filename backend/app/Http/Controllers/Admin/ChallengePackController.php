@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\CompetitionState;
+use App\Exceptions\ClubDomainException;
 use App\Http\Controllers\Controller;
 use App\Models\Badge;
 use App\Models\Challenge;
 use App\Models\ChallengePack;
 use App\Models\Club;
+use App\Models\ClubCompetition;
 use App\Models\Sport;
 use App\Services\Clubs\ClubAuditLogger;
 use App\Services\Clubs\ClubContentScope;
+use App\Services\Clubs\ClubMediaService;
 use App\Services\Clubs\ClubMembershipService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +36,7 @@ class ChallengePackController extends Controller
         private ClubContentScope $scope,
         private ClubAuditLogger $audit,
         private ClubMembershipService $memberships,
+        private ClubMediaService $media,
     ) {}
 
     public function index(Request $request)
@@ -83,7 +88,7 @@ class ChallengePackController extends Controller
                 'sort_order'       => $data['sort_order'] ?? 0,
                 'is_featured'      => $request->boolean('is_featured'),
                 'cover_image_path' => $request->hasFile('cover_image')
-                    ? $request->file('cover_image')->store('packs/covers', 'public')
+                    ? $this->storeCover($request, $club)
                     : null,
             ]);
 
@@ -142,13 +147,15 @@ class ChallengePackController extends Controller
         if ($request->has('challenges')) {
             $this->scope->assertPackChallenges($pack, (array) $request->input('challenges', []));
         }
+        $this->assertStaysPlayableForCompetitions($pack, $data['status'], $data['visibility']);
         $wasStatus = $pack->status;
 
         if ($request->hasFile('cover_image')) {
+            // Store first: a refused club cover (photo_invalid) keeps the old one.
+            $data['cover_image_path'] = $this->storeCover($request, $pack->club_id !== null ? Club::find($pack->club_id) : null);
             if ($pack->cover_image_path) {
                 Storage::disk('public')->delete($pack->cover_image_path);
             }
-            $data['cover_image_path'] = $request->file('cover_image')->store('packs/covers', 'public');
         }
 
         $pack->update([
@@ -195,6 +202,7 @@ class ChallengePackController extends Controller
             'visibility' => ['nullable', Rule::in(ChallengePack::VISIBILITIES)],
         ]);
 
+        $this->assertStaysPlayableForCompetitions($pack, $data['status'] ?? $pack->status, $data['visibility'] ?? $pack->visibility);
         $wasStatus = $pack->status;
         $pack->update(array_filter([
             'status'     => $data['status'] ?? null,
@@ -210,6 +218,29 @@ class ChallengePackController extends Controller
         ]);
 
         return redirect($this->listUrl($fresh))->with('success', $this->readinessNote($fresh));
+    }
+
+    /**
+     * A club pack linked to a published competition that is not finalized,
+     * cancelled or voided must stay active + public until it is: members
+     * would otherwise lose a pack mid-competition (plan §5.7).
+     */
+    private function assertStaysPlayableForCompetitions(ChallengePack $pack, string $status, string $visibility): void
+    {
+        if ($pack->club_id === null
+            || ($status === ChallengePack::STATUS_ACTIVE && $visibility === ChallengePack::VISIBILITY_PUBLIC)) {
+            return;
+        }
+
+        $linked = ClubCompetition::query()
+            ->where('club_id', $pack->club_id)
+            ->where('state', CompetitionState::Published->value)
+            ->whereHas('competitionPacks', fn ($q) => $q->where('challenge_pack_id', $pack->id))
+            ->exists();
+
+        if ($linked) {
+            throw new ClubDomainException(ClubDomainException::PACK_IN_COMPETITION, 422);
+        }
     }
 
     /** Club packs: audit trail (pack.updated / pack.archived) + denormalised counters. */
@@ -230,6 +261,20 @@ class ChallengePackController extends Controller
             ], fn ($v) => $v !== null));
             $this->memberships->refreshCounters($club);
         });
+    }
+
+    /**
+     * Club pack covers are GD re-encoded under a random name (EXIF/GPS
+     * dropped, like every club image); BallPicker covers keep the plain
+     * upload exactly as before.
+     */
+    private function storeCover(Request $request, ?Club $club): string
+    {
+        $file = $request->file('cover_image');
+
+        return $club !== null
+            ? $this->media->storePackCover($file, $club)
+            : $file->store('packs/covers', 'public');
     }
 
     private function listUrl(ChallengePack $pack): string

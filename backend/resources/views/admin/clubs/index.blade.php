@@ -39,12 +39,12 @@
 <form method="GET" action="{{ route('admin.clubs.index') }}" class="card shadow-sm mb-3" data-section="filters" role="search">
     <div class="card-body py-3">
         <div class="row g-2 align-items-center">
-            <div class="col-12 col-lg-6">
+            <div class="col-12 col-lg-5">
                 <label for="club-q" class="visually-hidden">Search clubs</label>
                 <input id="club-q" type="search" name="q" value="{{ $f['q'] }}" maxlength="100" class="form-control"
                        placeholder="Search name, slug, city, ref, ID, invite code, owner…" autocomplete="off">
             </div>
-            <div class="col-6 col-lg-2">
+            <div class="col-6 col-lg-3">
                 <label for="club-sort" class="visually-hidden">Sort</label>
                 <select id="club-sort" name="sort" class="form-select">
                     @foreach($sorts as $value => $label)
@@ -68,7 +68,7 @@
         </div>
         <div class="collapse {{ $moreOpen ? 'show' : '' }}" id="club-more-filters">
             <div class="row g-2 align-items-end mt-1">
-                <div class="col-12 col-md-auto">
+                <div class="col-12">
                     <div class="small text-muted mb-1">Status</div>
                     @foreach(['active' => 'Active', 'suspended' => 'Suspended', 'archived' => 'Archived'] as $value => $label)
                         <div class="form-check form-check-inline mb-0">
@@ -77,7 +77,7 @@
                         </div>
                     @endforeach
                 </div>
-                <div class="col-6 col-md-2">
+                <div class="col-6 col-md-3">
                     <label for="f-sport" class="small text-muted mb-1">Sport</label>
                     <select id="f-sport" name="sport" class="form-select form-select-sm">
                         <option value="">Any sport</option>
@@ -86,7 +86,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-md-2">
+                <div class="col-6 col-md-3">
                     <label for="f-type" class="small text-muted mb-1">Type</label>
                     <select id="f-type" name="club_type" class="form-select form-select-sm">
                         <option value="">Any type</option>
@@ -95,7 +95,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-md-1">
+                <div class="col-4 col-md-2">
                     <label for="f-country" class="small text-muted mb-1">Country</label>
                     <select id="f-country" name="country" class="form-select form-select-sm">
                         <option value="">Any</option>
@@ -104,11 +104,11 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-6 col-md-2">
+                <div class="col-4 col-md-2">
                     <label for="f-from" class="small text-muted mb-1">Created from</label>
                     <input id="f-from" type="date" name="created_from" value="{{ $f['created_from'] }}" class="form-control form-control-sm">
                 </div>
-                <div class="col-6 col-md-2">
+                <div class="col-4 col-md-2">
                     <label for="f-to" class="small text-muted mb-1">Created to</label>
                     <input id="f-to" type="date" name="created_to" value="{{ $f['created_to'] }}" class="form-control form-control-sm">
                 </div>

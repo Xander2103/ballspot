@@ -27,6 +27,7 @@ return [
         'club_member_banned'              => 'Cet utilisateur est banni du club. Lève d\'abord le bannissement.',
         'stale_version'                   => 'Quelqu\'un d\'autre a modifié ceci entre-temps. Recharge la page et réessaie.',
         'pack_reserved_for_competition'   => 'Ce pack est réservé à une compétition pour le moment. Joue-le dans la compétition.',
+        'pack_in_competition'             => 'Ce pack est lié à une compétition qui n’est pas terminée. Il doit rester actif jusqu’à la clôture ou l’annulation de la compétition.',
         'competition_not_started'         => 'Cette compétition n\'a pas encore commencé.',
         'competition_ended'               => 'Cette compétition est terminée.',
         'competition_attempt_limit'       => 'Tu as utilisé toutes tes tentatives pour ce pack.',
@@ -105,5 +106,12 @@ return [
             'created' => 'Défi du club créé',
             'updated' => 'Défi du club modifié',
         ],
+    ],
+
+    // Specific sentences for ClubDomainException messages and admin helper
+    // texts (not error codes — see `errors` for those).
+    'competition_messages' => [
+        'pack_in_overlapping_competition' => 'Le pack « :pack » fait déjà partie de la compétition publiée « :competition », dont les dates se chevauchent. Choisis d\'autres dates ou un autre pack.',
+        'normal_play_allowed_helper'      => 'Avec « Jeu normal autorisé », les membres ne peuvent pas jouer le pack normalement pendant qu\'une tentative de compétition est en cours, ni démarrer une tentative de compétition pendant qu\'une partie normale est en cours. Terminer d\'abord le pack normalement puis participer reste possible en modes Une tentative et Plusieurs tentatives ; choisis Pas de rejeu ou « Jeu normal bloqué » pour l\'empêcher.',
     ],
 ];

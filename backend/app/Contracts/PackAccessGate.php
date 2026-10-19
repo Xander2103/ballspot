@@ -26,9 +26,12 @@ interface PackAccessGate
 
     /**
      * Continuing an attempt that already exists (each guess). Same access
-     * rules WITHOUT the reservation check — attempts already in progress may
-     * finish (plan §5.2) — and without the pack-status check, like today's
-     * public guess endpoint.
+     * rules without the pack-status check, like today's public guess
+     * endpoint. Club packs KEEP the reservation check (security review
+     * 2026-10): a normal attempt on a pack reserved by a blocked competition,
+     * or while the player has an active competition attempt on it, is frozen
+     * (409 pack_reserved_for_competition) — its reveal would otherwise leak
+     * the answer key to the competition track.
      */
     public function assertCanContinue(User $user, ChallengePack $pack): void;
 }

@@ -46,11 +46,16 @@
             <tr>
                 <td class="small text-nowrap" title="{{ $event->created_at?->toIso8601String() }}">{{ $event->created_at?->copy()->setTimezone($tz)->format('Y-m-d H:i') }}</td>
                 <td class="small">
-                    {{ $event->actor?->username ?? ($event->actor_kind === 'system' ? __('club_portal.common.system') : __('club_portal.common.deleted_user')) }}
-                    <div class="text-muted" style="font-size:.7rem">{{ __('club_portal.actor_kind.' . $event->actor_kind) }}</div>
+                    @if ($event->actor_kind === 'platform_admin')
+                        {{-- BallPicker staff stay anonymous to clubs. --}}
+                        {{ __('club_portal.common.ballpicker_team') }}
+                    @else
+                        {{ $event->actor?->username ?? ($event->actor_kind === 'system' ? __('club_portal.common.system') : __('club_portal.common.deleted_user')) }}
+                        <div class="text-muted" style="font-size:.7rem">{{ __('club_portal.actor_kind.' . $event->actor_kind) }}</div>
+                    @endif
                 </td>
-                <td class="small fw-semibold">{{ $event->label() }}</td>
-                @unless($compact)<td class="small text-muted">{{ $details === [] ? __('club_portal.common.none') : implode(' · ', $details) }}</td>@endunless
+                <td class="small fw-semibold" style="min-width:9rem">{{ $event->label() }}</td>
+                @unless($compact)<td class="small text-muted" style="min-width:16rem">{{ $details === [] ? __('club_portal.common.none') : implode(' · ', $details) }}</td>@endunless
             </tr>
         @empty
             <tr><td colspan="{{ $compact ? 3 : 4 }}" class="text-center text-muted py-4">{{ ($filtered ?? false) ? __('club_portal.audit.empty_filtered') : __('club_portal.audit.empty') }}</td></tr>

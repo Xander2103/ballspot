@@ -55,6 +55,8 @@ return [
     ],
 
     'common' => [
+
+        'ballpicker_team' => 'BallPicker team',
         'save'           => 'Save',
         'cancel'         => 'Cancel',
         'confirm'        => 'Confirm',
@@ -133,7 +135,7 @@ return [
         'intro'   => 'You manage these clubs.',
         'open'    => 'Open',
         'empty'   => 'You do not manage any club at the moment.',
-        'members' => ':count members',
+        'members' => '{1} :count member|[0,*] :count members',
     ],
 
     'dashboard' => [
@@ -157,7 +159,7 @@ return [
         'recent_activity'       => 'Recent activity',
         'no_activity'           => 'Nothing happened yet.',
         'view_all'              => 'View all',
-        'drafts'                => ':count drafts',
+        'drafts'                => '{1} :count draft|[0,*] :count drafts',
         'joins_30d'             => ':count joined in the last 30 days',
     ],
 
@@ -375,7 +377,7 @@ return [
         'pack_not_active' => 'Only active packs of this club can be linked.',
         'max_attempts_required' => 'Choose the maximum number of attempts.',
         'replay_rules'   => 'Replay rules',
-        'mode_no_replay' => 'No replay — players who already completed a pack cannot play it',
+        'mode_no_replay' => 'No replay — players who already played a pack (at least one guess) cannot play it',
         'mode_single'    => 'One competition attempt per pack (recommended)',
         'mode_multiple'  => 'Multiple attempts',
         'max'            => 'Max',

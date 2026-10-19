@@ -214,17 +214,21 @@ class ClubPackApiTest extends ClubApiTestCase
         $this->assertSame([], $cards[$draftPack->slug]['competitions']);
     }
 
-    public function test_an_attempt_in_progress_may_finish_after_the_pack_becomes_reserved(): void
+    public function test_an_attempt_in_progress_is_frozen_while_the_pack_is_reserved_and_resumes_after_cancel(): void
     {
         $user = User::factory()->create();
         $club = $this->makeClub([], $user);
         $pack = $this->makeClubPack($club, 2);
         $attemptId = $this->startClubPack($user, $club, $pack)->assertOk()->json('attempt.id');
 
-        $this->makeCompetition($club, [$pack], ['state' => CompetitionState::Published, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
+        $competition = $this->makeCompetition($club, [$pack], ['state' => CompetitionState::Published, 'starts_at' => now()->addDay(), 'ends_at' => now()->addDays(2)]);
 
         $this->startClubPack($user, $club, $pack)->assertStatus(409)->assertJsonPath('code', 'pack_reserved_for_competition');
         $this->api($user)->getJson($this->packPath($club, $pack, '/attempt'))->assertOk()->assertJsonPath('attempt.id', $attemptId);
+        // Frozen (security review 2026-10): the normal reveal would leak the answer key.
+        $this->guessCurrent($user, $attemptId)->assertStatus(409)->assertJsonPath('code', 'pack_reserved_for_competition');
+
+        $competition->forceFill(['state' => CompetitionState::Cancelled, 'cancelled_at' => now()])->save();
         $this->guessCurrent($user, $attemptId)->assertOk();
         $this->guessCurrent($user, $attemptId)->assertOk()->assertJsonPath('pack_completed', true);
     }

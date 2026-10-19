@@ -69,7 +69,7 @@ class ClubPhotoAdminAccessTest extends ClubPhotoTestCase
         $this->service()->reject($this->submitPhoto($club, 4), $this->admin, 'No ball');
 
         $html = $this->actingAs($this->admin)->get('/admin/club-photos')->assertOk()->getContent();
-        $this->assertStringContainsString('>Photo review<span class="badge rounded-pill bg-danger ms-1" title="2 open">2</span></a>', $html);
+        $this->assertStringContainsString('>Photo review<span class="badge rounded-pill bg-danger ms-1" title="2 awaiting review">2</span></a>', $html);
         // Status pills show every bucket.
         $this->assertMatchesRegularExpression('/Open <span class="badge[^"]*">3<\/span>/', $html);
         $this->assertMatchesRegularExpression('/In preparation <span class="badge[^"]*">1<\/span>/', $html);

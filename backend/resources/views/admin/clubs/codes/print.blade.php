@@ -13,7 +13,7 @@
         .code-card .club { font-weight: 700; font-size: 1.05rem; }
         .code-card .qr { width: 150px; height: 150px; margin: 10px auto; }
         .code-card .qr img, .code-card .qr canvas { width: 150px !important; height: 150px !important; }
-        .code-card .code { font-family: SFMono-Regular, Menlo, Consolas, monospace; font-size: 1.4rem; font-weight: 700; letter-spacing: .12em; }
+        .code-card .code { font-family: SFMono-Regular, Menlo, Consolas, monospace; font-size: clamp(1.05rem, 4.6vw, 1.4rem); font-weight: 700; letter-spacing: .12em; white-space: nowrap; }
         .code-card .how { font-size: .8rem; color: #495057; }
         @media print {
             body { background: #fff; }

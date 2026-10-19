@@ -229,6 +229,8 @@ export const clubs = {
     competition_attempt_limit: "You've used all your attempts for this pack.",
     competition_pack_already_played: "You've already played this pack, so it can't count in this competition.",
     competition_attempt_in_progress: 'Finish your current attempt first.',
+    competition_invalid_pack: "This pack can't be played in this competition.",
+    competition_attempt_stale: 'This competition was updated. Check the latest status and try again.',
     unexpected_challenge: 'This challenge is out of date. Go back and try again.',
     attempt_not_active: 'This attempt is no longer active.',
   },

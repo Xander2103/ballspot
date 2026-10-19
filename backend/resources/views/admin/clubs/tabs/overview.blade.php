@@ -38,9 +38,9 @@
             <div class="card-header bg-white"><h2 class="h6 mb-0">Live competitions</h2></div>
             <ul class="list-group list-group-flush">
                 @forelse($comp['live'] as $c)
-                    <li class="list-group-item small d-flex justify-content-between">
+                    <li class="list-group-item small d-flex justify-content-between gap-3">
                         <span class="fw-semibold">{{ $c->name }}</span>
-                        <span class="text-muted">{{ $c->participants_count }} players · ends {{ $c->ends_at?->diffForHumans() }}</span>
+                        <span class="text-muted text-end flex-shrink-0">{{ $c->participants_count }} players · ends {{ $c->ends_at?->diffForHumans() }}</span>
                     </li>
                 @empty
                     <li class="list-group-item small text-muted">No competition is live right now.</li>

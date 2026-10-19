@@ -165,7 +165,7 @@
         <span class="admin-subnav-group">{{ $activeGroup['label'] }}</span>
         @foreach($activeGroup['pages'] as $page)
             @php $pageActive = request()->is($page['match']); @endphp
-            <a class="admin-subnav-link {{ $pageActive ? 'active' : '' }}" href="{{ $page['url'] }}" @if($pageActive) aria-current="page" @endif>{{ $page['label'] }}@if(!empty($page['badge']))<span class="badge rounded-pill bg-danger ms-1" title="{{ $page['badge'] }} open">{{ $page['badge'] }}</span>@endif</a>
+            <a class="admin-subnav-link {{ $pageActive ? 'active' : '' }}" href="{{ $page['url'] }}" @if($pageActive) aria-current="page" @endif>{{ $page['label'] }}@if(!empty($page['badge']))<span class="badge rounded-pill bg-danger ms-1" title="{{ $page['badge'] }} awaiting review">{{ $page['badge'] }}</span>@endif</a>
         @endforeach
     </div>
 </nav>

@@ -27,6 +27,7 @@ return [
         'club_member_banned'              => 'Este usuario está expulsado del club. Levanta primero la expulsión.',
         'stale_version'                   => 'Otra persona lo ha cambiado mientras tanto. Recarga la página e inténtalo de nuevo.',
         'pack_reserved_for_competition'   => 'Este pack está reservado ahora para una competición. Juégalo en la competición.',
+        'pack_in_competition'             => 'Este pack está vinculado a una competición que aún no ha terminado. Debe seguir activo hasta que la competición se cierre o se cancele.',
         'competition_not_started'         => 'Esta competición aún no ha empezado.',
         'competition_ended'               => 'Esta competición ha terminado.',
         'competition_attempt_limit'       => 'Has usado todos tus intentos para este pack.',
@@ -105,5 +106,12 @@ return [
             'created' => 'Desafío del club creado',
             'updated' => 'Desafío del club actualizado',
         ],
+    ],
+
+    // Specific sentences for ClubDomainException messages and admin helper
+    // texts (not error codes — see `errors` for those).
+    'competition_messages' => [
+        'pack_in_overlapping_competition' => 'El paquete ":pack" ya está en la competición publicada ":competition", cuyas fechas se solapan. Elige otras fechas u otro paquete.',
+        'normal_play_allowed_helper'      => 'Con "Juego normal permitido", los miembros no pueden jugar el paquete de forma normal mientras haya un intento de competición en curso, ni iniciar un intento de competición mientras haya una partida normal en curso. Terminar primero el paquete de forma normal y luego competir sigue siendo posible en los modos Un intento y Varios intentos; elige Sin repetición o "Juego normal bloqueado" para impedirlo.',
     ],
 ];

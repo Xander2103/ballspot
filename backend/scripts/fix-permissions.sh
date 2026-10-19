@@ -34,7 +34,7 @@ WRITABLE_DIRS=(storage bootstrap/cache)
 # Subdirectories Laravel expects; created if missing so the first request /
 # first cron run never has to create them (as whichever user that happens to be).
 EXPECTED_DIRS=(
-  storage/app storage/app/public storage/logs
+  storage/app storage/app/public storage/app/private storage/app/private/clubs storage/logs
   storage/framework storage/framework/cache storage/framework/cache/data
   storage/framework/sessions storage/framework/views storage/framework/testing
   bootstrap/cache

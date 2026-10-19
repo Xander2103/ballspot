@@ -53,13 +53,13 @@
                             </td>
                             <td class="small">{{ $code->label ?? '—' }}<div class="text-muted" style="font-size:.7rem">{{ $code->created_at?->format('Y-m-d') }}@if($code->createdBy) · {{ $code->createdBy->username }}@endif</div></td>
                             <td class="small">{{ ucfirst($code->grants_role->value) }}</td>
-                            <td class="text-end small">{{ $code->uses_count }}@if($code->max_uses) / {{ $code->max_uses }}@endif</td>
+                            <td class="text-end small text-nowrap">{{ $code->uses_count }}@if($code->max_uses) / {{ $code->max_uses }}@endif</td>
                             <td class="small text-nowrap">{{ $code->expires_at?->format('Y-m-d') ?? 'never' }}</td>
                             <td><span class="badge {{ $state[1] }}">{{ $state[0] }}</span></td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm">
                                     @unless($code->isRevoked())
-                                        <a href="{{ route('admin.clubs.codes.print', $codeBase) }}" class="btn btn-outline-secondary" target="_blank" rel="noopener">Print QR</a>
+                                        <a href="{{ route('admin.clubs.codes.print', $codeBase) }}" class="btn btn-outline-secondary text-nowrap" target="_blank" rel="noopener">Print QR</a>
                                     @endunless
                                     <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions for code {{ $code->masked() }}"><span aria-hidden="true">…</span></button>
                                     <ul class="dropdown-menu dropdown-menu-end">

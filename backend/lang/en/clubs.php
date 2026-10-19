@@ -29,6 +29,7 @@ return [
         'club_member_banned'              => 'This user is banned from the club. Lift the ban first.',
         'stale_version'                   => 'Someone else changed this in the meantime. Reload the page and try again.',
         'pack_reserved_for_competition'   => 'This pack is reserved for a competition right now. Play it in the competition.',
+        'pack_in_competition'             => 'This pack is linked to a competition that has not finished. It must stay active until the competition is finalized or cancelled.',
         'competition_not_started'         => 'This competition has not started yet.',
         'competition_ended'               => 'This competition has ended.',
         'competition_attempt_limit'       => 'You have used all your attempts for this pack.',
@@ -107,5 +108,12 @@ return [
             'created' => 'Club challenge created',
             'updated' => 'Club challenge updated',
         ],
+    ],
+
+    // Specific sentences for ClubDomainException messages and admin helper
+    // texts (not error codes — see `errors` for those).
+    'competition_messages' => [
+        'pack_in_overlapping_competition' => 'The pack ":pack" is already in the published competition ":competition", whose dates overlap. Choose other dates or another pack.',
+        'normal_play_allowed_helper'      => 'With "Allowed", a member cannot play a pack normally while their competition attempt on it is in progress, and cannot start a competition attempt while a normal attempt on it is in progress. Finishing the pack normally first and competing afterwards stays possible with "One competition attempt per pack" and "Multiple attempts"; choose "No replay" or "Blocked" to prevent that.',
     ],
 ];

@@ -2,7 +2,6 @@
 
 namespace App\Services\Clubs;
 
-use App\Enums\CompetitionState;
 use App\Enums\PhotoSubmissionStatus;
 use App\Exceptions\ClubDomainException;
 use App\Models\Challenge;
@@ -464,11 +463,7 @@ class ClubPhotoReviewService
 
         // Linked to a published competition whose rules are locked → its
         // content is frozen (plan §5.7, invariant 6).
-        $locked = $pack->competitions()
-            ->where('club_competitions.state', CompetitionState::Published->value)
-            ->get()
-            ->contains(fn ($competition) => $competition->isLocked());
-        if ($locked) {
+        if (app(CompetitionContentLock::class)->packIsLocked($pack)) {
             throw new ClubDomainException(ClubDomainException::COMPETITION_RULES_LOCKED, 422);
         }
 

@@ -28,6 +28,7 @@ export const CLUB_ERROR_CODES = [
   'competition_attempt_limit',
   'competition_pack_already_played',
   'competition_attempt_in_progress',
+  'competition_invalid_pack',
   'unexpected_challenge',
   'attempt_not_active',
 ] as const;
@@ -67,6 +68,19 @@ export function isClubGoneError(e: unknown): boolean {
 }
 
 /**
+ * Start of a competition attempt with a number that is no longer the next one
+ * (the player started an attempt on another device, or the screen is stale):
+ * the backend answers a plain 422 validation error on `attempt_number`
+ * (docs/api-contract.md, competition start). The screen reloads the pack
+ * state and shows translated copy instead of the English server sentence.
+ */
+export function isStaleAttemptNumberError(e: unknown): boolean {
+  if (!e || typeof e !== 'object' || (e as { status?: unknown }).status !== 422) return false;
+  const errors = (e as { errors?: unknown }).errors;
+  return !!errors && typeof errors === 'object' && 'attempt_number' in (errors as Record<string, unknown>);
+}
+
+/**
  * One sentence for any failed club call. Known codes → translated copy;
  * a plain 429 keeps the client's "try again in N seconds"; everything else →
  * the usual network/server/validation mapping with `fallback`.
@@ -74,5 +88,6 @@ export function isClubGoneError(e: unknown): boolean {
 export function getClubErrorMessage(e: unknown, fallback: string): string {
   const key = clubErrorKey(e);
   if (key) return translate(key);
+  if (isStaleAttemptNumberError(e)) return translate('clubs.errors.competition_attempt_stale');
   return getApiErrorMessage(e, fallback);
 }

@@ -1250,6 +1250,8 @@ export const es: Translations = {
       competition_attempt_limit: 'Has usado todos tus intentos para este pack.',
       competition_pack_already_played: 'Ya has jugado este pack, así que no puede contar en esta competición.',
       competition_attempt_in_progress: 'Termina primero tu intento actual.',
+      competition_invalid_pack: 'Este pack no se puede jugar en esta competición.',
+      competition_attempt_stale: 'Esta competición se ha actualizado. Revisa el estado más reciente e inténtalo de nuevo.',
       unexpected_challenge: 'Este reto ya no está actualizado. Vuelve atrás e inténtalo de nuevo.',
       attempt_not_active: 'Este intento ya no está activo.',
     },

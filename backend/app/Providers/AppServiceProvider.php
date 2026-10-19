@@ -259,16 +259,18 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // BallPicker Clubs: POST /api/clubs/join. Bounds request volume per
-        // user and per IP (config ballspot.clubs.join). The guessing gate is
-        // the FAILED-code counter (App\Services\Clubs\ClubJoinFailureCounter),
-        // which only counts codes that did not lead to a membership. In the
-        // fail_closed list: an invite-code guessing surface.
+        // user and (generously, 300/h — a team onboarding behind one NAT must
+        // pass) per IP (config ballspot.clubs.join). The guessing gates are
+        // the FAILED-code counters per user and per IP
+        // (App\Services\Clubs\ClubJoinFailureCounter), which only count codes
+        // that did not lead to a membership. In the fail_closed list: an
+        // invite-code guessing surface.
         RateLimiter::for('club-join', function (Request $request) {
             $cfg = (array) config('ballspot.clubs.join', []);
 
             return [
                 Limit::perMinute(max(1, (int) ($cfg['per_user_per_minute'] ?? 10)))->by('club-join-u|' . ($request->user()?->id ?: $request->ip())),
-                Limit::perHour(max(1, (int) ($cfg['per_ip_per_hour'] ?? 30)))->by('club-join-ip|' . $request->ip()),
+                Limit::perHour(max(1, (int) ($cfg['per_ip_per_hour'] ?? 300)))->by('club-join-ip|' . $request->ip()),
             ];
         });
 

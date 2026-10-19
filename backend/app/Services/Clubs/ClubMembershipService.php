@@ -90,7 +90,7 @@ class ClubMembershipService
      */
     public function joinWithCode(User $user, string $rawCode, ?string $ip): array
     {
-        $this->failures->assertNotLocked($user);
+        $this->failures->assertNotLocked($user, $ip);
 
         $normalised = $this->codes->normalise($rawCode);
 
@@ -148,7 +148,7 @@ class ClubMembershipService
         });
 
         if (isset($outcome['failed'])) {
-            $this->failures->record($user);
+            $this->failures->record($user, $ip);
             AppLog::event('club.join_failed', ['user_id' => $user->id, 'reason' => $outcome['failed']]);
 
             throw new ClubDomainException(ClubDomainException::CLUB_CODE_INVALID, 422);

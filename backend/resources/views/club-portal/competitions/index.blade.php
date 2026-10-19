@@ -24,21 +24,21 @@
             <thead>
                 <tr>
                     <th>{{ __('club_portal.competitions.col_name') }}</th>
+                    <th>{{ __('club_portal.competitions.col_phase') }}</th>
                     <th>{{ __('club_portal.competitions.col_window') }}</th>
                     <th class="text-end">{{ __('club_portal.competitions.col_packs') }}</th>
                     <th class="text-end">{{ __('club_portal.competitions.col_players') }}</th>
-                    <th>{{ __('club_portal.competitions.col_phase') }}</th>
                 </tr>
             </thead>
             <tbody>
             @forelse($competitions as $competition)
                 @php $tz = $competition->timezone; @endphp
                 <tr>
-                    <td><a href="{{ route('club-portal.competitions.show', [$club, $competition]) }}" class="fw-semibold">{{ $competition->name }}</a></td>
+                    <td style="min-width:10rem"><a href="{{ route('club-portal.competitions.show', [$club, $competition]) }}" class="fw-semibold">{{ $competition->name }}</a></td>
+                    <td class="text-nowrap">@include('club-portal.competitions._phase')</td>
                     <td class="small text-nowrap">{{ $competition->starts_at?->copy()->setTimezone($tz)->format('Y-m-d H:i') }} – {{ $competition->ends_at?->copy()->setTimezone($tz)->format('Y-m-d H:i') }}</td>
                     <td class="text-end small">{{ $competition->competition_packs_count }}</td>
                     <td class="text-end small">{{ (int) $competition->participants_count }}</td>
-                    <td>@include('club-portal.competitions._phase')</td>
                 </tr>
             @empty
                 <tr><td colspan="5" class="text-center text-muted py-4">{{ __('club_portal.competitions.empty') }}</td></tr>

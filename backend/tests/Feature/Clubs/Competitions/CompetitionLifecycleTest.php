@@ -203,7 +203,7 @@ class CompetitionLifecycleTest extends CompetitionTestCase
         $c = $this->service()->publish($this->draft([$a, $b], ['starts_at' => now()->addMinute()]), $this->admin);
         $guard = app(ClubCompetitionRulesGuard::class);
 
-        $this->assertFalse($guard->lock($this->draft([$a])), 'drafts never lock');
+        $this->assertFalse($guard->lock($this->draft([$this->makeClubPack($this->club, 1)])), 'drafts never lock');
         Carbon::setTestNow(now()->addMinutes(2));
         $this->assertTrue($guard->lock($c));
         $this->assertFalse($guard->lock($c->fresh()));
