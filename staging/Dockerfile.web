@@ -1,0 +1,11 @@
+# BallPicker staging — nginx image with public/ and the staging config BAKED IN
+# (no bind mounts). Build context: the staging git worktree root.
+FROM nginx:1.27-alpine
+
+COPY backend/public /var/www/backend/public
+COPY --from=staging staging-nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=staging staging-bp-public-php.conf /etc/nginx/snippets/bp-public-php.conf
+
+# The basic-auth line for the tunnel-facing /club portal gate comes from the
+# environment (STAGING_PORTAL_HTPASSWD, generated locally, never in the image).
+COPY --from=staging --chmod=0755 staging-web-entrypoint.sh /docker-entrypoint.d/05-staging-htpasswd.sh

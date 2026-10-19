@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Wrapper for the LOCAL staging stack: always this compose file + staging/.env.
+# Usage: staging/dc ps | staging/dc exec app php artisan migrate:status | ...
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+exec docker compose -f "$here/docker-compose.yml" --env-file "$here/.env" "$@"

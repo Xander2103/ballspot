@@ -1,0 +1,15 @@
+# Build context = staging worktree root. Only backend code goes into images.
+.git
+**/.DS_Store
+mobile
+docs
+backups
+staging
+backend/vendor
+backend/node_modules
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/storage
+backend/tests
+backend/database/database.sqlite

@@ -1,0 +1,5 @@
+# Build context "staging": only the config/entrypoint files are needed.
+secrets
+.env
+.qa-credentials
+*.example

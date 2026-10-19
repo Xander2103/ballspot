@@ -1,170 +1,135 @@
 # BallPicker Clubs — staging deploy, verification & rollback runbook
 
-For the **isolated local staging stack** in `staging/`. Read `docs/clubs-staging-plan.md` first. **Every step below requires
-explicit approval before it is executed for the first time.**
+For the **isolated local staging stack** in `staging/`. Read `docs/clubs-staging-plan.md` first.
 
 Hard rules:
 - Never `migrate:fresh`, `migrate:reset`, `db:wipe` or `migrate:refresh` against an existing database. The only exception is
-  §7 teardown, which deletes the staging Docker volume itself.
-- Never copy production `.env`, database dumps or storage into staging.
+  §8 teardown, which deletes the staging Docker volumes themselves.
+- Never copy production `.env`, dumps or storage into staging.
 - Never point `DB_*`, `MAIL_*` or the app's `EXPO_PUBLIC_*` at production.
-- Every artisan command runs **inside the `app` container** (`docker compose … exec app php artisan …`), never on the host, so it
-  can only reach the staging DB.
+- Artisan runs **only inside the `app` container** (`staging/dc exec app php artisan …`), never on the host.
 
+`staging/dc` = `docker compose -f staging/docker-compose.yml --env-file staging/.env` (works in zsh and bash).
+
+## Design (why there are no bind mounts)
+Docker Desktop's file sharing of `~/Documents` wedged the daemon on 2026-10-19: the `lock-directory` call timed out and no
+container could start afterwards. The stack therefore uses **no bind mounts**:
+- Backend code and `public/` are **baked into images** built from the dedicated git worktree, with `vendor` installed `--no-dev`
+  at build time.
+- The backend environment comes from `<worktree>/backend/.env` via `env_file`. The compose CLI reads it on the host; no `.env` file
+  is inside any image.
+- Storage and DB are named Docker volumes.
+- nginx config is baked in. The `/club` basic-auth line is passed as `STAGING_PORTAL_HTPASSWD`.
+
+A code change therefore means **rebuilding images** (§4).
+
+## 1. One-time preparation (done 2026-10-19)
 ```bash
-# Shorthand used below (run from the repository root)
-export DC="docker compose -f staging/docker-compose.yml --env-file staging/.env"
+git worktree add --detach ../ballspot-staging <commit>     # the branch itself is checked out in the main repo
+umask 077; mkdir -p staging/secrets
+#   staging/.env:            STAGING_DB_PASSWORD, STAGING_DB_ROOT_PASSWORD, STAGING_WORKTREE, STAGING_DIR,
+#                            STAGING_PORTAL_HTPASSWD='qa:<apr1 hash>' (single-quoted: contains $)
+#   staging/secrets/:        qa_password, basic_password, beta_code, db_password (all 0600, gitignored)
+#   staging/.qa-credentials: human-readable summary for testers (0600, gitignored)
+#   <worktree>/backend/.env: from staging/backend.env.staging.example, APP_KEY generated on the host
 ```
 
-## 1. One-time preparation
+## 2. Build + start + migrate + seed
 ```bash
-# 1a. Dedicated worktree pinned to the branch under test (keeps the main checkout untouched)
-git worktree add ../ballspot-staging feature/ballpicker-clubs
-git -C ../ballspot-staging log --oneline -1          # note the commit under test
+staging/dc build                                         # app (php 8.3-fpm + code) and web (nginx + public)
+staging/dc up -d db mailpit app scheduler web
+staging/dc ps
 
-# 1b. Compose secrets (gitignored)
-cp staging/.env.compose.example staging/.env          # fill STAGING_DB_PASSWORD / STAGING_DB_ROOT_PASSWORD
-                                                      # set STAGING_DB_IMAGE to the prod engine/version
+# Safety check BEFORE migrating — must print: staging db/ballpicker_staging mariadb
+staging/dc exec app php -r 'require "vendor/autoload.php"; $a=require "bootstrap/app.php"; $a->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); $c=config("database.default"); echo config("app.env")," ",config("database.connections.$c.host"),"/",config("database.connections.$c.database")," ",config("database.connections.$c.driver"),"\n";'
 
-# 1c. Backend .env for staging (never the production one)
-cp staging/backend.env.staging.example ../ballspot-staging/backend/.env
-#    fill DB_PASSWORD (= STAGING_DB_PASSWORD), BALLPICKER_BETA_CODE, BALLPICKER_STAGING_SEED_PASSWORD;
-#    APP_URL / BALLSPOT_WEB_URL / FRONTEND_URL after the tunnel URL is known (§2c)
+staging/dc exec app php artisan migrate:status           # first run: all Pending
+staging/dc exec app php artisan migrate --force          # plain, additive
+staging/dc exec app php artisan migrate:status | grep -c Pending   # 0
+
+# QA data — the seeder verifies the target itself (APP_ENV=staging, DB name contains "staging", only QA users, …)
+staging/dc exec -e BALLPICKER_STAGING_SEED_CONFIRM=yes -e BALLPICKER_STAGING_SEED_DRY_RUN=yes \
+  -e BALLPICKER_STAGING_SEED_PASSWORD="$(cat staging/secrets/qa_password)" app php artisan db:seed --class='Database\Seeders\ClubsStagingSeeder' --force
+staging/dc exec -e BALLPICKER_STAGING_SEED_CONFIRM=yes \
+  -e BALLPICKER_STAGING_SEED_PASSWORD="$(cat staging/secrets/qa_password)" app php artisan db:seed --class='Database\Seeders\ClubsStagingSeeder' --force
 ```
 
-## 2. Start + deploy (first time)
+## 3. Tunnel + verification
 ```bash
-# 2a. Build and start (no tunnel yet)
-$DC up -d --build db mailpit app scheduler web
-$DC ps
-
-# 2b. Dependencies, key, permissions (inside the container)
-$DC exec app composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
-$DC exec app php artisan key:generate --force          # staging-only key
-$DC exec app sh -c 'mkdir -p storage/app/public storage/app/private/clubs storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache && chown -R www-data:www-data storage bootstrap/cache'
-$DC exec app php artisan storage:link
-
-# 2c. Optional HTTPS tunnel for devices: read the https URL from the logs, then put it in the staging .env
-$DC --profile tunnel up -d tunnel
-$DC logs tunnel | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1
-#    edit ../ballspot-staging/backend/.env: APP_URL, BALLSPOT_WEB_URL, FRONTEND_URL = that URL
-$DC restart app scheduler
-
-# 2d. Safety check BEFORE migrating: the app must see the staging DB, nothing else
-$DC exec app php artisan about --only=environment,drivers
-$DC exec app php -r 'require "vendor/autoload.php"; $a=require "bootstrap/app.php"; $a->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap(); $c=config("database.default"); echo config("app.env")," ",config("database.connections.$c.host"),"/",config("database.connections.$c.database"),"\n";'
-#    expect: "staging db/ballpicker_staging"
-
-# 2e. Migrations (empty staging DB → plain migrate)
-$DC exec app php artisan migrate:status                 # all Pending on first run
-$DC exec app php artisan migrate --pretend | tail -40   # review the SQL (optional)
-$DC exec app php artisan migrate --force
-$DC exec app php artisan migrate:status | grep -c Pending   # expect 0
-
-# 2f. Content + QA data (see docs/clubs-staging-seed.md). The QA seeder runs the base content seeders itself;
-#     it refuses unless APP_ENV=staging, the DB name contains "staging", SEED_CONFIRM=yes and every user is a QA account.
-$DC exec -e BALLPICKER_STAGING_SEED_DRY_RUN=yes app php artisan db:seed --class=Database\\Seeders\\ClubsStagingSeeder --force
-$DC exec app php artisan db:seed --class=Database\\Seeders\\ClubsStagingSeeder --force
+staging/dc --profile tunnel up -d tunnel
+staging/dc logs tunnel 2>&1 | grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' | tail -1
+# put that URL in <worktree>/backend/.env (APP_URL, BALLSPOT_WEB_URL, FRONTEND_URL), then:
+staging/dc up -d --force-recreate app scheduler
+staging/smoke.sh https://<words>.trycloudflare.com       # local + tunnel + API + signed media + portal 2FA + mail isolation
 ```
+The tunnel only reaches nginx's **public allowlist server**:
+- **Allowed:** `/api/*`, `/media/clubs/*` (signed), `/storage/*` (public disk, GET only), `/privacy`, `/terms`, `/support`,
+  password-reset pages, and `/club/*` (behind basic auth `qa`, then the portal's own password and emailed code).
+- **404:** everything else, including `/admin`, `/up`, `/sanctum`, `/` and dotfiles.
 
-## 3. Smoke verification (before any device test)
-```bash
-URL=https://<tunnel-or-staging-host>
-curl -s $URL/api/health | head -c 300; echo
-curl -s $URL/api/config | grep -o '"clubs":[a-z]*'               # "clubs":true
-$DC exec app php artisan schedule:list | grep -i clubs            # competition-tick every minute, reconcile nightly
-$DC logs --tail=20 scheduler                                      # tick output, no errors
-open http://127.0.0.1:8025                                        # Mailpit: empty until the first mail
-```
-Then complete the manual smoke steps in `docs/clubs-staging-plan.md` §6: portal 2FA mail in Mailpit, a signed image loading,
-an unsigned image refused, and the device request visible in `$DC logs web`.
+Mailpit (`http://127.0.0.1:8025`) and the platform admin (`http://127.0.0.1:8088/admin`) are reachable from this Mac only.
 
 ## 4. Redeploy a newer commit
 ```bash
-# 4a. Backup first: DB dump + private/public storage, kept OUTSIDE the repo
+# 4a. Backup first (outside the repo)
 mkdir -p ~/bp-staging-backups && STAMP=$(date +%Y%m%d-%H%M%S)
-$DC exec db sh -c 'mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction ballpicker_staging' | gzip > ~/bp-staging-backups/db-$STAMP.sql.gz
-$DC exec app tar -C storage/app -czf - public private > ~/bp-staging-backups/storage-$STAMP.tgz
+staging/dc exec -T db sh -c 'mariadb-dump -uroot -p"$MARIADB_ROOT_PASSWORD" --single-transaction ballpicker_staging' | gzip > ~/bp-staging-backups/db-$STAMP.sql.gz
+staging/dc exec -T app tar -C storage/app -czf - public private > ~/bp-staging-backups/storage-$STAMP.tgz
 gunzip -t ~/bp-staging-backups/db-$STAMP.sql.gz && echo dump-ok
-
-# 4b. Update code
-git -C ../ballspot-staging fetch --all 2>/dev/null; git -C ../ballspot-staging checkout <commit-or-branch>
-$DC exec app composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
-
+# 4b. New code, new images
+git -C ../ballspot-staging checkout --detach <commit>
+staging/dc build && staging/dc up -d app scheduler web
 # 4c. Migrations with verification
-$DC exec app php artisan migrate:status | grep Pending           # what will run
-$DC exec app php artisan migrate --pretend
-$DC exec app php artisan migrate --force
-$DC exec app php artisan migrate:status | grep -c Pending        # 0
-$DC exec app php artisan view:clear && $DC restart app scheduler
+staging/dc exec app php artisan migrate:status | grep Pending
+staging/dc exec app php artisan migrate --pretend
+staging/dc exec app php artisan migrate --force
+staging/dc exec app php artisan migrate:status | grep -c Pending   # 0
 ```
-Then repeat §3.
+Then repeat §3 (`smoke.sh`).
 
-## 5. Mobile: dev build against staging (local builds, not EAS)
+## 5. Mobile — STAGING app variant (separate identity)
+`APP_VARIANT=staging` builds **BallPicker STG** with bundle id/package `be.vanmalderstudio.ballpicker.staging` and scheme
+`ballpicker-staging`. It installs next to the store app.
+- It shows an always-visible **STAGING · <api host>** label.
+- It **refuses to use the production API**. Missing or production URLs resolve to an unroutable `.invalid` host, and the label turns
+  red: "NO STAGING API CONFIGURED".
+- Production builds (`APP_VARIANT` unset) are byte-identical to before (verified with `expo config`).
+
 ```bash
 cd mobile
-export EXPO_PUBLIC_API_BASE_URL=https://<staging-host>/api
-export EXPO_PUBLIC_API_URL=https://<staging-host>/api
-export EXPO_PUBLIC_WEB_URL=https://<staging-host>
-# iOS (device connected, Xcode signing team selected on first run)
-npx expo run:ios --device
-# Android (device in USB debugging mode)
-export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"; adb devices
-npx expo run:android --device
-# Later sessions: just start Metro with the same exports
-npx expo start --dev-client
+export APP_VARIANT=staging
+export EXPO_PUBLIC_API_BASE_URL=https://<tunnel>/api EXPO_PUBLIC_API_URL=https://<tunnel>/api EXPO_PUBLIC_WEB_URL=https://<tunnel>
+npx expo prebuild --clean                                  # ios/ + android/ are gitignored (CNG); revert prebuild's package.json "scripts" edits
+# iOS simulator (debug, JS from Metro)
+npx expo run:ios --device "iPhone 17e" --no-bundler && npx expo start --port 8081
+# iOS physical device (release: JS + staging URL embedded, no Metro needed; team set in app.config.js for the staging variant)
+npx expo run:ios --device "<device name>" --configuration Release --no-bundler
+# Android (needs a JDK 17 toolchain: Homebrew openjdk@17)
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home ANDROID_HOME=$HOME/Library/Android/sdk
+npx expo run:android --device Medium_Phone_API_37.0 --no-bundler
 ```
-`expo run:*` generates the gitignored `ios/` / `android/` folders (CNG).
-
-Never start Metro without the three exports: an empty value falls back to **production**. Check the first request in
-`$DC logs -f web` before testing.
-
-Push notifications on iOS need an EAS development build with the EAS-managed APNs credentials. That is on hold until approved;
-see the plan, blocker S5.
+Push notifications need an EAS development build (approved in principle, **not triggered**). For Android, push additionally
+needs a Firebase app for the staging package.
 
 ## 6. Rollback (staging)
-Preferred, and safe for every Clubs migration:
 ```bash
-# 6a. Code back to the previous commit
-git -C ../ballspot-staging checkout <previous-commit>
-# 6b. Schema: roll back only the batch that the redeploy added (verified on MariaDB + SQLite for the 18 Clubs migrations)
-$DC exec app php artisan migrate:status | tail -25                # find the last batch number
-$DC exec app php artisan migrate:rollback --force                 # one batch
-$DC restart app scheduler
+git -C ../ballspot-staging checkout --detach <previous-commit> && staging/dc build && staging/dc up -d app scheduler web
+staging/dc exec app php artisan migrate:rollback --force        # one batch (all 18 Clubs migrations verified reversible)
 ```
-If a rollback fails or data must return to a known point, restore the backup from §4a. That replaces only the staging DB:
+If a rollback fails, or the data must return to a known point, restore the §4a backup:
 ```bash
-gunzip -c ~/bp-staging-backups/db-<STAMP>.sql.gz | $DC exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" ballpicker_staging'
-$DC exec -T app tar -C storage/app -xzf - < ~/bp-staging-backups/storage-<STAMP>.tgz
+gunzip -c ~/bp-staging-backups/db-<STAMP>.sql.gz | staging/dc exec -T db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD" ballpicker_staging'
+staging/dc exec -T app tar -C storage/app -xzf - < ~/bp-staging-backups/storage-<STAMP>.tgz
 ```
-Known limitation: the pre-sprint migration `2026_07_30_000001_add_missing_query_indexes::down()` fails on MySQL/MariaDB. Never roll
-back further than the Clubs migrations.
+Never roll back past the Clubs migrations: the pre-sprint `2026_07_30_000001::down()` fails on MySQL/MariaDB.
 
-## 7. Push QA session (only when approved)
-```bash
-# enable, test, disable — staging DB holds QA device tokens only
-sed -i '' 's/^BALLPICKER_PUSH_ENABLED=.*/BALLPICKER_PUSH_ENABLED=true/' ../ballspot-staging/backend/.env && $DC restart app scheduler
-#   … run checklist section N …
-sed -i '' 's/^BALLPICKER_PUSH_ENABLED=.*/BALLPICKER_PUSH_ENABLED=false/' ../ballspot-staging/backend/.env && $DC restart app scheduler
-$DC exec app php artisan tinker --execute='echo App\Models\PushToken::count();'   # read-only count of QA device tokens
-```
+## 7. Push QA session (only after an approved EAS development build)
+Set `BALLPICKER_PUSH_ENABLED=true` **and** remove the `EXPO_PUSH_URL` sink line in `<worktree>/backend/.env`, then
+`staging/dc up -d --force-recreate app scheduler`. Afterwards put both back.
 
 ## 8. Teardown (staging only)
 ```bash
-$DC --profile tunnel down                  # stop everything
-$DC down -v                                # ALSO deletes the staging DB + storage volumes (staging only!)
+staging/dc --profile tunnel down
+staging/dc down -v                        # deletes the staging DB + storage volumes (staging only!)
 git worktree remove ../ballspot-staging
 ```
-
-## 9. Production deploy (for later, after the P0 blockers are closed)
-This happens on the production server, following `docs/ops-runbook.md` §5.2 and `docs/clubs-release-readiness.md` §10. It needs a
-separate explicit go-ahead.
-1. Back up the DB and content.
-2. Deploy code.
-3. `migrate --force` with the flag off.
-4. Run `fix-permissions.sh`.
-5. Check the scheduler.
-6. Check mail and push.
-7. Turn the flag on.
-8. Smoke test.
-9. Ship the new app build.

@@ -1,2 +1,4 @@
 # Local secrets for the staging compose stack — never commit.
 .env
+secrets/
+.qa-credentials
