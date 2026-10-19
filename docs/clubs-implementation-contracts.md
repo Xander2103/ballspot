@@ -128,6 +128,9 @@ Rules:
 | club_last_owner | 422 |
 | club_has_history | 422 |
 | club_code_limit | 422 |
+| club_status_invalid | 422 (invalid status transition, e.g. suspend an archived club — added by Foundation) |
+| club_member_not_found | 404 (admin/portal: the target membership does not exist or is not active — added by Foundation) |
+| club_member_banned | 422 (admin add of a banned user: unban first — added by Foundation) |
 | stale_version | 409 |
 | pack_reserved_for_competition | 409 |
 | competition_not_started | 422 |
@@ -176,6 +179,8 @@ Rules:
 
 ### 3.7 Gameplay hooks
 - `App\Contracts\PackAccessGate::assertCanPlay(User, ChallengePack): void`.
+  Plus `assertCanContinue(User, ChallengePack): void` for an attempt that already exists (each guess): same access rules
+  without the reservation and pack-status checks, so in-progress attempts may finish (added by Foundation).
   - `PublicPackAccess` = active + public + `club_id` null, else 404 (identical to today).
   - `ClubPackAccess` = active member (not banned) of an active club + pack active, else `club_not_found`/`club_unavailable`.
   - Also throws `pack_reserved_for_competition` when a linked competition with `normal_play_policy=blocked` is published and not

@@ -16,7 +16,7 @@ class LeagueRoundResource extends JsonResource
                 'id'               => $challenge->id,
                 'title'            => $challenge->title,
                 'difficulty'       => $challenge->difficulty,
-                'hidden_image_url' => asset('storage/' . $challenge->hidden_image_path),
+                'hidden_image_url' => \App\Support\ChallengeImageUrl::hidden($challenge),
                 'category'         => $challenge->category ? [
                     'id'   => $challenge->category->id,
                     'name' => $challenge->category->name,

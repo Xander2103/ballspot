@@ -21,7 +21,7 @@ class ChallengePack extends Model
     protected $fillable = [
         'sport_id', 'name', 'slug', 'description', 'cover_image_path',
         'status', 'visibility', 'difficulty', 'sort_order', 'is_featured',
-        'completion_badge_id',
+        'completion_badge_id', 'club_id',
     ];
 
     protected function casts(): array
@@ -35,6 +35,25 @@ class ChallengePack extends Model
     public function sport(): BelongsTo
     {
         return $this->belongsTo(Sport::class);
+    }
+
+    /** Owning club; null = BallPicker (public catalogue) pack. */
+    public function club(): BelongsTo
+    {
+        return $this->belongsTo(Club::class);
+    }
+
+    /** Competitions this pack is linked to. */
+    public function competitions(): BelongsToMany
+    {
+        return $this->belongsToMany(ClubCompetition::class, 'club_competition_packs')
+            ->withPivot('sort_order', 'challenge_ids', 'snapshotted_at')
+            ->withTimestamps();
+    }
+
+    public function isClubPack(): bool
+    {
+        return $this->club_id !== null;
     }
 
     /** Optional trophy awarded on first completion of this pack. */
@@ -62,11 +81,35 @@ class ChallengePack extends Model
         return $this->challenges->filter(fn (Challenge $c) => $c->isReadyForDaily());
     }
 
-    /** Public + active — visible to normal app users. */
+    /**
+     * Public + active + BallPicker-owned — visible to normal app users on the
+     * public pack endpoints. Club packs (club_id set) are NEVER part of it
+     * (Clubs phase-0 hardening G2): they are only reachable through the
+     * member-only club routes.
+     */
     public function scopeVisibleToUsers(Builder $query): Builder
     {
-        return $query->where('status', self::STATUS_ACTIVE)
+        return $query->whereNull('club_id')
+            ->where('status', self::STATUS_ACTIVE)
             ->where('visibility', self::VISIBILITY_PUBLIC);
+    }
+
+    /** Explicit name for what GET /api/packs lists (same as visibleToUsers). */
+    public function scopePublicCatalog(Builder $query): Builder
+    {
+        return $query->visibleToUsers();
+    }
+
+    /** BallPicker-owned packs in any status (Trophy Room history, admin default scope). */
+    public function scopeWithoutClub(Builder $query): Builder
+    {
+        return $query->whereNull('club_id');
+    }
+
+    /** Packs of one club, any status. */
+    public function scopeForClub(Builder $query, Club|int $club): Builder
+    {
+        return $query->where('club_id', $club instanceof Club ? $club->id : $club);
     }
 
     public function coverImageUrl(): ?string

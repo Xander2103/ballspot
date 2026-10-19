@@ -37,6 +37,11 @@ class AppConfigController extends Controller
             'captcha_required'            => (bool) config('ballspot.captcha.enabled', false),
             'captcha_provider'            => (string) config('ballspot.captcha.provider', 'turnstile'),
             'captcha_site_key'            => config('ballspot.captcha.enabled', false) ? (app(\App\Services\CaptchaVerifier::class)->siteKey()) : null,
+            // Feature flags for optional areas. The app shows the Clubs tab
+            // only when features.clubs is true (the API 404s otherwise).
+            'features'                    => [
+                'clubs' => \App\Http\Middleware\EnsureFeatureEnabled::enabled('clubs'),
+            ],
         ]);
     }
 }

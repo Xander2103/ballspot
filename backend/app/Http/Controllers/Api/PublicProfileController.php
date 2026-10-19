@@ -46,7 +46,10 @@ class PublicProfileController extends Controller
             })
             ->exists();
 
+        // Global badges only: nothing club-related ever reaches a public
+        // profile (club pack trophies would leak a private club's packs).
         $earnedBadges = $user->badges()
+            ->global()
             ->orderBy('sort_order')
             ->get()
             ->map(fn ($badge) => [
@@ -79,7 +82,7 @@ class PublicProfileController extends Controller
                 ],
                 'badges' => [
                     'earned_count' => $earnedBadges->count(),
-                    'total_count'  => Badge::count(),
+                    'total_count'  => Badge::global()->count(),
                     // v1.8.8: earned trophies are public gameplay data. Safe
                     // allow-list only — no ids, no pivot spillover, no locked
                     // badges (own Trophy Room shows those).

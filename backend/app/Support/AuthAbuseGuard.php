@@ -152,6 +152,7 @@ final class AuthAbuseGuard
             $request->is('api/forgot-password'), $request->is('forgot-password')
                                                                 => ['code' => AuthError::PASSWORD_RESET_RATE_LIMITED,      'event' => 'password_reset.rate_limited'],
             $request->is('api/login/resend-code')               => ['code' => AuthError::LOGIN_2FA_RATE_LIMITED,           'event' => 'login_2fa.rate_limited'],
+            $request->is('api/clubs/join')                      => ['code' => AuthError::CLUB_JOIN_RATE_LIMITED,           'event' => 'club_join.rate_limited'],
             default                                             => ['code' => AuthError::RATE_LIMITED,                     'event' => null],
         };
     }

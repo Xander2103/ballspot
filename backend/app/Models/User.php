@@ -165,6 +165,21 @@ class User extends Authenticatable implements MustVerifyEmail, HasLocalePreferen
         return $this->hasMany(DailyChallengeGuess::class);
     }
 
+    /** Every club membership row of this user, any status (history included). */
+    public function clubMemberships(): HasMany
+    {
+        return $this->hasMany(ClubMember::class);
+    }
+
+    /** Clubs with an ACTIVE membership (any club status — callers filter archived). */
+    public function clubs(): BelongsToMany
+    {
+        return $this->belongsToMany(Club::class, 'club_members')
+            ->withPivot('role', 'status', 'joined_at', 'last_seen_at')
+            ->wherePivot('status', \App\Enums\ClubMemberStatus::Active->value)
+            ->withTimestamps();
+    }
+
     /**
      * The user's notification settings, creating a defaults row lazily the
      * first time they're read so callers never deal with a missing record.

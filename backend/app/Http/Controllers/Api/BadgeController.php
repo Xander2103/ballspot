@@ -10,20 +10,22 @@ use Illuminate\Http\Request;
 
 class BadgeController extends Controller
 {
-    // GET /api/badges — the full catalogue of virtual trophies.
+    // GET /api/badges — the full catalogue of virtual trophies. Global badges
+    // only: club pack trophies (badges.club_id set) are private to the club.
     public function index(): JsonResponse
     {
-        $badges = Badge::orderBy('sort_order')->get();
+        $badges = Badge::global()->orderBy('sort_order')->get();
 
         return response()->json(['data' => BadgeResource::collection($badges)->resolve()]);
     }
 
-    // GET /api/me/badges — every badge with earned state for the current user.
+    // GET /api/me/badges — every global badge with earned state for the
+    // current user (club trophies are shown in the club section, not here).
     public function mine(Request $request): JsonResponse
     {
         $user  = $request->user();
-        $earned = $user->badges()->get()->keyBy('id'); // pivot carries earned_at
-        $all    = Badge::orderBy('sort_order')->get();
+        $earned = $user->badges()->global()->get()->keyBy('id'); // pivot carries earned_at
+        $all    = Badge::global()->orderBy('sort_order')->get();
 
         $badges = $all->map(function (Badge $badge) use ($earned) {
             $mine = $earned->get($badge->id);

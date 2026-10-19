@@ -83,9 +83,7 @@ class DailyChallengeController extends Controller
             'id'               => $dc->challenge->id,
             'title'            => $dc->challenge->title,
             'difficulty'       => $dc->challenge->difficulty,
-            'hidden_image_url' => $dc->challenge->hidden_image_path
-                ? asset('storage/' . $dc->challenge->hidden_image_path)
-                : null,
+            'hidden_image_url' => \App\Support\ChallengeImageUrl::hidden($dc->challenge),
             'category'         => $dc->challenge->category ? [
                 'id'   => $dc->challenge->category->id,
                 'name' => $dc->challenge->category->name,
@@ -371,9 +369,7 @@ class DailyChallengeController extends Controller
             'guess_y_ratio'    => $guess->guess_y_ratio,
             'ball_x_ratio'     => $challenge->ball_x_ratio,
             'ball_y_ratio'     => $challenge->ball_y_ratio,
-            'reveal_image_url' => $challenge->original_image_path
-                ? asset('storage/' . $challenge->original_image_path)
-                : null,
+            'reveal_image_url' => \App\Support\ChallengeImageUrl::original($challenge),
             // Marker object on the result screen (the challenge's sport).
             'sport'            => $challenge->sport ? [
                 'slug'          => $challenge->sport->slug,

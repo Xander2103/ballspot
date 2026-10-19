@@ -486,6 +486,57 @@ return [
     | `ballspot:health` and /admin/diagnostics report the store, the scheduler
     | heartbeat and the user the cron runs as. docs/ops-runbook.md §5.
     */
+    /*
+    |--------------------------------------------------------------------------
+    | BallPicker Clubs (docs/clubs-architecture-plan.md)
+    |--------------------------------------------------------------------------
+    | Private clubs created by platform admins. `enabled` is the feature flag:
+    | off = the member API (/api/clubs…) and the club portal answer 404
+    | `feature_disabled`, GET /api/config reports features.clubs = false and
+    | the app hides the Clubs tab. The central admin works either way so clubs
+    | can be prepared before the app update ships.
+    |
+    | limits: per-club / per-player caps (D11). codes: invite code shape —
+    | the alphabet has no look-alikes (no 0/O, 1/I). join: request limiter
+    | `club-join` (per user / per IP) plus the FAILED-code counter that locks
+    | joining with `club_join_locked`. media: private club_private disk,
+    | GD re-encode limits, signed URL lifetime.
+    */
+    'clubs' => [
+        'enabled'  => (bool) env('BALLSPOT_CLUBS_ENABLED', false),
+        'limits'   => [
+            'max_members'             => 500,
+            'max_clubs_per_user'      => 50,
+            'max_active_codes'        => 20,
+            'max_packs'               => 100,
+            'max_competitions_active' => 10,
+        ],
+        'codes'    => [
+            'length'   => 8,
+            'alphabet' => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789',
+        ],
+        'join'     => [
+            'per_user_per_minute' => 10,
+            'per_ip_per_hour'     => 30,
+            'failures_per_hour'   => 15,
+        ],
+        'media'    => [
+            'disk'                   => 'club_private',
+            'max_kb'                 => 15360,
+            'max_edge'               => 2560,
+            'signed_url_ttl_minutes' => 60,
+            'logo_max_kb'            => 2048,
+        ],
+        'competition' => [
+            'max_attempts_cap'           => 10,
+            'default_replay_mode'        => 'single_attempt',
+            'default_normal_play_policy' => 'blocked',
+            'max_duration_days'          => 120,
+        ],
+        'pagination' => ['default' => 20, 'max' => 50],
+        'portal'     => ['two_factor_required' => true],
+    ],
+
     'rate_limiter' => [
         // Stage 1 when the limiter's cache store throws: switch the request
         // to this store and keep every limit enforced (the `cache` table —
@@ -503,6 +554,8 @@ return [
             'forgot-password', 'reset-password',
             'login', 'login-verify', 'login-resend',
             'admin-login', 'account-delete', 'export',
+            // Invite-code guessing surface (BallPicker Clubs).
+            'club-join',
         ],
 
         // false = the non-critical limiters fail closed as well (every

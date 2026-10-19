@@ -41,7 +41,7 @@
             <div class="card-body p-2">
                 @if($challenge->hidden_image_path)
                     <div class="position-relative" style="user-select:none;">
-                        <img src="{{ asset('storage/' . $challenge->hidden_image_path) }}"
+                        <img src="{{ \App\Support\ChallengeImageUrl::hidden($challenge) }}"
                              alt="Hidden image" class="img-fluid rounded w-100"
                              id="hiddenImg">
                         {{-- Ball marker shown at correct position --}}
@@ -73,7 +73,7 @@
             <div class="card-header fw-semibold">Reveal image <span class="text-muted fw-normal small">(shown after guessing)</span></div>
             <div class="card-body p-2">
                 @if($challenge->original_image_path)
-                    <img src="{{ asset('storage/' . $challenge->original_image_path) }}"
+                    <img src="{{ \App\Support\ChallengeImageUrl::original($challenge) }}"
                          alt="Reveal image" class="img-fluid rounded w-100">
                 @else
                     <div class="text-center text-muted py-5">

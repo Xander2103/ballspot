@@ -21,6 +21,16 @@ Route::post('/reset-password',  [\App\Http\Controllers\Web\PasswordResetWebContr
 Route::get('/forgot-password',  [\App\Http\Controllers\Web\PasswordResetWebController::class, 'showForgot'])->name('password.request');
 Route::post('/forgot-password', [\App\Http\Controllers\Web\PasswordResetWebController::class, 'forgot'])->name('password.email')->middleware('throttle:forgot-password');
 
+// BallPicker Clubs private media: temporary signed URLs only (403 without a
+// valid signature), minted by App\Services\Clubs\ClubMediaService::signedUrl().
+Route::get('/media/clubs/{path}', \App\Http\Controllers\ClubMediaController::class)
+    ->where('path', '.*')
+    ->middleware('signed')
+    ->name('clubs.media');
+
+// BallPicker Clubs self-service portal (feature-flagged; see the file header).
+Route::prefix('club')->middleware('feature:clubs')->group(base_path('routes/club_portal.php'));
+
 // Admin auth (unguarded)
 Route::get('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'showLogin'])->name('admin.login');
 Route::post('/admin/login', [\App\Http\Controllers\Admin\AuthController::class, 'login'])->name('admin.login.submit')->middleware('throttle:admin-login');
@@ -103,4 +113,7 @@ Route::prefix('admin')->middleware('admin')->group(function () {
         Route::post('/', [DailyChallengeAdminController::class, 'store'])->name('store');
         Route::patch('/{dailyChallenge}/status', [DailyChallengeAdminController::class, 'updateStatus'])->name('updateStatus');
     });
+
+    // BallPicker Clubs central admin (see the file header).
+    require __DIR__ . '/admin_clubs.php';
 });

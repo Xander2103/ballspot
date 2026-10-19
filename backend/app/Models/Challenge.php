@@ -13,6 +13,12 @@ class Challenge extends Model
     public const POOL_TOURNAMENT = 'tournament';
     public const POOL_PACK       = 'pack';
     public const POOL_GENERAL    = 'general';
+    /**
+     * Club content (BallPicker Clubs). Deliberately NOT in POOLS: it is never
+     * selectable for public content and never in a daily/tournament pool.
+     * A challenge is club content when club_id is set, whatever its pool.
+     */
+    public const POOL_CLUB       = 'club';
 
     public const POOLS = [self::POOL_DAILY, self::POOL_TOURNAMENT, self::POOL_PACK, self::POOL_GENERAL];
 
@@ -26,6 +32,7 @@ class Challenge extends Model
         'sport_id', 'challenge_category_id',
         'title', 'hidden_image_path', 'original_image_path',
         'ball_x_ratio', 'ball_y_ratio', 'difficulty', 'status', 'usage_pool',
+        'club_id',
     ];
 
     protected $attributes = [
@@ -46,6 +53,24 @@ class Challenge extends Model
     public function tags(): BelongsToMany { return $this->belongsToMany(Tag::class, 'challenge_tag'); }
     public function subcategories(): BelongsToMany { return $this->belongsToMany(ChallengeSubcategory::class, 'challenge_subcategory')->withTimestamps(); }
     public function packs(): BelongsToMany { return $this->belongsToMany(ChallengePack::class, 'challenge_pack_challenge')->withPivot('sort_order')->withTimestamps(); }
+    /** Owning club; null = BallPicker content. */
+    public function club(): BelongsTo { return $this->belongsTo(Club::class); }
+
+    public function isClubContent(): bool
+    {
+        return $this->club_id !== null;
+    }
+
+    /** BallPicker-owned challenges only (never club photos — G5). */
+    public function scopePublicContent(Builder $query): Builder
+    {
+        return $query->whereNull('club_id');
+    }
+
+    public function scopeForClub(Builder $query, Club|int $club): Builder
+    {
+        return $query->where('club_id', $club instanceof Club ? $club->id : $club);
+    }
 
     // ------------------------------------------------------------------
     // Fairness rules (v1.8.9)
@@ -68,7 +93,8 @@ class Challenge extends Model
     /** Pool + status filter for the Daily scheduler. Readiness is checked in PHP. */
     public function scopeDailyPool(Builder $query): Builder
     {
-        return $query->where('status', 'active')->whereIn('usage_pool', self::DAILY_POOLS);
+        // Club photos are never a Daily Challenge, whatever their pool (G5).
+        return $query->whereNull('club_id')->where('status', 'active')->whereIn('usage_pool', self::DAILY_POOLS);
     }
 
     /**
@@ -77,7 +103,8 @@ class Challenge extends Model
      */
     public function scopeTournamentEligible(Builder $query): Builder
     {
-        return $query->where('status', 'active')
+        return $query->whereNull('club_id')
+            ->where('status', 'active')
             ->whereIn('usage_pool', self::TOURNAMENT_POOLS)
             ->notDailyUsed();
     }
@@ -90,14 +117,16 @@ class Challenge extends Model
         return $this->dailyChallenges()->exists();
     }
 
+    /** Daily-capable pool AND BallPicker content — club challenges never qualify (G5). */
     public function isInDailyPool(): bool
     {
-        return in_array($this->usage_pool, self::DAILY_POOLS, true);
+        return $this->club_id === null && in_array($this->usage_pool, self::DAILY_POOLS, true);
     }
 
+    /** Tournament-capable pool AND BallPicker content — club challenges never qualify (G5). */
     public function isInTournamentPool(): bool
     {
-        return in_array($this->usage_pool, self::TOURNAMENT_POOLS, true);
+        return $this->club_id === null && in_array($this->usage_pool, self::TOURNAMENT_POOLS, true);
     }
 
     /** Challenge has everything required to be playable. */
@@ -156,7 +185,8 @@ class Challenge extends Model
     public function scopeTournamentBlocked(Builder $query): Builder
     {
         return $query->where(fn (Builder $q) => $q
-            ->where('status', '!=', 'active')
+            ->whereNotNull('club_id')
+            ->orWhere('status', '!=', 'active')
             ->orWhereNotIn('usage_pool', self::TOURNAMENT_POOLS)
             ->orWhereHas('dailyChallenges')
             ->orWhereNull('hidden_image_path')

@@ -70,7 +70,7 @@ class ChallengePackController extends Controller
             'title'            => $c->title,
             'difficulty'       => $c->difficulty,
             // SECURITY: never expose ball_x_ratio / ball_y_ratio / reveal image here.
-            'hidden_image_url' => $c->hidden_image_path ? asset('storage/' . $c->hidden_image_path) : null,
+            'hidden_image_url' => \App\Support\ChallengeImageUrl::hidden($c),
             'sport'            => $c->sport ? [
                 'slug'  => $c->sport->slug,
                 'name'  => $c->sport->name,

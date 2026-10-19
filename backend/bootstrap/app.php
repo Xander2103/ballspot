@@ -22,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'verified' => \App\Http\Middleware\EnsureEmailIsVerifiedIfRequired::class,
             // Rejects tokens of deleted (anonymized) accounts with a stable code.
             'active' => \App\Http\Middleware\EnsureAccountIsActive::class,
+            // `feature:clubs` — 404 `feature_disabled` while ballspot.clubs.enabled is off.
+            'feature' => \App\Http\Middleware\EnsureFeatureEnabled::class,
         ]);
 
         // Trust the reverse proxy / load balancer so $request->ip() reflects the
@@ -51,6 +53,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [\App\Http\Middleware\SetLocale::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // BallPicker Clubs domain failures: API → {message, code, ...extra}
+        // with the fixed status; admin / club portal → back with the `error`
+        // flash. Expected outcomes, not bugs — never reported.
+        $exceptions->dontReport(\App\Exceptions\ClubDomainException::class);
+        $exceptions->render(function (\App\Exceptions\ClubDomainException $e, Request $request) {
+            return $e->toResponse($request);
+        });
+
         // Every API 401 carries the stable `session_invalid` code so the app
         // can drop its stored token instead of sitting on a dead session. For
         // GET /api/me — the app's session check — the reason category is

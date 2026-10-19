@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -18,6 +19,11 @@ class AppServiceProvider extends ServiceProvider
                 $app->make('cache')->driver($app['config']->get('cache.limiter'))
             );
         });
+
+        // BallPicker Clubs: one membership lookup per (club, user) per request.
+        $this->app->scoped(\App\Services\Clubs\ClubAccessContext::class);
+        // Normal-track pack access: public packs vs club packs, by pack.club_id.
+        $this->app->bind(\App\Contracts\PackAccessGate::class, \App\Services\Clubs\PackAccessResolver::class);
     }
 
     public function boot(): void
@@ -27,6 +33,44 @@ class AppServiceProvider extends ServiceProvider
         \App\Support\TrustedProxies::apply();
 
         $this->configureRateLimiters();
+        $this->configureClubAuthorization();
+    }
+
+    /**
+     * BallPicker Clubs authorization (contracts §3.5). Club abilities live in
+     * App\Policies\Club*Policy and are decided by ACTIVE membership role.
+     *
+     * Platform admins (D21: every is_admin user) are granted everything only
+     * for `admin.*` abilities or while the request is in the admin area —
+     * never on the member API or the club portal, where an admin without a
+     * membership is an outsider (404) like anyone else. Abilities stay behind
+     * policies so narrower admin roles can be added later.
+     */
+    private function configureClubAuthorization(): void
+    {
+        Gate::policy(\App\Models\Club::class, \App\Policies\ClubPolicy::class);
+        Gate::policy(\App\Models\ClubCompetition::class, \App\Policies\ClubCompetitionPolicy::class);
+        Gate::policy(\App\Models\ClubInviteCode::class, \App\Policies\ClubInviteCodePolicy::class);
+        Gate::policy(\App\Models\ClubPhotoSubmission::class, \App\Policies\ClubPhotoSubmissionPolicy::class);
+
+        // Dotted abilities cannot be policy method names, so they are defined
+        // explicitly (Gate checks a model's policy first, then these).
+        Gate::define('admin.manage', [\App\Policies\ClubPolicy::class, 'adminManage']);
+        Gate::define('portal.access', [\App\Policies\ClubPolicy::class, 'portalAccess']);
+
+        Gate::before(function (\App\Models\User $user, string $ability) {
+            if (!$user->is_admin) {
+                return null;
+            }
+
+            if (str_starts_with($ability, 'admin.')) {
+                return true;
+            }
+
+            $request = $this->app->bound('request') ? $this->app['request'] : null;
+
+            return $request instanceof Request && $request->is('admin', 'admin/*') ? true : null;
+        });
     }
 
     /**
@@ -212,6 +256,20 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login-verify', function (Request $request) {
             $id = (string) ($request->input('verification_id') ?: 'none');
             return Limit::perMinute(20)->by($id . '|' . $request->ip());
+        });
+
+        // BallPicker Clubs: POST /api/clubs/join. Bounds request volume per
+        // user and per IP (config ballspot.clubs.join). The guessing gate is
+        // the FAILED-code counter (App\Services\Clubs\ClubJoinFailureCounter),
+        // which only counts codes that did not lead to a membership. In the
+        // fail_closed list: an invite-code guessing surface.
+        RateLimiter::for('club-join', function (Request $request) {
+            $cfg = (array) config('ballspot.clubs.join', []);
+
+            return [
+                Limit::perMinute(max(1, (int) ($cfg['per_user_per_minute'] ?? 10)))->by('club-join-u|' . ($request->user()?->id ?: $request->ip())),
+                Limit::perHour(max(1, (int) ($cfg['per_ip_per_hour'] ?? 30)))->by('club-join-ip|' . $request->ip()),
+            ];
         });
 
         // Resend: per verification_id+IP. The 60s cooldown is the real gate;

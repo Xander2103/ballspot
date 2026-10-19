@@ -141,6 +141,9 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::post('/rounds/{round}/guess', [RoundController::class, 'submitGuess'])->middleware('throttle:gameplay');
         Route::get('/rounds/{round}/result', [RoundController::class, 'result']);
 
+        // BallPicker Clubs member API (feature-flagged, see the file header).
+        Route::middleware('feature:clubs')->group(base_path('routes/api_clubs.php'));
+
         Route::prefix('daily')->group(function () {
             Route::get('/today', [DailyChallengeController::class, 'today']);
             Route::get('/leaderboard/weekly', [DailyChallengeController::class, 'weeklyLeaderboard']);

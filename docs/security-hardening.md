@@ -35,6 +35,7 @@ API route; stricter route-level limiters stack on top of it.
 | `admin-send` | `POST /admin/notifications` (create, which can `send_now`) and `POST /admin/notifications/{id}/send` | 10/min per admin |
 | `share` | `POST /api/share` (v1.9.12 share claim) | 10/min + 100/day per user |
 | `growth-events` | `POST /api/events` (v1.9.12 review/rate telemetry) | 30/min + 300/day per user |
+| `club-join` | `POST /api/clubs/join` (BallPicker Clubs, fail-closed) | 10/min per user + 30/hour per IP (`ballspot.clubs.join`); 429 code `club_join_rate_limited`. Plus a FAILED-code counter: 15 invalid codes/hour per user → `club_join_locked` (`ClubJoinFailureCounter`) |
 
 Read-heavy endpoints (leaderboards, packs, ranks, stats, XP events,
 notification settings) ride the global `api` limiter — high enough for normal

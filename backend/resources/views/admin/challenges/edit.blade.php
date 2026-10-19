@@ -125,7 +125,7 @@
 
             @if($challenge->hidden_image_path)
             <div id="hidden-picker" class="image-picker-container mb-1">
-                <img id="hidden-preview" src="{{ asset('storage/' . $challenge->hidden_image_path) }}" alt="Current hidden image">
+                <img id="hidden-preview" src="{{ \App\Support\ChallengeImageUrl::hidden($challenge) }}" alt="Current hidden image">
                 <div id="hidden-marker" class="ball-marker" style="
                     left:{{ $ballX * 100 }}%;
                     top:{{ $ballY * 100 }}%;"></div>
@@ -157,7 +157,7 @@
 
             @if($challenge->original_image_path)
             <div id="reveal-picker" class="image-picker-container mb-1">
-                <img id="reveal-preview" src="{{ asset('storage/' . $challenge->original_image_path) }}" alt="Current reveal image">
+                <img id="reveal-preview" src="{{ \App\Support\ChallengeImageUrl::original($challenge) }}" alt="Current reveal image">
                 <div id="reveal-marker" class="ball-marker" style="
                     left:{{ $ballX * 100 }}%;
                     top:{{ $ballY * 100 }}%;"></div>

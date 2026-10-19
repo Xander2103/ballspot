@@ -89,10 +89,13 @@ class ProfileController extends Controller
     }
 
     // GET /api/me/pack-completions — completed challenge packs for the Trophy Room.
+    // BallPicker packs only: club pack completions belong to the member-only
+    // club section (Clubs G4).
     public function packCompletions(Request $request): JsonResponse
     {
         $completions = \App\Models\PackAttempt::where('user_id', $request->user()->id)
             ->where('status', \App\Models\PackAttempt::STATUS_COMPLETED)
+            ->whereHas('pack', fn ($q) => $q->withoutClub())
             ->with(['pack:id,name,slug', 'guesses:id,pack_attempt_id,score'])
             ->orderByDesc('completed_at')
             ->limit(self::MAX_LIST_ROWS)

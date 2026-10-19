@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Contracts\PackAccessGate;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BadgeResource;
 use App\Models\Challenge;
@@ -14,7 +15,10 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class PackPlayController extends Controller
 {
-    public function __construct(private PackPlayService $play) {}
+    public function __construct(
+        private PackPlayService $play,
+        private PackAccessGate $access,
+    ) {}
 
     /**
      * POST /api/packs/{slug}/start — start a new attempt or resume the active one.
@@ -26,6 +30,7 @@ class PackPlayController extends Controller
     public function start(Request $request, string $slug): JsonResponse
     {
         $pack = $this->visiblePack($slug);
+        $this->access->assertCanPlay($request->user(), $pack);
 
         try {
             $attempt = $this->play->startOrResume($request->user(), $pack);
@@ -54,6 +59,7 @@ class PackPlayController extends Controller
     public function attempt(Request $request, string $slug): JsonResponse
     {
         $pack    = $this->visiblePack($slug);
+        $this->access->assertCanPlay($request->user(), $pack);
         $attempt = $this->play->activeOrLatest($request->user(), $pack);
 
         if (! $attempt) {
@@ -76,6 +82,13 @@ class PackPlayController extends Controller
         // but the binding is global (PackAttempt, not user-scoped), so without a
         // guard here authorization would depend solely on service internals.
         abort_unless($attempt->user_id === $request->user()->id, 403, 'This attempt does not belong to you.');
+
+        // Club packs re-check membership + club status on every guess (an
+        // attempt of a removed member or a suspended club stops here). Public
+        // packs: no extra check, exactly as before.
+        if ($attempt->pack) {
+            $this->access->assertCanContinue($request->user(), $attempt->pack);
+        }
 
         $data = $request->validate([
             'challenge_id' => ['required', 'integer'],
@@ -121,7 +134,7 @@ class PackPlayController extends Controller
                 // Safe to reveal AFTER the guess is scored.
                 'ball_x_ratio'     => (float) $challenge->ball_x_ratio,
                 'ball_y_ratio'     => (float) $challenge->ball_y_ratio,
-                'reveal_image_url' => $challenge->original_image_path ? asset('storage/' . $challenge->original_image_path) : null,
+                'reveal_image_url' => \App\Support\ChallengeImageUrl::original($challenge),
                 // Marker object on the result screen (the CHALLENGE's sport —
                 // a Mixed Sports pack has no single sport).
                 'sport'            => $challenge->sport ? [
@@ -145,7 +158,7 @@ class PackPlayController extends Controller
         ]);
     }
 
-    /** Resolve an active+public pack by slug, or 404. */
+    /** Resolve an active+public BallPicker pack by slug, or 404 (club packs never resolve here). */
     private function visiblePack(string $slug): ChallengePack
     {
         return ChallengePack::visibleToUsers()->where('slug', $slug)->firstOrFail();

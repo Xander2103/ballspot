@@ -47,6 +47,18 @@ return [
             'report' => false,
         ],
 
+        // BallPicker Clubs: club photo submissions and club challenge images.
+        // Private — never under /storage; served only through the signed
+        // `clubs.media` route (App\Services\Clubs\ClubMediaService).
+        'club_private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/clubs'),
+            'visibility' => 'private',
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

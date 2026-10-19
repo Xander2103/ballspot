@@ -24,7 +24,7 @@
         <div class="d-flex gap-1">
             @if($challenge->hidden_image_path)
                 <span class="thumb-wrap" title="Hidden image (what players see)">
-                    <img src="{{ asset('storage/' . $challenge->hidden_image_path) }}" alt="Hidden image for {{ $challenge->title }}" class="thumb" loading="lazy">
+                    <img src="{{ \App\Support\ChallengeImageUrl::hidden($challenge) }}" alt="Hidden image for {{ $challenge->title }}" class="thumb" loading="lazy">
                     <span class="thumb-tag" aria-hidden="true">H</span>
                 </span>
             @else
@@ -32,7 +32,7 @@
             @endif
             @if($challenge->original_image_path)
                 <span class="thumb-wrap" title="Reveal image (ball visible)">
-                    <img src="{{ asset('storage/' . $challenge->original_image_path) }}" alt="Reveal image for {{ $challenge->title }}" class="thumb" loading="lazy">
+                    <img src="{{ \App\Support\ChallengeImageUrl::original($challenge) }}" alt="Reveal image for {{ $challenge->title }}" class="thumb" loading="lazy">
                     <span class="thumb-tag" aria-hidden="true">R</span>
                 </span>
             @else

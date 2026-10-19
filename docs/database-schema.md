@@ -590,3 +590,34 @@ YYYYMMDD, once per calendar day) — the unique index is the anti-farming guard.
 Badges: `BadgeSeeder` seeds **42** badges as of v1.9.12 (adds first_share,
 daily_bragger, social_striker — in-app sharing only; rating the app never
 unlocks anything). Deploy: `php artisan db:seed --class=BadgeSeeder`.
+
+## BallPicker Clubs (sprint 2026-10, feature-flagged)
+
+Migrations `2026_10_20_000001` … `000014`, all additive with `hasTable`/`hasColumn`
+guards. Design: `docs/clubs-architecture-plan.md` §4; names and codes:
+`docs/clubs-implementation-contracts.md`. Behind `ballspot.clubs.enabled`
+(`BALLSPOT_CLUBS_ENABLED`, default false). Row locks are a no-op on SQLite, so the
+unique indexes below are the real concurrency guards.
+
+| Table | Purpose / key columns | Guards & indexes |
+|---|---|---|
+| `clubs` | `public_id` ULID (API id), `slug`, name, description, `logo_path` (public disk, random name), `sport_id`, `club_type`, city/region/country_code, `external_ref`, admin-only `contact_name`/`contact_email`, `timezone`, `status` active\|suspended\|archived, `join_enabled`, `settings` json (allow-listed: member_list_visibility, leaderboard_identity, default_replay_mode), `max_members`, counters `members_count`/`active_packs_count`/`live_competitions_count`, `needs_owner` (D6), suspension/archive timestamps + reasons, created/updated_by, `version` (optimistic lock) | unique public_id, slug; (status,name), (sport_id,status), (country_code,city), (status,last_activity_at), (status,members_count), (needs_owner,status), external_ref |
+| `club_invite_codes` | `code` (normalised, 8 chars, no look-alikes), label, `grants_role` member\|admin, max_uses/uses_count, expires_at, revoked_at, created/revoked_by | unique code; (club_id, revoked_at) |
+| `club_members` | club_id, user_id, `role` owner\|admin\|member, `status` active\|left\|removed\|banned (rows kept), joined_at/left_at, invite_code_id, added/removed_by, admin-only removal_reason, last_seen_at | **unique (club_id, user_id)**; (user_id,status,last_seen_at), (club_id,status,role) |
+| `challenge_packs.club_id`, `challenges.club_id` | NULL = BallPicker content | FK restrictOnDelete; (club_id, status) |
+| `badges.club_id` | per-pack trophies of club packs; NULL = global catalogue | FK restrictOnDelete; never in /api/badges, /me/badges, public profiles |
+| `pack_attempts` | no column change | new index (challenge_pack_id, status) |
+| `club_competitions` | `public_id`, club_id, name, description, stored `state` draft\|published\|cancelled\|finalized\|voided (phase derived), `starts_at`/`ends_at` UTC window [start,end), timezone, `replay_mode`, `max_attempts`, `score_rule`, `tie_break`, `normal_play_policy` blocked\|allowed, rules_locked_at, lifecycle timestamps, void_reason, participants_count, `version` | (club_id,state,starts_at), (state,ends_at), (state,starts_at) |
+| `club_competition_packs` | competition ↔ pack link, sort_order, `challenge_ids` snapshot at rule lock | unique (competition, pack); pack FK restrict |
+| `club_competition_attempts` | competition × pack × user, `attempt_number`, status active\|completed\|expired\|voided, **`active_slot`** (1 while active, NULL otherwise), challenge_ids copy, progress/score, `is_rewarded_run`, last_scored_at, void fields | **unique (competition, pack, user, attempt_number)**, **unique (competition, pack, user, active_slot)** → at most one active attempt |
+| `club_competition_attempt_guesses` | attempt_id, challenge_id, position, guess_x/y, distance, score, server `submitted_at` | **unique (attempt_id, challenge_id)**, **unique (attempt_id, position)** |
+| `club_competition_pack_results` | derived per (competition, user, pack): attempts_used, counted_attempt_id, counted/best/first score, completed, score_reached_at | unique (competition, user, pack) |
+| `club_competition_entries` | derived per (competition, user): total_score, packs_counted/completed, attempts_used, score_reached_at | unique (competition, user); ranking index (competition, total_score, score_reached_at, attempts_used) |
+| `club_competition_finishes` | final placements (club-only trophies, no XP) | unique (competition, user); user FK nullOnDelete |
+| `club_pack_reward_claims` | the one global-reward run per player per club pack: source_type pack_attempt\|competition_attempt, source_id | **unique (user_id, challenge_pack_id)** |
+| `club_photo_submissions` | private-disk photo (`disk`, `path`, mime, size, `sha256`), status pending→in_review→in_preparation→converted\|rejected, notes, rejection_reason, challenge_id, assignee/reviewer, rights_confirmed_at | club FK restrict; (club_id,status), (status,created_at), (club_id,sha256) |
+| `club_audit_events` | append-only: club_id (nullOnDelete, so `club.deleted` survives), actor_user_id, actor_kind, allow-listed `action`, subject_type/id, allow-listed `metadata` (never emails or full codes), keyed `ip_hash`, created_at | (club_id,created_at), (action,created_at), (actor_user_id,created_at), (subject_type,subject_id) |
+
+Private files live on the `club_private` disk (`storage/app/private/clubs/{club_id}/…`)
+and are served only through the temporary signed route `clubs.media`
+(`GET /media/clubs/{path}`).

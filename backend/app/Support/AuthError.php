@@ -62,6 +62,10 @@ final class AuthError
     public const VERIFICATION_RESEND_RATE_LIMITED = 'verification_resend_rate_limited';
     public const PASSWORD_RESET_RATE_LIMITED      = 'password_reset_rate_limited';
     public const LOGIN_2FA_RATE_LIMITED           = 'login_2fa_rate_limited';
+    // BallPicker Clubs: the `club-join` request limiter (POST /api/clubs/join).
+    // Rendered by the 429 handler with messages.rate_limited, so it needs no
+    // MESSAGES entry. The failed-code lock is ClubDomainException club_join_locked.
+    public const CLUB_JOIN_RATE_LIMITED           = 'club_join_rate_limited';
     // Registration CAPTCHA (feature-flagged, off by default).
     public const REGISTRATION_CAPTCHA_REQUIRED = 'registration_captcha_required';
     public const REGISTRATION_CAPTCHA_FAILED   = 'registration_captcha_failed';

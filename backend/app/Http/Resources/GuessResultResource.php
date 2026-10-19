@@ -26,9 +26,7 @@ class GuessResultResource extends JsonResource
             'guess_y_ratio' => $this->guess_y_ratio,
             'ball_x_ratio' => $challenge->ball_x_ratio,
             'ball_y_ratio' => $challenge->ball_y_ratio,
-            'reveal_image_url' => $challenge->original_image_path
-                ? asset('storage/' . $challenge->original_image_path)
-                : null,
+            'reveal_image_url' => \App\Support\ChallengeImageUrl::original($challenge),
             'rank' => $rank,
             'total_players' => $total,
             'better_than_percentage' => $betterThan,
