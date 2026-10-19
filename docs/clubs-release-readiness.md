@@ -133,8 +133,10 @@ lock immutability, snapshots, idempotent finalize, and rebuild equality.
 - Private club media is included in content backups.
 
 ## 8. Known limitations and open items
-- **Local dev database (incident):** a sub-agent ran `migrate:fresh` against the **local** `backend/database/database.sqlite` on
-  2026-10-19 and emptied it. No backup existed and production was untouched. Re-seed it locally or restore it from another machine.
+- **Local dev database (incident, corrected 2026-10-20):** a sub-agent ran `migrate:fresh` against the local
+  `backend/database/database.sqlite` on 2026-10-19, which broke the no-`migrate:fresh` rule. Follow-up investigation showed **no data
+  was lost**: the file did not exist before; its birth time equals the command, and earlier sessions report it missing. The
+  command created a new, empty schema. See `docs/clubs-staging-plan.md` §1.
 - The app has not been run on a device or against a live backend (§9).
 - Club portal 2FA depends on production mail. The fallback `clubs.portal.two_factor_required=false` exists but weakens security.
 - Signed media is streamed through PHP. Fine at launch scale; X-Accel-Redirect is a later optimisation.
@@ -175,7 +177,7 @@ lock immutability, snapshots, idempotent finalize, and rebuild equality.
 8. Update the privacy policy (club data, photos, reports) before enabling clubs for real users.
 
 ## 11. Recommended next steps
-1. Re-seed or restore the local dev DB.
+1. (No dev-DB restore needed — see the corrected incident note.) Provision isolated staging per `docs/clubs-staging-plan.md`.
 2. Review the branch; optionally run `/code-review` on it.
 3. Run the staging dry run (§10) and the device QA (§9).
 4. Fix the two pre-existing MySQL issues found during this sprint (league leaderboard string score, the `2026_07_30` rollback).

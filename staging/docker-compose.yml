@@ -1,0 +1,102 @@
+# BallPicker — isolated LOCAL staging stack for Clubs device QA.
+#
+# Everything here is staging-only: its own MariaDB volume, its own storage
+# volume, a mail sink (Mailpit) instead of a real mailer, no cron/monitor that
+# talks to production. See docs/clubs-staging-plan.md before starting it.
+#
+# The app code comes from a dedicated git worktree (default ../../ballspot-staging)
+# so day-to-day edits in this repository never change the running staging.
+#
+#   cp staging/.env.compose.example staging/.env      # edit the secrets
+#   docker compose -f staging/docker-compose.yml --env-file staging/.env up -d --build
+#
+# Nothing is published on 0.0.0.0: web, Mailpit UI and the DB listen on
+# 127.0.0.1 only. Devices reach staging through the (optional) HTTPS tunnel.
+
+name: ballpicker-staging
+
+services:
+  db:
+    image: ${STAGING_DB_IMAGE:-mariadb:11.4}   # match the production server's DB major version
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ballpicker_staging
+      MARIADB_USER: ballpicker_staging
+      MARIADB_PASSWORD: ${STAGING_DB_PASSWORD:?set STAGING_DB_PASSWORD in staging/.env}
+      MARIADB_ROOT_PASSWORD: ${STAGING_DB_ROOT_PASSWORD:?set STAGING_DB_ROOT_PASSWORD in staging/.env}
+    volumes:
+      - staging_db:/var/lib/mysql
+    ports:
+      - "127.0.0.1:${STAGING_DB_PORT:-33070}:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      retries: 10
+
+  mailpit:
+    # Every email (portal 2FA codes, verification, resets, ops alerts) lands
+    # here and nowhere else. UI: http://127.0.0.1:8025
+    image: ${STAGING_MAILPIT_IMAGE:-axllent/mailpit:v1.24.1}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${STAGING_MAILPIT_UI_PORT:-8025}:8025"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/backend
+    volumes:
+      - ${STAGING_WORKTREE:-../../ballspot-staging}/backend:/var/www/backend
+      - staging_storage:/var/www/backend/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  scheduler:
+    # Same code + env as `app`; runs the Laravel scheduler (competition tick,
+    # reconcile, daily jobs) exactly like the production www-data cron.
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www/backend
+    command: ["php", "artisan", "schedule:work"]
+    user: "www-data"
+    volumes:
+      - ${STAGING_WORKTREE:-../../ballspot-staging}/backend:/var/www/backend
+      - staging_storage:/var/www/backend/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    image: ${STAGING_NGINX_IMAGE:-nginx:1.27-alpine}
+    restart: unless-stopped
+    volumes:
+      - ${STAGING_WORKTREE:-../../ballspot-staging}/backend/public:/var/www/backend/public:ro
+      - staging_storage:/var/www/backend/storage:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:${STAGING_WEB_PORT:-8088}:80"
+    depends_on:
+      - app
+
+  tunnel:
+    # OPTIONAL HTTPS entry point for real devices (iOS blocks plain http).
+    # Only started with: --profile tunnel. Prints a random
+    # https://<words>.trycloudflare.com URL in its logs; put that URL in
+    # APP_URL / BALLSPOT_WEB_URL and in the app's EXPO_PUBLIC_* variables.
+    profiles: ["tunnel"]
+    image: ${STAGING_TUNNEL_IMAGE:-cloudflare/cloudflared:2025.8.1}
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "--url", "http://web:80"]
+    depends_on:
+      - web
+
+volumes:
+  staging_db:
+  staging_storage:
