@@ -4,7 +4,7 @@
 
 @php
     $advancedKeys = ['difficulty', 'has_reveal', 'used_as_daily', 'tournament'];
-    $filterKeys   = array_merge(['search', 'status', 'category', 'usage_pool', 'sort'], $advancedKeys);
+    $filterKeys   = array_merge(['club', 'search', 'status', 'category', 'usage_pool', 'sort'], $advancedKeys);
     $advancedOpen = request()->hasAny($advancedKeys);
     $hasFilters   = request()->hasAny(array_diff($filterKeys, ['sort']));
 
@@ -19,6 +19,8 @@
         ['label' => 'Archived',   'url' => '/admin/challenges?status=archived',     'count' => $summary['archived'],            'active' => request('status') === 'archived'],
     ];
     $sortLabels = ['newest' => 'Newest first', 'oldest' => 'Oldest first', 'title' => 'Title A–Z'];
+    // Club scope (BallPicker Clubs G6): '' = BallPicker (default), 'all', or a club id.
+    $clubScope = $scope ?? '';
 @endphp
 
 @section('content')
@@ -30,8 +32,21 @@
         <h1 class="h4 mb-0">Challenges</h1>
         <div class="text-muted small">Manage challenge images, availability and status.</div>
     </div>
-    <a href="/admin/challenges/create" class="btn btn-primary btn-sm text-nowrap">+ New Challenge</a>
+    <a href="/admin/challenges/create{{ isset($scopeClub) && $scopeClub ? '?club=' . $scopeClub->id : '' }}" class="btn btn-primary btn-sm text-nowrap">{{ isset($scopeClub) && $scopeClub ? '+ New club challenge' : '+ New Challenge' }}</a>
 </div>
+
+@if($clubScope !== '')
+<div class="alert alert-info py-2 small d-flex flex-wrap align-items-center gap-2 mb-3" data-section="club-scope">
+    <span class="badge badge-club">Club content</span>
+    @if(isset($scopeClub) && $scopeClub)
+        Showing challenges of <a href="{{ route('admin.clubs.show', $scopeClub) }}" class="fw-semibold">{{ $scopeClub->name }}</a>.
+    @else
+        Showing challenges of all clubs.
+    @endif
+    Club photos are stored privately, are only shown to club members and are never used for Daily, tournaments or public packs.
+    <a href="/admin/challenges" class="ms-auto">Back to BallPicker content</a>
+</div>
+@else
 
 {{-- Summary tiles — whole catalogue, backend counts. Pack and General are separate pools. --}}
 <div class="row g-2 mb-3" data-section="summary">
@@ -76,6 +91,9 @@
 </div>
 @endif
 
+@endif
+
+@if($clubScope === '')
 {{-- Segments: shortcuts to the most common pools --}}
 <ul class="nav admin-segments border-bottom mb-3" data-section="segments">
     @foreach($segments as $seg)
@@ -86,10 +104,21 @@
         </li>
     @endforeach
 </ul>
+@endif
 
 {{-- Filters: the common ones always visible, the rest behind "More filters" --}}
 <form method="GET" action="/admin/challenges" class="mb-3" data-section="filters">
     <div class="row g-2 align-items-center">
+        <div class="col-6 col-md-2">
+            <label for="f-club" class="visually-hidden">Scope</label>
+            <select id="f-club" name="club" class="form-select form-select-sm" onchange="this.form.submit()" title="Whose content is listed">
+                <option value="">Scope: BallPicker</option>
+                <option value="all" {{ $clubScope === 'all' ? 'selected' : '' }}>Club: all clubs ({{ $summary['club'] ?? 0 }})</option>
+                @foreach(($clubOptions ?? []) as $opt)
+                    <option value="{{ $opt->id }}" {{ $clubScope === (string) $opt->id ? 'selected' : '' }}>Club: {{ $opt->name }}</option>
+                @endforeach
+            </select>
+        </div>
         <div class="col-12 col-md-3">
             <label for="f-search" class="visually-hidden">Search challenges</label>
             <input id="f-search" type="search" name="search" value="{{ request('search') }}"

@@ -23,6 +23,9 @@
         <span class="badge bg-info text-dark" title="Excluded from all new tournaments">Used as daily</span>
     @endif
     <span class="badge bg-secondary">Pool: {{ ucfirst($challenge->usage_pool) }}</span>
+    @if($challenge->club_id)
+        <span class="badge badge-club" title="Private club content">Club: {{ $challenge->club?->name ?? '#' . $challenge->club_id }}</span>
+    @endif
     @if($challenge->isReadyForDaily())
         <span class="badge bg-success">Ready for daily challenge</span>
     @elseif($challenge->isReady())
@@ -76,7 +79,15 @@
                 </div>
             </div>
 
-            @include('admin.challenges._usage_pool', ['current' => old('usage_pool', $challenge->usage_pool), 'challenge' => $challenge])
+            @if($challenge->club_id)
+                <div class="alert alert-info py-2 small mb-3">
+                    <span class="badge badge-club">Club photo</span> Owned by
+                    <a href="{{ route('admin.clubs.show', $challenge->club_id) }}">{{ $challenge->club?->name ?? 'club #' . $challenge->club_id }}</a>.
+                    Private pool: stored on the private disk, shown only to club members, never used for Daily, tournaments or public packs.
+                </div>
+            @else
+                @include('admin.challenges._usage_pool', ['current' => old('usage_pool', $challenge->usage_pool), 'challenge' => $challenge])
+            @endif
 
             <div class="row">
                 <div class="col-md-6 mb-3">

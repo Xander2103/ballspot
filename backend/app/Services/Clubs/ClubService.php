@@ -4,6 +4,7 @@ namespace App\Services\Clubs;
 
 use App\Enums\ClubRole;
 use App\Enums\ClubStatus;
+use App\Enums\NormalPlayPolicy;
 use App\Enums\ReplayMode;
 use App\Exceptions\ClubDomainException;
 use App\Models\Badge;
@@ -13,6 +14,7 @@ use App\Models\Club;
 use App\Models\ClubAuditEvent;
 use App\Models\ClubMember;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -172,6 +174,50 @@ class ClubService
         });
     }
 
+    /**
+     * Replace (or with null remove) the club logo (D24: public disk, random
+     * name, GD re-encoded by ClubMediaService::storeLogo). Bumps `version`,
+     * writes `club.updated` with fields [logo_path]; the old file is deleted
+     * after commit.
+     */
+    public function replaceLogo(Club $club, ?UploadedFile $file, User $actor): Club
+    {
+        $media = app(ClubMediaService::class);
+        $path  = $file ? $media->storeLogo($file, $club) : null;
+
+        try {
+            return DB::transaction(function () use ($club, $path, $actor, $media) {
+                $locked = $this->lock($club);
+                $old    = $locked->logo_path;
+
+                if ($old === $path) {
+                    return $locked;
+                }
+
+                $locked->forceFill([
+                    'logo_path'          => $path,
+                    'version'            => $locked->version + 1,
+                    'updated_by_user_id' => $actor->id,
+                ])->save();
+
+                $this->audit->log($locked, 'club.updated', $actor, $locked, [
+                    'fields' => ['logo_path'],
+                ]);
+
+                if ($old) {
+                    DB::afterCommit(fn () => $media->deleteLogo($old));
+                }
+
+                return $locked;
+            });
+        } catch (\Throwable $e) {
+            if ($path) {
+                $media->deleteLogo($path);
+            }
+            throw $e;
+        }
+    }
+
     public function hasHistory(Club $club): bool
     {
         return ChallengePack::where('club_id', $club->id)->exists()
@@ -190,11 +236,19 @@ class ClubService
      * Unknown keys are ignored; invalid values throw InvalidArgumentException
      * (the FormRequest validates first). One `club.settings_changed` event
      * with before/after of the changed keys.
+     *
+     * Optional `$expectedVersion` (central admin form): a different stored
+     * version → stale_version (409). A change bumps `version` either way, so a
+     * second admin holding the old form is refused instead of overwriting.
      */
-    public function updateSettings(Club $club, array $settings, User $actor, string $actorKind): Club
+    public function updateSettings(Club $club, array $settings, User $actor, string $actorKind, ?int $expectedVersion = null): Club
     {
-        return DB::transaction(function () use ($club, $settings, $actor, $actorKind) {
+        return DB::transaction(function () use ($club, $settings, $actor, $actorKind, $expectedVersion) {
             $locked = $this->lock($club);
+
+            if ($expectedVersion !== null && (int) $locked->version !== $expectedVersion) {
+                throw new ClubDomainException(ClubDomainException::STALE_VERSION, 409);
+            }
 
             $before = $this->settingsSnapshot($locked);
 
@@ -220,7 +274,7 @@ class ClubService
                 return $locked;
             }
 
-            $locked->forceFill(['updated_by_user_id' => $actor->id])->save();
+            $locked->forceFill(['updated_by_user_id' => $actor->id, 'version' => $locked->version + 1])->save();
 
             $this->audit->log($locked, 'club.settings_changed', $actor, $locked, [
                 'before' => array_intersect_key($before, array_flip($changedKeys)),
@@ -291,6 +345,7 @@ class ClubService
                 'member_list_visibility' => in_array($value, Club::MEMBER_LIST_VISIBILITIES, true),
                 'leaderboard_identity'   => in_array($value, Club::LEADERBOARD_IDENTITIES, true),
                 'default_replay_mode'    => $value === null || ReplayMode::tryFrom((string) $value) !== null,
+                'default_normal_play_policy' => $value === null || NormalPlayPolicy::tryFrom((string) $value) !== null,
                 default                  => false,
             };
             if (!$valid) {

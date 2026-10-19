@@ -29,6 +29,7 @@ class MediaExportController extends Controller
             'preview'  => $this->export->preview($filters, 20),
             'sports'   => Sport::orderBy('sort_order')->orderBy('name')->get(),
             'packs'    => $this->export->packOptions(),
+            'clubs'    => $this->export->clubOptions(),
             'hasFilters' => $active,
             'maxFiles' => $this->export->maxFiles(),
         ]);

@@ -5,11 +5,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Challenge;
 use App\Models\ChallengeCategory;
 use App\Models\ChallengeSubcategory;
+use App\Models\Club;
+use App\Models\ClubCompetitionAttemptGuess;
 use App\Models\DailyChallenge;
 use App\Models\LeagueRound;
 use App\Models\PackAttemptGuess;
 use App\Models\Sport;
 use App\Models\Tag;
+use App\Services\Clubs\ClubContentScope;
+use App\Services\Clubs\ClubMediaService;
 use App\Support\AppLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -29,13 +33,20 @@ class ChallengeController extends Controller
     /** List sort options (query `sort`); anything else falls back to newest. */
     public const SORTS = ['newest', 'oldest', 'title'];
 
+    public function __construct(private ClubContentScope $scope, private ClubMediaService $clubMedia) {}
+
     public function index(Request $request)
     {
         $sort = in_array($request->sort, self::SORTS, true) ? $request->sort : 'newest';
 
+        // Club scope (G6): '' = BallPicker content (default), 'all' = every
+        // club, '<id>' = one club. Club photos never mix into the default list.
+        $scope = $this->scope->normalize($request->query('club'));
+
         // Shared filter set. Both sections (available + used-daily) apply the
         // same filters; they differ only by the daily-used split (v1.9.1).
-        $base = fn () => Challenge::with(['sport', 'category', 'tags', 'subcategories'])
+        $base = fn () => $this->scope->apply(Challenge::query(), $scope)
+            ->with(['sport', 'category', 'tags', 'subcategories', 'club:id,name'])
             ->withExists(['dailyChallenges as used_as_daily'])
             ->when($request->status, fn ($q, $v) => $q->where('status', $v))
             ->when($request->difficulty, fn ($q, $v) => $q->where('difficulty', $v))
@@ -94,28 +105,36 @@ class ChallengeController extends Controller
         // Summary tiles (whole catalogue, independent of the current filter).
         // Pack and General are separate pools (challenges.usage_pool holds
         // exactly one value) and are counted separately — v1.9.14.
+        // BallPicker catalogue only: club photos are never part of a pool.
         $tournamentEligibleTotal = $tournamentPool->sum();
-        $poolCounts = Challenge::selectRaw('usage_pool, COUNT(*) as c')->groupBy('usage_pool')->pluck('c', 'usage_pool');
+        $poolCounts = Challenge::publicContent()->selectRaw('usage_pool, COUNT(*) as c')->groupBy('usage_pool')->pluck('c', 'usage_pool');
         $summary = [
-            'total'               => Challenge::count(),
+            'total'               => Challenge::publicContent()->count(),
             'daily_pool'          => (int) ($poolCounts[Challenge::POOL_DAILY] ?? 0),
             'tournament_eligible' => $tournamentEligibleTotal,
             'pack'                => (int) ($poolCounts[Challenge::POOL_PACK] ?? 0),
             'general'             => (int) ($poolCounts[Challenge::POOL_GENERAL] ?? 0),
-            'used_as_daily'       => Challenge::dailyUsed()->count(),
-            'archived'            => Challenge::where('status', 'archived')->count(),
+            'used_as_daily'       => Challenge::publicContent()->dailyUsed()->count(),
+            'archived'            => Challenge::publicContent()->where('status', 'archived')->count(),
             'low_tournament'      => $tournamentEligibleTotal < self::LOW_TOURNAMENT_POOL,
+            'club'                => Challenge::whereNotNull('club_id')->count(),
         ];
 
-        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags', 'lowTournamentPools', 'summary', 'usedDaily', 'usedDailyOpen', 'sort'))->with('challenges', $query);
+        $scopeClub   = $this->scope->club($scope);
+        $clubOptions = $this->scope->clubOptions();
+
+        return view('admin.challenges.index', compact('query', 'categories', 'sports', 'tags', 'lowTournamentPools', 'summary', 'usedDaily', 'usedDailyOpen', 'sort', 'scope', 'scopeClub', 'clubOptions'))->with('challenges', $query);
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $categories = ChallengeCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $sports     = Sport::orderBy('sort_order')->get();
         $subcategories = $this->subcategoryOptions();
-        return view('admin.challenges.create', compact('categories', 'sports', 'subcategories'));
+        // ?club=<id> presets the owner (club detail → "New club challenge").
+        $presetClub  = $this->scope->club($this->scope->normalize($request->query('club')));
+        $clubOptions = $this->scope->clubOptions();
+        return view('admin.challenges.create', compact('categories', 'sports', 'subcategories', 'presetClub', 'clubOptions'));
     }
 
     public function store(Request $request)
@@ -136,22 +155,40 @@ class ChallengeController extends Controller
             'tags'                   => ['nullable', 'string', 'max:500'],
             'subcategories'          => ['nullable', 'array'],
             'subcategories.*'        => ['integer', 'exists:challenge_subcategories,id'],
+            'club_id'                => ['nullable', 'integer', 'exists:clubs,id'],
         ]);
 
         // Default to football to preserve existing behaviour.
-        $sportId    = $data['sport_id'] ?? Sport::where('slug', 'football')->value('id');
-        $hiddenPath = $request->file('hidden_image')->store('challenges/hidden', 'public');
-        $originalPath = $request->hasFile('original_image')
-            ? $request->file('original_image')->store('challenges/original', 'public')
-            : null;
+        $sportId = $data['sport_id'] ?? Sport::where('slug', 'football')->value('id');
+        $club    = !empty($data['club_id']) ? Club::find((int) $data['club_id']) : null;
+
+        if ($club) {
+            // Club photos (G1/G6): private disk, GD re-encoded (EXIF stripped),
+            // usage pool `club` — never Daily, tournaments or public packs.
+            $hiddenPath = $this->clubMedia->storeImage($request->file('hidden_image'), $club, ClubMediaService::KIND_CHALLENGE_HIDDEN)['path'];
+            try {
+                $originalPath = $request->hasFile('original_image')
+                    ? $this->clubMedia->storeImage($request->file('original_image'), $club, ClubMediaService::KIND_CHALLENGE_ORIGINAL)['path']
+                    : null;
+            } catch (\Throwable $e) {
+                $this->clubMedia->delete($hiddenPath);
+                throw $e;
+            }
+        } else {
+            $hiddenPath = $request->file('hidden_image')->store('challenges/hidden', 'public');
+            $originalPath = $request->hasFile('original_image')
+                ? $request->file('original_image')->store('challenges/original', 'public')
+                : null;
+        }
 
         $challenge = Challenge::create([
+            'club_id'                => $club?->id,
             'sport_id'               => $sportId,
             'challenge_category_id'  => $data['challenge_category_id'] ?? null,
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
             'status'                 => $data['status'],
-            'usage_pool'             => $data['usage_pool'] ?? Challenge::POOL_GENERAL,
+            'usage_pool'             => $club ? Challenge::POOL_CLUB : ($data['usage_pool'] ?? Challenge::POOL_GENERAL),
             'ball_x_ratio'           => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS),
             'ball_y_ratio'           => round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS),
             'hidden_image_path'      => $hiddenPath,
@@ -164,16 +201,17 @@ class ChallengeController extends Controller
         AppLog::event('admin.challenge_created', [
             'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
             'status' => $challenge->status, 'has_reveal' => $originalPath !== null, 'admin_user_id' => $request->user()->id,
+            'club_id' => $challenge->club_id,
         ]);
 
-        return redirect('/admin/challenges')->with('success', 'Challenge created.');
+        return redirect($club ? '/admin/challenges?club=' . $club->id : '/admin/challenges')->with('success', $club ? "Club challenge created for \"{$club->name}\" (private to its members)." : 'Challenge created.');
     }
 
     public function edit(Challenge $challenge)
     {
         $categories = ChallengeCategory::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         $sports     = Sport::orderBy('sort_order')->get();
-        $challenge->load('tags', 'subcategories');
+        $challenge->load('tags', 'subcategories', 'club:id,name');
         $subcategories = $this->subcategoryOptions();
         return view('admin.challenges.edit', compact('challenge', 'categories', 'sports', 'subcategories'));
     }
@@ -203,13 +241,31 @@ class ChallengeController extends Controller
             return back()->withErrors(['status' => 'Cannot activate a challenge without a hidden image.'])->withInput();
         }
 
-        if ($request->hasFile('hidden_image')) {
-            if ($challenge->hidden_image_path) Storage::disk('public')->delete($challenge->hidden_image_path);
-            $data['hidden_image_path'] = $request->file('hidden_image')->store('challenges/hidden', 'public');
-        }
-        if ($request->hasFile('original_image')) {
-            if ($challenge->original_image_path) Storage::disk('public')->delete($challenge->original_image_path);
-            $data['original_image_path'] = $request->file('original_image')->store('challenges/original', 'public');
+        // Ownership never changes after creation (club photos never become
+        // public); a submitted club_id is ignored.
+        if ($challenge->club_id !== null) {
+            $club = $challenge->club()->firstOrFail();
+            if ($request->hasFile('hidden_image')) {
+                $data['hidden_image_path'] = $this->clubMedia->storeImage($request->file('hidden_image'), $club, ClubMediaService::KIND_CHALLENGE_HIDDEN)['path'];
+            }
+            if ($request->hasFile('original_image')) {
+                $data['original_image_path'] = $this->clubMedia->storeImage($request->file('original_image'), $club, ClubMediaService::KIND_CHALLENGE_ORIGINAL)['path'];
+            }
+            foreach (['hidden_image_path', 'original_image_path'] as $column) {
+                if (isset($data[$column]) && $challenge->{$column}) {
+                    $this->clubMedia->delete($challenge->{$column});
+                }
+            }
+            $data['usage_pool'] = Challenge::POOL_CLUB;
+        } else {
+            if ($request->hasFile('hidden_image')) {
+                if ($challenge->hidden_image_path) Storage::disk('public')->delete($challenge->hidden_image_path);
+                $data['hidden_image_path'] = $request->file('hidden_image')->store('challenges/hidden', 'public');
+            }
+            if ($request->hasFile('original_image')) {
+                if ($challenge->original_image_path) Storage::disk('public')->delete($challenge->original_image_path);
+                $data['original_image_path'] = $request->file('original_image')->store('challenges/original', 'public');
+            }
         }
 
         $challenge->update([
@@ -233,9 +289,10 @@ class ChallengeController extends Controller
             'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
             'status' => $challenge->status, 'new_hidden_image' => $request->hasFile('hidden_image'),
             'new_reveal_image' => $request->hasFile('original_image'), 'admin_user_id' => $request->user()->id,
+            'club_id' => $challenge->club_id,
         ]);
 
-        return redirect('/admin/challenges')->with('success', 'Challenge updated.');
+        return redirect($challenge->club_id ? '/admin/challenges?club=' . $challenge->club_id : '/admin/challenges')->with('success', 'Challenge updated.');
     }
 
     /**
@@ -337,6 +394,13 @@ class ChallengeController extends Controller
     {
         $data = $request->validate(['date' => 'required|date']);
 
+        // Club photos are private to the club: never a Daily (G5, AT-ISO-02).
+        if ($challenge->club_id !== null) {
+            AppLog::warn('admin.set_as_daily_refused', ['challenge_id' => $challenge->id, 'reason' => 'club_content', 'admin_user_id' => $request->user()->id]);
+
+            return back()->with('error', "\"{$challenge->title}\" is a club challenge. Club photos are private to their club and can never be scheduled as a Daily.");
+        }
+
         if (!$challenge->isReadyForDaily()) {
             return back()->with('error', "Challenge \"{$challenge->title}\" is not ready for daily use. It must be active and have a hidden image and ball position.");
         }
@@ -384,6 +448,7 @@ class ChallengeController extends Controller
             'daily'      => $challenge->dailyChallenges()->exists(),
             'tournament' => LeagueRound::where('challenge_id', $challenge->id)->exists(),
             'pack'       => PackAttemptGuess::where('challenge_id', $challenge->id)->exists(),
+            'competition' => ClubCompetitionAttemptGuess::where('challenge_id', $challenge->id)->exists(),
         ]));
 
         if ($usedIn !== []) {
@@ -399,9 +464,17 @@ class ChallengeController extends Controller
             );
         }
 
-        Storage::disk('public')->delete($challenge->hidden_image_path);
-        if ($challenge->original_image_path) Storage::disk('public')->delete($challenge->original_image_path);
+        // Club photos live on the private club disk (never /storage).
+        $clubId = $challenge->club_id;
         $challenge->delete();
+        if ($clubId !== null) {
+            foreach ([$challenge->hidden_image_path, $challenge->original_image_path] as $path) {
+                if ($path) $this->clubMedia->delete($path);
+            }
+        } else {
+            Storage::disk('public')->delete($challenge->hidden_image_path);
+            if ($challenge->original_image_path) Storage::disk('public')->delete($challenge->original_image_path);
+        }
 
         AppLog::warn('admin.challenge_deleted', [
             'challenge_id'  => $challenge->id,

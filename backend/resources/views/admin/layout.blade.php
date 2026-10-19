@@ -75,6 +75,24 @@
         .table-challenges { font-size: .875rem; }
         .table-challenges td { vertical-align: middle; }
         .table-challenges .challenge-meta { white-space: nowrap; }
+
+        /* ---- BallPicker Clubs (B2) -------------------------------------- */
+        .bg-pool-club { background: #dbe9ff !important; color: #0a3a7a; }
+        .badge-club { background: #e7f0ff; color: #0a3a7a; border: 1px solid #b6d0fb; font-weight: 600; }
+        .badge-suspended { background: #fff3cd; color: #664d03; border: 1px solid #ffe69c; }
+        .badge-needs-owner { background: #f8d7da; color: #842029; }
+        .club-logo { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: #e9ecef; flex: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #495057; }
+        .club-logo-lg { width: 64px; height: 64px; border-radius: 12px; font-size: 1.5rem; }
+        .table-clubs { font-size: .875rem; }
+        .table-clubs td { vertical-align: middle; }
+        .table-clubs tbody tr:hover td { background: #f1f5fb; }
+        .club-name { color: var(--admin-navy-text); font-weight: 600; text-decoration: none; }
+        .club-name:hover, .club-name:focus-visible { color: var(--admin-blue); text-decoration: underline; }
+        .club-tabs .nav-link { color: var(--admin-navy-text); }
+        .club-tabs .nav-link.active { font-weight: 700; color: var(--admin-blue); }
+        .code-value { font-family: SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .08em; font-weight: 600; }
+        dl.club-facts dt { font-weight: 500; color: #6c757d; font-size: .8rem; }
+        dl.club-facts dd { margin-bottom: .5rem; }
         .table-challenges tbody tr:hover td { background: #f1f5fb; }
     </style>
 </head>
@@ -91,6 +109,15 @@
             ['label' => 'Subcategories', 'url' => '/admin/subcategories', 'match' => 'admin/subcategories*'],
             ['label' => 'Packs',         'url' => '/admin/packs',         'match' => 'admin/packs*'],
             ['label' => 'Sports',        'url' => '/admin/sports',        'match' => 'admin/sports*'],
+        ]],
+        // BallPicker Clubs (B2). Photo review shows the open-submission count;
+        // rescue() keeps every admin page up if the clubs tables are missing.
+        'clubs' => ['label' => 'Clubs', 'url' => '/admin/clubs', 'match' => ['admin/clubs', 'admin/clubs/*', 'admin/club-competitions*', 'admin/club-photos*', 'admin/club-audit*'], 'pages' => [
+            ['label' => 'Clubs',        'url' => '/admin/clubs',             'match' => 'admin/clubs*'],
+            ['label' => 'Competitions', 'url' => '/admin/club-competitions', 'match' => 'admin/club-competitions*'],
+            ['label' => 'Photo review', 'url' => '/admin/club-photos',       'match' => 'admin/club-photos*',
+             'badge' => request()->is('admin/clubs*', 'admin/club-*') ? (int) rescue(fn () => \App\Models\ClubPhotoSubmission::query()->open()->count(), 0, false) : 0],
+            ['label' => 'Audit log',    'url' => '/admin/club-audit',        'match' => 'admin/club-audit*'],
         ]],
         'game' => ['label' => 'Game', 'url' => '/admin/daily', 'match' => ['admin/daily*', 'admin/competition*'], 'pages' => [
             ['label' => 'Daily',       'url' => '/admin/daily',       'match' => 'admin/daily*'],
@@ -137,7 +164,7 @@
         <span class="admin-subnav-group">{{ $activeGroup['label'] }}</span>
         @foreach($activeGroup['pages'] as $page)
             @php $pageActive = request()->is($page['match']); @endphp
-            <a class="admin-subnav-link {{ $pageActive ? 'active' : '' }}" href="{{ $page['url'] }}" @if($pageActive) aria-current="page" @endif>{{ $page['label'] }}</a>
+            <a class="admin-subnav-link {{ $pageActive ? 'active' : '' }}" href="{{ $page['url'] }}" @if($pageActive) aria-current="page" @endif>{{ $page['label'] }}@if(!empty($page['badge']))<span class="badge rounded-pill bg-danger ms-1" title="{{ $page['badge'] }} open">{{ $page['badge'] }}</span>@endif</a>
         @endforeach
     </div>
 </nav>
@@ -167,5 +194,6 @@
     @yield('content')
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmE5DOdR8fGOABGJxGBnI3VJiS4" crossorigin="anonymous"></script>
+@stack('scripts')
 </body>
 </html>

@@ -16,6 +16,19 @@
 <form method="GET" action="{{ route('admin.media-export.index') }}" class="card mb-3">
     <div class="card-body">
         <div class="row g-2">
+            <div class="col-12">
+                <label class="form-label small text-secondary mb-1" for="mx-club">Content owner</label>
+                <select id="mx-club" name="club" class="form-select form-select-sm" style="max-width: 28rem;">
+                    <option value="">BallPicker content only (default — club photos excluded)</option>
+                    <option value="all" {{ $filters['club'] === 'all' ? 'selected' : '' }}>Club content: all clubs</option>
+                    @foreach($clubs as $club)
+                        <option value="{{ $club->id }}" {{ (string) $filters['club'] === (string) $club->id ? 'selected' : '' }}>Club content: {{ $club->name }}</option>
+                    @endforeach
+                </select>
+                @if($filters['club'] !== '')
+                    <div class="form-text text-warning-emphasis">Club photos are private to their club. Export them only for that club's own use.</div>
+                @endif
+            </div>
             <div class="col-md-3">
                 <label class="form-label small text-secondary mb-1">Sport</label>
                 <select name="sport" class="form-select form-select-sm">
@@ -68,7 +81,7 @@
                     <option value="any"  {{ $filters['pack'] === 'any'  ? 'selected' : '' }}>In any pack</option>
                     <option value="none" {{ $filters['pack'] === 'none' ? 'selected' : '' }}>Not in any pack</option>
                     @foreach($packs as $pack)
-                        <option value="{{ $pack->id }}" {{ (string) $filters['pack'] === (string) $pack->id ? 'selected' : '' }}>Pack: {{ $pack->name }}</option>
+                        <option value="{{ $pack->id }}" {{ (string) $filters['pack'] === (string) $pack->id ? 'selected' : '' }}>Pack: {{ $pack->name }}{{ $pack->club_id ? ' (club: ' . ($pack->club?->name ?? '#' . $pack->club_id) . ')' : '' }}</option>
                     @endforeach
                 </select>
             </div>

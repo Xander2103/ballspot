@@ -14,6 +14,23 @@
         <form action="/admin/challenges" method="POST" enctype="multipart/form-data" id="challenge-form">
             @csrf
 
+            {{-- Owner (BallPicker Clubs G6): BallPicker content or a private club photo. Fixed after creation. --}}
+            @php $ownerClub = (string) old('club_id', $presetClub?->id ?? ''); @endphp
+            <div class="mb-3">
+                <label for="club_id" class="form-label fw-semibold">Owner</label>
+                <select id="club_id" name="club_id" class="form-select @error('club_id') is-invalid @enderror">
+                    <option value="">BallPicker (public catalogue)</option>
+                    @foreach($clubOptions as $opt)
+                        <option value="{{ $opt->id }}" {{ $ownerClub === (string) $opt->id ? 'selected' : '' }}>Club: {{ $opt->name }}{{ $opt->status->value !== 'active' ? ' (' . $opt->status->value . ')' : '' }}</option>
+                    @endforeach
+                </select>
+                <div class="form-text" id="club-owner-hint" @if($ownerClub === '') style="display:none" @endif>
+                    <span class="badge badge-club">Club photo</span> Stored privately (re-encoded, EXIF removed), shown only to the club's members,
+                    never used for Daily, tournaments or public packs. The owner cannot be changed later.
+                </div>
+                @error('club_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+
             <div class="mb-3">
                 <label for="title" class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
                 <input type="text" id="title" name="title" class="form-control @error('title') is-invalid @enderror"
@@ -45,7 +62,9 @@
                 </div>
             </div>
 
-            @include('admin.challenges._usage_pool', ['current' => old('usage_pool', \App\Models\Challenge::POOL_GENERAL)])
+            <div id="usage-pool-block" @if($ownerClub !== '') style="display:none" @endif>
+                @include('admin.challenges._usage_pool', ['current' => old('usage_pool', \App\Models\Challenge::POOL_GENERAL)])
+            </div>
 
             <div class="row">
                 <div class="col-md-6 mb-3">
@@ -246,6 +265,14 @@
             reader.readAsDataURL(file);
         });
     }
+
+    // Club owner: the usage pool does not apply (always the private club pool).
+    var owner = document.getElementById('club_id');
+    if (owner) owner.addEventListener('change', function () {
+        var club = owner.value !== '';
+        document.getElementById('usage-pool-block').style.display = club ? 'none' : '';
+        document.getElementById('club-owner-hint').style.display = club ? '' : 'none';
+    });
 
     setupFileInput('hidden_image',   'hidden-picker-wrap', 'hidden-preview', 'hidden-marker');
     setupFileInput('original_image', 'reveal-picker-wrap', 'reveal-preview', 'reveal-marker');

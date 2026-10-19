@@ -9,8 +9,10 @@
         \App\Models\Challenge::POOL_TOURNAMENT => 'Tournament — may only be drawn into tournament rounds',
         \App\Models\Challenge::POOL_PACK       => 'Pack only — curated pack content, never auto-selected for Daily or tournaments',
         \App\Models\Challenge::POOL_GENERAL    => 'General — eligible for Daily and tournaments until used as a Daily',
+        \App\Models\Challenge::POOL_CLUB       => 'Club — private to the club\'s members; never in Daily, tournaments or public packs',
     ];
-    $showEligibility = !in_array($challenge->usage_pool, [\App\Models\Challenge::POOL_DAILY, \App\Models\Challenge::POOL_PACK], true) && !$challenge->used_as_daily;
+    $isClub = $challenge->club_id !== null;
+    $showEligibility = !$isClub && !in_array($challenge->usage_pool, [\App\Models\Challenge::POOL_DAILY, \App\Models\Challenge::POOL_PACK], true) && !$challenge->used_as_daily;
     $eligClass = $elig['eligible'] ? 'badge-soft-ok' : 'badge-soft-warn';
     $missing = [];
     if (empty($challenge->hidden_image_path)) $missing[] = 'hidden image';
@@ -45,6 +47,9 @@
         <div class="text-muted small challenge-meta">
             {{ $challenge->category?->name ?? '—' }}
             @if($challenge->sport)<span class="text-muted"> · {{ $challenge->sport->name }}</span>@endif
+            @if($isClub)
+                <span class="badge badge-club ms-1" title="Private club content">Club: {{ $challenge->club?->name ?? '#' . $challenge->club_id }}</span>
+            @endif
             @if($challenge->isDemoContent())
                 <span class="badge badge-soft-warn ms-1" title="This is placeholder demo content">Demo</span>
             @endif

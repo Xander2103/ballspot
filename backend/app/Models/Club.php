@@ -6,6 +6,7 @@ use App\Enums\ClubMemberStatus;
 use App\Enums\ClubRole;
 use App\Enums\ClubStatus;
 use App\Enums\ClubType;
+use App\Enums\NormalPlayPolicy;
 use App\Enums\ReplayMode;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -38,6 +39,8 @@ class Club extends Model
         'leaderboard_identity'   => 'username',
         // null = config('ballspot.clubs.competition.default_replay_mode').
         'default_replay_mode'    => null,
+        // D15 default for new competitions; null = config('ballspot.clubs.competition.default_normal_play_policy').
+        'default_normal_play_policy' => null,
     ];
 
     public const MEMBER_LIST_VISIBILITIES = ['admins', 'members'];
@@ -217,6 +220,9 @@ class Club extends Model
 
         if ($key === 'default_replay_mode' && $value === null) {
             $value = (string) config('ballspot.clubs.competition.default_replay_mode', ReplayMode::SingleAttempt->value);
+        }
+        if ($key === 'default_normal_play_policy' && $value === null) {
+            $value = (string) config('ballspot.clubs.competition.default_normal_play_policy', NormalPlayPolicy::Blocked->value);
         }
 
         return $value;

@@ -1,5 +1,31 @@
 {{-- Shared pack detail fields. $pack may be null (create). --}}
 <div class="row g-3">
+    {{-- Owner (BallPicker Clubs): chosen at creation, fixed afterwards. --}}
+    @if(($pack ?? null) === null)
+        @php $ownerClub = (string) old('club_id', ($presetClub ?? null)?->id ?? ''); @endphp
+        <div class="col-12">
+            <label for="club_id" class="form-label fw-semibold">Owner</label>
+            <select id="club_id" name="club_id" class="form-select @error('club_id') is-invalid @enderror">
+                <option value="">BallPicker (public catalogue)</option>
+                @foreach(($clubOptions ?? []) as $opt)
+                    <option value="{{ $opt->id }}" {{ $ownerClub === (string) $opt->id ? 'selected' : '' }}>Club: {{ $opt->name }}{{ $opt->status->value !== 'active' ? ' (' . $opt->status->value . ')' : '' }}</option>
+                @endforeach
+            </select>
+            <div class="form-text">A club pack is private to the club's members and can mix the club's own challenges with BallPicker challenges. The owner cannot be changed later.</div>
+            @error('club_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
+    @else
+        <div class="col-12">
+            <span class="form-label fw-semibold d-block">Owner</span>
+            @if($pack->club_id)
+                <a href="{{ route('admin.clubs.show', ['club' => $pack->club_id, 'tab' => 'packs']) }}" class="badge badge-club text-decoration-none">Club: {{ $pack->club?->name ?? '#' . $pack->club_id }}</a>
+                <span class="small text-muted ms-1">Private club pack — its trophy is a club trophy, never in the global badge catalogue.</span>
+            @else
+                <span class="badge badge-soft">BallPicker</span> <span class="small text-muted ms-1">Public catalogue pack — BallPicker challenges only.</span>
+            @endif
+        </div>
+    @endif
+
     <div class="col-md-8">
         <label for="name" class="form-label fw-semibold">Name <span class="text-danger">*</span></label>
         <input type="text" id="name" name="name" class="form-control @error('name') is-invalid @enderror"

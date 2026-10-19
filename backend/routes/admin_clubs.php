@@ -17,6 +17,12 @@
 | admin.club-audit.*.
 */
 
+use App\Http\Controllers\Admin\Clubs\ClubAuditController;
+use App\Http\Controllers\Admin\Clubs\ClubCompetitionController;
+use App\Http\Controllers\Admin\Clubs\ClubController;
+use App\Http\Controllers\Admin\Clubs\ClubInviteCodeController;
+use App\Http\Controllers\Admin\Clubs\ClubMemberController;
+use App\Http\Controllers\Admin\Clubs\ClubPhotoController;
 use Illuminate\Support\Facades\Route;
 
 // -------------------------------------------------------------------------
@@ -24,17 +30,57 @@ use Illuminate\Support\Facades\Route;
 // settings, suspend/archive/reactivate, delete-if-empty, members, invite
 // codes + QR print, packs preset, audit tab, stats.
 // -------------------------------------------------------------------------
+// {club} binds by id (stable across renames); {member} and {inviteCode} are
+// scoped to the club (another club's row → 404).
+Route::prefix('clubs')->name('admin.clubs.')->whereNumber('club')->group(function () {
+    Route::get('/', [ClubController::class, 'index'])->name('index');
+    Route::get('create', [ClubController::class, 'create'])->name('create');
+    Route::post('/', [ClubController::class, 'store'])->name('store');
+
+    Route::get('{club}', [ClubController::class, 'show'])->name('show');
+    Route::get('{club}/edit', [ClubController::class, 'edit'])->name('edit');
+    Route::put('{club}', [ClubController::class, 'update'])->name('update');
+    Route::put('{club}/settings', [ClubController::class, 'updateSettings'])->name('settings');
+    Route::post('{club}/suspend', [ClubController::class, 'suspend'])->name('suspend');
+    Route::post('{club}/archive', [ClubController::class, 'archive'])->name('archive');
+    Route::post('{club}/reactivate', [ClubController::class, 'reactivate'])->name('reactivate');
+    Route::delete('{club}', [ClubController::class, 'destroy'])->name('destroy');
+    // "New club pack" → the existing pack form with the club preset.
+    Route::get('{club}/packs/create', [ClubController::class, 'createPack'])->name('packs.create');
+
+    Route::scopeBindings()->group(function () {
+        Route::get('{club}/members', [ClubMemberController::class, 'index'])->name('members.index');
+        Route::post('{club}/members', [ClubMemberController::class, 'store'])->name('members.store');
+        Route::patch('{club}/members/{member}', [ClubMemberController::class, 'update'])->name('members.update');
+        Route::post('{club}/members/{member}/remove', [ClubMemberController::class, 'remove'])->name('members.remove');
+        Route::post('{club}/members/{member}/ban', [ClubMemberController::class, 'ban'])->name('members.ban');
+        Route::post('{club}/members/{member}/unban', [ClubMemberController::class, 'unban'])->name('members.unban');
+        Route::post('{club}/members/{member}/reactivate', [ClubMemberController::class, 'reactivate'])->name('members.reactivate');
+        Route::post('{club}/transfer-ownership', [ClubMemberController::class, 'transferOwnership'])->name('transfer-ownership');
+
+        Route::get('{club}/codes', [ClubInviteCodeController::class, 'index'])->name('codes.index');
+        Route::post('{club}/codes', [ClubInviteCodeController::class, 'store'])->name('codes.store');
+        Route::post('{club}/codes/{inviteCode}/revoke', [ClubInviteCodeController::class, 'revoke'])->name('codes.revoke');
+        Route::post('{club}/codes/{inviteCode}/regenerate', [ClubInviteCodeController::class, 'regenerate'])->name('codes.regenerate');
+        Route::get('{club}/codes/{inviteCode}/print', [ClubInviteCodeController::class, 'print'])->name('codes.print');
+    });
+});
 
 // -------------------------------------------------------------------------
 // Admin competitions (C1 — Competitions): per-club editor + publish/cancel/
 // void/extend/rebuild, attempt void, cross-club list admin.club-competitions.*.
 // -------------------------------------------------------------------------
+// B2 placeholder (route name stable): C1 replaces the controller body + view.
+Route::get('club-competitions', [ClubCompetitionController::class, 'index'])->name('admin.club-competitions.index');
 
 // -------------------------------------------------------------------------
 // Admin photos (D1 — Photos): global review queue admin.club-photos.*,
 // upload on behalf of a club, assign / prepare / convert / reject.
 // -------------------------------------------------------------------------
+// B2 placeholder (route name stable): D1 replaces the controller body + view.
+Route::get('club-photos', [ClubPhotoController::class, 'index'])->name('admin.club-photos.index');
 
 // -------------------------------------------------------------------------
 // Global audit log (B2): admin.club-audit.index.
 // -------------------------------------------------------------------------
+Route::get('club-audit', [ClubAuditController::class, 'index'])->name('admin.club-audit.index');

@@ -4,7 +4,7 @@
 
 @section('content')
 <div class="mb-3">
-    <a href="/admin/packs" class="text-muted small">&larr; Back to Packs</a>
+    <a href="/admin/packs{{ $pack->club_id ? '?club=' . $pack->club_id : '' }}" class="text-muted small">&larr; Back to Packs</a>
 </div>
 <h1 class="h3 mb-4">Edit Pack — {{ $pack->name }}</h1>
 
@@ -13,6 +13,7 @@
         <form action="/admin/packs/{{ $pack->id }}" method="POST" enctype="multipart/form-data">
             @method('PUT')
             @csrf
+            @error('challenges')<div class="alert alert-danger py-2 small">{{ $message }}</div>@enderror
             @include('admin.packs._fields')
 
             <hr class="my-4">
@@ -20,6 +21,7 @@
             <p class="text-muted small mb-2">
                 Selection order sets pack order. Detaching a challenge never deletes it or its image.
                 @if($pack->sport_id)Only {{ $pack->sport->name ?? 'this sport' }}'s challenges are listed.@endif
+                @if($pack->club_id)Club challenges of {{ $pack->club?->name ?? 'this club' }} are listed first, then BallPicker challenges.@else Club challenges are never listed: they stay private to their club.@endif
             </p>
 
             @if($available->isEmpty())
@@ -28,7 +30,7 @@
                 <select name="challenges[]" multiple size="12" class="form-select">
                     @foreach($available as $ch)
                         <option value="{{ $ch->id }}" {{ $selected->contains($ch->id) ? 'selected' : '' }}>
-                            {{ $ch->title }} — {{ ucfirst($ch->difficulty) }} / {{ ucfirst($ch->status) }} [{{ ucfirst($ch->usage_pool) }} pool]{{ $ch->isReadyForDaily() ? '' : ' (not ready)' }}
+                            {{ $ch->club_id ? '[Club] ' : '' }}{{ $ch->title }} — {{ ucfirst($ch->difficulty) }} / {{ ucfirst($ch->status) }} [{{ ucfirst($ch->usage_pool) }} pool]{{ $ch->isReadyForDaily() ? '' : ' (not ready)' }}
                         </option>
                     @endforeach
                 </select>

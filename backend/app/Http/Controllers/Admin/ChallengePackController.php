@@ -6,57 +6,103 @@ use App\Http\Controllers\Controller;
 use App\Models\Badge;
 use App\Models\Challenge;
 use App\Models\ChallengePack;
+use App\Models\Club;
 use App\Models\Sport;
+use App\Services\Clubs\ClubAuditLogger;
+use App\Services\Clubs\ClubContentScope;
+use App\Services\Clubs\ClubMembershipService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
+/**
+ * Admin packs. BallPicker Clubs (G6): a pack is either BallPicker (club_id
+ * NULL, public catalogue) or a club pack (private to members). The owner is
+ * chosen at creation and never changes. Invariants (server-side, see
+ * ClubContentScope): public packs hold BallPicker challenges only; club packs
+ * hold their own club's challenges plus BallPicker challenges (D4). A club
+ * pack's trophy badge carries badges.club_id (never in global catalogues).
+ * Club pack changes are written to the club audit trail.
+ */
 class ChallengePackController extends Controller
 {
-    public function index()
+    public function __construct(
+        private ClubContentScope $scope,
+        private ClubAuditLogger $audit,
+        private ClubMembershipService $memberships,
+    ) {}
+
+    public function index(Request $request)
     {
-        $packs = ChallengePack::with('sport')
+        $scope = $this->scope->normalize($request->query('club'));
+
+        $packs = $this->scope->apply(ChallengePack::query(), $scope)
+            ->with(['sport', 'club:id,name'])
             ->withCount('challenges')
             ->orderBy('sort_order')
             ->orderBy('name')
-            ->paginate(25);
+            ->paginate(25)
+            ->withQueryString();
 
-        return view('admin.packs.index', compact('packs'));
+        return view('admin.packs.index', [
+            'packs'       => $packs,
+            'scope'       => $scope,
+            'scopeClub'   => $this->scope->club($scope),
+            'clubOptions' => $this->scope->clubOptions(),
+            'clubPackCount' => ChallengePack::whereNotNull('club_id')->count(),
+        ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
         return view('admin.packs.create', [
-            'sports' => Sport::orderBy('name')->get(),
+            'sports'      => Sport::orderBy('name')->get(),
+            // ?club=<id> presets the owner (club detail → "New club pack").
+            'presetClub'  => $this->scope->club($this->scope->normalize($request->query('club'))),
+            'clubOptions' => $this->scope->clubOptions(),
         ]);
     }
 
     public function store(Request $request)
     {
         $data = $this->validated($request, null);
+        $club = !empty($data['club_id']) ? Club::find((int) $data['club_id']) : null;
 
-        $pack = ChallengePack::create([
-            'sport_id'         => $data['sport_id'] ?? null,
-            'name'             => $data['name'],
-            'slug'             => $this->uniqueSlug($data['slug'] ?? $data['name'], null),
-            'description'      => $data['description'] ?? null,
-            'status'           => $data['status'],
-            'visibility'       => $data['visibility'],
-            'difficulty'       => $data['difficulty'] ?? null,
-            'sort_order'       => $data['sort_order'] ?? 0,
-            'is_featured'      => $request->boolean('is_featured'),
-            'cover_image_path' => $request->hasFile('cover_image')
-                ? $request->file('cover_image')->store('packs/covers', 'public')
-                : null,
-        ]);
+        $pack = DB::transaction(function () use ($request, $data, $club) {
+            $pack = ChallengePack::create([
+                'club_id'          => $club?->id,
+                'sport_id'         => $data['sport_id'] ?? null,
+                'name'             => $data['name'],
+                'slug'             => $this->uniqueSlug($data['slug'] ?? $data['name'], null),
+                'description'      => $data['description'] ?? null,
+                'status'           => $data['status'],
+                'visibility'       => $data['visibility'],
+                'difficulty'       => $data['difficulty'] ?? null,
+                'sort_order'       => $data['sort_order'] ?? 0,
+                'is_featured'      => $request->boolean('is_featured'),
+                'cover_image_path' => $request->hasFile('cover_image')
+                    ? $request->file('cover_image')->store('packs/covers', 'public')
+                    : null,
+            ]);
 
-        $this->syncCompletionTrophy($pack, $request->boolean('award_completion_trophy'));
+            $this->syncCompletionTrophy($pack, $request->boolean('award_completion_trophy'));
+
+            if ($club) {
+                $this->audit->log($club, 'pack.created', $request->user(), $pack, [
+                    'pack_id' => $pack->id, 'name' => $pack->name, 'status' => $pack->status,
+                ]);
+                $this->memberships->refreshCounters($club);
+            }
+
+            return $pack;
+        });
 
         \App\Support\AppLog::event('admin.pack_created', [
             'pack_id' => $pack->id, 'status' => $pack->status, 'visibility' => $pack->visibility,
             'challenge_count' => 0, 'trophy' => $pack->fresh()->completion_badge_id !== null,
-            'admin_user_id' => $request->user()->id,
+            'admin_user_id' => $request->user()->id, 'club_id' => $pack->club_id,
         ]);
 
         return redirect('/admin/packs/' . $pack->id . '/edit')
@@ -65,13 +111,17 @@ class ChallengePackController extends Controller
 
     public function edit(ChallengePack $pack)
     {
-        $pack->load('challenges', 'sport');
+        $pack->load('challenges', 'sport', 'club:id,name');
 
-        // Candidate challenges to add: scoped to the pack's sport when set.
-        // Pack-pool content lists first — packs are curated from the Pack pool;
-        // other pools stay selectable for explicit admin picks.
-        $available = Challenge::with('sport')
+        // Candidate challenges to add: scoped to the pack's sport when set and
+        // to the pack's owner (public pack → BallPicker only; club pack → its
+        // club's challenges first, then BallPicker). Pack-pool content lists
+        // first — packs are curated from the Pack pool; other pools stay
+        // selectable for explicit admin picks.
+        $available = $this->scope->eligibleChallenges($pack)
+            ->with('sport')
             ->when($pack->sport_id, fn ($q) => $q->where('sport_id', $pack->sport_id))
+            ->orderByRaw('CASE WHEN club_id IS NOT NULL THEN 0 ELSE 1 END')
             ->orderByRaw("CASE WHEN usage_pool = 'pack' THEN 0 ELSE 1 END")
             ->orderBy('title')
             ->get();
@@ -87,6 +137,12 @@ class ChallengePackController extends Controller
     public function update(Request $request, ChallengePack $pack)
     {
         $data = $this->validated($request, $pack->id);
+
+        // Invariant first: nothing is written when a challenge is out of scope.
+        if ($request->has('challenges')) {
+            $this->scope->assertPackChallenges($pack, (array) $request->input('challenges', []));
+        }
+        $wasStatus = $pack->status;
 
         if ($request->hasFile('cover_image')) {
             if ($pack->cover_image_path) {
@@ -121,13 +177,14 @@ class ChallengePackController extends Controller
         }
 
         $fresh = $pack->fresh();
+        $this->auditClubPack($request, $fresh, $wasStatus);
         \App\Support\AppLog::event('admin.pack_updated', [
             'pack_id' => $fresh->id, 'status' => $fresh->status, 'visibility' => $fresh->visibility,
             'challenge_count' => $fresh->challenges()->count(), 'trophy' => $fresh->completion_badge_id !== null,
-            'admin_user_id' => $request->user()->id,
+            'admin_user_id' => $request->user()->id, 'club_id' => $fresh->club_id,
         ]);
 
-        return redirect('/admin/packs')->with('success', $this->readinessNote($fresh));
+        return redirect($this->listUrl($fresh))->with('success', $this->readinessNote($fresh));
     }
 
     /** Quick status/visibility change from the index. */
@@ -138,19 +195,46 @@ class ChallengePackController extends Controller
             'visibility' => ['nullable', Rule::in(ChallengePack::VISIBILITIES)],
         ]);
 
+        $wasStatus = $pack->status;
         $pack->update(array_filter([
             'status'     => $data['status'] ?? null,
             'visibility' => $data['visibility'] ?? null,
         ]));
 
         $fresh = $pack->fresh();
+        $this->auditClubPack($request, $fresh, $wasStatus);
         \App\Support\AppLog::event('admin.pack_updated', [
             'pack_id' => $fresh->id, 'status' => $fresh->status, 'visibility' => $fresh->visibility,
             'challenge_count' => $fresh->challenges()->count(), 'trophy' => $fresh->completion_badge_id !== null,
-            'admin_user_id' => $request->user()->id,
+            'admin_user_id' => $request->user()->id, 'club_id' => $fresh->club_id,
         ]);
 
-        return redirect('/admin/packs')->with('success', $this->readinessNote($fresh));
+        return redirect($this->listUrl($fresh))->with('success', $this->readinessNote($fresh));
+    }
+
+    /** Club packs: audit trail (pack.updated / pack.archived) + denormalised counters. */
+    private function auditClubPack(Request $request, ChallengePack $pack, string $wasStatus): void
+    {
+        if ($pack->club_id === null || !($club = Club::find($pack->club_id))) {
+            return;
+        }
+
+        DB::transaction(function () use ($request, $pack, $club, $wasStatus) {
+            $archived = $pack->status === ChallengePack::STATUS_ARCHIVED && $wasStatus !== ChallengePack::STATUS_ARCHIVED;
+            $this->audit->log($club, $archived ? 'pack.archived' : 'pack.updated', $request->user(), $pack, array_filter([
+                'pack_id'     => $pack->id,
+                'name'        => $pack->name,
+                'status'      => $pack->status,
+                'from_status' => $wasStatus !== $pack->status ? $wasStatus : null,
+                'count'       => $pack->challenges()->count(),
+            ], fn ($v) => $v !== null));
+            $this->memberships->refreshCounters($club);
+        });
+    }
+
+    private function listUrl(ChallengePack $pack): string
+    {
+        return $pack->club_id ? '/admin/packs?club=' . $pack->club_id : '/admin/packs';
     }
 
     private function validated(Request $request, ?int $ignoreId): array
@@ -167,6 +251,8 @@ class ChallengePackController extends Controller
             'is_featured' => ['boolean'],
             'cover_image' => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'award_completion_trophy' => ['boolean'],
+            // Owner is chosen at creation only (club packs never become public).
+            'club_id'     => $ignoreId === null ? ['nullable', 'integer', 'exists:clubs,id'] : ['prohibited'],
         ]);
     }
 
@@ -192,6 +278,9 @@ class ChallengePackController extends Controller
                 'description' => "Complete the {$pack->name} challenge pack.",
                 'icon'        => $pack->sport?->emoji ?? '🏆',
                 'category'    => 'pack',
+                // Club pack trophies belong to the club: never in /api/badges,
+                // /me/badges or public profiles (G3).
+                'club_id'     => $pack->club_id,
                 'rarity'      => match ($pack->difficulty) {
                     'hard'            => 'epic',
                     'medium', 'mixed' => 'rare',

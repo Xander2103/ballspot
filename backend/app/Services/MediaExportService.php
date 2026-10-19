@@ -24,11 +24,16 @@ use ZipArchive;
  * the export. The ZIP is built in storage/app/exports and deleted after the
  * download.
  *
+ * BallPicker Clubs (G6): club content is EXCLUDED by default. The `club`
+ * filter opts in explicitly ('all' or one club id); club images are then
+ * resolved on the private club disk with the same traversal guard.
+ *
  * ZIP layout:
  *   ballpicker-media-export/
  *     manifest.json
  *     manifest.csv
  *     challenges/{sport-slug}/{usage-pool}/challenge-{id}-{safe-title}/
+ *     clubs/{club-slug}/{sport-slug}/challenge-{id}-{safe-title}/   (club filter only)
  *       guess.{ext}  reveal.{ext}  metadata.json
  */
 class MediaExportService
@@ -51,6 +56,7 @@ class MediaExportService
         'updated_from'   => '',
         'updated_to'     => '',
         'search'         => '',
+        'club'           => '',     // '' (BallPicker only) | all | club id
     ];
 
     /** Only what the filter form knows; anything else is dropped. */
@@ -79,6 +85,7 @@ class MediaExportService
             }
         }
         $f['search'] = Str::limit($f['search'], 100, '');
+        $f['club'] = app(\App\Services\Clubs\ClubContentScope::class)->normalize($f['club']);
 
         return $f;
     }
@@ -87,8 +94,8 @@ class MediaExportService
     {
         $f = $this->normalizeFilters($filters);
 
-        return Challenge::query()
-            ->with(['sport', 'category', 'subcategories', 'packs', 'dailyChallenges'])
+        return app(\App\Services\Clubs\ClubContentScope::class)->apply(Challenge::query(), $f['club'])
+            ->with(['sport', 'category', 'subcategories', 'packs', 'dailyChallenges', 'club:id,name,slug'])
             ->withCount(['dailyChallenges', 'packs'])
             ->when($f['sport'] !== '', fn ($q) => $q->where('sport_id', (int) $f['sport']))
             ->when($f['usage_pool'] !== '', fn ($q) => $q->where('usage_pool', $f['usage_pool']))
@@ -191,7 +198,9 @@ class MediaExportService
         $this->query($f)->chunkById(100, function (Collection $rows) use ($zip, $f, &$manifest, &$missing) {
             foreach ($rows as $challenge) {
                 $meta   = $this->metadata($challenge);
-                $folder = self::ROOT_DIR . '/challenges/' . ($meta['sport_slug'] ?: 'no-sport') . '/' . $meta['usage_pool'] . '/challenge-' . $challenge->id . '-' . $this->safeTitle($challenge->title);
+                $folder = $challenge->club_id !== null
+                    ? self::ROOT_DIR . '/clubs/' . ($challenge->club?->slug ?: 'club-' . $challenge->club_id) . '/' . ($meta['sport_slug'] ?: 'no-sport') . '/challenge-' . $challenge->id . '-' . $this->safeTitle($challenge->title)
+                    : self::ROOT_DIR . '/challenges/' . ($meta['sport_slug'] ?: 'no-sport') . '/' . $meta['usage_pool'] . '/challenge-' . $challenge->id . '-' . $this->safeTitle($challenge->title);
 
                 $exported = [];
                 foreach ($this->filesFor($challenge, $f['image_type']) as $file) {
@@ -263,7 +272,7 @@ class MediaExportService
             if (!$relative || !$this->wants($kind, $imageType)) {
                 continue;
             }
-            $absolute = $this->resolve((string) $relative);
+            $absolute = $this->resolve((string) $relative, $challenge->club_id !== null ? $this->clubDisk() : self::DISK);
             $exists   = $absolute !== null && is_file($absolute);
             $out[] = [
                 'kind'     => $kind,
@@ -278,19 +287,26 @@ class MediaExportService
         return $out;
     }
 
+    /** Private disk of club media (ClubMediaService). */
+    private function clubDisk(): string
+    {
+        return (string) config('ballspot.clubs.media.disk', 'club_private');
+    }
+
     /**
-     * Absolute path on the public disk, or null when the stored path tries to
-     * leave it (traversal, absolute path, stream wrapper).
+     * Absolute path on the given disk (public by default; club images on the
+     * private club disk), or null when the stored path tries to leave it
+     * (traversal, absolute path, stream wrapper).
      */
-    public function resolve(string $relative): ?string
+    public function resolve(string $relative, string $disk = self::DISK): ?string
     {
         $relative = str_replace('\\', '/', trim($relative));
         if ($relative === '' || str_contains($relative, "\0") || str_contains($relative, '..') || str_starts_with($relative, '/') || preg_match('#^[a-z]+:#i', $relative)) {
             return null;
         }
 
-        $root = realpath(Storage::disk(self::DISK)->path(''));
-        $full = realpath(Storage::disk(self::DISK)->path($relative));
+        $root = realpath(Storage::disk($disk)->path(''));
+        $full = realpath(Storage::disk($disk)->path($relative));
         if ($root === false || $full === false) {
             return null;
         }
@@ -311,13 +327,15 @@ class MediaExportService
             'sport'               => $challenge->sport?->name,
             'sport_slug'          => $challenge->sport?->slug,
             'usage_pool'          => (string) $challenge->usage_pool,
+            'club_id'             => $challenge->club_id,
+            'club'                => $challenge->club?->name,
             'status'              => (string) $challenge->status,
             'difficulty'          => (string) $challenge->difficulty,
             'category'            => $challenge->category?->name,
             'subcategories'       => $challenge->subcategories->pluck('name')->values()->all(),
             'has_guess_image'     => (bool) $challenge->hidden_image_path,
             'has_reveal_image'    => (bool) $challenge->original_image_path,
-            // Storage-relative (public disk) — never a server path.
+            // Storage-relative (public disk; club images: private club disk) — never a server path.
             'guess_image_path'    => $challenge->hidden_image_path,
             'reveal_image_path'   => $challenge->original_image_path,
             'used_as_daily'       => $dailyDates !== [],
@@ -372,6 +390,12 @@ class MediaExportService
     /** Options for the filter form. */
     public function packOptions(): Collection
     {
-        return ChallengePack::orderBy('name')->get(['id', 'name']);
+        return ChallengePack::with('club:id,name')->orderByRaw('CASE WHEN club_id IS NULL THEN 0 ELSE 1 END')->orderBy('name')->get(['id', 'name', 'club_id']);
+    }
+
+    /** Club options for the explicit club filter. */
+    public function clubOptions(): Collection
+    {
+        return \App\Models\Club::orderBy('name')->get(['id', 'name']);
     }
 }
