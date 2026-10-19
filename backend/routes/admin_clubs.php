@@ -20,9 +20,11 @@
 use App\Http\Controllers\Admin\Clubs\ClubAuditController;
 use App\Http\Controllers\Admin\Clubs\ClubCompetitionController;
 use App\Http\Controllers\Admin\Clubs\ClubController;
+use App\Http\Controllers\Admin\Clubs\ClubExportController;
 use App\Http\Controllers\Admin\Clubs\ClubInviteCodeController;
 use App\Http\Controllers\Admin\Clubs\ClubMemberController;
 use App\Http\Controllers\Admin\Clubs\ClubPhotoController;
+use App\Http\Controllers\Admin\Clubs\ClubReportController;
 use Illuminate\Support\Facades\Route;
 
 // -------------------------------------------------------------------------
@@ -115,3 +117,14 @@ Route::post('clubs/{club}/photos', [ClubPhotoController::class, 'store'])->where
 // Global audit log (B2): admin.club-audit.index.
 // -------------------------------------------------------------------------
 Route::get('club-audit', [ClubAuditController::class, 'index'])->name('admin.club-audit.index');
+
+// -------------------------------------------------------------------------
+// Wave F: member content reports (admin.club-reports.*) and CSV downloads of
+// the club leaderboard / a competition's standings (usernames only, audited).
+// -------------------------------------------------------------------------
+Route::get('club-reports', [ClubReportController::class, 'index'])->name('admin.club-reports.index');
+Route::post('club-reports/{report}/resolve', [ClubReportController::class, 'resolve'])->whereNumber('report')->name('admin.club-reports.resolve');
+
+Route::get('clubs/{club}/leaderboard.csv', [ClubExportController::class, 'leaderboard'])->whereNumber('club')->name('admin.clubs.leaderboard.csv');
+Route::get('clubs/{club}/competitions/{competition}/standings.csv', [ClubExportController::class, 'competition'])
+    ->whereNumber(['club', 'competition'])->scopeBindings()->name('admin.clubs.competitions.standings-csv');

@@ -106,6 +106,13 @@ return [
             'created' => 'Club-uitdaging aangemaakt',
             'updated' => 'Club-uitdaging bijgewerkt',
         ],
+        'report' => [
+            'created'  => 'Inhoud gemeld',
+            'resolved' => 'Melding afgehandeld',
+        ],
+        'export' => [
+            'downloaded' => 'Klassement gedownload (CSV)',
+        ],
     ],
 
     // Specific sentences for ClubDomainException messages and admin helper
@@ -113,5 +120,22 @@ return [
     'competition_messages' => [
         'pack_in_overlapping_competition' => 'Het pakket ":pack" zit al in de gepubliceerde competitie ":competition", waarvan de data overlappen. Kies andere data of een ander pakket.',
         'normal_play_allowed_helper'      => 'Met "Normaal spelen toegestaan" kunnen leden het pakket niet normaal spelen zolang er een competitiepoging op loopt, en geen competitiepoging starten zolang er een normale poging loopt. Het pakket eerst normaal uitspelen en daarna meedoen blijft mogelijk bij Eén poging en Meerdere pogingen; kies Geen herhaling of "Normaal spelen geblokkeerd" om dat te voorkomen.',
+    ],
+
+    // Wave F: member content reports (validation sentences).
+    'report_messages' => [
+        'subject_invalid' => 'Dit kan in deze club niet gemeld worden.',
+        'self_report'     => 'Je kunt jezelf niet melden.',
+    ],
+
+    // Wave F: member pushes (ClubCompetitionNotifier), in the recipient's language.
+    'push' => [
+        'competition_published_title'   => ':club: nieuwe competitie',
+        'competition_published_body'    => '“:competition” start :date. Maak je klaar!',
+        'competition_started_title'     => ':club: competitie gestart',
+        'competition_started_body'      => '“:competition” is begonnen. Speel nu!',
+        'competition_finalized_title'   => ':club: eindklassement',
+        'competition_finalized_placed'  => '“:competition” is afgelopen. Je eindigde als #:placement van :total.',
+        'competition_finalized_body'    => '“:competition” is afgelopen. Bekijk het eindklassement.',
     ],
 ];

@@ -8,7 +8,7 @@ export interface NotificationSettings {
    * BallPicker Clubs: competition published / started / finalized pushes
    * (default on). Absent on backends without Clubs — the toggle is hidden.
    */
-  club_updates?: boolean;
+  club_updates_enabled?: boolean;
   /** 24-hour HH:mm. */
   reminder_time: string;
   timezone: string | null;

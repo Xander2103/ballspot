@@ -16,7 +16,7 @@ type ToggleKey =
   | 'daily_reminder_enabled'
   | 'tournament_reminder_enabled'
   | 'admin_notifications_enabled'
-  | 'club_updates';
+  | 'club_updates_enabled';
 
 /** Labels resolve via t() inside the component (locale-aware). */
 const TOGGLES: { key: ToggleKey; labelKey: string; hintKey: string }[] = [
@@ -24,7 +24,7 @@ const TOGGLES: { key: ToggleKey; labelKey: string; hintKey: string }[] = [
   { key: 'tournament_reminder_enabled', labelKey: 'notifications.settings.tournament.label', hintKey: 'notifications.settings.tournament.hint' },
   { key: 'admin_notifications_enabled', labelKey: 'notifications.settings.announcements.label', hintKey: 'notifications.settings.announcements.hint' },
   // Clubs: only shown when the backend sends the field (older backends / Clubs off → hidden).
-  { key: 'club_updates', labelKey: 'notifications.settings.clubs.label', hintKey: 'notifications.settings.clubs.hint' },
+  { key: 'club_updates_enabled', labelKey: 'notifications.settings.clubs.label', hintKey: 'notifications.settings.clubs.hint' },
 ];
 
 export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = {}) {

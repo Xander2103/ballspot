@@ -23,7 +23,8 @@ class AuditController extends PortalController
         $filters['actor_kind'] = '';
         $filters['club'] = '';
 
-        $events = $audit->paginate($filters, $club->id);
+        // Report events are platform-only (they would reveal who reported whom).
+        $events = $audit->paginate($filters, $club->id, 'page', true);
 
         // Usernames of users referenced in metadata (one query per page).
         $ids = collect($events->items())
@@ -40,7 +41,7 @@ class AuditController extends PortalController
             'filters'   => $filters,
             'filtered'  => $filters['action'] !== '' || $filters['from'] !== '' || $filters['to'] !== '',
             'usernames' => $usernames,
-            'actions'   => ClubAuditEvent::ACTIONS,
+            'actions'   => array_values(array_diff(ClubAuditEvent::ACTIONS, ClubAuditEvent::PLATFORM_ONLY_ACTIONS)),
         ]);
     }
 }

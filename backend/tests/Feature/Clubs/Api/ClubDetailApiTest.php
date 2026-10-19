@@ -35,7 +35,7 @@ class ClubDetailApiTest extends ClubApiTestCase
             ->assertJsonPath('data.members_count', 2)
             ->assertJsonPath('data.role', 'member')
             ->assertJsonPath('data.packs_count', 4)
-            ->assertJsonPath('data.abilities', ['view_members' => false, 'leave' => true, 'manage' => false])
+            ->assertJsonPath('data.abilities', ['view_members' => false, 'leave' => true, 'manage' => false, 'manage_codes' => false, 'manage_members' => false, 'upload_photos' => false])
             ->assertJsonCount(3, 'data.packs_preview')
             ->assertJsonPath('data.competitions_preview', ['active' => [], 'upcoming' => [], 'completed_count' => 0])
             ->assertJsonPath('data.leaderboard_preview', ['top' => [], 'me' => null]);
@@ -54,7 +54,7 @@ class ClubDetailApiTest extends ClubApiTestCase
         // The sole owner may not leave but may manage and see members.
         $this->api($owner)->getJson($this->clubPath($club))->assertOk()
             ->assertJsonPath('data.role', 'owner')
-            ->assertJsonPath('data.abilities', ['view_members' => true, 'leave' => false, 'manage' => true]);
+            ->assertJsonPath('data.abilities', ['view_members' => true, 'leave' => false, 'manage' => true, 'manage_codes' => true, 'manage_members' => true, 'upload_photos' => true]);
     }
 
     public function test_opening_a_club_refreshes_last_seen_for_the_recent_sort(): void
@@ -151,7 +151,7 @@ class ClubDetailApiTest extends ClubApiTestCase
             ->assertJsonPath('meta.total', 5)
             ->assertJsonPath('meta.next_cursor', null);
         $this->assertSame(['zed-owner', 'yann-admin', 'anouk', 'bram', 'carla'], array_column($res->json('data'), 'username'));
-        $this->assertSame(['user_id', 'username', 'avatar_url', 'role', 'joined_at'], array_keys($res->json('data.0')));
+        $this->assertSame(['user_id', 'username', 'avatar_url', 'role', 'joined_at', 'actions'], array_keys($res->json('data.0')));
         $this->assertSame('owner', $res->json('data.0.role'));
         $this->assertStringNotContainsString('owner@private.test', $res->getContent());
 

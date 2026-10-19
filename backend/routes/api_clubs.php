@@ -25,8 +25,12 @@ use App\Exceptions\ClubDomainException;
 use App\Http\Controllers\Api\Clubs\ClubCompetitionAttemptController;
 use App\Http\Controllers\Api\Clubs\ClubCompetitionController;
 use App\Http\Controllers\Api\Clubs\ClubController;
+use App\Http\Controllers\Api\Clubs\ClubInviteCodeController;
 use App\Http\Controllers\Api\Clubs\ClubLeaderboardController;
+use App\Http\Controllers\Api\Clubs\ClubMemberController;
 use App\Http\Controllers\Api\Clubs\ClubPackController;
+use App\Http\Controllers\Api\Clubs\ClubPhotoController;
+use App\Http\Controllers\Api\Clubs\ClubReportController;
 use App\Http\Controllers\Api\Clubs\MyClubsController;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use Illuminate\Support\Facades\Route;
@@ -72,6 +76,28 @@ Route::name('api.clubs.')->missing($clubMissing)->group(function () {
             ->middleware('throttle:gameplay')->name('attempts.start');
         Route::get('/{competition:public_id}/leaderboard', [ClubCompetitionController::class, 'leaderboard'])->name('leaderboard');
         Route::get('/{competition:public_id}/me/attempts', [ClubCompetitionController::class, 'myAttempts'])->name('me.attempts');
+    });
+
+    // ---------------------------------------------------------------------
+    // Club-admin section (Wave F, contracts §9): invite codes, member
+    // actions, photo submissions — the portal's abilities and
+    // ClubPortalMemberRules; suspended clubs are read-only (423 on writes).
+    // Plus member content reports (any active member, throttle:club-reports).
+    // ---------------------------------------------------------------------
+    Route::scopeBindings()->prefix('/clubs/{club:public_id}')->group(function () {
+        Route::get('/invite-codes', [ClubInviteCodeController::class, 'index'])->name('invite-codes.index');
+        Route::post('/invite-codes', [ClubInviteCodeController::class, 'store'])->name('invite-codes.store');
+        Route::post('/invite-codes/{inviteCode}/revoke', [ClubInviteCodeController::class, 'revoke'])
+            ->whereNumber('inviteCode')->name('invite-codes.revoke');
+
+        Route::patch('/members/{userId}', [ClubMemberController::class, 'update'])->whereNumber('userId')->name('members.update');
+        Route::post('/members/{userId}/remove', [ClubMemberController::class, 'remove'])->whereNumber('userId')->name('members.remove');
+        Route::post('/members/{userId}/ban', [ClubMemberController::class, 'ban'])->whereNumber('userId')->name('members.ban');
+
+        Route::get('/photos', [ClubPhotoController::class, 'index'])->name('photos.index');
+        Route::post('/photos', [ClubPhotoController::class, 'store'])->middleware('throttle:uploads')->name('photos.store');
+
+        Route::post('/reports', [ClubReportController::class, 'store'])->middleware('throttle:club-reports')->name('reports.store');
     });
 
     Route::get('/club-competition-attempts/{attempt}', [ClubCompetitionAttemptController::class, 'show'])

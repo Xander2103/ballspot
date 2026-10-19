@@ -56,4 +56,33 @@ final class ClubAccess
             throw ClubDomainException::forbidden();
         }
     }
+
+    /**
+     * Club-admin API reads (Wave F: invite codes, photo submissions): an
+     * active owner/admin membership; suspended clubs stay readable (D18).
+     * Non-members 404, plain members 403 `club_forbidden`.
+     */
+    public static function requireManager(Club $club, ?User $user): ClubMember
+    {
+        $member = self::requireMember($club, $user);
+        if (!$member->canManage()) {
+            throw ClubDomainException::forbidden();
+        }
+
+        return $member;
+    }
+
+    /**
+     * Club-admin API writes: owner/admin (403 otherwise), an ACTIVE club
+     * (suspended → 423 `club_unavailable`, read-only) and the ClubPolicy
+     * ability (403). Same abilities as the portal.
+     */
+    public static function requireManagerWrite(Club $club, ?User $user, string $ability): ClubMember
+    {
+        $member = self::requireManager($club, $user);
+        self::requireActiveClub($club);
+        self::requireAbility($user, $ability, $club);
+
+        return $member;
+    }
 }

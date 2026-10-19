@@ -30,6 +30,7 @@ class ClubCompetitionCloseService
         private ClubStandingsService $standings,
         private ClubAuditLogger $audit,
         private ClubMembershipService $memberships,
+        private ClubCompetitionNotifier $notifier,
     ) {}
 
     /**
@@ -134,6 +135,12 @@ class ClubCompetitionCloseService
 
         $this->memberships->refreshCounters($competition->club);
         $competition->refresh();
+
+        // Member push with the placement (Wave F), after the commit. At most
+        // once: a re-finalize after a void finds the event already claimed.
+        if ($result['finalized']) {
+            $this->notifier->finalized($competition);
+        }
 
         return $result;
     }

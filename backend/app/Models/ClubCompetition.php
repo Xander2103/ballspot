@@ -66,6 +66,10 @@ class ClubCompetition extends Model
             'finalized_at'       => 'datetime',
             'cancelled_at'       => 'datetime',
             'voided_at'          => 'datetime',
+            // Wave F: at-most-once member pushes (ClubCompetitionNotifier claims these).
+            'notified_published_at' => 'datetime',
+            'notified_started_at'   => 'datetime',
+            'notified_finalized_at' => 'datetime',
         ];
     }
 

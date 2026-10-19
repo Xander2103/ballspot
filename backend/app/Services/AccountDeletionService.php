@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ClubContentReport;
 use App\Models\ClubInviteCode;
 use App\Models\ClubPortalLoginCode;
 use App\Models\ClubPhotoSubmission;
@@ -72,6 +73,9 @@ class AccountDeletionService
             ClubInviteCode::where('created_by_user_id', $id)->update(['created_by_user_id' => null]);
             ClubInviteCode::where('revoked_by_user_id', $id)->update(['revoked_by_user_id' => null]);
             ClubPhotoSubmission::where('uploaded_by_user_id', $id)->update(['uploaded_by_user_id' => null]);
+            // Content reports stay for moderation, but no longer point at the reporter (Wave F).
+            ClubContentReport::where('reporter_user_id', $id)->update(['reporter_user_id' => null]);
+            ClubContentReport::where('reviewed_by_user_id', $id)->update(['reviewed_by_user_id' => null]);
 
             // Anonymize personal fields. The deleted-{id} identifiers are unique
             // per row, so the original email/username become free to register

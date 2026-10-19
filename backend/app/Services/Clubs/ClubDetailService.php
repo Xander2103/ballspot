@@ -44,6 +44,10 @@ class ClubDetailService
                 'view_members' => $gate->allows('viewMembers', $club),
                 'leave'        => $gate->allows('leave', $club),
                 'manage'       => $gate->allows('manageMembers', $club),
+                // Wave F (club-admin API): false on a suspended club (read-only).
+                'manage_codes'   => $gate->allows('manageCodes', $club),
+                'manage_members' => $gate->allows('manageMembers', $club),
+                'upload_photos'  => $gate->allows('uploadPhotos', $club),
             ],
             'packs_preview'        => $this->packs->preview($club, $user),
             'competitions_preview' => $this->competitionsPreview($club, $user),

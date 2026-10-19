@@ -18,6 +18,8 @@ class UpdateNotificationSettingsRequest extends FormRequest
             'daily_reminder_enabled'      => ['sometimes', 'boolean'],
             'tournament_reminder_enabled' => ['sometimes', 'boolean'],
             'admin_notifications_enabled' => ['sometimes', 'boolean'],
+            // BallPicker Clubs member pushes (competition published/started/finalized).
+            'club_updates_enabled'        => ['sometimes', 'boolean'],
             // 24-hour HH:mm, 00:00..23:59.
             'reminder_time'               => ['sometimes', 'string', 'date_format:H:i'],
             'timezone'                    => ['sometimes', 'nullable', 'string', 'max:64'],

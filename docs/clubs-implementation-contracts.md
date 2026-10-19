@@ -538,3 +538,66 @@ member's placement if any). Payload `data: { type: "club_competition", club_id, 
 
 **CSV export** — portal (and admin) download of the club leaderboard and of a competition's standings: columns rank, username,
 total_score, packs_completed, attempts_used; usernames only, never emails; audit `export.downloaded`.
+
+### Wave F as built (backend, 2026-10)
+
+Shapes above are served as written, with these additions/clarifications (mobile: read these before typing the API):
+- **One rules implementation.** `App\Services\ClubPortal\ClubPortalMemberRules` now also owns the code rules:
+  `canHandleCode(actor, code)` (admin-granting codes owner-only) and `grantableCodeRoles(actor)`; the portal
+  (`InviteCodeController::canHandle`, `PortalStoreInviteCodeRequest`) delegates to it. API guards:
+  `ClubAccess::requireManager()` (reads: owner/admin, suspended allowed) and `requireManagerWrite($club, $user, $ability)`
+  (404 non-member → 403 plain member → 423 suspended → 403 missing ability), run in the FormRequest `authorize()`
+  (`App\Http\Requests\Clubs\Api\ClubAdminRequest`) so they answer **before** validation.
+- **InviteCode deviation:** for a caller who may not handle the code (a club admin looking at an admin-granting code)
+  `code` is the masked `ABCD-••••` and **`qr_payload` is `null`** (§9 showed it non-null) — the portal's
+  owner-only reveal rule. List `meta` also has `active_count` and `limit`. Order: usable first, then id desc.
+  `expires_at` accepts any ISO date-time in the future. `grants_role: "admin"` by an admin → 403 `club_forbidden`;
+  `"owner"` → 422.
+- Route params: `/invite-codes/{inviteCode}/revoke` (code id, scoped to the club; another club's id → 404
+  `club_not_found`), `/members/{userId}` (the item's `user_id`; not an active member of this club → 404
+  `club_member_not_found`). PATCH answers the full member item incl. `actions`. Remove/ban reason ≤ 200.
+- `actions` = rules ∧ policy (`manageMembers`, `transferOwnership` for `change_role`), so all false on a suspended club.
+- Photos: `POST …/photos` multipart, one `photo` per request (`throttle:uploads`, 6/min), `rights_confirmed` accepts
+  `1|true|on|yes`; list newest first (id desc), `thumbnail_url` is a signed `clubs.media` URL (null only if the
+  file path is unusable).
+- **Reports:** table `club_content_reports` (migration `2026_10_22_000001`), `App\Models\ClubContentReport`,
+  `App\Services\Clubs\ClubContentReportService` (create / resolve / adminList / subjectFor). `subject_ref` = club
+  public_id | competition public_id (non-draft, this club) | user id (active member, not the caller). `subject_id`
+  may be sent as a JSON number. An identical **open** report (same reporter, subject, reason) answers **200** with
+  the existing row instead of 201. Reporting is allowed on a **suspended** club (safety channel; archived = 404).
+  Limiter `club-reports` = `ballspot.clubs.reports.per_user_per_hour` (5). Audit `report.created` (actor kind
+  `member`) / `report.resolved` (`platform_admin`), metadata `report_id, subject_kind, subject_ref, reason` /
+  `report_id, from_status, to_status` — never the details. Both are in `ClubAuditEvent::PLATFORM_ONLY_ACTIONS`,
+  hidden from the portal audit log (`AdminClubAuditQuery::paginate(…, clubView: true)`) and from
+  `ClubStatsService` recent events (portal dashboard and admin overview).
+  Admin: `admin.club-reports.index` (`GET /admin/club-reports?status=open(default)|all|reviewed|dismissed|actioned&club=&reason=`)
+  and `admin.club-reports.resolve` (`POST /admin/club-reports/{report}/resolve {status, admin_note?}`); nav entry
+  "Reports" with the open-count badge (`badge_title` key added to the nav page config).
+- **Notifications:** the setting is exposed as **`club_updates_enabled`** (boolean, default true) on
+  `GET/PUT /api/me/notification-settings` (column via migration `2026_10_22_000002`; in the data export).
+  `club_competitions.notified_{published,started,finalized}_at` (migration `2026_10_22_000003`, backfilled for
+  competitions that already passed an event, so the deploy tick never pushes old news).
+  `App\Services\Clubs\ClubCompetitionNotifier` claims the column with `UPDATE … WHERE col IS NULL` before sending.
+  Triggers: `ClubCompetitionService::publish()` after the commit (→ "started" instead when published after the
+  start; "published" is then closed), `ballspot:clubs:competition-tick` step 4 (`dueForStart()`: published,
+  `starts_at ≤ now < ends_at`, not yet notified — whoever locked the rules), `ClubCompetitionCloseService::finalize()`
+  (only when it actually finalized; a re-finalize finds the claim taken). Recipients: active members of an
+  **active** club, not anonymized, with a push token, no `club_updates_enabled = false` row. Push disabled
+  (`ballspot.notifications.push_enabled`) or a non-active club: the event is claimed and skipped (never sent late).
+  Copy `lang/*/clubs.php` `push.*` in the recipient's `preferred_language`; finalize body has `#placement of total`
+  when ranked. Payload `data: {type: "club_competition", club_id, competition_id}` (public ids). All failures are
+  logged (`club.notify_failed`) and swallowed. Tick output gains `· start pushes: N`.
+- **CSV:** `App\Services\Clubs\ClubStandingsCsvExporter` (UTF-8 BOM, formula guard on `= + - @ \t \r`, ASCII
+  filename `<club-slug>[-<competition>]-leaderboard|standings-YYYYMMDD.csv`, `Cache-Control: no-store`). Routes:
+  portal `club-portal.leaderboard.index` (new **Leaderboard** page + nav tab), `club-portal.leaderboard.csv`,
+  `club-portal.competitions.standings-csv`; admin `admin.clubs.leaderboard.csv` (overview tab) and
+  `admin.clubs.competitions.standings-csv` (standings tab). Audit `export.downloaded` (`export`, `count`,
+  `competition_id`), actor kind `club_admin` / `platform_admin`.
+- New audit actions `report.created`, `report.resolved`, `export.downloaded` (labels ×5); metadata keys
+  `report_id`, `subject_kind`, `subject_ref`, `export`. New lang keys: `clubs.report_messages.*`, `clubs.push.*`,
+  `club_portal.nav.leaderboard`, `club_portal.leaderboard.*`.
+- Tests: `tests/Feature/Clubs/Api/{ClubAdminApiTest, ClubAdminContractShapeTest, ClubReportApiTest,
+  ClubCompetitionNotificationsTest}`, `tests/Feature/Clubs/Admin/{AdminClubReportsTest, AdminClubCsvExportTest}`,
+  `tests/Feature/Clubs/Portal/PortalCsvExportTest`; helpers `tests/Concerns/{AssertsJsonShape, BuildsClubStandings}`.
+  Existing guards updated for the additive fields: `ClubApiIsolationTest` (route matrix incl. the Wave F routes →
+  non-members 404), `ClubDetailApiTest`, `MobileContractShapeTest` (abilities + member `actions`).

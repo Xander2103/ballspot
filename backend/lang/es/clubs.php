@@ -106,6 +106,13 @@ return [
             'created' => 'Desafío del club creado',
             'updated' => 'Desafío del club actualizado',
         ],
+        'report' => [
+            'created'  => 'Contenido denunciado',
+            'resolved' => 'Denuncia resuelta',
+        ],
+        'export' => [
+            'downloaded' => 'Clasificación descargada (CSV)',
+        ],
     ],
 
     // Specific sentences for ClubDomainException messages and admin helper
@@ -113,5 +120,22 @@ return [
     'competition_messages' => [
         'pack_in_overlapping_competition' => 'El paquete ":pack" ya está en la competición publicada ":competition", cuyas fechas se solapan. Elige otras fechas u otro paquete.',
         'normal_play_allowed_helper'      => 'Con "Juego normal permitido", los miembros no pueden jugar el paquete de forma normal mientras haya un intento de competición en curso, ni iniciar un intento de competición mientras haya una partida normal en curso. Terminar primero el paquete de forma normal y luego competir sigue siendo posible en los modos Un intento y Varios intentos; elige Sin repetición o "Juego normal bloqueado" para impedirlo.',
+    ],
+
+    // Wave F: member content reports (validation sentences).
+    'report_messages' => [
+        'subject_invalid' => 'Esto no se puede denunciar en este club.',
+        'self_report'     => 'No puedes denunciarte a ti mismo.',
+    ],
+
+    // Wave F: member pushes (ClubCompetitionNotifier), in the recipient's language.
+    'push' => [
+        'competition_published_title'   => ':club: nueva competición',
+        'competition_published_body'    => '«:competition» empieza el :date. ¡Prepárate!',
+        'competition_started_title'     => ':club: competición iniciada',
+        'competition_started_body'      => '«:competition» ha empezado. ¡Juega ahora!',
+        'competition_finalized_title'   => ':club: clasificación final',
+        'competition_finalized_placed'  => '«:competition» ha terminado. Quedaste #:placement de :total.',
+        'competition_finalized_body'    => '«:competition» ha terminado. Consulta la clasificación final.',
     ],
 ];

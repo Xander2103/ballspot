@@ -87,6 +87,9 @@
         </fieldset>
     </form>
 @else
+    <div class="d-flex justify-content-end mb-2">
+        <a href="{{ route('club-portal.competitions.standings-csv', [$club, $competition]) }}" class="btn btn-outline-secondary btn-sm" data-section="standings-csv">{{ __('club_portal.leaderboard.download_csv') }}</a>
+    </div>
     <div class="portal-card" data-section="standings">
         <div class="table-responsive">
             <table class="table mb-0">

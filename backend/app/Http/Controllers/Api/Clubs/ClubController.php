@@ -42,7 +42,7 @@ class ClubController extends Controller
         ClubAccess::requireMember($club, $request->user());
         ClubAccess::requireAbility($request->user(), 'viewMembers', $club);
 
-        $page = $query->page($club, $request->validated('q'), $request->pageCursor(), $request->pageLimit());
+        $page = $query->page($club, $request->validated('q'), $request->pageCursor(), $request->pageLimit(), $request->user());
 
         return response()->json([
             'data' => $page['items'],

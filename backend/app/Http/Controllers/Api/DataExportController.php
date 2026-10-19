@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ClubCompetitionAttempt;
 use App\Models\ClubCompetitionFinish;
+use App\Models\ClubContentReport;
 use App\Models\ClubMember;
 use App\Models\ClubPackRewardClaim;
 use App\Models\ClubPhotoSubmission;
@@ -58,7 +59,7 @@ class DataExportController extends Controller
             ],
 
             'notification_settings' => NotificationSetting::where('user_id', $user->id)
-                ->first(['daily_reminder_enabled', 'tournament_reminder_enabled', 'admin_notifications_enabled', 'reminder_time', 'timezone']),
+                ->first(['daily_reminder_enabled', 'tournament_reminder_enabled', 'admin_notifications_enabled', 'club_updates_enabled', 'reminder_time', 'timezone']),
 
             // Metadata only — the raw token value is a device credential.
             'push_tokens' => PushToken::where('user_id', $user->id)
@@ -248,6 +249,24 @@ class DataExportController extends Controller
                     'club_note'        => $p->club_note,
                     'rejection_reason' => $p->rejection_reason,
                     'created_at'       => $p->created_at?->toISOString(),
+                ])->values(),
+
+            // Wave F: content reports the subject filed (never the admin's
+            // note or reviewer, never reports filed BY others about them).
+            'content_reports' => ClubContentReport::where('reporter_user_id', $user->id)
+                ->with('club:id,public_id,name')
+                ->orderByDesc('created_at')
+                ->limit(self::MAX_ROWS)
+                ->get()
+                ->map(fn (ClubContentReport $r) => [
+                    'club'         => $r->club ? ['id' => $r->club->public_id, 'name' => $r->club->name] : null,
+                    'subject_type' => $r->subject_type,
+                    'subject_ref'  => $r->subject_ref,
+                    'reason'       => $r->reason,
+                    'details'      => $r->details,
+                    'status'       => $r->status,
+                    'created_at'   => $r->created_at?->toISOString(),
+                    'reviewed_at'  => $r->reviewed_at?->toISOString(),
                 ])->values(),
         ];
     }

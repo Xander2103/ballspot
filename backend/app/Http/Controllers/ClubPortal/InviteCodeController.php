@@ -9,6 +9,7 @@ use App\Http\Requests\Clubs\Portal\PortalStoreInviteCodeRequest;
 use App\Models\Club;
 use App\Models\ClubInviteCode;
 use App\Models\ClubMember;
+use App\Services\ClubPortal\ClubPortalMemberRules;
 use App\Services\Clubs\ClubInviteCodeService;
 use Illuminate\Http\Request;
 
@@ -88,10 +89,10 @@ class InviteCodeController extends PortalController
             ->header('X-Robots-Tag', 'noindex, nofollow');
     }
 
-    /** Admin-granting codes: owners only. */
+    /** Admin-granting codes: owners only (ClubPortalMemberRules, shared with the club-admin API). */
     public static function canHandle(ClubMember $actor, ClubInviteCode $code): bool
     {
-        return $code->grants_role !== ClubRole::Admin || $actor->role === ClubRole::Owner;
+        return ClubPortalMemberRules::canHandleCode($actor, $code);
     }
 
     private function assertCanHandle(ClubMember $actor, ClubInviteCode $code): void

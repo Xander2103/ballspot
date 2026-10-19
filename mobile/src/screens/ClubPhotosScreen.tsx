@@ -80,6 +80,9 @@ export function ClubPhotosScreen({ route }: Props) {
         selectionLimit: room,
         quality: 0.9,
         exif: false,
+        // iOS: transcode HEIC/HEIF to a compatible format (JPEG); the backend
+        // accepts JPEG, PNG and WebP only.
+        preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       });
       if (result.canceled || !result.assets?.length) return;
       const added = result.assets.slice(0, room).map((a) => ({

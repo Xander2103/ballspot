@@ -18,6 +18,7 @@ return [
         'codes'        => 'Uitnodigingscodes',
         'photos'       => "Foto's",
         'competitions' => 'Competities',
+        'leaderboard'  => 'Klassement',
         'settings'     => 'Instellingen',
         'audit'        => 'Logboek',
         'switch_club'  => 'Andere club',
@@ -404,5 +405,14 @@ return [
             'cancelled' => 'Competitie geannuleerd.',
             'extended'  => 'Einde verlengd.',
         ],
+    ],
+
+    // Wave F: club leaderboard page + CSV downloads.
+    'leaderboard' => [
+        'title'        => 'Klassement',
+        'intro'        => 'Clubklassement aller tijden: de som van de beste score van elk lid per clubpakket (normaal spelen en competities). Alleen actieve leden.',
+        'empty'        => 'Nog niemand heeft gescoord.',
+        'download_csv' => 'CSV downloaden',
+        'csv_note'     => 'De CSV bevat rang, gebruikersnaam, totaalscore, voltooide pakketten en pogingen — alleen gebruikersnamen, nooit e-mailadressen. Elke download wordt in het auditlogboek bijgehouden.',
     ],
 ];

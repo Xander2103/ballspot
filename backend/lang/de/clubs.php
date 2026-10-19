@@ -106,6 +106,13 @@ return [
             'created' => 'Vereins-Challenge erstellt',
             'updated' => 'Vereins-Challenge aktualisiert',
         ],
+        'report' => [
+            'created'  => 'Inhalt gemeldet',
+            'resolved' => 'Meldung bearbeitet',
+        ],
+        'export' => [
+            'downloaded' => 'Rangliste heruntergeladen (CSV)',
+        ],
     ],
 
     // Specific sentences for ClubDomainException messages and admin helper
@@ -113,5 +120,22 @@ return [
     'competition_messages' => [
         'pack_in_overlapping_competition' => 'Das Paket ":pack" ist bereits im veröffentlichten Wettbewerb ":competition", dessen Zeitraum sich überschneidet. Wähle andere Daten oder ein anderes Paket.',
         'normal_play_allowed_helper'      => 'Mit "Normales Spielen erlaubt" können Mitglieder das Paket nicht normal spielen, solange ein Wettbewerbsversuch darauf läuft, und keinen Wettbewerbsversuch starten, solange ein normaler Versuch läuft. Das Paket zuerst normal fertig zu spielen und danach teilzunehmen bleibt bei Ein Versuch und Mehrere Versuche möglich; wähle Keine Wiederholung oder "Normales Spielen gesperrt", um das zu verhindern.',
+    ],
+
+    // Wave F: member content reports (validation sentences).
+    'report_messages' => [
+        'subject_invalid' => 'Dies kann in diesem Verein nicht gemeldet werden.',
+        'self_report'     => 'Du kannst dich nicht selbst melden.',
+    ],
+
+    // Wave F: member pushes (ClubCompetitionNotifier), in the recipient's language.
+    'push' => [
+        'competition_published_title'   => ':club: neuer Wettbewerb',
+        'competition_published_body'    => '„:competition“ startet am :date. Mach dich bereit!',
+        'competition_started_title'     => ':club: Wettbewerb gestartet',
+        'competition_started_body'      => '„:competition“ hat begonnen. Jetzt spielen!',
+        'competition_finalized_title'   => ':club: Endstand',
+        'competition_finalized_placed'  => '„:competition“ ist vorbei. Du bist Platz :placement von :total.',
+        'competition_finalized_body'    => '„:competition“ ist vorbei. Sieh dir den Endstand an.',
     ],
 ];

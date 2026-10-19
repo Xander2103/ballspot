@@ -197,7 +197,7 @@ class MobileContractShapeTest extends CompetitionTestCase
             'description'          => '?string',
             'region'               => '?string',
             'members_count'        => 'int',
-            'abilities'            => ['view_members' => 'bool', 'leave' => 'bool', 'manage' => 'bool'],
+            'abilities'            => ['view_members' => 'bool', 'leave' => 'bool', 'manage' => 'bool', 'manage_codes' => 'bool', 'manage_members' => 'bool', 'upload_photos' => 'bool'],
             'packs_preview'        => self::listOf(self::clubPackCard()),
             'competitions_preview' => [
                 'active'          => self::listOf(self::competitionCard()),
@@ -213,7 +213,8 @@ class MobileContractShapeTest extends CompetitionTestCase
 
     private static function memberSchema(): array
     {
-        return ['user_id' => 'int', 'username' => 'string', 'avatar_url' => '?string', 'role' => self::ROLES, 'joined_at' => '?iso'];
+        return ['user_id' => 'int', 'username' => 'string', 'avatar_url' => '?string', 'role' => self::ROLES, 'joined_at' => '?iso',
+            'actions' => ['change_role' => 'bool', 'remove' => 'bool', 'ban' => 'bool']];
     }
 
     private static function packState(): array
@@ -570,7 +571,7 @@ class MobileContractShapeTest extends CompetitionTestCase
         // GET /api/clubs/{club}
         $detail = $this->assertResponseShape($this->api($player)->getJson($this->clubPath($this->club))->assertOk(), ['data' => self::clubDetail()])['data'];
         $this->assertSame(['slug' => 'football', 'name' => 'Football', 'emoji' => '⚽'], $detail['sport']);
-        $this->assertSame(['view_members' => true, 'leave' => true, 'manage' => false], $detail['abilities']);
+        $this->assertSame(['view_members' => true, 'leave' => true, 'manage' => false, 'manage_codes' => false, 'manage_members' => false, 'upload_photos' => false], $detail['abilities']);
         $this->assertCount(1, $detail['competitions_preview']['active']);
         $this->assertNotNull($detail['competitions_preview']['active'][0]['me']);
         $this->assertCount(1, $detail['competitions_preview']['upcoming']);

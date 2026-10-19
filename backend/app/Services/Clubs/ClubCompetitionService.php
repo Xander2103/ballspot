@@ -45,6 +45,7 @@ class ClubCompetitionService
         private ClubAuditLogger $audit,
         private ClubStandingsService $standings,
         private ClubMembershipService $memberships,
+        private ClubCompetitionNotifier $notifier,
     ) {}
 
     public function create(Club $club, array $data, User $actor, string $actorKind = ClubAuditEvent::ACTOR_PLATFORM_ADMIN): ClubCompetition
@@ -220,6 +221,9 @@ class ClubCompetitionService
             $this->guard->lock($row);
         }
         $this->memberships->refreshCounters($row->club);
+
+        // Member push (Wave F), after the commit; at most once, never throws.
+        $this->notifier->published($row);
 
         return $row->fresh();
     }

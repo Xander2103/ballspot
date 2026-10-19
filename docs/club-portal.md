@@ -69,6 +69,8 @@ sign-in, but it must still happen on `/club/login`), `code_expiry_minutes`, `cod
 | `settings.edit`, `settings.update` | owner only: `join_enabled`, `member_list_visibility`, `default_replay_mode`, `default_normal_play_policy` (optimistic `version`) |
 | `audit.index` | this club's audit trail (filters: action, dates). Actor and target are shown by username. BallPicker's internal reasons are not shown |
 | `competitions.index`, `.create`, `.store`, `.show` (`?tab=standings`), `.update`, `.publish`, `.cancel`, `.extend` | `{competition}` by public_id within the club |
+| `leaderboard.index`, `leaderboard.csv` (`/club/{club}/leaderboard[.csv]`) | Wave F: the club's all-time leaderboard (same ranking as the app, D19; 50 per page) and its CSV download |
+| `competitions.standings-csv` (`/club/{club}/competitions/{competition}/standings.csv`) | Wave F: CSV of a competition's standings ("Download CSV" on the Standings tab) |
 
 ## Role matrix (portal)
 
@@ -85,6 +87,7 @@ sign-in, but it must still happen on `/club/login`), `code_expiry_minutes`, `cod
 | Upload / withdraw photos | ✓ | ✓ |
 | Settings | – | ✓ |
 | Competitions: create / edit before the lock, publish, cancel before the start, extend the end after the start | ✓ | ✓ |
+| Leaderboard + CSV downloads (also on a suspended club: read-only) | ✓ | ✓ |
 
 Every mutation goes through a FormRequest, a `ClubPolicy` ability (`manageMembers`, `manageCodes`, `uploadPhotos`,
 `manageSettings`, `transferOwnership`, `manageCompetitions`; all of them need an active club) and the shared service.
@@ -98,13 +101,31 @@ already linked stay selectable. The portal is stricter than the guard: once the 
 reached), the only allowed change is **extend end**. Name and description are locked too. Standings show the
 ranked visible players (D22).
 
+## CSV export (Wave F)
+
+`App\Services\Clubs\ClubStandingsCsvExporter`, shared with the central admin (`admin.clubs.leaderboard.csv`,
+`admin.clubs.competitions.standings-csv`):
+- columns `rank, username, total_score, packs_completed, attempts_used` — the rows the boards show (active,
+  non-anonymized members; shared ranks). **Usernames only**: never an email, user id or other personal field;
+- UTF-8 with BOM; a cell starting with `=`, `+`, `-`, `@`, tab or CR is prefixed with `'` (spreadsheet formula
+  injection guard);
+- filename `<club-slug>[-<competition-slug>]-leaderboard|standings-YYYYMMDD.csv` (ASCII slug →
+  safe `Content-Disposition`), `Cache-Control: no-store, private`;
+- every download is audited `export.downloaded` (`export`: leaderboard | competition, `count`; actor kind
+  `club_admin` in the portal, `platform_admin` in the admin) and visible in the portal audit log.
+
+Content reports (Wave F) are platform-only: `report.created` / `report.resolved` audit events are hidden from the
+portal audit log and the dashboard activity (`ClubAuditEvent::PLATFORM_ONLY_ACTIONS`), so club admins never learn
+who reported whom.
+
 ## Platform-only (BallPicker)
 
 There is no portal UI or route for:
 - removing the ball or positioning it, preparing or converting photos, and publishing challenges or packs;
 - voiding a competition or an attempt, rebuilding standings, finalizing;
 - suspend / archive / reactivate / delete a club, `max_members`, timezone, club details and logo;
-- adding users without an invite code.
+- adding users without an invite code;
+- moderating member content reports (`/admin/club-reports`).
 
 ## Ops
 

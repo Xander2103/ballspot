@@ -12,6 +12,7 @@ class NotificationSetting extends Model
         'daily_reminder_enabled',
         'tournament_reminder_enabled',
         'admin_notifications_enabled',
+        'club_updates_enabled',
         'reminder_time',
         'timezone',
         'last_daily_reminder_date',
@@ -23,6 +24,7 @@ class NotificationSetting extends Model
             'daily_reminder_enabled'      => 'boolean',
             'tournament_reminder_enabled' => 'boolean',
             'admin_notifications_enabled' => 'boolean',
+            'club_updates_enabled'        => 'boolean',
             'last_daily_reminder_date'    => 'date:Y-m-d',
         ];
     }
@@ -34,6 +36,8 @@ class NotificationSetting extends Model
             'daily_reminder_enabled'      => true,
             'tournament_reminder_enabled' => true,
             'admin_notifications_enabled' => true,
+            // BallPicker Clubs: competition published / started / finalized pushes.
+            'club_updates_enabled'        => true,
             'reminder_time'               => config('ballspot.notifications.default_reminder_time', '19:00'),
             'timezone'                    => null,
         ];

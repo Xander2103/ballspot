@@ -32,6 +32,16 @@ class ClubApiIsolationTest extends ClubApiTestCase
             'pack start'    => ['POST', $this->packPath($club, $pack, '/start')],
             'pack attempt'  => ['GET', $this->packPath($club, $pack, '/attempt')],
             'leaderboard'   => ['GET', $this->clubPath($club, '/leaderboard')],
+            // Wave F (club-admin API + reports): non-members get the same 404 before any validation.
+            'codes'         => ['GET', $this->clubPath($club, '/invite-codes')],
+            'code create'   => ['POST', $this->clubPath($club, '/invite-codes')],
+            'code revoke'   => ['POST', $this->clubPath($club, '/invite-codes/999999/revoke')],
+            'member role'   => ['PATCH', $this->clubPath($club, '/members/999999')],
+            'member remove' => ['POST', $this->clubPath($club, '/members/999999/remove')],
+            'member ban'    => ['POST', $this->clubPath($club, '/members/999999/ban')],
+            'photos'        => ['GET', $this->clubPath($club, '/photos')],
+            'photo upload'  => ['POST', $this->clubPath($club, '/photos')],
+            'report'        => ['POST', $this->clubPath($club, '/reports')],
         ];
     }
 
@@ -45,13 +55,22 @@ class ClubApiIsolationTest extends ClubApiTestCase
 
         $this->assertSame([
             'api/clubs/{club}',
+            'api/clubs/{club}/invite-codes',
+            'api/clubs/{club}/invite-codes',
+            'api/clubs/{club}/invite-codes/{inviteCode}/revoke',
             'api/clubs/{club}/leaderboard',
             'api/clubs/{club}/leave',
             'api/clubs/{club}/members',
+            'api/clubs/{club}/members/{userId}',
+            'api/clubs/{club}/members/{userId}/ban',
+            'api/clubs/{club}/members/{userId}/remove',
             'api/clubs/{club}/packs',
             'api/clubs/{club}/packs/{pack}',
             'api/clubs/{club}/packs/{pack}/attempt',
             'api/clubs/{club}/packs/{pack}/start',
+            'api/clubs/{club}/photos',
+            'api/clubs/{club}/photos',
+            'api/clubs/{club}/reports',
         ], $uris);
 
         foreach (collect(Route::getRoutes())->filter(fn ($r) => str_starts_with((string) $r->getName(), 'api.clubs.')) as $route) {

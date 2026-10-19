@@ -6,6 +6,7 @@ use App\Enums\CompetitionAttemptStatus;
 use App\Enums\CompetitionState;
 use App\Models\ClubCompetition;
 use App\Services\Clubs\ClubCompetitionCloseService;
+use App\Services\Clubs\ClubCompetitionNotifier;
 use App\Services\Clubs\ClubCompetitionRulesGuard;
 use App\Support\AppLog;
 use Illuminate\Console\Command;
@@ -15,7 +16,10 @@ use Illuminate\Console\Command;
  *  1. lock the rules of published competitions whose starts_at passed
  *     (players starting first lock them lazily anyway);
  *  2. expire active attempts of competitions that ended or were voided;
- *  3. finalize ended competitions → club_competition_finishes (no global XP).
+ *  3. finalize ended competitions → club_competition_finishes (no global XP)
+ *     — the finalize sends the members' "final standings" push;
+ *  4. send the "competition started" push (Wave F) for running competitions
+ *     that have not had it yet, whoever locked their rules (at most once).
  * A failure on one competition is logged and never stops the others.
  */
 class ClubCompetitionTick extends Command
@@ -24,10 +28,10 @@ class ClubCompetitionTick extends Command
 
     protected $description = 'Lock rules at start, expire attempts of ended club competitions and finalize them';
 
-    public function handle(ClubCompetitionRulesGuard $guard, ClubCompetitionCloseService $close): int
+    public function handle(ClubCompetitionRulesGuard $guard, ClubCompetitionCloseService $close, ClubCompetitionNotifier $notifier): int
     {
         $now = now();
-        $locked = $expired = $finalized = $failed = 0;
+        $locked = $expired = $finalized = $failed = $notified = 0;
 
         $guarded = function (ClubCompetition $competition, string $stage, \Closure $fn) use (&$failed) {
             try {
@@ -69,9 +73,14 @@ class ClubCompetitionTick extends Command
                 });
             });
 
-        $this->line("Locked: {$locked} · expired attempts: {$expired} · finalized: {$finalized}" . ($failed ? " · failed: {$failed}" : ''));
-        if ($locked + $expired + $finalized + $failed > 0) {
-            AppLog::event('club.competition_tick', compact('locked', 'expired', 'finalized', 'failed'));
+        // The notifier never throws (failures are logged and swallowed).
+        foreach ($notifier->dueForStart() as $c) {
+            $notified += $notifier->started($c)['claimed'] ? 1 : 0;
+        }
+
+        $this->line("Locked: {$locked} · expired attempts: {$expired} · finalized: {$finalized} · start pushes: {$notified}" . ($failed ? " · failed: {$failed}" : ''));
+        if ($locked + $expired + $finalized + $failed + $notified > 0) {
+            AppLog::event('club.competition_tick', compact('locked', 'expired', 'finalized', 'failed', 'notified'));
         }
 
         return $failed > 0 ? self::FAILURE : self::SUCCESS;

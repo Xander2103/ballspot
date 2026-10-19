@@ -21,6 +21,9 @@
 </div>
 @endif
 
+<div class="d-flex justify-content-end mb-2">
+    <a href="{{ route('admin.clubs.competitions.standings-csv', [$club, $competition]) }}" class="btn btn-outline-secondary btn-sm" data-section="standings-csv">Download CSV</a>
+</div>
 <div class="small text-muted mb-2">{{ $rankedCount }} ranked {{ $rankedCount === 1 ? 'player' : 'players' }}. Ranking: total score → reached first → fewer attempts; equal = shared rank. Players who left or were removed are hidden from members (kept here).</div>
 <div class="card shadow-sm" data-section="standings">
     <div class="table-responsive">

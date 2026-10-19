@@ -300,8 +300,11 @@ export interface InviteCode {
   id: number;
   /** Display form, e.g. "ABCD-EFGH". */
   code: string;
-  /** QR content, e.g. "ballpicker:club:ABCDEFGH". */
-  qr_payload: string;
+  /**
+   * QR content, e.g. "ballpicker:club:ABCDEFGH". Null when the code is masked
+   * for the caller ("ABCD-••••": an admin-granting code seen by a non-owner).
+   */
+  qr_payload: string | null;
   label: string | null;
   grants_role: 'member' | 'admin';
   uses_count: number;

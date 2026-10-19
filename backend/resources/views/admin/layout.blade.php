@@ -113,11 +113,13 @@
         // BallPicker Clubs (B2). Photo review shows the photos awaiting a
         // reviewer (pending + in review, D1);
         // rescue() keeps every admin page up if the clubs tables are missing.
-        'clubs' => ['label' => 'Clubs', 'url' => '/admin/clubs', 'match' => ['admin/clubs', 'admin/clubs/*', 'admin/club-competitions*', 'admin/club-photos*', 'admin/club-audit*'], 'pages' => [
+        'clubs' => ['label' => 'Clubs', 'url' => '/admin/clubs', 'match' => ['admin/clubs', 'admin/clubs/*', 'admin/club-competitions*', 'admin/club-photos*', 'admin/club-reports*', 'admin/club-audit*'], 'pages' => [
             ['label' => 'Clubs',        'url' => '/admin/clubs',             'match' => 'admin/clubs*'],
             ['label' => 'Competitions', 'url' => '/admin/club-competitions', 'match' => 'admin/club-competitions*'],
             ['label' => 'Photo review', 'url' => '/admin/club-photos',       'match' => 'admin/club-photos*',
              'badge' => request()->is('admin/clubs*', 'admin/club-*') ? (int) rescue(fn () => \App\Models\ClubPhotoSubmission::query()->awaitingReview()->count(), 0, false) : 0],
+            ['label' => 'Reports',      'url' => '/admin/club-reports',      'match' => 'admin/club-reports*', 'badge_title' => 'open reports',
+             'badge' => request()->is('admin/clubs*', 'admin/club-*') ? (int) rescue(fn () => \App\Models\ClubContentReport::query()->open()->count(), 0, false) : 0],
             ['label' => 'Audit log',    'url' => '/admin/club-audit',        'match' => 'admin/club-audit*'],
         ]],
         'game' => ['label' => 'Game', 'url' => '/admin/daily', 'match' => ['admin/daily*', 'admin/competition*'], 'pages' => [
@@ -165,7 +167,7 @@
         <span class="admin-subnav-group">{{ $activeGroup['label'] }}</span>
         @foreach($activeGroup['pages'] as $page)
             @php $pageActive = request()->is($page['match']); @endphp
-            <a class="admin-subnav-link {{ $pageActive ? 'active' : '' }}" href="{{ $page['url'] }}" @if($pageActive) aria-current="page" @endif>{{ $page['label'] }}@if(!empty($page['badge']))<span class="badge rounded-pill bg-danger ms-1" title="{{ $page['badge'] }} awaiting review">{{ $page['badge'] }}</span>@endif</a>
+            <a class="admin-subnav-link {{ $pageActive ? 'active' : '' }}" href="{{ $page['url'] }}" @if($pageActive) aria-current="page" @endif>{{ $page['label'] }}@if(!empty($page['badge']))<span class="badge rounded-pill bg-danger ms-1" title="{{ $page['badge'] }} {{ $page['badge_title'] ?? 'awaiting review' }}">{{ $page['badge'] }}</span>@endif</a>
         @endforeach
     </div>
 </nav>

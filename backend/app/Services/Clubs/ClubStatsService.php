@@ -83,7 +83,8 @@ class ClubStatsService
             ->selectRaw('MIN(created_at) AS oldest')
             ->toBase()->first();
 
-        $events = ClubAuditEvent::query()->where('club_id', $club->id)
+        // Report events (who reported whom) are platform-only: never in the club's activity feed.
+        $events = ClubAuditEvent::query()->where('club_id', $club->id)->visibleToClub()
             ->with('actor:id,username,name')
             ->orderByDesc('created_at')->orderByDesc('id')
             ->limit($recentEvents)->get();

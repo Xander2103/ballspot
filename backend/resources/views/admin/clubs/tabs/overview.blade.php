@@ -23,6 +23,10 @@
     @endforeach
 </div>
 
+<div class="d-flex justify-content-end mb-2">
+    <a href="{{ route('admin.clubs.leaderboard.csv', $club) }}" class="btn btn-outline-secondary btn-sm" data-section="leaderboard-csv">Download leaderboard CSV</a>
+</div>
+
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="card shadow-sm h-100">

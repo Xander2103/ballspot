@@ -18,6 +18,7 @@ return [
         'codes'        => 'Einladungscodes',
         'photos'       => 'Fotos',
         'competitions' => 'Wettbewerbe',
+        'leaderboard'  => 'Rangliste',
         'settings'     => 'Einstellungen',
         'audit'        => 'Protokoll',
         'switch_club'  => 'Verein wechseln',
@@ -404,5 +405,14 @@ return [
             'cancelled' => 'Wettbewerb abgesagt.',
             'extended'  => 'Ende verlängert.',
         ],
+    ],
+
+    // Wave F: club leaderboard page + CSV downloads.
+    'leaderboard' => [
+        'title'        => 'Rangliste',
+        'intro'        => 'Ewige Vereinsrangliste: die Summe der besten Punktzahl jedes Mitglieds pro Vereinspaket (normales Spielen und Wettbewerbe). Nur aktive Mitglieder.',
+        'empty'        => 'Noch hat niemand gepunktet.',
+        'download_csv' => 'CSV herunterladen',
+        'csv_note'     => 'Die CSV enthält Rang, Benutzername, Gesamtpunktzahl, abgeschlossene Pakete und Versuche — nur Benutzernamen, nie E-Mail-Adressen. Jeder Download wird im Audit-Log festgehalten.',
     ],
 ];

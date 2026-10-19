@@ -228,9 +228,14 @@ export function ClubInviteScreen({ navigation, route }: Props) {
               <Text style={styles.codeMeta}>{inviteCodeMeta(item, locale).join(' · ')}</Text>
               {usable ? (
                 <View style={styles.actions}>
-                  <ActionPill label={t('clubs.invites.showQr')} onPress={() => setQrCode(item)} styles={styles} />
-                  <ActionPill label={copiedId === item.id ? t('common.buttons.copied') : t('common.buttons.copy')} onPress={() => { void handleCopy(item); }} styles={styles} />
-                  <ActionPill label={t('common.buttons.share')} onPress={() => { void handleShare(item); }} styles={styles} />
+                  {item.qr_payload !== null ? (
+                    // Masked codes (admin-granting, seen by a non-owner) can only be revoked.
+                    <>
+                      <ActionPill label={t('clubs.invites.showQr')} onPress={() => setQrCode(item)} styles={styles} />
+                      <ActionPill label={copiedId === item.id ? t('common.buttons.copied') : t('common.buttons.copy')} onPress={() => { void handleCopy(item); }} styles={styles} />
+                      <ActionPill label={t('common.buttons.share')} onPress={() => { void handleShare(item); }} styles={styles} />
+                    </>
+                  ) : null}
                   <ActionPill label={t('clubs.invites.revoke')} onPress={() => { setRevokeError(''); setRevokeTarget(item); }} styles={styles} danger />
                 </View>
               ) : null}
@@ -253,7 +258,7 @@ export function ClubInviteScreen({ navigation, route }: Props) {
       <Modal visible={qrCode !== null} transparent animationType="fade" onRequestClose={() => setQrCode(null)}>
         <Pressable style={styles.qrOverlay} onPress={() => setQrCode(null)}>
           <Pressable style={styles.qrCard} onPress={() => {}}>
-            {qrCode ? (
+            {qrCode && qrCode.qr_payload !== null ? (
               <>
                 <Text style={styles.qrClub} numberOfLines={1}>{clubName}</Text>
                 <View style={styles.qrBox}>

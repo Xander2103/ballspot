@@ -201,9 +201,9 @@ describe('club admin + reports + notifications wiring (Wave F)', () => {
     expect(read('app/AppNavigator.tsx')).toMatch(/useNotificationRouting\(navigationRef, navReady\)/);
   });
 
-  it('the Club updates toggle binds club_updates and hides on backends without it', () => {
+  it('the Club updates toggle binds club_updates_enabled and hides on backends without it', () => {
     const source = read('components/NotificationSettingsCard.tsx');
-    expect(source).toMatch(/key: 'club_updates'/);
+    expect(source).toMatch(/key: 'club_updates_enabled'/);
     expect(source).toMatch(/typeof settings\[toggle\.key\] === 'boolean'/);
   });
 });

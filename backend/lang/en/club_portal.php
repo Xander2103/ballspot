@@ -18,6 +18,7 @@ return [
         'codes'        => 'Invite codes',
         'photos'       => 'Photos',
         'competitions' => 'Competitions',
+        'leaderboard'  => 'Leaderboard',
         'settings'     => 'Settings',
         'audit'        => 'Audit log',
         'switch_club'  => 'Switch club',
@@ -404,5 +405,14 @@ return [
             'cancelled' => 'Competition cancelled.',
             'extended'  => 'End time extended.',
         ],
+    ],
+
+    // Wave F: club leaderboard page + CSV downloads.
+    'leaderboard' => [
+        'title'        => 'Leaderboard',
+        'intro'        => 'All-time club ranking: the sum of each member\'s best score per club pack (normal play and competitions). Active members only.',
+        'empty'        => 'Nobody has scored yet.',
+        'download_csv' => 'Download CSV',
+        'csv_note'     => 'The CSV holds rank, username, total score, packs completed and attempts — usernames only, never e-mail addresses. Each download is recorded in the audit log.',
     ],
 ];

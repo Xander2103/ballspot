@@ -12,6 +12,7 @@
         ['club-portal.codes.index', 'codes', 'club-portal.codes.*'],
         ['club-portal.photos.index', 'photos', 'club-portal.photos.*'],
         \Illuminate\Support\Facades\Route::has('club-portal.competitions.index') ? ['club-portal.competitions.index', 'competitions', 'club-portal.competitions.*'] : null,
+        ['club-portal.leaderboard.index', 'leaderboard', 'club-portal.leaderboard.*'],
         $portalIsOwner ? ['club-portal.settings.edit', 'settings', 'club-portal.settings.*'] : null,
         ['club-portal.audit.index', 'audit', 'club-portal.audit.*'],
     ]) : [];

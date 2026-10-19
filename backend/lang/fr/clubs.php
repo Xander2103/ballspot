@@ -106,6 +106,13 @@ return [
             'created' => 'Défi du club créé',
             'updated' => 'Défi du club modifié',
         ],
+        'report' => [
+            'created'  => 'Contenu signalé',
+            'resolved' => 'Signalement traité',
+        ],
+        'export' => [
+            'downloaded' => 'Classement téléchargé (CSV)',
+        ],
     ],
 
     // Specific sentences for ClubDomainException messages and admin helper
@@ -113,5 +120,22 @@ return [
     'competition_messages' => [
         'pack_in_overlapping_competition' => 'Le pack « :pack » fait déjà partie de la compétition publiée « :competition », dont les dates se chevauchent. Choisis d\'autres dates ou un autre pack.',
         'normal_play_allowed_helper'      => 'Avec « Jeu normal autorisé », les membres ne peuvent pas jouer le pack normalement pendant qu\'une tentative de compétition est en cours, ni démarrer une tentative de compétition pendant qu\'une partie normale est en cours. Terminer d\'abord le pack normalement puis participer reste possible en modes Une tentative et Plusieurs tentatives ; choisis Pas de rejeu ou « Jeu normal bloqué » pour l\'empêcher.',
+    ],
+
+    // Wave F: member content reports (validation sentences).
+    'report_messages' => [
+        'subject_invalid' => 'Cet élément ne peut pas être signalé dans ce club.',
+        'self_report'     => 'Vous ne pouvez pas vous signaler vous-même.',
+    ],
+
+    // Wave F: member pushes (ClubCompetitionNotifier), in the recipient's language.
+    'push' => [
+        'competition_published_title'   => ':club : nouvelle compétition',
+        'competition_published_body'    => '« :competition » commence le :date. Préparez-vous !',
+        'competition_started_title'     => ':club : la compétition a commencé',
+        'competition_started_body'      => '« :competition » a commencé. Jouez maintenant !',
+        'competition_finalized_title'   => ':club : classement final',
+        'competition_finalized_placed'  => '« :competition » est terminée. Vous avez fini #:placement sur :total.',
+        'competition_finalized_body'    => '« :competition » est terminée. Consultez le classement final.',
     ],
 ];

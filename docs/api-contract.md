@@ -1375,10 +1375,15 @@ Returns the caller's settings, **lazily creating a defaults row** on first read.
   "daily_reminder_enabled": true,
   "tournament_reminder_enabled": true,
   "admin_notifications_enabled": true,
+  "club_updates_enabled": true,
   "reminder_time": "19:00",
   "timezone": null
 }
 ```
+
+`club_updates_enabled` (BallPicker Clubs, Wave F, default `true`): pushes about competitions of the clubs the user is
+an active member of — published (upcoming), started, finalized (with the user's placement). Independent of
+`admin_notifications_enabled` (admin announcements).
 
 ### PUT /api/me/notification-settings  *(auth + verified)*
 
@@ -1390,6 +1395,7 @@ Partial update — only the keys sent are changed. A user can only edit their ow
   "daily_reminder_enabled": false,
   "tournament_reminder_enabled": true,
   "admin_notifications_enabled": false,
+  "club_updates_enabled": false, // boolean — club competition pushes
   "reminder_time": "08:30",     // 24-hour HH:mm, validated (date_format:H:i)
   "timezone": "Europe/Brussels" // nullable string, max 64
 }
@@ -2187,3 +2193,77 @@ award no global XP or badges (D3).
               "placement": 2, "total_score": 2700, "total_players": 61, "finalized_at": "ISO" } ] }
 ```
 Placements are shared on full ties (1, 2, 2, 4); one row per ranked player.
+
+## Clubs — club admin API, reports, notifications  *(Wave F, feature-flagged)*
+
+Binding contract: `docs/clubs-implementation-contracts.md` §9 (+ "Wave F as built"). Same gate, addressing, cursor
+pagination and `{message, code}` errors as "Clubs (member API)". Role rules are the club portal's (one
+implementation: `ClubPolicy` + `App\Services\ClubPortal\ClubPortalMemberRules`); audit actor kind `club_admin`.
+
+**Order of the answers (writes).** The checks run before validation, so a probe never learns from field errors:
+non-member / archived / unknown → `404 club_not_found` · plain member → `403 club_forbidden` · suspended club →
+`423 club_unavailable` (read-only; lists stay readable) · ability missing (e.g. an admin changing a role) → `403
+club_forbidden` · then `422` validation / domain codes.
+
+### GET /api/clubs/{club} — `abilities`
+Gains `manage_codes`, `manage_members`, `upload_photos` (all false on a suspended club; `manage` unchanged).
+
+### GET /api/clubs/{club}/invite-codes?cursor=&limit=  *(owner/admin)*
+```jsonc
+{ "data": [ InviteCode ], "meta": { "next_cursor": null, "per_page": 20, "active_count": 3, "limit": 20 } }
+// InviteCode
+{ "id": 4, "code": "ABCD-EFGH", "qr_payload": "ballpicker:club:ABCDEFGH" | null, "label": "U15 parents" | null,
+  "grants_role": "member" | "admin", "uses_count": 41, "max_uses": 100 | null, "expires_at": "ISO" | null,
+  "revoked_at": "ISO" | null, "is_usable": true, "created_at": "ISO" }
+```
+Usable codes first, then revoked / expired / exhausted; newest first within each group. **Admin-granting codes are
+owner-only**: for a club admin (not owner) such a code is listed with the masked `code` (`ABCD-••••`) and
+`qr_payload: null`.
+
+### POST /api/clubs/{club}/invite-codes  *(owner/admin)*
+`{ label?: string ≤ 60, max_uses?: 1–100000, expires_at?: ISO (future), grants_role?: "member" (default) | "admin" }` →
+`201 { data: InviteCode }`. `grants_role: "admin"` by a club admin → `403 club_forbidden`; `"owner"` → 422.
+`422 club_code_limit` at `ballspot.clubs.limits.max_active_codes`.
+
+### POST /api/clubs/{club}/invite-codes/{id}/revoke  *(owner/admin)*
+→ `{ data: InviteCode }`; idempotent; any code of the club (admins may revoke admin codes). Another club's code id →
+`404 club_not_found`.
+
+### GET /api/clubs/{club}/members — `actions`
+Each item additionally carries `actions: { change_role, remove, ban }` for the caller: no self-actions, owners only
+touchable by owners, `change_role` owner-only (admin ↔ member); all false for plain members and on a suspended club.
+
+### PATCH /api/clubs/{club}/members/{userId}  `{ role: "admin" | "member" }`  *(owner)*
+→ `{ data: Member }` (the member-list item incl. `actions`). `{userId}` = the member's `user_id`; a user who is not an
+active member of this club → `404 club_member_not_found`. Owners are never demoted here (ownership moves by transfer).
+
+### POST /api/clubs/{club}/members/{userId}/remove | /ban  `{ reason?: string ≤ 200 }`  *(owner/admin)*
+→ `{ removed: true }` / `{ banned: true }`. Rules as `actions`; a banned user can never re-join with a code (D23).
+
+### GET /api/clubs/{club}/photos?cursor=&limit=  *(owner/admin)*
+`{ data: [ PhotoSubmission ], meta: { next_cursor, per_page } }`, newest first.
+```jsonc
+{ "id": 7, "status": "pending" | "in_review" | "in_preparation" | "converted" | "rejected",
+  "club_note": "…" | null, "rejection_reason": "…" | null, "thumbnail_url": "https://…/media/clubs/…?signature=…" | null,
+  "created_at": "ISO" }
+```
+
+### POST /api/clubs/{club}/photos  *(owner/admin, multipart, throttle `uploads`)*
+`photo` (JPEG/PNG/WebP ≤ `clubs.media.max_kb`), `rights_confirmed` (accepted: `1`/`true`/`on`/`yes`), `note?` ≤ 500 →
+`201 { data: PhotoSubmission }`. Lands in BallPicker's review queue (`/admin/club-photos`) as source `club_upload`.
+Errors: `422 photo_invalid | photo_duplicate | photo_pending_limit`, `423 club_unavailable`.
+
+### POST /api/clubs/{club}/reports  *(any active member, throttle `club-reports` 5/hour/user)*
+`{ subject_type: "club" | "competition" | "member", subject_id?: string (competition public_id | user id; required
+for competition/member), reason: "inappropriate" | "offensive" | "spam" | "privacy" | "other", details?: string ≤ 500 }`
+→ `201 { data: { id, status: "open" } }`. The subject must belong to the club (a non-draft competition of the club, an
+active member other than the caller) — else `422` on `subject_id`. Re-sending an identical open report answers
+`200` with the existing one. Allowed on a suspended club (safety channel). `429` with `Retry-After` past the limit.
+Reports are moderated by platform admins (`/admin/club-reports`); the reporter is never shown to club admins.
+
+### Member pushes (category `club_updates`)
+Expo push `data: { "type": "club_competition", "club_id": "<club public_id>", "competition_id": "<competition public_id>" }`
+→ the app opens the competition. Sent at most once per event to active members with `club_updates_enabled` and a
+push token, in the recipient's language: competition **published** (upcoming; a competition published after its
+start sends "started" instead), **started** (scheduler tick once `starts_at` passed) and **finalized** (body includes
+"#placement of total" when the member is ranked).

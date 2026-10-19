@@ -25,7 +25,7 @@ reviewed by a lawyer before public launch.**
 | Guesses & scores (daily/tournament/pack) | `daily_challenge_guesses`, `guesses`, `pack_attempt_guesses` | Core gameplay, leaderboards, stats | Contract | Retained after deletion, linked to the anonymized user row (leaderboard/history integrity). Round/daily usage history is also retained to enforce fairness rules (a photo is a daily once and never reappears in tournaments — v1.8.9) | Aggregates visible to other players via leaderboards |
 | XP events | `xp_events` | Progression ledger (append-only) | Contract | Retained after deletion (anonymized linkage) | User (own) |
 | Badges / trophies / finishes | `user_badges`, `tournament_finishes`, `competition_finishes`, `pack_attempts` | Achievements, Trophy Room | Contract | Retained after deletion (anonymized linkage) | All verified players — earned badges are listed on the public profile since v1.8.8; placements visible in tournaments |
-| Notification settings + timezone | `notification_settings` (daily_reminder_enabled, tournament_reminder_enabled, admin_notifications_enabled, reminder_time, timezone, timestamps) | Reminder scheduling, announcement opt-out. Timezone is a weak location signal | Consent / user preference | Deleted on account deletion | User (own), admins (DB) |
+| Notification settings + timezone | `notification_settings` (daily_reminder_enabled, tournament_reminder_enabled, admin_notifications_enabled, club_updates_enabled, reminder_time, timezone, timestamps) | Reminder scheduling, announcement opt-out. Timezone is a weak location signal | Consent / user preference | Deleted on account deletion | User (own), admins (DB) |
 | Expo push tokens | `push_tokens` (user_id, token, platform, device_name, last_seen_at, timestamps). Token is plaintext at rest by necessity — Expo needs the raw value, and a deterministic `unique` index + `updateOrCreate` rule out Laravel's non-deterministic `encrypted` cast without a separate lookup-hash column. **Accepted risk**, mitigated by: `$hidden` on the model so **no API ever returns it** (export returns only platform + timestamps), and the recommendation to enable Expo's enhanced push-security access token so a leaked token is useless without the server secret | Deliver daily/tournament reminders and admin announcements | Consent (OS-level permission + in-app opt-in) | Deleted on logout (that device), account deletion (all), or after 90 days unseen (`ballspot:cleanup-login-codes`) | Nobody via API; Expo push service in transit, then APNs (iOS) / FCM (Android, where applicable) |
 | Friend code | `users.friend_code` | Share code so another player can send a friend request; also the QR payload (the QR encodes the code and nothing else). In `$hidden` and never fillable — only ever returned to its own owner via `GET /api/me/friend-code` and in that user's own export | Contract | **Nulled on account deletion** so the code stops resolving | User (own) only; other players never see it |
 | Friend requests & friendships | `friend_requests` (requester_id, recipient_id, status, timestamps), `friendships` (user_id, friend_id, timestamps — two rows per friendship, one per direction) | Who a player is connected to, and pending requests either way | Contract | **Explicitly deleted by `AccountController::delete`** — the FK cascade does NOT fire, because deletion anonymizes the user row rather than removing it | The two parties involved |
@@ -39,6 +39,8 @@ reviewed by a lawyer before public launch.**
 | Club photo submissions | `club_photo_submissions` (club, `uploaded_by_user_id`, private file on the `club_private` disk, mime/size/sha256, notes, status) + the private files under `storage/app/private/clubs` | Club-supplied photos turned into club challenges | Contract / club agreement (D8) | Uploader id nulled on account deletion; the photo stays club content | Club admins (own club), platform admins; files only via short-lived signed URLs |
 | Club portal sign-in codes | `club_portal_login_codes` (user_id, bcrypt hash of the emailed code, sent/expiry, attempts, sends, IP, user agent) | Mandatory email code for the club portal (`/club`) | Legitimate interest (account security) | At most one row per user, deleted when used or replaced; removed on account deletion | Nobody — never exposed; the plain code exists only in the email |
 | Club invite codes | `club_invite_codes` (code, label, limits, `created_by_user_id` / `revoked_by_user_id`) | Joining a club | Contract | Creator/revoker ids nulled on account deletion; the code keeps working | Club admins and platform admins only — never in an export or a member payload |
+| Club content reports | `club_content_reports` (club_id, `reporter_user_id`, subject_type club/competition/member + `subject_ref` = competition public id or the reported user's id, reason, free-text `details` ≤ 500, status, `admin_note`, `reviewed_by_user_id`, reviewed_at) — Wave F | A member reports club content (the club, a competition, another member) for platform moderation (plan §11.9, UGC/store review) | Legitimate interest (safety, moderation) | Kept for moderation history; reporter and reviewer ids **nulled on account deletion**; the report itself stays | Platform admins only (`/admin/club-reports`). Never shown to club owners/admins: the `report.*` audit events are hidden from the club portal. The reporter sees their own reports in the export |
+| Club notification preference + push bookkeeping | `notification_settings.club_updates_enabled` (default on); `club_competitions.notified_{published,started,finalized}_at` (no personal data) — Wave F | Member pushes about club competitions (published / started / finalized with the member's own placement), sent via Expo to the user's push tokens in their `preferred_language` | Consent / user preference (toggle in the app's notification settings + OS permission) | Setting deleted with the settings row on account deletion | User (own), admins (DB) |
 | Club contact + audit | `clubs.contact_name`, `clubs.contact_email` (admin-only, hidden from every API), `club_audit_events` (actor id, allow-listed metadata, codes masked) | Club administration, accountability | Legitimate interest | Kept with the club; the actor of a deleted account is the anonymized row | Platform admins only |
 
 ## Visible to other players (v1.8.2)
@@ -148,7 +150,8 @@ and other players' history integrity.
 membership to `removed` (audited; a club that loses its last owner is flagged
 `needs_owner` for platform admins, D6), nulls `club_invite_codes.created_by_user_id`
 / `revoked_by_user_id` (the codes stay valid) and
-`club_photo_submissions.uploaded_by_user_id`. Club competition attempts,
+`club_photo_submissions.uploaded_by_user_id`, and (Wave F) `club_content_reports.reporter_user_id` /
+`reviewed_by_user_id`. Club competition attempts,
 guesses, finishes and reward claims are retained like other gameplay.
 `ClubPrivacyTest` (tests/Feature/Clubs/Api) is the guard.
 
@@ -184,7 +187,12 @@ identifying anyone.
   a competition-attempt summary and list, club competition finishes, club
   reward claims and their own photo submissions (metadata, never the private
   file path). It never contains other members, invite codes, club contact
-  details or admin notes (`ClubPrivacyTest`).
+  details or admin notes (`ClubPrivacyTest`). Wave F adds `clubs.content_reports`
+  — the reports the subject filed (club, subject type/ref, reason, details,
+  status, dates; never the admin note or reviewer, never reports others filed
+  about them; `ClubReportApiTest`) — and `notification_settings.club_updates_enabled`.
+- Club CSV exports (portal / admin, Wave F) contain rank, username and scores only
+  — never emails or user ids — and every download is audited `export.downloaded`.
 - `DELETE /api/account` revokes all API tokens, deletes the avatar file, push
   tokens, notification settings and pending verification codes, and anonymizes
   the user row. Gameplay history is retained linked to the anonymized row —

@@ -40,7 +40,16 @@ class ClubAuditEvent extends Model
         // Photos (D1): review workflow steps + club withdrawal; club challenges.
         'photo.in_review', 'photo.preparation_started', 'photo.withdrawn',
         'challenge.created', 'challenge.updated',
+        // Wave F: member content reports (platform moderation) and CSV exports.
+        'report.created', 'report.resolved',
+        'export.downloaded',
     ];
+
+    /**
+     * Actions only platform admins see: they would reveal who reported whom.
+     * Hidden from the club portal's audit log and dashboard activity.
+     */
+    public const PLATFORM_ONLY_ACTIONS = ['report.created', 'report.resolved'];
 
     /**
      * Allow-listed metadata keys. Values are ids, counts, statuses, roles,
@@ -54,6 +63,8 @@ class ClubAuditEvent extends Model
         'pack_id', 'competition_id', 'attempt_id', 'submission_id', 'challenge_id',
         'ends_at_from', 'ends_at_to', 'count', 'dry_run', 'diff', 'source', 'reactivated', 'replay_mode',
         'max_attempts', 'score_rule', 'normal_play_policy', 'placements', 'participants',
+        // Wave F
+        'report_id', 'subject_kind', 'subject_ref', 'export',
     ];
 
     protected $fillable = [
@@ -77,6 +88,12 @@ class ClubAuditEvent extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_user_id');
+    }
+
+    /** Events club admins may see (portal audit log + dashboard activity). */
+    public function scopeVisibleToClub(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereNotIn('action', self::PLATFORM_ONLY_ACTIONS);
     }
 
     public function subject(): MorphTo

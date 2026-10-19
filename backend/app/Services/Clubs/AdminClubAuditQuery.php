@@ -45,12 +45,14 @@ class AdminClubAuditQuery
         return $f['action'] !== '' || $f['actor'] !== '' || $f['actor_kind'] !== '' || $f['club'] !== '' || $f['from'] !== '' || $f['to'] !== '';
     }
 
-    public function query(array $filters, ?int $clubId = null): Builder
+    /** $clubView: the club portal's view — platform-only actions (reports) are excluded. */
+    public function query(array $filters, ?int $clubId = null, bool $clubView = false): Builder
     {
         $f = $this->normalize($filters);
 
         return ClubAuditEvent::query()
             ->with(['actor:id,username,name', 'club:id,name,slug'])
+            ->when($clubView, fn ($q) => $q->visibleToClub())
             ->when($clubId !== null, fn ($q) => $q->where('club_id', $clubId))
             ->when($clubId === null && $f['club'] !== '', fn ($q) => $q->where('club_id', (int) $f['club']))
             ->when($f['action'] !== '', fn ($q) => $q->where('action', $f['action']))
@@ -70,8 +72,8 @@ class AdminClubAuditQuery
             ->orderByDesc('created_at')->orderByDesc('id');
     }
 
-    public function paginate(array $filters, ?int $clubId = null, string $pageName = 'page'): LengthAwarePaginator
+    public function paginate(array $filters, ?int $clubId = null, string $pageName = 'page', bool $clubView = false): LengthAwarePaginator
     {
-        return $this->query($filters, $clubId)->paginate(self::PER_PAGE, ['*'], $pageName)->withQueryString();
+        return $this->query($filters, $clubId, $clubView)->paginate(self::PER_PAGE, ['*'], $pageName)->withQueryString();
     }
 }

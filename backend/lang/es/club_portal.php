@@ -18,6 +18,7 @@ return [
         'codes'        => 'Códigos de invitación',
         'photos'       => 'Fotos',
         'competitions' => 'Competiciones',
+        'leaderboard'  => 'Clasificación',
         'settings'     => 'Ajustes',
         'audit'        => 'Registro de actividad',
         'switch_club'  => 'Cambiar de club',
@@ -404,5 +405,14 @@ return [
             'cancelled' => 'Competición cancelada.',
             'extended'  => 'Final ampliado.',
         ],
+    ],
+
+    // Wave F: club leaderboard page + CSV downloads.
+    'leaderboard' => [
+        'title'        => 'Clasificación',
+        'intro'        => 'Clasificación histórica del club: la suma de la mejor puntuación de cada miembro por pack del club (juego normal y competiciones). Solo miembros activos.',
+        'empty'        => 'Nadie ha puntuado todavía.',
+        'download_csv' => 'Descargar CSV',
+        'csv_note'     => 'El CSV contiene la posición, el nombre de usuario, la puntuación total, los packs completados y los intentos — solo nombres de usuario, nunca direcciones de correo. Cada descarga queda registrada en el registro de auditoría.',
     ],
 ];

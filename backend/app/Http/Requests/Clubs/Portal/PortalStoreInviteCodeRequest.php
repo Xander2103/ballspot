@@ -41,9 +41,7 @@ class PortalStoreInviteCodeRequest extends PortalRequest
     {
         $member = app(\App\Services\Clubs\ClubMembershipService::class)->membership($this->club(), $this->user());
 
-        return $member?->role === ClubRole::Owner
-            ? [ClubRole::Member->value, ClubRole::Admin->value]
-            : [ClubRole::Member->value];
+        return \App\Services\ClubPortal\ClubPortalMemberRules::grantableCodeRoles($member) ?: [ClubRole::Member->value];
     }
 
     /** Options for ClubInviteCodeService::create(); a date expiry means the end of that day. */

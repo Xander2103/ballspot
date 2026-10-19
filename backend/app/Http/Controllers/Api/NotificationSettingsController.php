@@ -40,6 +40,8 @@ class NotificationSettingsController extends Controller
             'daily_reminder_enabled'      => (bool) $settings->daily_reminder_enabled,
             'tournament_reminder_enabled' => (bool) $settings->tournament_reminder_enabled,
             'admin_notifications_enabled' => (bool) $settings->admin_notifications_enabled,
+            // Default on; a row created before the column existed reads null → on.
+            'club_updates_enabled'        => $settings->club_updates_enabled === null ? true : (bool) $settings->club_updates_enabled,
             'reminder_time'               => $settings->reminder_time,
             'timezone'                    => $settings->timezone,
             // Read-only server capability flag: when true the backend sends the

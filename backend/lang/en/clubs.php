@@ -108,6 +108,13 @@ return [
             'created' => 'Club challenge created',
             'updated' => 'Club challenge updated',
         ],
+        'report' => [
+            'created'  => 'Content reported',
+            'resolved' => 'Report resolved',
+        ],
+        'export' => [
+            'downloaded' => 'Standings downloaded (CSV)',
+        ],
     ],
 
     // Specific sentences for ClubDomainException messages and admin helper
@@ -115,5 +122,22 @@ return [
     'competition_messages' => [
         'pack_in_overlapping_competition' => 'The pack ":pack" is already in the published competition ":competition", whose dates overlap. Choose other dates or another pack.',
         'normal_play_allowed_helper'      => 'With "Allowed", a member cannot play a pack normally while their competition attempt on it is in progress, and cannot start a competition attempt while a normal attempt on it is in progress. Finishing the pack normally first and competing afterwards stays possible with "One competition attempt per pack" and "Multiple attempts"; choose "No replay" or "Blocked" to prevent that.',
+    ],
+
+    // Wave F: member content reports (validation sentences).
+    'report_messages' => [
+        'subject_invalid' => 'This item cannot be reported in this club.',
+        'self_report'     => 'You cannot report yourself.',
+    ],
+
+    // Wave F: member pushes (ClubCompetitionNotifier), in the recipient's language.
+    'push' => [
+        'competition_published_title'   => ':club: new competition',
+        'competition_published_body'    => '“:competition” starts :date. Get ready!',
+        'competition_started_title'     => ':club: competition started',
+        'competition_started_body'      => '“:competition” has started. Play now!',
+        'competition_finalized_title'   => ':club: final standings',
+        'competition_finalized_placed'  => '“:competition” is over. You finished #:placement of :total.',
+        'competition_finalized_body'    => '“:competition” is over. See the final standings.',
     ],
 ];

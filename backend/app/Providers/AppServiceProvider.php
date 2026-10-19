@@ -274,6 +274,14 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
+        // BallPicker Clubs (Wave F): POST /api/clubs/{club}/reports — member
+        // content reports, 5 per hour per user across all clubs (config
+        // ballspot.clubs.reports.per_user_per_hour).
+        RateLimiter::for('club-reports', function (Request $request) {
+            return Limit::perHour(max(1, (int) config('ballspot.clubs.reports.per_user_per_hour', 5)))
+                ->by('club-reports|' . ($request->user()?->id ?: $request->ip()));
+        });
+
         // BallPicker Club Portal (/club) password step: per IP and per
         // email+IP. The IP-independent per-email ceiling on FAILED attempts is
         // FailedLoginLimiter scope `club-portal` (in the controller, failures

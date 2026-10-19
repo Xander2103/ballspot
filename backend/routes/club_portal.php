@@ -25,6 +25,7 @@ use App\Http\Controllers\ClubPortal\CompetitionController;
 use App\Http\Controllers\ClubPortal\DashboardController;
 use App\Http\Controllers\ClubPortal\HomeController;
 use App\Http\Controllers\ClubPortal\InviteCodeController;
+use App\Http\Controllers\ClubPortal\LeaderboardController;
 use App\Http\Controllers\ClubPortal\MemberController;
 use App\Http\Controllers\ClubPortal\PhotoController;
 use App\Http\Controllers\ClubPortal\SettingsController;
@@ -89,6 +90,10 @@ Route::name('club-portal.')->group(function () {
 
                 Route::get('audit', AuditController::class)->name('audit.index');
 
+                // Leaderboard + CSV downloads (Wave F; usernames only, audited).
+                Route::get('leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard.index');
+                Route::get('leaderboard.csv', [LeaderboardController::class, 'csv'])->name('leaderboard.csv');
+
                 // Competitions: no void / rebuild / finalize / attempt void here (platform-only).
                 Route::get('competitions', [CompetitionController::class, 'index'])->name('competitions.index');
                 Route::get('competitions/create', [CompetitionController::class, 'create'])->name('competitions.create');
@@ -99,6 +104,7 @@ Route::name('club-portal.')->group(function () {
                     Route::post('publish', [CompetitionController::class, 'publish'])->name('competitions.publish');
                     Route::post('cancel', [CompetitionController::class, 'cancel'])->name('competitions.cancel');
                     Route::post('extend', [CompetitionController::class, 'extend'])->name('competitions.extend');
+                    Route::get('standings.csv', [LeaderboardController::class, 'competitionCsv'])->name('competitions.standings-csv');
                 });
             });
     });
