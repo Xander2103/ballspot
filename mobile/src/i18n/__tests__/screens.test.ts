@@ -50,6 +50,11 @@ const LAUNCH_CRITICAL = [
   'components/home/DailyChallengeCard.tsx',
   'components/home/SportSelector.tsx',
   'components/home/LevelRing.tsx',
+  'components/friends/Sheet.tsx',
+  'components/friends/FriendCodeCard.tsx',
+  'components/friends/AddFriendSheet.tsx',
+  'components/friends/FriendsTabs.tsx',
+  'components/friends/SentRequestsBar.tsx',
   'app/AppNavigator.tsx',
   'app/MainTabs.tsx',
 ];

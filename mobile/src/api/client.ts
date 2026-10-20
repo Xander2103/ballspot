@@ -5,6 +5,7 @@ import {
   parseJsonBody, describeApiFailure, formatApiFailure, MALFORMED_RESPONSE,
 } from '../utils/session';
 import { devLog } from '../utils/devLog';
+import { noteServerDate } from '../utils/serverClock';
 
 /**
  * Read a body as JSON. Tolerates a leading BOM and an empty body (see
@@ -114,6 +115,10 @@ async function request<T>(
 
     throw { status: response.status, ...error };
   }
+
+  // Every answer carries the server's clock: Home's daily countdown runs on it
+  // instead of the device clock, which the user can set to anything.
+  noteServerDate(response.headers?.get?.('Date') ?? null);
 
   if (response.status === 204) return undefined as T;
 

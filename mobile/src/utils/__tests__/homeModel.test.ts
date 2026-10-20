@@ -1,4 +1,7 @@
-import { dailyCardModel, sportTapAction, levelRingModel } from '../homeModel';
+import {
+  dailyCardModel, sportTapAction, levelRingModel,
+  nextDailyTarget, countdownParts, msUntilNextTick, nextDailyWhen,
+} from '../homeModel';
 import type { TodayResponse, DailyStats } from '../../types/daily';
 import type { PlayerRank } from '../../types/auth';
 
@@ -93,5 +96,59 @@ describe('levelRingModel', () => {
     expect(levelRingModel(null)).toBeNull();
     expect(levelRingModel(undefined)).toBeNull();
     expect(levelRingModel({ ...rank, level: 0 })).toBeNull();
+  });
+});
+
+describe('next-daily countdown', () => {
+  const at = '2026-10-21T00:10:00Z';
+  const target = Date.parse(at);
+  const none = { has_daily: false, already_played: false, next_daily: { date: '2026-10-21', available_at: at } };
+
+  it('counts down only to a time the backend confirmed', () => {
+    const model = dailyCardModel(false, none, null);
+    expect(nextDailyTarget(model, none)).toBe(target);
+    const unconfirmed = { has_daily: false, already_played: false };
+    expect(nextDailyTarget(dailyCardModel(false, unconfirmed, null), unconfirmed)).toBeNull();
+    const nulled = { ...none, next_daily: null };
+    expect(nextDailyTarget(dailyCardModel(false, nulled, null), nulled)).toBeNull();
+    const garbage = { ...none, next_daily: { date: 'x', available_at: 'not a date' } };
+    expect(nextDailyTarget(dailyCardModel(false, garbage, null), garbage)).toBeNull();
+  });
+
+  it('never counts down next to a playable daily, nor while loading', () => {
+    const playable = { has_daily: true, already_played: false, daily_challenge: entry(), next_daily: none.next_daily };
+    expect(nextDailyTarget(dailyCardModel(false, playable, stats), playable)).toBeNull();
+    expect(nextDailyTarget(dailyCardModel(true, none, null), none)).toBeNull();
+  });
+
+  it('counts down to tomorrow once today is played', () => {
+    const played = { has_daily: true, already_played: true, daily_challenge: entry(), next_daily: none.next_daily };
+    expect(nextDailyTarget(dailyCardModel(false, played, stats), played)).toBe(target);
+  });
+
+  it('rounds up to the minute and never shows zero or a negative time', () => {
+    expect(countdownParts(target, target - (5 * 3600 + 42 * 60) * 1000)).toEqual({ hours: 5, minutes: 42 });
+    expect(countdownParts(target, target - (5 * 3600 + 41 * 60 + 30) * 1000)).toEqual({ hours: 5, minutes: 42 });
+    expect(countdownParts(target, target - 1000)).toEqual({ hours: 0, minutes: 1 });
+    expect(countdownParts(target, target - 60 * 60 * 1000)).toEqual({ hours: 1, minutes: 0 });
+    expect(countdownParts(target, target)).toBeNull();
+    expect(countdownParts(target, target + 5000)).toBeNull();
+  });
+
+  it('wakes up exactly when the shown minute changes', () => {
+    expect(msUntilNextTick(target, target - 90_000)).toBe(30_000);
+    expect(msUntilNextTick(target, target - 120_000)).toBe(60_000);
+    expect(msUntilNextTick(target, target - 1)).toBe(1);
+    expect(msUntilNextTick(target, target)).toBe(0);
+    expect(msUntilNextTick(target, target + 1)).toBe(0);
+  });
+
+  it('names the local day the next daily lands on', () => {
+    const now = new Date(2026, 9, 20, 22, 0).getTime();
+    expect(nextDailyWhen(null, now)).toEqual({ when: 'tomorrow' });
+    expect(nextDailyWhen(new Date(2026, 9, 20, 23, 30).getTime(), now)).toEqual({ when: 'laterToday' });
+    expect(nextDailyWhen(new Date(2026, 9, 21, 2, 0).getTime(), now)).toEqual({ when: 'tomorrow' });
+    const later = new Date(2026, 9, 23, 2, 0).getTime();
+    expect(nextDailyWhen(later, now)).toEqual({ when: 'later', date: new Date(later) });
   });
 });

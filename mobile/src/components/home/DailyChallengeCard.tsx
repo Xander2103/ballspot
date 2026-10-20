@@ -7,13 +7,18 @@ import { ThemeTokens } from '../../theme/themes';
 import { spacing } from '../../theme/spacing';
 import { useI18n } from '../../i18n';
 import { AppButton } from '../AppButton';
+import { LineIcon } from '../LineIcon';
 import { CardGradient } from './CardGradient';
-import type { DailyCardModel } from '../../utils/homeModel';
+import type { CountdownParts, DailyCardModel, NextDailyWhen } from '../../utils/homeModel';
 
 const dailyImage = require('../../../assets/home/ballpicker_daily_rustig.png');
 
 interface Props {
   model: DailyCardModel;
+  /** Time left until the next daily, only when the backend confirmed it (see useCountdown). */
+  countdown: CountdownParts | null;
+  /** Which day the next daily lands on, for the empty card's single line. */
+  nextWhen: NextDailyWhen;
   onPlay: (dailyChallengeId: number) => void;
   onViewResult: (dailyChallengeId: number) => void;
 }
@@ -22,6 +27,15 @@ function todayDateFormatted(locale: string): string {
   // English keeps the day-first (en-GB) format the screen has always used.
   const dateLocale = locale === 'en' ? 'en-GB' : locale;
   return new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
+function nextDateFormatted(date: Date, locale: string): string {
+  const dateLocale = locale === 'en' ? 'en-GB' : locale;
+  return date.toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 
 function CalendarIcon({ color }: { color: string }) {
@@ -39,7 +53,7 @@ function CalendarIcon({ color }: { color: string }) {
  * The image is decoration only — every line of copy and the action come from
  * the model (utils/homeModel.ts), so no state the old card had is lost.
  */
-export function DailyChallengeCard({ model, onPlay, onViewResult }: Props) {
+export function DailyChallengeCard({ model, countdown, nextWhen, onPlay, onViewResult }: Props) {
   const { theme } = useTheme();
   const { t, locale } = useI18n();
   const { width } = useWindowDimensions();
@@ -66,6 +80,24 @@ export function DailyChallengeCard({ model, onPlay, onViewResult }: Props) {
         />
         <CardGradient id="homeDailyFade" color={theme.surface} start={0.3} />
       </View>
+
+      {/* Quiet badge on the artwork, well above the title. Static text that
+          changes once a minute: no blinking, no animation. */}
+      {countdown ? (
+        <View
+          style={styles.countdown}
+          testID="home-daily-countdown"
+          accessible
+          accessibilityRole="timer"
+          accessibilityLabel={t('home.daily.countdownA11y', { hours: countdown.hours, minutes: countdown.minutes })}
+        >
+          <LineIcon name="clock" color={theme.primary} size={13} strokeWidth={2.2} />
+          <Text style={styles.countdownLabel} maxFontSizeMultiplier={1.3}>{t('home.daily.countdown')}</Text>
+          <Text style={styles.countdownValue} maxFontSizeMultiplier={1.3}>
+            {t('home.daily.countdownValue', { hours: pad2(countdown.hours), minutes: pad2(countdown.minutes) })}
+          </Text>
+        </View>
+      ) : null}
 
       <View style={[styles.body, { paddingTop: imageHeight - 56 }]}>
         <Text style={styles.title} accessibilityRole="header">{t('home.daily.cardTitle')}</Text>
@@ -98,16 +130,17 @@ export function DailyChallengeCard({ model, onPlay, onViewResult }: Props) {
               <Text style={styles.streak}>{t('daily.streak', { count: model.streak })}</Text>
             ) : null}
 
+            {/* One line; the countdown badge (when confirmed) carries the exact time. */}
             {model.kind === 'none' ? (
-              <>
-                <Text style={styles.empty}>
-                  {model.isOtherSport
-                    ? t('home.daily.noneForSport', { sport: model.sportName })
-                    : t('home.daily.noneToday')}
-                </Text>
-                {/* Packs and Tournaments sit right below: point at them so Home never dead-ends. */}
-                <Text style={styles.emptyHint}>{t('home.fallback.message')}</Text>
-              </>
+              <Text style={styles.empty}>
+                {model.isOtherSport
+                  ? t('home.daily.noneForSport', { sport: model.sportName })
+                  : nextWhen.when === 'laterToday'
+                    ? t('home.daily.nextLaterToday')
+                    : nextWhen.when === 'later'
+                      ? t('home.daily.nextOn', { date: nextDateFormatted(nextWhen.date, locale) })
+                      : t('home.daily.nextTomorrow')}
+              </Text>
             ) : null}
 
             {model.kind === 'playable' ? (
@@ -158,8 +191,18 @@ function createStyles(theme: ThemeTokens) {
     pillTextDone: { color: theme.primary, textTransform: 'none' },
     pillText: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, textTransform: 'capitalize' },
     streak: { fontSize: 15, fontWeight: '700', color: theme.warning, marginTop: spacing.sm },
-    empty: { fontSize: 14, lineHeight: 20, color: theme.text, marginTop: spacing.sm },
-    emptyHint: { fontSize: 13, lineHeight: 18, color: theme.textMuted, marginTop: spacing.xs },
+    empty: { fontSize: 14, lineHeight: 20, color: theme.textSecondary, marginTop: spacing.sm },
+    countdown: {
+      position: 'absolute', top: spacing.sm + 4, left: spacing.sm + 4,
+      flexDirection: 'row', alignItems: 'center', gap: 6,
+      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+      // Dark, slightly see-through green: readable on the bright artwork
+      // without hiding it. Hex alpha on the theme tokens (cc ≈ 80%, 59 ≈ 35%).
+      backgroundColor: theme.background + 'cc',
+      borderWidth: 1, borderColor: theme.primary + '59',
+    },
+    countdownLabel: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
+    countdownValue: { fontSize: 12, fontWeight: '700', color: theme.text, fontVariant: ['tabular-nums'] },
     loadingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.md, minHeight: 52 },
     loadingText: { color: theme.textMuted, fontSize: 13, fontStyle: 'italic' },
     action: { marginTop: spacing.md },

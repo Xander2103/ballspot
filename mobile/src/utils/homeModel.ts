@@ -85,3 +85,65 @@ export function levelRingModel(rank: PlayerRank | null | undefined): LevelRingMo
   const progress = Number.isFinite(pct) ? Math.min(Math.max(pct, 0), 100) / 100 : 0;
   return { level: rank.level, progress };
 }
+
+// --- Next-daily countdown ----------------------------------------------------
+
+/**
+ * Instant (ms) the next daily becomes playable — only when the backend
+ * confirmed one (`next_daily.available_at`) and only on a card without a
+ * playable daily: a Play action never sits next to a countdown to another day.
+ */
+export function nextDailyTarget(model: DailyCardModel, today: TodayResponse | null): number | null {
+  if (model.kind !== 'none' && model.kind !== 'played') return null;
+  const at = today?.next_daily?.available_at;
+  if (!at) return null;
+  const ms = Date.parse(at);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+export interface CountdownParts {
+  hours: number;
+  minutes: number;
+}
+
+/**
+ * Time left, rounded UP to the minute so the badge reads "00h 01m" until the
+ * daily is really due and never "00h 00m". Null once due: never negative.
+ */
+export function countdownParts(targetMs: number, nowMs: number): CountdownParts | null {
+  const remaining = targetMs - nowMs;
+  if (!(remaining > 0)) return null;
+  const totalMinutes = Math.ceil(remaining / 60_000);
+  return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 };
+}
+
+/** Delay until the displayed minute changes (or the countdown ends), for a single re-render. */
+export function msUntilNextTick(targetMs: number, nowMs: number): number {
+  const remaining = targetMs - nowMs;
+  if (remaining <= 0) return 0;
+  const rest = remaining % 60_000;
+  return rest === 0 ? 60_000 : rest;
+}
+
+export type NextDailyWhen =
+  | { when: 'laterToday' }
+  | { when: 'tomorrow' }
+  | { when: 'later'; date: Date };
+
+/**
+ * Which day the next daily lands on, in the player's local calendar. Without a
+ * confirmed time this stays "tomorrow" — the promise the card always made.
+ */
+export function nextDailyWhen(targetMs: number | null, nowMs: number): NextDailyWhen {
+  if (targetMs === null) return { when: 'tomorrow' };
+  const target = new Date(targetMs);
+  const startOfToday = new Date(nowMs);
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTarget = new Date(target);
+  startOfTarget.setHours(0, 0, 0, 0);
+  // Round: a DST change makes one calendar day 23 or 25 hours long.
+  const days = Math.round((startOfTarget.getTime() - startOfToday.getTime()) / 86_400_000);
+  if (days <= 0) return { when: 'laterToday' };
+  if (days === 1) return { when: 'tomorrow' };
+  return { when: 'later', date: target };
+}

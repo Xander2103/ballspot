@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, AppState,
 } from 'react-native';
 import { CommonActions } from '@react-navigation/native';
 import { MainTabScreenProps } from '../app/MainTabs';
@@ -12,13 +12,17 @@ import { LevelRing } from '../components/home/LevelRing';
 import { SportSelector } from '../components/home/SportSelector';
 import { DailyChallengeCard } from '../components/home/DailyChallengeCard';
 import { ModeCard } from '../components/home/ModeCard';
+import { useCountdown } from '../components/home/useCountdown';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
 import { dailyApi } from '../api/dailyApi';
 import { noticesApi } from '../api/noticesApi';
 import { sportApi } from '../api/sportApi';
 import { preferencesApi } from '../api/preferencesApi';
-import { dailyCardModel, levelRingModel, sportTapAction } from '../utils/homeModel';
+import {
+  dailyCardModel, levelRingModel, sportTapAction, nextDailyTarget, nextDailyWhen,
+} from '../utils/homeModel';
+import { serverNow } from '../utils/serverClock';
 import { getApiErrorMessage } from '../utils/apiError';
 import { resolveNotice, noticePalette } from '../utils/notice';
 import type { AppNotice } from '../types/notice';
@@ -48,6 +52,17 @@ const GUTTER = spacing.md;
 const RING_SIZE = 44;
 
 type Props = MainTabScreenProps<'Play'>;
+
+/** How long "Tennis is coming soon." stays under the sport row. */
+const SPORT_NOTE_MS = 3500;
+/**
+ * After the countdown ends: ask /daily/today again, a little later each time,
+ * until the daily is really served (activation can lag the confirmed time by
+ * a moment). Play only appears once the backend says has_daily.
+ */
+const DAILY_RECHECK_DELAYS_MS = [5_000, 30_000, 120_000, 300_000];
+/** Back from the background: refresh Home when its data is older than this. */
+const FOREGROUND_REFRESH_MS = 60_000;
 
 // Persisted flag so we ask for notification permission at most once (non-spammy).
 const NOTIF_PROMPT_SEEN = 'notif_prompt_seen';
@@ -105,8 +120,11 @@ export function HomeScreen({ navigation }: Props) {
   const [savingSportId, setSavingSportId] = useState<number | null>(null);
   const [sportMessage, setSportMessage] = useState<{ text: string; tone: 'info' | 'error' } | null>(null);
   const [rank, setRank] = useState<PlayerRank | null>(null);
+  const lastLoadAt = useRef(0);
+  const recheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
+    lastLoadAt.current = Date.now();
     let me: User | null = null;
     // allSettled, not all: a failing tournament list must not blank the
     // greeting, and a failing profile must not hide the tournaments.
@@ -145,6 +163,54 @@ export function HomeScreen({ navigation }: Props) {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => navigation.addListener('focus', load), [navigation, load]);
+
+  // Focus events do not fire when the app itself comes back to the foreground:
+  // refresh then too, so a daily that went live (or a new day) shows up.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && navigation.isFocused() && Date.now() - lastLoadAt.current > FOREGROUND_REFRESH_MS) {
+        load();
+      }
+    });
+    return () => sub.remove();
+  }, [navigation, load]);
+
+  // "Tennis is coming soon." answers a tap; it is not a state of the row. It
+  // clears itself (and when Home loses focus) so it never keeps taking room
+  // under the Football selection. Save errors stay until the next tap.
+  useEffect(() => {
+    if (sportMessage?.tone !== 'info') return;
+    const timer = setTimeout(() => setSportMessage(null), SPORT_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, [sportMessage]);
+  useEffect(() => navigation.addListener('blur', () => setSportMessage(null)), [navigation]);
+
+  const preferredSlug = user?.preferred_sport?.slug;
+  const recheckDaily = useCallback(() => {
+    if (recheckTimer.current) clearTimeout(recheckTimer.current);
+    let attempt = 0;
+    const run = async () => {
+      recheckTimer.current = null;
+      let res: TodayResponse | null = null;
+      try {
+        res = await dailyApi.today(preferredSlug);
+        setTodayDaily(res);
+      } catch {
+        // Offline: keep the card as it is and try again below.
+      }
+      const nextAt = res?.next_daily?.available_at ? Date.parse(res.next_daily.available_at) : NaN;
+      const settled = !!res?.has_daily || nextAt > serverNow();
+      if (!settled && attempt < DAILY_RECHECK_DELAYS_MS.length) {
+        recheckTimer.current = setTimeout(run, DAILY_RECHECK_DELAYS_MS[attempt++]);
+      }
+    };
+    recheckTimer.current = setTimeout(run, DAILY_RECHECK_DELAYS_MS[attempt++]);
+  }, [preferredSlug]);
+  useEffect(() => () => { if (recheckTimer.current) clearTimeout(recheckTimer.current); }, []);
+
+  const dailyModel = dailyCardModel(dailyLoading, todayDaily, dailyStats);
+  const nextTarget = nextDailyTarget(dailyModel, todayDaily);
+  const countdown = useCountdown(nextTarget, recheckDaily);
 
   // One-time, non-spammy notification permission prompt after the app is in use.
   // If already granted, make sure the push token is registered. Web no-ops.
@@ -311,7 +377,9 @@ export function HomeScreen({ navigation }: Props) {
           <NoticeCard notice={notice} styles={styles} />
 
           <DailyChallengeCard
-            model={dailyCardModel(dailyLoading, todayDaily, dailyStats)}
+            model={dailyModel}
+            countdown={countdown}
+            nextWhen={nextDailyWhen(countdown ? nextTarget : null, serverNow())}
             onPlay={(dailyChallengeId) => navigation.navigate('DailyChallenge', { dailyChallengeId })}
             onViewResult={(dailyChallengeId) => navigation.navigate('DailyResult', { dailyChallengeId })}
           />

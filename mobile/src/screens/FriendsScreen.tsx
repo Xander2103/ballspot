@@ -1,16 +1,22 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import {
+  View, Text, StyleSheet, ActivityIndicator, FlatList, RefreshControl, TextInput,
+  AccessibilityInfo, Platform, useWindowDimensions,
+} from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import QRCode from 'react-native-qrcode-svg';
 import { MainTabScreenProps } from '../app/MainTabs';
 import { useFriendRequests } from '../app/friendRequests';
 import { Screen } from '../components/Screen';
 import { AppButton } from '../components/AppButton';
-import { AppInput } from '../components/AppInput';
-import { Avatar } from '../components/Avatar';
-import { CollapsibleSection } from '../components/CollapsibleSection';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EmptyState } from '../components/EmptyState';
+import { HeaderIconButton } from '../components/HeaderIconButton';
+import { LineIcon } from '../components/LineIcon';
+import { FriendCodeCard, QrCodeSheet } from '../components/friends/FriendCodeCard';
+import { AddFriendSheet } from '../components/friends/AddFriendSheet';
+import { FriendsTabs } from '../components/friends/FriendsTabs';
+import { SentRequestsBar } from '../components/friends/SentRequestsBar';
+import { PersonRow, RowButton, StatusPill } from '../components/friends/PersonRow';
 import { friendsApi } from '../api/friendsApi';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
@@ -18,35 +24,80 @@ import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
 import type { FriendRequestItem, FriendSuggestion, FriendSummary } from '../types/friend';
 import { getApiErrorMessage } from '../utils/apiError';
+import {
+  checkFriendCode, filterFriends, openRequests, suggestionState, type FriendsTab,
+} from '../utils/friendsModel';
 
 type Props = MainTabScreenProps<'Friends'>;
 
+/** Shared FlatList tuning: a few hundred rows stay smooth, only what is near the screen renders. */
+const LIST_TUNING = {
+  initialNumToRender: 12,
+  maxToRenderPerBatch: 12,
+  windowSize: 9,
+  keyboardShouldPersistTaps: 'handled' as const,
+  keyboardDismissMode: 'on-drag' as const,
+  // iOS: the keyboard (search) grows the bottom inset instead of hiding rows.
+  automaticallyAdjustKeyboardInsets: Platform.OS === 'ios',
+};
+
+/** Below this window height (iPhone SE class) the fixed header tightens up. */
+const SMALL_SCREEN_HEIGHT = 700;
+
+/**
+ * Friends tab. Fixed on top: friend code, Add a Friend, the three tabs and —
+ * only while something is pending — the Sent Requests bar. Below that, one
+ * virtualized list for the active tab is the only part that scrolls, so the
+ * tabs never scroll away, however many friends there are.
+ */
 export function FriendsScreen({ navigation, route }: Props) {
   const { theme } = useTheme();
   const { t } = useI18n();
-  const styles = createStyles(theme);
+  const { height } = useWindowDimensions();
+  const small = height < SMALL_SCREEN_HEIGHT;
+  const styles = createStyles(theme, small);
   const { setIncomingCount } = useFriendRequests();
 
   const [code, setCode] = useState<string | null>(null);
   const [friends, setFriends] = useState<FriendSummary[]>([]);
   const [incoming, setIncoming] = useState<FriendRequestItem[]>([]);
   const [outgoing, setOutgoing] = useState<FriendRequestItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadFailed, setLoadFailed] = useState(false);
   const [suggestions, setSuggestions] = useState<FriendSuggestion[]>([]);
-  const [sentIds, setSentIds] = useState<Set<number>>(new Set());
-  const [suggestBusyId, setSuggestBusyId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
+  const [tab, setTab] = useState<FriendsTab>('friends');
   const [query, setQuery] = useState('');
+  const [sentOpen, setSentOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+
+  const [addOpen, setAddOpen] = useState(false);
   const [input, setInput] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState('');
   const [addNotice, setAddNotice] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  // Codes sent from this screen since the last load: blocks an identical second request.
+  const [sentCodes, setSentCodes] = useState<Set<string>>(new Set());
+
+  const [busyRequestId, setBusyRequestId] = useState<number | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [sentIds, setSentIds] = useState<Set<number>>(new Set());
+  const [suggestBusyId, setSuggestBusyId] = useState<number | null>(null);
+  const [suggestFailedId, setSuggestFailedId] = useState<number | null>(null);
+
   const [removeTarget, setRemoveTarget] = useState<FriendSummary | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState('');
+
+  const applyRequests = useCallback((res: { incoming: FriendRequestItem[]; outgoing: FriendRequestItem[] }) => {
+    const nextIncoming = openRequests(res.incoming);
+    setIncoming(nextIncoming);
+    setOutgoing(openRequests(res.outgoing));
+    // Keep the tab badge in sync with what this screen shows.
+    setIncomingCount(nextIncoming.length);
+  }, [setIncomingCount]);
 
   const load = useCallback(async () => {
     // allSettled: one failing section must not blank the whole screen.
@@ -58,13 +109,13 @@ export function FriendsScreen({ navigation, route }: Props) {
     ]);
     if (codeRes.status === 'fulfilled') setCode(codeRes.value);
     if (listRes.status === 'fulfilled') setFriends(listRes.value);
-    // Suggestions are non-essential: on failure just show an empty section.
+    // Suggestions are non-essential: on failure just show an empty tab.
     if (suggestRes.status === 'fulfilled') setSuggestions(suggestRes.value);
     if (reqRes.status === 'fulfilled') {
-      setIncoming(reqRes.value.incoming);
-      setOutgoing(reqRes.value.outgoing);
-      // Keep the tab badge in sync with what this screen shows.
-      setIncomingCount(reqRes.value.incoming.length);
+      applyRequests(reqRes.value);
+      // The server list is now the truth for what is pending.
+      setSentIds(new Set());
+      setSentCodes(new Set());
     }
     setLoadFailed(
       codeRes.status === 'rejected' &&
@@ -72,72 +123,112 @@ export function FriendsScreen({ navigation, route }: Props) {
       reqRes.status === 'rejected'
     );
     setLoading(false);
-  }, [setIncomingCount]);
+  }, [applyRequests]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => navigation.addListener('focus', () => { load(); }), [navigation, load]);
 
-  // The scanner hands the code back through route params.
+  // Close the sent list once nothing is pending, so a new request starts collapsed.
+  useEffect(() => { if (outgoing.length === 0) setSentOpen(false); }, [outgoing.length]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <HeaderIconButton
+          icon="scan"
+          testID="friends-scan"
+          accessibilityLabel={t('friends.list.scanQr')}
+          onPress={() => navigation.navigate('ScanFriendCode')}
+        />
+      ),
+    });
+  }, [navigation, t]);
+
+  // The scanner hands the code back through route params: open Add with it filled in.
   const scanned = route.params?.scannedCode;
   useEffect(() => {
     if (scanned) {
       setInput(scanned);
+      setAddError('');
+      setAddNotice('');
+      setAddOpen(true);
       navigation.setParams({ scannedCode: undefined });
     }
   }, [scanned, navigation]);
+
+  async function refresh() {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }
 
   async function handleCopy() {
     if (!code) return;
     await Clipboard.setStringAsync(code);
     setCopied(true);
+    AccessibilityInfo.announceForAccessibility(t('common.buttons.copied'));
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function openAdd() {
+    setAddError('');
+    setAddNotice('');
+    setAddOpen(true);
+  }
+
   async function handleAdd() {
-    const value = input.trim().toUpperCase();
-    if (!value) return;
+    if (adding) return; // a second tap / return key while in flight
+    const check = checkFriendCode(input, code, sentCodes);
+    if (!check.ok) {
+      setAddNotice('');
+      setAddError(t(`friends.list.codeError.${check.reason}`));
+      return;
+    }
     setAdding(true);
     setAddError('');
     setAddNotice('');
     try {
-      await friendsApi.sendRequest(value);
+      await friendsApi.sendRequest(check.code);
+      setSentCodes((prev) => new Set(prev).add(check.code));
       setInput('');
       setAddNotice(t('friends.list.requestSentNotice'));
-      await load();
+      friendsApi.requests().then(applyRequests).catch(() => {});
     } catch (e: unknown) {
-      // Known codes / validation text stay; 5xx, offline and technical bodies
-      // become the friendly generic copy instead of raw server text.
+      // Known codes / validation text stay (not found, already friends,
+      // pending, declined); 5xx, offline and technical bodies become the
+      // friendly generic copy instead of raw server text.
       setAddError(getApiErrorMessage(e, t('friends.list.sendError')));
     } finally {
       setAdding(false);
     }
   }
 
-  async function handleAccept(item: FriendRequestItem) {
-    setBusyId(item.id);
-    setAddError('');
-    try { await friendsApi.accept(item.id); await load(); }
-    catch { setAddError(t('friends.list.acceptError')); }
-    finally { setBusyId(null); }
-  }
-
-  async function handleReject(item: FriendRequestItem) {
-    setBusyId(item.id);
-    setAddError('');
-    try { await friendsApi.reject(item.id); await load(); }
-    catch { setAddError(t('friends.list.rejectError')); }
-    finally { setBusyId(null); }
+  async function handleRequest(item: FriendRequestItem, action: 'accept' | 'reject') {
+    if (busyRequestId !== null) return;
+    setBusyRequestId(item.id);
+    setActionError('');
+    try {
+      if (action === 'accept') await friendsApi.accept(item.id);
+      else await friendsApi.reject(item.id);
+      await load();
+    } catch {
+      setActionError(t(action === 'accept' ? 'friends.list.acceptError' : 'friends.list.rejectError'));
+    } finally {
+      setBusyRequestId(null);
+    }
   }
 
   async function handleSuggestAdd(userId: number) {
+    if (suggestBusyId !== null) return;
     setSuggestBusyId(userId);
+    setSuggestFailedId(null);
     try {
       await friendsApi.sendRequestById(userId);
       setSentIds((prev) => new Set(prev).add(userId));
-      // Keep the "Sent requests" section truthful without a full reload.
-      friendsApi.requests().then((r) => setOutgoing(r.outgoing)).catch(() => {});
+      // Keep the Sent Requests bar truthful without a full reload.
+      friendsApi.requests().then(applyRequests).catch(() => {});
     } catch {
-      // Keep the Add button; the user can retry.
+      setSuggestFailedId(userId); // keep Add; the row says it failed
     } finally {
       setSuggestBusyId(null);
     }
@@ -158,6 +249,9 @@ export function FriendsScreen({ navigation, route }: Props) {
     }
   }
 
+  const visibleFriends = useMemo(() => filterFriends(friends, query), [friends, query]);
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
+
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={theme.primary} size="large" /></View>;
   }
@@ -174,190 +268,197 @@ export function FriendsScreen({ navigation, route }: Props) {
     );
   }
 
-  const trimmedQuery = query.trim().toLowerCase();
-  const visibleFriends = trimmedQuery
-    ? friends.filter(
-        (f) =>
-          f.name.toLowerCase().includes(trimmedQuery) ||
-          f.username.toLowerCase().includes(trimmedQuery)
-      )
-    : friends;
+  const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={theme.primary} />;
+  const errorBanner = actionError ? <Text style={styles.actionError} accessibilityLiveRegion="polite">{actionError}</Text> : null;
+
+  let list: React.ReactNode;
+  if (tab === 'friends') {
+    list = (
+      <FlatList
+        key="friends"
+        data={visibleFriends}
+        keyExtractor={(f) => String(f.id)}
+        renderItem={({ item }) => (
+          <PersonRow
+            name={item.name}
+            subtitle={t('friends.list.friendMeta', { username: item.username, rank: item.rank_name, xp: item.total_xp })}
+            avatarUrl={item.avatar_url}
+            onPress={() => navigation.navigate('FriendProfile', { userId: item.id, username: item.username })}
+            testID={`friends-row-${item.id}`}
+          >
+            <RowButton
+              label={t('friends.list.remove')}
+              tone="text"
+              onPress={() => setRemoveTarget(item)}
+              accessibilityLabel={t('friends.list.removeA11y', { name: item.name })}
+            />
+          </PersonRow>
+        )}
+        ItemSeparatorComponent={Separator}
+        ListHeaderComponent={
+          <>
+            {errorBanner}
+            {friends.length > 0 ? (
+              <Text style={styles.listCaption} testID="friends-count">
+                {t('friends.list.friendsCount', { count: friends.length })}
+              </Text>
+            ) : null}
+          </>
+        }
+        ListEmptyComponent={
+          friends.length === 0
+            ? <EmptyState title={t('friends.list.emptyTitle')} message={t('friends.list.emptyMessage')} />
+            : <EmptyState compact message={t('friends.list.noMatch')} />
+        }
+        contentContainerStyle={styles.listContent}
+        refreshControl={refreshControl}
+        {...LIST_TUNING}
+      />
+    );
+  } else if (tab === 'requests') {
+    list = (
+      <FlatList
+        key="requests"
+        data={incoming}
+        keyExtractor={(r) => String(r.id)}
+        renderItem={({ item }) => {
+          const busy = busyRequestId === item.id;
+          return (
+            <PersonRow
+              name={item.user.name}
+              subtitle={t('friends.list.requestMeta', { username: item.user.username, rank: item.user.rank_name })}
+              avatarUrl={item.user.avatar_url}
+              testID={`friends-request-${item.id}`}
+            >
+              {busy ? <ActivityIndicator color={theme.primary} style={styles.rowSpinner} /> : (
+                <View style={styles.rowActions}>
+                  <RowButton
+                    label={t('friends.list.decline')}
+                    tone="quiet"
+                    disabled={busyRequestId !== null}
+                    onPress={() => handleRequest(item, 'reject')}
+                    accessibilityLabel={t('friends.list.declineA11y', { name: item.user.name })}
+                  />
+                  <RowButton
+                    label={t('friends.list.accept')}
+                    tone="primary"
+                    disabled={busyRequestId !== null}
+                    onPress={() => handleRequest(item, 'accept')}
+                    accessibilityLabel={t('friends.list.acceptA11y', { name: item.user.name })}
+                  />
+                </View>
+              )}
+            </PersonRow>
+          );
+        }}
+        ItemSeparatorComponent={Separator}
+        ListHeaderComponent={errorBanner}
+        ListEmptyComponent={<EmptyState title={t('friends.list.requestsEmptyTitle')} message={t('friends.list.requestsEmptyMessage')} />}
+        contentContainerStyle={styles.listContent}
+        refreshControl={refreshControl}
+        {...LIST_TUNING}
+      />
+    );
+  } else {
+    list = (
+      <FlatList
+        key="discover"
+        data={suggestions}
+        keyExtractor={(s) => String(s.id)}
+        renderItem={({ item }) => {
+          const state = suggestionState(item.id, outgoing, sentIds, friendIds, suggestBusyId);
+          const reason = item.reason === 'same_tournament'
+            ? t('friends.list.reasonSameTournament')
+            : t('friends.list.reasonActivePlayer');
+          const failed = suggestFailedId === item.id;
+          return (
+            <PersonRow
+              name={item.name}
+              subtitle={failed ? t('friends.list.addFailed') : t('friends.list.suggestionMeta', { reason, rank: item.rank_name })}
+              subtitleTone={failed ? 'danger' : 'default'}
+              avatarUrl={item.avatar_url}
+              onPress={() => navigation.navigate('FriendProfile', { userId: item.id, username: item.username })}
+              testID={`friends-suggestion-${item.id}`}
+            >
+              {state === 'sending' ? <ActivityIndicator color={theme.primary} style={styles.rowSpinner} /> : null}
+              {state === 'pending' ? <StatusPill label={t('friends.list.pending')} /> : null}
+              {state === 'friend' ? <StatusPill label={t('friends.tabs.friends')} /> : null}
+              {state === 'add' ? (
+                <RowButton
+                  label={t('friends.list.add')}
+                  tone="primary"
+                  disabled={suggestBusyId !== null}
+                  onPress={() => handleSuggestAdd(item.id)}
+                  accessibilityLabel={t('friends.list.addA11y', { name: item.name })}
+                  testID={`friends-suggestion-add-${item.id}`}
+                />
+              ) : null}
+            </PersonRow>
+          );
+        }}
+        ItemSeparatorComponent={Separator}
+        ListEmptyComponent={<EmptyState title={t('friends.list.discoverEmptyTitle')} message={t('friends.list.discoverEmptyMessage')} />}
+        contentContainerStyle={styles.listContent}
+        refreshControl={refreshControl}
+        {...LIST_TUNING}
+      />
+    );
+  }
 
   return (
-    <Screen scroll padding>
-      {/* My friend code + QR — compact block, always visible. */}
-      <Text style={styles.sectionTitle}>{t('friends.list.codeTitle')}</Text>
-      <View style={styles.codeCard}>
-        <Text style={styles.code}>{code ?? '········'}</Text>
-        {code ? (
-          <View style={styles.qrWrap}>
-            <QRCode value={code} size={120} color="#000000" backgroundColor="#ffffff" />
-          </View>
-        ) : null}
-        <Text style={styles.codeHint}>{t('friends.list.codeHint')}</Text>
-        <AppButton
-          title={copied ? t('common.buttons.copied') : t('friends.list.copyCode')}
-          onPress={handleCopy}
-          variant="secondary"
-          disabled={!code}
+    <Screen padding={false}>
+      <View style={styles.fixed}>
+        <FriendCodeCard code={code} copied={copied} onCopy={handleCopy} onShowQr={() => setQrOpen(true)} />
+        <AppButton title={t('friends.list.addFriendButton')} onPress={openAdd} style={styles.addButton} />
+        <FriendsTabs
+          active={tab}
+          onChange={(next) => { setTab(next); setActionError(''); }}
+          requestsCount={incoming.length}
         />
-      </View>
-
-      {/* Friend list — expanded by default, searchable. */}
-      <CollapsibleSection
-        title={t('friends.list.yourFriends')}
-        summary={`${friends.length}`}
-        initiallyExpanded
-      >
-        {friends.length === 0 ? (
-          <EmptyState compact message={t('friends.list.empty')} />
-        ) : (
-          <>
-            <AppInput
+        {outgoing.length > 0 ? (
+          <SentRequestsBar
+            items={outgoing}
+            expanded={sentOpen}
+            onToggle={() => setSentOpen((v) => !v)}
+            // ~2 rows on a small phone, ~3 otherwise: the list below always keeps room.
+            maxListHeight={small ? 116 : 172}
+          />
+        ) : null}
+        {tab === 'friends' && friends.length > 0 ? (
+          <View style={styles.search}>
+            <LineIcon name="search" color={theme.textMuted} size={18} />
+            <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder={t('friends.list.searchPlaceholder')}
+              placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
+              clearButtonMode="while-editing"
+              returnKeyType="search"
+              style={styles.searchInput}
+              maxFontSizeMultiplier={1.3}
               accessibilityLabel={t('friends.list.searchA11y')}
+              testID="friends-search"
             />
-            {visibleFriends.length === 0 ? (
-              <EmptyState compact message={t('friends.list.noMatch')} />
-            ) : (
-              visibleFriends.map((f, i) => (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[styles.row, i > 0 && styles.rowDivider]}
-                  activeOpacity={0.8}
-                  onPress={() => navigation.navigate('FriendProfile', { userId: f.id, username: f.username })}
-                >
-                  <Avatar uri={f.avatar_url} name={f.name} size={40} />
-                  <View style={styles.rowText}>
-                    <Text style={styles.rowName}>{f.name}</Text>
-                    <Text style={styles.rowSub}>
-                      {t('friends.list.friendMeta', { username: f.username, rank: f.rank_name, xp: f.total_xp })}
-                    </Text>
-                  </View>
-                  {/* stopPropagation: this sits inside the row's own TouchableOpacity,
-                      so without it a Remove tap can also open the friend's profile. */}
-                  <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation(); setRemoveTarget(f); }}
-                    style={styles.actionBtn}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('friends.list.removeA11y', { name: f.name })}
-                  >
-                    <Text style={styles.rejectText}>{t('friends.list.remove')}</Text>
-                  </TouchableOpacity>
-                </TouchableOpacity>
-              ))
-            )}
-          </>
-        )}
-      </CollapsibleSection>
+          </View>
+        ) : null}
+      </View>
 
-      {/* Incoming — auto-expanded and badged whenever something is pending. */}
-      <CollapsibleSection
-        title={t('friends.list.incomingTitle')}
-        badgeCount={incoming.length}
-        initiallyExpanded={incoming.length > 0}
-      >
-        {incoming.length === 0 ? (
-          <EmptyState compact message={t('friends.list.incomingEmpty')} />
-        ) : (
-          incoming.map((item, i) => (
-            <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
-              <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
-              <View style={styles.rowText}>
-                <Text style={styles.rowName}>{item.user.name}</Text>
-                <Text style={styles.rowSub}>
-                  {t('friends.list.requestMeta', { username: item.user.username, rank: item.user.rank_name })}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => handleAccept(item)} disabled={busyId === item.id} style={styles.actionBtn}>
-                <Text style={styles.acceptText}>{t('friends.list.accept')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleReject(item)} disabled={busyId === item.id} style={styles.actionBtn}>
-                <Text style={styles.rejectText}>{t('friends.list.reject')}</Text>
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
-      </CollapsibleSection>
+      <View style={styles.listArea}>{list}</View>
 
-      {/* Outgoing — collapsed by default. */}
-      <CollapsibleSection title={t('friends.list.sentTitle')} summary={outgoing.length > 0 ? `${outgoing.length}` : undefined}>
-        {outgoing.length === 0 ? (
-          <EmptyState compact message={t('friends.list.sentEmpty')} />
-        ) : (
-          outgoing.map((item, i) => (
-            <View key={item.id} style={[styles.row, i > 0 && styles.rowDivider]}>
-              <Avatar uri={item.user.avatar_url} name={item.user.name} size={40} />
-              <View style={styles.rowText}>
-                <Text style={styles.rowName}>{item.user.name}</Text>
-                <Text style={styles.rowSub}>{t('friends.list.pendingMeta', { username: item.user.username })}</Text>
-              </View>
-            </View>
-          ))
-        )}
-      </CollapsibleSection>
-
-      {/* Suggested friends — safe public data only, small and dismissable. */}
-      <CollapsibleSection
-        title={t('friends.list.suggestedTitle')}
-        summary={suggestions.length > 0 ? `${suggestions.length}` : undefined}
-      >
-        {suggestions.length === 0 ? (
-          <EmptyState compact message={t('friends.list.suggestedEmpty')} />
-        ) : (
-          suggestions.map((s, i) => (
-            <View key={s.id} style={[styles.row, i > 0 && styles.rowDivider]}>
-              <Avatar uri={s.avatar_url} name={s.name} size={40} />
-              <View style={styles.rowText}>
-                <Text style={styles.rowName} numberOfLines={1}>{s.name}</Text>
-                <Text style={styles.rowSub} numberOfLines={1}>
-                  {s.reason === 'same_tournament' ? t('friends.list.reasonSameTournament') : t('friends.list.reasonActivePlayer')}
-                </Text>
-              </View>
-              {sentIds.has(s.id) ? (
-                <Text style={styles.notice}>{t('friends.list.requestSent')}</Text>
-              ) : (
-                <TouchableOpacity
-                  onPress={() => handleSuggestAdd(s.id)}
-                  disabled={suggestBusyId === s.id}
-                  style={styles.actionBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('friends.list.addA11y', { name: s.name })}
-                >
-                  <Text style={styles.acceptText}>{t('friends.list.add')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ))
-        )}
-      </CollapsibleSection>
-
-      {/* Add a friend — collapsed by default. */}
-      <CollapsibleSection title={t('friends.list.addTitle')}>
-        <AppInput
-          label={t('friends.list.codeLabel')}
-          value={input}
-          onChangeText={(t) => setInput(t.toUpperCase())}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          placeholder="ABCD2345"
-          maxLength={12}
-        />
-        {addError ? <Text style={styles.error}>{addError}</Text> : null}
-        {addNotice ? <Text style={styles.notice}>{addNotice}</Text> : null}
-        <AppButton title={t('friends.list.sendRequest')} onPress={handleAdd} loading={adding} disabled={!input.trim() || adding} />
-        <AppButton
-          title={t('friends.list.scanQr')}
-          onPress={() => navigation.navigate('ScanFriendCode')}
-          variant="secondary"
-          style={{ marginTop: spacing.sm }}
-        />
-      </CollapsibleSection>
+      <QrCodeSheet visible={qrOpen} code={code} copied={copied} onCopy={handleCopy} onClose={() => setQrOpen(false)} />
+      <AddFriendSheet
+        visible={addOpen}
+        value={input}
+        onChange={(v) => { setInput(v); setAddError(''); }}
+        sending={adding}
+        error={addError}
+        notice={addNotice}
+        onSend={handleAdd}
+        onScan={() => { setAddOpen(false); navigation.navigate('ScanFriendCode'); }}
+        onClose={() => setAddOpen(false)}
+      />
 
       <ConfirmModal
         visible={!!removeTarget}
@@ -375,24 +476,31 @@ export function FriendsScreen({ navigation, route }: Props) {
   );
 }
 
-function createStyles(theme: ThemeTokens) {
+function Separator() {
+  const { theme } = useTheme();
+  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.border, marginLeft: 52 }} />;
+}
+
+function createStyles(theme: ThemeTokens, small: boolean) {
   return StyleSheet.create({
     center: { flex: 1, backgroundColor: theme.background, alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.sm },
-    codeCard: { backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border, padding: spacing.md, alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
-    code: { fontSize: 24, fontWeight: '800', letterSpacing: 3, color: theme.primary },
-    qrWrap: { backgroundColor: '#ffffff', padding: spacing.sm, borderRadius: 12 },
-    codeHint: { fontSize: 12, color: theme.textMuted, textAlign: 'center' },
-    error: { color: theme.danger, fontSize: 13, marginBottom: spacing.sm },
-    notice: { color: theme.success, fontSize: 13, marginBottom: spacing.sm },
-    // Flat rows: the CollapsibleSection provides the card, rows just divide.
-    row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.sm },
-    rowDivider: { borderTopWidth: 1, borderTopColor: theme.border },
-    rowText: { flex: 1 },
-    rowName: { fontSize: 15, fontWeight: '700', color: theme.text },
-    rowSub: { fontSize: 12, color: theme.textSecondary, marginTop: 1 },
-    actionBtn: { paddingHorizontal: spacing.sm, paddingVertical: 4 },
-    acceptText: { fontSize: 13, fontWeight: '700', color: theme.primary },
-    rejectText: { fontSize: 13, fontWeight: '700', color: theme.danger },
+    // Kept tight on purpose: on an iPhone SE the list below still gets most of the screen.
+    fixed: { paddingHorizontal: spacing.md, paddingTop: small ? spacing.sm : spacing.md - 4, paddingBottom: spacing.sm, gap: small ? spacing.sm : spacing.sm + 2 },
+    addButton: { height: small ? 44 : 48 },
+    search: {
+      flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+      height: 40, paddingHorizontal: spacing.md - 4, borderRadius: 12,
+      backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border,
+    },
+    searchInput: { flex: 1, height: 40, fontSize: 15, color: theme.text },
+    listArea: { flex: 1 },
+    listContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.lg, flexGrow: 1 },
+    listCaption: {
+      fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase',
+      color: theme.textMuted, paddingTop: spacing.xs, paddingBottom: 2,
+    },
+    actionError: { color: theme.danger, fontSize: 13, paddingVertical: spacing.sm },
+    rowActions: { flexDirection: 'row', gap: spacing.sm },
+    rowSpinner: { paddingHorizontal: spacing.md },
   });
 }

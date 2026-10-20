@@ -24,6 +24,8 @@ interface Props {
 }
 
 const PLACEHOLDER_CHIPS = 4;
+/** Sport glyph size; the chip is sized around it (≈ 23% lower than the first redesign). */
+const ICON_SIZE = 20;
 
 /** Horizontal sport row. Selecting a sport saves the preference exactly like SportSelectionScreen. */
 export function SportSelector({ sports, loadFailed, selected, savingId, onTap, onOpenPicker, message, inset }: Props) {
@@ -73,11 +75,12 @@ export function SportSelector({ sports, loadFailed, selected, savingId, onTap, o
                   <ActivityIndicator color={theme.primary} style={styles.iconSlot} />
                 ) : (
                   <View style={styles.iconSlot}>
-                    <SportIcon slug={sport.slug} emoji={sport.emoji} color={iconColor} />
+                    <SportIcon slug={sport.slug} emoji={sport.emoji} color={iconColor} size={ICON_SIZE} />
                   </View>
                 )}
                 <Text
                   style={[styles.name, isSelected && styles.nameSelected]}
+                  numberOfLines={1}
                   maxFontSizeMultiplier={1.4}
                 >
                   {sport.name}
@@ -104,23 +107,25 @@ export function SportSelector({ sports, loadFailed, selected, savingId, onTap, o
 
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
-    row: { gap: spacing.sm + 2, paddingVertical: 2 },
+    row: { gap: spacing.sm, paddingVertical: 2 },
+    // Still ≥ 44pt high and ≥ 64pt wide: a comfortable touch target.
     chip: {
-      minWidth: 76, minHeight: 64,
-      alignItems: 'center', justifyContent: 'center', gap: 6,
-      paddingHorizontal: spacing.md - 4, paddingVertical: spacing.sm,
-      borderRadius: 16, borderWidth: 1, borderColor: theme.border,
+      minWidth: 64, minHeight: 50,
+      alignItems: 'center', justifyContent: 'center', gap: 2,
+      paddingHorizontal: spacing.sm + 2, paddingVertical: 5,
+      borderRadius: 14, borderWidth: 1, borderColor: theme.border,
       backgroundColor: theme.surface,
     },
-    chipSelected: { borderColor: theme.primary, backgroundColor: theme.primary + '1a' },
+    // Subtle: a softened green edge and the faintest tint, no glow.
+    chipSelected: { borderColor: theme.primary + 'b3', backgroundColor: theme.primary + '14' },
     // Coming soon: visible but clearly quieter than a sport you can play.
     chipSoon: { opacity: 0.55 },
     placeholder: { opacity: 0.5 },
-    iconSlot: { height: 24, alignItems: 'center', justifyContent: 'center' },
-    name: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+    iconSlot: { height: ICON_SIZE, alignItems: 'center', justifyContent: 'center' },
+    name: { fontSize: 12, lineHeight: 15, fontWeight: '600', color: theme.textSecondary },
     nameSelected: { color: theme.text, fontWeight: '700' },
-    soon: { fontSize: 9, fontWeight: '800', letterSpacing: 0.3, color: theme.textMuted, marginTop: -4 },
-    message: { fontSize: 12, marginTop: spacing.sm },
+    soon: { fontSize: 8.5, lineHeight: 10, fontWeight: '800', letterSpacing: 0.3, color: theme.textMuted, marginTop: -1 },
+    message: { fontSize: 12, marginTop: spacing.xs + 2 },
     fallback: {
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
       backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border,

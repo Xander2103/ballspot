@@ -5,6 +5,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/useTheme';
 import { TabIcon, TabIconName } from '../components/TabIcon';
+import { HeaderIconButton } from '../components/HeaderIconButton';
 import { formatBadgeCount } from '../components/CollapsibleSection';
 import { FriendRequestsProvider, useFriendRequests } from './friendRequests';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -55,6 +56,8 @@ function Tabs() {
         headerStyle: { backgroundColor: theme.surface },
         headerTintColor: theme.text,
         headerTitleStyle: { fontWeight: '700' as const, color: theme.text },
+        headerLeftContainerStyle: { paddingLeft: 6 },
+        headerRightContainerStyle: { paddingRight: 6 },
         sceneStyle: { backgroundColor: theme.background },
         tabBarStyle: {
           backgroundColor: theme.surface,
@@ -76,7 +79,20 @@ function Tabs() {
       <Tab.Screen
         name="Tournaments"
         component={TournamentsScreen}
-        options={{ title: t('nav.tabs.tournaments'), tabBarIcon: icon('tournaments') }}
+        options={({ navigation }) => ({
+          title: t('nav.tabs.tournaments'),
+          tabBarIcon: icon('tournaments'),
+          // Switches to the Play tab (jumpTo): nothing is pushed, so no
+          // duplicate Home ends up on any stack.
+          headerLeft: () => (
+            <HeaderIconButton
+              icon="home"
+              testID="tournaments-home"
+              accessibilityLabel={t('nav.backTo', { label: t('nav.exit.home') })}
+              onPress={() => navigation.navigate('Play')}
+            />
+          ),
+        })}
       />
       <Tab.Screen
         name="Friends"
