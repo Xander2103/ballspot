@@ -33,6 +33,18 @@ export interface DailyChallengeEntry {
   };
 }
 
+/**
+ * When the next daily for the requested sport becomes playable, as confirmed by
+ * the backend. Optional: the current API does not send it yet, and the Home
+ * countdown stays hidden until it does (never a guessed time).
+ */
+export interface NextDailyInfo {
+  /** Challenge date (Y-m-d, backend day = UTC). */
+  date: string;
+  /** ISO-8601 instant the daily is served by /daily/today. */
+  available_at: string;
+}
+
 export interface TodayResponse {
   has_daily: boolean;
   already_played: boolean;
@@ -40,6 +52,7 @@ export interface TodayResponse {
   daily_challenge?: DailyChallengeEntry;
   // Present on a no-daily response so the empty state can name the sport.
   sport?: SportSummary | null;
+  next_daily?: NextDailyInfo | null;
 }
 
 export interface DailyGuessResult {
