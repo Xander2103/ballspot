@@ -20,6 +20,9 @@ class DailyChallengeController extends Controller
     /** Max rows returned in the leaderboard list (meta still covers everyone). */
     public const LEADERBOARD_MAX_ENTRIES = 100;
 
+    /** routes/console.php runs ballspot:activate-daily at 00:10 (app timezone). */
+    private const AUTO_ACTIVATE_MINUTE = 10;
+
     public function __construct(
         private ScoreService $scoreService,
         private DailyStreakService $streakService,
@@ -62,19 +65,19 @@ class DailyChallengeController extends Controller
         $dc = DailyChallenge::active()->forDate($today)->with(['challenge.category', 'challenge.sport', 'challenge.tags'])->first();
 
         if (!$dc) {
-            return response()->json($this->noDaily($requestedSport));
+            return response()->json($this->noDaily($requestedSport, $requestedSlug));
         }
 
         // Guard: linked challenge was deleted or archived after scheduling
         if (!$dc->challenge || $dc->challenge->status === 'archived') {
-            return response()->json($this->noDaily($requestedSport));
+            return response()->json($this->noDaily($requestedSport, $requestedSlug));
         }
 
         // Never silently show a different sport than the one requested. Today's
         // challenge belongs to exactly one sport; if it does not match, report a
         // clean "no daily for this sport" so the app can offer football instead.
         if ($dc->challenge->sport && $dc->challenge->sport->slug !== $requestedSlug) {
-            return response()->json($this->noDaily($requestedSport));
+            return response()->json($this->noDaily($requestedSport, $requestedSlug));
         }
 
         $alreadyPlayed = $dc->guesses()->where('user_id', $request->user()->id)->exists();
@@ -118,7 +121,59 @@ class DailyChallengeController extends Controller
                 'challenge'         => $challengeData,
                 // SECURITY: never include ball_x_ratio, ball_y_ratio, reveal_image_url in today response
             ],
+            'next_daily'      => $this->nextDaily($requestedSlug),
         ]);
+    }
+
+    /**
+     * When the next daily for this sport is CONFIRMED to be served by
+     * /daily/today, for the app's "Next Daily in 05h 42m" countdown.
+     *
+     * An `active` row is served from 00:00 (app timezone) of its date. A
+     * `scheduled` row only counts while auto-activation is on: then
+     * ballspot:activate-daily flips it at 00:10, and only if its challenge is
+     * ready. Anything else (manual activation, nothing scheduled) is null, so
+     * the app shows no countdown rather than a guessed time.
+     */
+    private function nextDaily(string $sportSlug): ?array
+    {
+        $now          = now();
+        $autoActivate = (bool) config('ballspot.daily.auto_activate', false);
+
+        $candidates = DailyChallenge::query()
+            ->whereDate('challenge_date', '>=', $now->toDateString())
+            ->whereIn('status', $autoActivate ? ['active', 'scheduled'] : ['active'])
+            ->with('challenge.sport')
+            ->orderBy('challenge_date')
+            ->limit(7)
+            ->get();
+
+        foreach ($candidates as $row) {
+            $challenge = $row->challenge;
+            if (!$challenge || $challenge->status === 'archived') {
+                continue;
+            }
+            // Same sport rule as today(): a challenge without a sport serves any.
+            if ($challenge->sport && $challenge->sport->slug !== $sportSlug) {
+                continue;
+            }
+            if ($row->status === 'scheduled' && !$challenge->isReadyForDaily()) {
+                continue;
+            }
+
+            $availableAt = $row->challenge_date->copy()->startOfDay();
+            if ($row->status === 'scheduled') {
+                $availableAt->addMinutes(self::AUTO_ACTIVATE_MINUTE);
+            }
+            if ($availableAt->greaterThan($now)) {
+                return [
+                    'date'         => $row->challenge_date->toDateString(),
+                    'available_at' => $availableAt->toIso8601ZuluString(),
+                ];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -126,11 +181,12 @@ class DailyChallengeController extends Controller
      * requested sport badge so the app can render an on-brand empty state
      * ("No daily challenge for Tennis today. Try Football.").
      */
-    private function noDaily(?Sport $sport): array
+    private function noDaily(?Sport $sport, string $requestedSlug): array
     {
         return [
-            'has_daily' => false,
-            'reason'    => 'no_daily_challenge',
+            'has_daily'  => false,
+            'reason'     => 'no_daily_challenge',
+            'next_daily' => $this->nextDaily($requestedSlug),
             'sport'     => $sport ? [
                 'slug'          => $sport->slug,
                 'name'          => $sport->name,
