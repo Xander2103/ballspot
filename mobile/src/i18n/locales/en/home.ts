@@ -16,6 +16,9 @@ export const home = {
     dayOf: 'Day {{index}} of {{total}}',
     viewResult: "View Today's Result",
     play: 'Play Daily Challenge',
+    cardTitle: 'Daily Challenge',
+    subtitle: 'A new challenge every day',
+    completed: 'Completed today',
   },
   fallback: {
     message: 'No daily yet. Play a pack or join a tournament while you wait.',
@@ -25,6 +28,13 @@ export const home = {
   packs: {
     title: 'Challenge Packs',
     subtitle: 'Play themed sets of challenges.',
+  },
+  tournaments: {
+    title: 'Tournaments',
+    subtitle: 'Compete in tournaments.',
+  },
+  level: {
+    a11y: 'Level {{level}}. Open your profile',
   },
   notifPrompt: {
     title: 'Stay in the game',

@@ -299,6 +299,9 @@ export const nl: Translations = {
       dayOf: 'Dag {{index}} van {{total}}',
       viewResult: 'Bekijk het resultaat van vandaag',
       play: 'Speel de dagelijkse uitdaging',
+      cardTitle: 'Dagelijkse uitdaging',
+      subtitle: 'Elke dag een nieuwe uitdaging',
+      completed: 'Vandaag voltooid',
     },
     fallback: {
       message: 'Nog geen dagelijkse. Speel een pakket of doe mee aan een toernooi terwijl je wacht.',
@@ -308,6 +311,13 @@ export const nl: Translations = {
     packs: {
       title: 'Uitdagingspakketten',
       subtitle: 'Speel themasets met uitdagingen.',
+    },
+    tournaments: {
+      title: 'Toernooien',
+      subtitle: 'Strijd mee in toernooien.',
+    },
+    level: {
+      a11y: 'Level {{level}}. Open je profiel',
     },
     notifPrompt: {
       title: 'Blijf in het spel',

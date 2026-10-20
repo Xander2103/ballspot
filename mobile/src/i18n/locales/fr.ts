@@ -295,6 +295,9 @@ export const fr: Translations = {
       dayOf: 'Jour {{index}} sur {{total}}',
       viewResult: "Voir le résultat d'aujourd'hui",
       play: 'Jouer au Défi du jour',
+      cardTitle: 'Défi du jour',
+      subtitle: 'Un nouveau défi chaque jour',
+      completed: "Terminé aujourd'hui",
     },
     fallback: {
       message: 'Pas encore de défi du jour. Joue à un pack ou rejoins un tournoi en attendant.',
@@ -304,6 +307,13 @@ export const fr: Translations = {
     packs: {
       title: 'Packs de défis',
       subtitle: 'Joue à des séries de défis à thème.',
+    },
+    tournaments: {
+      title: 'Tournois',
+      subtitle: 'Affronte les autres en tournoi.',
+    },
+    level: {
+      a11y: 'Niveau {{level}}. Ouvrir ton profil',
     },
     notifPrompt: {
       title: 'Reste dans la partie',

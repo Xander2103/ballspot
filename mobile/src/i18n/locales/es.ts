@@ -299,6 +299,9 @@ export const es: Translations = {
       dayOf: 'Día {{index}} de {{total}}',
       viewResult: 'Ver el resultado de hoy',
       play: 'Jugar el reto diario',
+      cardTitle: 'Reto diario',
+      subtitle: 'Un reto nuevo cada día',
+      completed: 'Completado hoy',
     },
     fallback: {
       message: 'Aún no hay reto diario. Juega un pack o únete a un torneo mientras esperas.',
@@ -308,6 +311,13 @@ export const es: Translations = {
     packs: {
       title: 'Packs de retos',
       subtitle: 'Juega colecciones temáticas de retos.',
+    },
+    tournaments: {
+      title: 'Torneos',
+      subtitle: 'Compite en torneos.',
+    },
+    level: {
+      a11y: 'Nivel {{level}}. Abrir tu perfil',
     },
     notifPrompt: {
       title: 'No te quedes fuera',

@@ -299,6 +299,9 @@ export const de: Translations = {
       dayOf: 'Tag {{index}} von {{total}}',
       viewResult: 'Heutiges Ergebnis ansehen',
       play: 'Tages-Challenge spielen',
+      cardTitle: 'Tages-Challenge',
+      subtitle: 'Jeden Tag eine neue Challenge',
+      completed: 'Heute erledigt',
     },
     fallback: {
       message: 'Noch keine Tages-Challenge. Spiel ein Paket oder tritt einem Turnier bei, während du wartest.',
@@ -308,6 +311,13 @@ export const de: Translations = {
     packs: {
       title: 'Challenge-Pakete',
       subtitle: 'Spiel thematische Challenge-Sets.',
+    },
+    tournaments: {
+      title: 'Turniere',
+      subtitle: 'Tritt in Turnieren an.',
+    },
+    level: {
+      a11y: 'Level {{level}}. Profil öffnen',
     },
     notifPrompt: {
       title: 'Bleib am Ball',

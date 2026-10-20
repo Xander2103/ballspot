@@ -53,17 +53,19 @@ describe('Home wiring', () => {
     expect(home).toMatch(/noticesApi\.active\('home_daily_card'\)/);
     expect(home).toMatch(/Promise\.allSettled\(\[\s*dailyApi\.today\([^)]*\),\s*dailyApi\.stats\(\),\s*noticesApi\.active/);
     expect(home).toMatch(/resolveNotice\(/);
-    // NoticeCard is rendered before the daily card block, inside the same scroll content.
+    // NoticeCard is rendered before the daily card, inside the same scroll content.
     const noticeAt = home.indexOf('<NoticeCard');
-    const dailyAt = home.indexOf('{dailyLoading ? (');
+    const dailyAt = home.indexOf('<DailyChallengeCard');
     expect(noticeAt).toBeGreaterThan(-1);
     expect(dailyAt).toBeGreaterThan(noticeAt);
   });
 
   it('renders nothing at all when there is no notice, so the daily card layout is unchanged', () => {
     expect(home).toMatch(/if \(!notice\) return null;/);
-    // The daily card keeps its own style object; the notice has its own.
-    expect(home).toMatch(/dailyCard: \{\s*backgroundColor: theme\.surface, borderRadius: 16, padding: spacing\.md,\s*marginBottom: spacing\.md, borderWidth: 1, borderColor: theme\.border,\s*\}/);
+    // The daily card keeps its own style object (in its own component); the notice has its own.
+    const dailyCard = fs.readFileSync(path.join(SRC, 'components', 'home', 'DailyChallengeCard.tsx'), 'utf8');
+    expect(dailyCard).toMatch(/dailyCard: \{/);
+    expect(dailyCard).not.toMatch(/notice/i);
     expect(home).toMatch(/noticeCard: \{/);
   });
 });

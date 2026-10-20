@@ -47,6 +47,9 @@ const LAUNCH_CRITICAL = [
   'components/LanguagePicker.tsx',
   'components/NotificationSettingsCard.tsx',
   'components/TrophyRoom.tsx',
+  'components/home/DailyChallengeCard.tsx',
+  'components/home/SportSelector.tsx',
+  'components/home/LevelRing.tsx',
   'app/AppNavigator.tsx',
   'app/MainTabs.tsx',
 ];

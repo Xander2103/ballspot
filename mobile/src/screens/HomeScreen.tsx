@@ -7,14 +7,19 @@ import { MainTabScreenProps } from '../app/MainTabs';
 import { signOut } from '../app/signOut';
 import { homeIdentity, logoutLocally, ProfileLoadState } from '../utils/session';
 import { Screen } from '../components/Screen';
-import { AppButton } from '../components/AppButton';
-import { EmptyState } from '../components/EmptyState';
 import { ConfirmModal } from '../components/ConfirmModal';
-import { Avatar } from '../components/Avatar';
+import { LevelRing } from '../components/home/LevelRing';
+import { SportSelector } from '../components/home/SportSelector';
+import { DailyChallengeCard } from '../components/home/DailyChallengeCard';
+import { ModeCard } from '../components/home/ModeCard';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
 import { dailyApi } from '../api/dailyApi';
 import { noticesApi } from '../api/noticesApi';
+import { sportApi } from '../api/sportApi';
+import { preferencesApi } from '../api/preferencesApi';
+import { dailyCardModel, levelRingModel, sportTapAction } from '../utils/homeModel';
+import { getApiErrorMessage } from '../utils/apiError';
 import { resolveNotice, noticePalette } from '../utils/notice';
 import type { AppNotice } from '../types/notice';
 import { notificationsApi } from '../api/notificationsApi';
@@ -25,23 +30,27 @@ import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { League } from '../types/league';
-import { User } from '../types/auth';
+import { User, PlayerRank } from '../types/auth';
+import type { Sport } from '../types/sport';
 import { TodayResponse, DailyStats } from '../types/daily';
 import { useI18n, getLocale } from '../i18n';
 
-// Horizontal BallPicker brand header (wordmark). Rendered as the Home hero.
-const brandHeader = require('../../assets/BallPickerHeader.png');
+// BallPicker wordmark, centred at the top of Home. A transparent, trimmed cut
+// of assets/BallPickerHeader.png (which has an opaque navy background that
+// showed as a box on the themed screen background).
+const brandHeader = require('../../assets/home/ballpicker_wordmark.png');
+const packsImage = require('../../assets/home/ballpicker_packs_rustig.png');
+const tournamentsImage = require('../../assets/home/ballpicker_tournaments_rustig.png');
+
+/** Side gutter shared by the header, the sport row and the cards. */
+const GUTTER = spacing.md;
+/** Level ring diameter; the header mirrors it on the left so the logo stays centred. */
+const RING_SIZE = 44;
 
 type Props = MainTabScreenProps<'Play'>;
 
 // Persisted flag so we ask for notification permission at most once (non-spammy).
 const NOTIF_PROMPT_SEEN = 'notif_prompt_seen';
-
-function todayDateFormatted(locale: string): string {
-  // English keeps the day-first (en-GB) format the screen has always used.
-  const dateLocale = locale === 'en' ? 'en-GB' : locale;
-  return new Date().toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
 
 /**
  * Admin-managed notice, shown directly above the Daily card in the same card
@@ -61,77 +70,6 @@ function NoticeCard({ notice, styles }: { notice: AppNotice | null; styles: Styl
       <View style={[styles.noticeBar, { backgroundColor: palette.accent }]} />
       <Text style={styles.noticeGlyph}>{palette.glyph}</Text>
       <Text style={styles.noticeText}>{notice.message}</Text>
-    </View>
-  );
-}
-
-function DailyCard({
-  today, stats, navigation, styles,
-}: {
-  today: TodayResponse | null;
-  stats: DailyStats | null;
-  navigation: Props['navigation'];
-  styles: Styles;
-}) {
-  const { t, locale } = useI18n();
-
-  if (!today?.has_daily) {
-    const sportName = today?.sport?.name;
-    const isOtherSport = sportName && today?.sport?.slug !== 'football';
-    const emoji = today?.sport?.emoji ?? '⚽';
-    return (
-      <View style={styles.dailyCard}>
-        <Text style={styles.dailyCardTitle}>
-          {sportName ? t('home.daily.titleForSport', { emoji, sport: sportName }) : t('home.daily.title', { emoji })}
-        </Text>
-        <Text style={styles.dailyCardDate}>{todayDateFormatted(locale)}</Text>
-        <Text style={styles.dailyCardEmpty}>
-          {isOtherSport
-            ? t('home.daily.noneForSport', { sport: sportName })
-            : t('home.daily.noneToday')}
-        </Text>
-      </View>
-    );
-  }
-
-  const emoji = today.daily_challenge?.challenge?.sport?.emoji ?? '⚽';
-  // Monthly progress ("Day 4 of 31") from the backend; absent on older servers.
-  const monthIndex = today.daily_challenge?.daily_month_index;
-  const monthTotal = today.daily_challenge?.daily_month_total;
-  const monthProgress = monthIndex && monthTotal ? ` · ${t('home.daily.dayOf', { index: monthIndex, total: monthTotal })}` : '';
-
-  if (today.already_played) {
-    return (
-      <View style={styles.dailyCard}>
-        <Text style={styles.dailyCardTitle}>{t('home.daily.title', { emoji })}</Text>
-        <Text style={styles.dailyCardDate}>{todayDateFormatted(locale)}{monthProgress}</Text>
-        {!!stats?.current_streak && <Text style={styles.dailyStreak}>{t('daily.streak', { count: stats.current_streak })}</Text>}
-        <AppButton
-          title={t('home.daily.viewResult')}
-          onPress={() => navigation.navigate('DailyResult', { dailyChallengeId: today.daily_challenge!.id })}
-          variant="secondary"
-          style={styles.dailyBtn}
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.dailyCard}>
-      <Text style={styles.dailyCardTitle}>{t('home.daily.title', { emoji })}</Text>
-      <Text style={styles.dailyCardDate}>{todayDateFormatted(locale)}{monthProgress}</Text>
-      {today.daily_challenge?.challenge && (
-        <Text style={styles.dailyChallengeInfo}>
-          {today.daily_challenge.challenge.category ? `${today.daily_challenge.challenge.category.name} · ` : ''}
-          {today.daily_challenge.challenge.difficulty}
-        </Text>
-      )}
-      {!!stats?.current_streak && <Text style={styles.dailyStreak}>{t('daily.streak', { count: stats.current_streak })}</Text>}
-      <AppButton
-        title={t('home.daily.play')}
-        onPress={() => navigation.navigate('DailyChallenge', { dailyChallengeId: today.daily_challenge!.id })}
-        style={styles.dailyBtn}
-      />
     </View>
   );
 }
@@ -160,11 +98,21 @@ export function HomeScreen({ navigation }: Props) {
   const [notifPromptVisible, setNotifPromptVisible] = useState(false);
   const [notifPromptLoading, setNotifPromptLoading] = useState(false);
 
+  // Sport row (null until the first /sports answer) and the header level ring.
+  // Both are optional extras: a failure falls back to the picker / hides the ring.
+  const [sports, setSports] = useState<Sport[] | null>(null);
+  const [sportsFailed, setSportsFailed] = useState(false);
+  const [savingSportId, setSavingSportId] = useState<number | null>(null);
+  const [sportMessage, setSportMessage] = useState<{ text: string; tone: 'info' | 'error' } | null>(null);
+  const [rank, setRank] = useState<PlayerRank | null>(null);
+
   const load = useCallback(async () => {
     let me: User | null = null;
     // allSettled, not all: a failing tournament list must not blank the
     // greeting, and a failing profile must not hide the tournaments.
-    const [meRes, listRes] = await Promise.allSettled([authApi.me(), leagueApi.list()]);
+    const [meRes, listRes, sportsRes, profileStatsRes] = await Promise.allSettled([
+      authApi.me(), leagueApi.list(), sportApi.list(), authApi.stats(),
+    ]);
     if (meRes.status === 'fulfilled') {
       me = meRes.value;
       setUser(meRes.value);
@@ -173,6 +121,14 @@ export function HomeScreen({ navigation }: Props) {
       setProfileState((prev) => (prev === 'ready' ? 'ready' : 'failed')); // keep a name we already have
     }
     if (listRes.status === 'fulfilled') setLeagues(listRes.value);
+    if (sportsRes.status === 'fulfilled') {
+      setSports(sportsRes.value);
+      setSportsFailed(false);
+    } else {
+      setSportsFailed(true); // only shown while no list was ever loaded (see render)
+    }
+    // Keep the last known level on a failed refresh rather than blinking the ring away.
+    if (profileStatsRes.status === 'fulfilled') setRank(profileStatsRes.value.rank ?? null);
     setLoading(false);
 
     const [todayRes, statsRes, noticeRes] = await Promise.allSettled([
@@ -265,108 +221,122 @@ export function HomeScreen({ navigation }: Props) {
 
   const sport = user?.preferred_sport ?? null;
   const identity = homeIdentity(profileState, user);
+  const level = levelRingModel(rank);
+
+  // Same rules and API call as SportSelectionScreen: coming-soon sports only
+  // explain themselves, the current sport is a no-op, anything else is saved
+  // as the preferred sport and Home reloads its daily for it.
+  async function handleSportTap(next: Sport) {
+    if (savingSportId !== null) return;
+    const action = sportTapAction(next, sport?.id);
+    if (action === 'comingSoon') {
+      setSportMessage({ text: t('home.sportSelection.comingSoonError', { sport: next.name }), tone: 'info' });
+      return;
+    }
+    setSportMessage(null);
+    if (action === 'none') return;
+    setSavingSportId(next.id);
+    try {
+      const prefs = await preferencesApi.update({ preferred_sport_id: next.id });
+      setUser((prev) => (prev ? { ...prev, preferred_sport: prefs.preferred_sport ?? next } : prev));
+      setDailyLoading(true);
+      await load();
+    } catch (e: unknown) {
+      setSportMessage({ text: getApiErrorMessage(e, t('home.sportSelection.saveError')), tone: 'error' });
+    } finally {
+      setSavingSportId(null);
+    }
+  }
 
   return (
     <Screen padding={false}>
-      {/* App header: wordmark + greeting live in ONE surface block with a
-          single bottom border, so the logo reads as the screen's real header
-          rather than an image card floating above it. */}
-      <View style={styles.header}>
-        <Image
-          source={brandHeader}
-          style={styles.brandImage}
-          resizeMode="contain"
-          accessibilityRole="image"
-          accessibilityLabel={t('common.appName')}
-        />
-        <View style={styles.topBar}>
-          <View style={styles.topBarLeft}>
-            {identity.kind === 'ready' ? (
-              <>
-                <Text style={styles.greeting}>{identity.greeting}</Text>
-                <Text style={styles.sub}>{identity.handle}</Text>
-              </>
-            ) : identity.kind === 'loading' ? (
-              <>
-                <Text style={styles.greeting}>{identity.label}</Text>
-                <Text style={styles.sub}> </Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.sub}>{identity.message}</Text>
-                <View style={styles.identityActions}>
-                  <TouchableOpacity onPress={retryProfile} hitSlop={8} accessibilityRole="button">
-                    <Text style={styles.identityAction}>{identity.retryLabel}</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.identityDot}>·</Text>
-                  <TouchableOpacity onPress={handleLogout} hitSlop={8} accessibilityRole="button">
-                    <Text style={styles.identityAction}>{identity.logoutLabel}</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
-            <Avatar uri={user?.avatar_url} name={user?.name} size={42} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* flex:1 so the list fills exactly the space under the header and
-          scrolls within it, instead of sizing itself to its content. */}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        {/* Selected sport chip */}
-        <TouchableOpacity
-          style={styles.sportChip}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('SportSelection', { mode: 'change', currentSportId: sport?.id ?? null })}
-        >
-          <Text style={styles.sportChipText}>
-            {sport ? `${sport.emoji} ${sport.name}` : t('home.sportChip.pick')}
-          </Text>
-          <Text style={styles.sportChipAction}>{t('home.sportChip.change')}</Text>
-        </TouchableOpacity>
-
-        {/* Admin notice ("Daily login starts tomorrow") — sits right above the
-            Daily card it talks about; absent entirely when there is none. */}
-        <NoticeCard notice={notice} styles={styles} />
-
-        {dailyLoading ? (
-          <View style={[styles.dailyCard, styles.dailyCardLoading]}>
-            <Text style={styles.dailyCardLoadingText}>{t('home.daily.loading')}</Text>
+        {/* Header: centred wordmark with the level ring on the right (an
+            equal spacer on the left keeps the logo optically centred). */}
+        <View style={styles.brandRow}>
+          <View style={styles.ringSlot} />
+          <Image
+            source={brandHeader}
+            style={styles.brandImage}
+            resizeMode="contain"
+            accessibilityRole="image"
+            accessibilityLabel={t('common.appName')}
+          />
+          <View style={styles.ringSlot}>
+            {level ? <LevelRing model={level} size={RING_SIZE} onPress={() => navigation.navigate('Profile')} /> : null}
           </View>
-        ) : (
-          <DailyCard today={todayDaily} stats={dailyStats} navigation={navigation} styles={styles} />
-        )}
+        </View>
 
-        {/* Nothing to play today — offer the two things that are always
-            available, so Home never dead-ends. */}
-        {!dailyLoading && !todayDaily?.has_daily ? (
-          <View style={styles.dailyFallback}>
-            <EmptyState
-              compact
-              message={t('home.fallback.message')}
-              actions={[
-                { label: t('home.fallback.playPacks'), onPress: () => navigation.navigate('Packs') },
-                { label: t('home.fallback.viewTournaments'), onPress: () => navigation.navigate('Tournaments') },
-              ]}
+        <View style={styles.identity}>
+          {identity.kind === 'ready' ? (
+            <>
+              <Text style={styles.greeting}>{identity.greeting}</Text>
+              <Text style={styles.sub}>{identity.handle}</Text>
+            </>
+          ) : identity.kind === 'loading' ? (
+            <>
+              <Text style={styles.greeting}>{identity.label}</Text>
+              <Text style={styles.sub}> </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.sub}>{identity.message}</Text>
+              <View style={styles.identityActions}>
+                <TouchableOpacity onPress={retryProfile} hitSlop={8} accessibilityRole="button">
+                  <Text style={styles.identityAction}>{identity.retryLabel}</Text>
+                </TouchableOpacity>
+                <Text style={styles.identityDot}>·</Text>
+                <TouchableOpacity onPress={handleLogout} hitSlop={8} accessibilityRole="button">
+                  <Text style={styles.identityAction}>{identity.logoutLabel}</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+
+        <SportSelector
+          sports={sports}
+          loadFailed={sportsFailed && !sports}
+          selected={sport}
+          savingId={savingSportId}
+          onTap={handleSportTap}
+          onOpenPicker={() => navigation.navigate('SportSelection', { mode: 'change', currentSportId: sport?.id ?? null })}
+          message={sportMessage}
+          inset={GUTTER}
+        />
+
+        <View style={styles.cards}>
+          {/* Admin notice ("Daily login starts tomorrow") — sits right above the
+              Daily card it talks about; absent entirely when there is none. */}
+          <NoticeCard notice={notice} styles={styles} />
+
+          <DailyChallengeCard
+            model={dailyCardModel(dailyLoading, todayDaily, dailyStats)}
+            onPlay={(dailyChallengeId) => navigation.navigate('DailyChallenge', { dailyChallengeId })}
+            onViewResult={(dailyChallengeId) => navigation.navigate('DailyResult', { dailyChallengeId })}
+          />
+
+          {/* Secondary modes, always available — so Home never dead-ends,
+              even on a day without a daily. */}
+          <View style={styles.modes}>
+            <ModeCard
+              id="homePacksFade"
+              testID="home-mode-packs"
+              title={t('home.packs.title')}
+              subtitle={t('home.packs.subtitle')}
+              image={packsImage}
+              onPress={() => navigation.navigate('Packs')}
+            />
+            <ModeCard
+              id="homeTournamentsFade"
+              testID="home-mode-tournaments"
+              title={t('home.tournaments.title')}
+              subtitle={t('home.tournaments.subtitle')}
+              image={tournamentsImage}
+              onPress={() => navigation.navigate('Tournaments')}
             />
           </View>
-        ) : null}
-
-        {/* Challenge Packs discovery entry point */}
-        <TouchableOpacity
-          style={styles.packsCard}
-          activeOpacity={0.85}
-          onPress={() => navigation.navigate('Packs')}
-        >
-          <Text style={styles.packsEmoji}>📦</Text>
-          <View style={styles.packsText}>
-            <Text style={styles.packsTitle}>{t('home.packs.title')}</Text>
-            <Text style={styles.packsSubtitle}>{t('home.packs.subtitle')}</Text>
-          </View>
-          <Text style={styles.packsChevron}>›</Text>
-        </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <ConfirmModal
@@ -387,79 +357,43 @@ type Styles = ReturnType<typeof createStyles>;
 
 function createStyles(theme: ThemeTokens) {
   return StyleSheet.create({
-    header: {
-      backgroundColor: theme.surface,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.border,
-      paddingTop: spacing.sm,
+    scroll: { flex: 1 },
+    content: { paddingTop: spacing.sm, paddingBottom: spacing.lg },
+    brandRow: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: GUTTER,
     },
-    // The wordmark asset is 2172x724 with no @2x/@3x suffix, so RN reads its
-    // intrinsic size as 2172x724 *dp*. An explicit height is REQUIRED: without
+    ringSlot: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
+    // The wordmark asset is 1985x429 with no @2x/@3x suffix, so RN reads its
+    // intrinsic size as 1985x429 *dp*. An explicit height is REQUIRED: without
     // one the Image reserves that intrinsic height and swallows the screen.
     // `contain` keeps the full wordmark visible inside this box, never cropped.
     brandImage: {
-      width: '100%',
-      height: 48,
+      flex: 1,
+      height: 40,
+      marginHorizontal: spacing.sm,
     },
-    topBar: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md,
-    },
-    topBarLeft: { flex: 1 },
-    greeting: { fontSize: 18, fontWeight: '700', color: theme.text },
-    sub: { fontSize: 13, color: theme.textSecondary },
+    identity: { paddingHorizontal: GUTTER, paddingTop: spacing.sm, paddingBottom: spacing.sm + 4 },
+    greeting: { fontSize: 26, fontWeight: '800', color: theme.text },
+    sub: { fontSize: 14, color: theme.textSecondary, marginTop: 1 },
     // Failed-profile header row: same type scale as the handle line, links in
     // the accent colour so it reads as part of the header, not an error card.
     identityActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
-    identityAction: { fontSize: 13, fontWeight: '700', color: theme.accent },
-    identityDot: { fontSize: 13, color: theme.textMuted },
-    scroll: { flex: 1 },
-    content: { padding: spacing.md, paddingBottom: spacing.xl },
-    dailyFallback: {
-      backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md,
-    },
-    sportChip: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: theme.surfaceElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md,
-    },
-    sportChipText: { fontSize: 15, fontWeight: '700', color: theme.text },
-    sportChipAction: { fontSize: 13, fontWeight: '700', color: theme.accent },
-    packsCard: {
-      flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-      backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border,
-      paddingHorizontal: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md,
-    },
-    packsEmoji: { fontSize: 26 },
-    packsText: { flex: 1 },
-    packsTitle: { fontSize: 15, fontWeight: '700', color: theme.text },
-    packsSubtitle: { fontSize: 12, color: theme.textMuted, marginTop: 1 },
-    packsChevron: { fontSize: 22, color: theme.textMuted, fontWeight: '700' },
-    dailyCard: {
-      backgroundColor: theme.surface, borderRadius: 16, padding: spacing.md,
-      marginBottom: spacing.md, borderWidth: 1, borderColor: theme.border,
-    },
-    // Same surface/radius/border family as dailyCard, one step quieter
-    // (smaller radius, tighter padding) so it reads as a note ON the daily
-    // card rather than a second card competing with it. The border colour
-    // and the thin leading bar carry the type (info / warning / success).
+    identityAction: { fontSize: 14, fontWeight: '700', color: theme.accent },
+    identityDot: { fontSize: 14, color: theme.textMuted },
+    cards: { paddingHorizontal: GUTTER, paddingTop: spacing.sm + 4, gap: spacing.sm + 4 },
+    // Row children stretch to the tallest card, so both tiles stay the same size.
+    modes: { flexDirection: 'row', gap: spacing.md - 4 },
+    // Quieter than the Daily card (smaller radius, tighter padding) so it reads
+    // as a note ON the daily card rather than a second card competing with it.
+    // The border colour and the thin leading bar carry the type (info / warning / success).
     noticeCard: {
       flexDirection: 'row', alignItems: 'center', gap: spacing.sm, overflow: 'hidden',
       backgroundColor: theme.surface, borderRadius: 12, borderWidth: 1, borderColor: theme.border,
       paddingVertical: spacing.sm, paddingRight: spacing.md, paddingLeft: spacing.md + 4,
-      marginBottom: spacing.sm,
     },
     noticeBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
     noticeGlyph: { fontSize: 15 },
     noticeText: { flex: 1, fontSize: 13, lineHeight: 18, color: theme.text, fontWeight: '600' },
-    dailyCardLoading: { alignItems: 'center', paddingVertical: spacing.lg },
-    dailyCardLoadingText: { color: theme.textMuted, fontSize: 13, fontStyle: 'italic' },
-    dailyCardTitle: { fontSize: 14, fontWeight: '800', color: theme.primary, letterSpacing: 0.5, marginBottom: 2 },
-    dailyCardDate: { fontSize: 12, color: theme.textSecondary, marginBottom: spacing.sm },
-    dailyChallengeInfo: { fontSize: 13, color: theme.text, fontWeight: '600', marginBottom: spacing.xs },
-    dailyStreak: { fontSize: 13, color: theme.warning, fontWeight: '700', marginBottom: spacing.sm },
-    dailyBtn: { marginTop: spacing.xs },
-    dailyCardEmpty: { fontSize: 13, color: theme.textMuted, fontStyle: 'italic' },
   });
 }
