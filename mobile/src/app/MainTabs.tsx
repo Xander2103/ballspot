@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator, BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/useTheme';
 import { TabIcon, TabIconName } from '../components/TabIcon';
@@ -113,7 +113,20 @@ function Tabs() {
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ title: t('nav.tabs.profile'), tabBarIcon: icon('profile') }}
+        options={({ navigation }) => ({
+          title: t('nav.tabs.profile'),
+          tabBarIcon: icon('profile'),
+          // Settings is a root-stack route, so the gear hands the navigation
+          // to the parent stack (the tab navigator only knows the four tabs).
+          headerRight: () => (
+            <HeaderIconButton
+              icon="settings"
+              testID="profile-settings"
+              accessibilityLabel={t('nav.titles.settings')}
+              onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Settings')}
+            />
+          ),
+        })}
       />
     </Tab.Navigator>
   );

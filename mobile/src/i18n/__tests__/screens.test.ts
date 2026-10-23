@@ -37,6 +37,8 @@ const LAUNCH_CRITICAL = [
   'screens/FriendsScreen.tsx',
   'screens/FriendProfileScreen.tsx',
   'screens/ProfileScreen.tsx',
+  'screens/ProfileStatsScreen.tsx',
+  'screens/SettingsScreen.tsx',
   'screens/GuessScreen.tsx',
   'screens/ResultScreen.tsx',
   'screens/WeeklyLeaderboardScreen.tsx',
@@ -50,6 +52,8 @@ const LAUNCH_CRITICAL = [
   'components/home/DailyChallengeCard.tsx',
   'components/home/SportSelector.tsx',
   'components/home/LevelRing.tsx',
+  'components/profile/ProfileHeader.tsx',
+  'components/profile/XpProgressCard.tsx',
   'components/friends/Sheet.tsx',
   'components/friends/FriendCodeCard.tsx',
   'components/friends/AddFriendSheet.tsx',
@@ -132,8 +136,8 @@ describe('language wiring', () => {
     expect(source).toMatch(/rememberConfigDefault\(/);
   });
 
-  it('profile language change updates the active locale', () => {
-    const source = read('screens/ProfileScreen.tsx');
+  it('the settings language change updates the active locale', () => {
+    const source = read('screens/SettingsScreen.tsx');
     expect(source).toMatch(/preferencesApi\.update\(\{\s*preferred_language:\s*code\s*\}\)/);
     expect(source).toMatch(/setLocale\(code\)/);
   });

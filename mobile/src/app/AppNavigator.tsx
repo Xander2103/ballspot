@@ -41,6 +41,9 @@ import { DailyResultScreen } from '../screens/DailyResultScreen';
 import { WeeklyLeaderboardScreen } from '../screens/WeeklyLeaderboardScreen';
 import { FriendProfileScreen } from '../screens/FriendProfileScreen';
 import { ScanFriendCodeScreen } from '../screens/ScanFriendCodeScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { ProfileStatsScreen } from '../screens/ProfileStatsScreen';
+import type { StatsSection } from '../utils/profileModel';
 import { HeaderExitButton } from '../components/HeaderExitButton';
 import { goHome, goPacks } from './navigationActions';
 import { initLocale, useI18n } from '../i18n';
@@ -75,6 +78,10 @@ export type RootStackParamList = {
   WeeklyLeaderboard: undefined;
   FriendProfile: { userId: number; username: string };
   ScanFriendCode: undefined;
+  /** Opened from the gear on the Profile tab. */
+  Settings: undefined;
+  /** "Your stats": a Profile row deep-links to one segment. */
+  ProfileStats: { section?: StatsSection } | undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -309,6 +316,8 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
         <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: t('nav.titles.weeklyLeaderboard') }} />
         <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={({ route }) => ({ title: `@${route.params.username}` })} />
         <Stack.Screen name="ScanFriendCode" component={ScanFriendCodeScreen} options={{ title: t('nav.titles.scanFriendCode') }} />
+        <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('nav.titles.settings') }} />
+        <Stack.Screen name="ProfileStats" component={ProfileStatsScreen} options={{ title: t('nav.titles.playerStats') }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

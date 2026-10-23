@@ -18,8 +18,8 @@ describe('login 2FA opt-in is off for launch', () => {
     expect(source).toMatch(/login_two_factor_opt_in:\s*false/);
   });
 
-  it('ProfileScreen only shows the toggle when the backend allows opt-in or 2FA is already on', () => {
-    const source = read('screens/ProfileScreen.tsx');
+  it('SettingsScreen only shows the toggle when the backend allows opt-in or 2FA is already on', () => {
+    const source = read('screens/SettingsScreen.tsx');
     expect(source).toMatch(/const showTwoFactor = twoFactorOptIn \|\| twoFactorOn;/);
     expect(source).toMatch(/\{showTwoFactor \? \(/);
     expect(source).toMatch(/configApi\s*\.get\(\)/);

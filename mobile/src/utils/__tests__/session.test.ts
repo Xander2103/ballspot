@@ -364,6 +364,11 @@ describe('Profile error state', () => {
     const source = fs.readFileSync(path.join(SRC, 'screens', 'ProfileScreen.tsx'), 'utf8');
     expect(source).toMatch(/profileLoadFailureView\(/);
     expect(source).toMatch(/logoutLocally\(/);
+  });
+
+  it('SettingsScreen logs out via logoutLocally and deletes via deleteAccountAndSignOut', () => {
+    const source = fs.readFileSync(path.join(SRC, 'screens', 'SettingsScreen.tsx'), 'utf8');
+    expect(source).toMatch(/logoutLocally\(/);
     expect(source).toMatch(/deleteAccountAndSignOut\(/);
   });
 

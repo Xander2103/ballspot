@@ -27,6 +27,8 @@ export const nav = {
     weeklyLeaderboard: 'Weekly Leaderboard',
     leaderboard: 'Leaderboard',
     scanFriendCode: 'Scan friend code',
+    settings: 'Settings',
+    playerStats: 'Your stats',
   },
   backTo: 'Back to {{label}}',
   exit: {

@@ -17,13 +17,8 @@ export const profile = {
     historySummary: '{{count}} finished',
     historyError: "Couldn't load your history.",
     historyEmpty: 'No finished tournaments yet.',
-    yourSport: 'Your sport',
     sportNotChosen: 'Not chosen yet',
-    changeSport: 'Change sport ›',
     appTheme: 'App theme',
-    themeActive: 'Active',
-    stats: 'Stats',
-    dailyStats: 'Daily challenge stats',
     streakSummary: '🔥 {{days}} day streak',
     notifications: 'Notifications',
     deleteAccount: 'Delete account',
@@ -65,7 +60,6 @@ export const profile = {
   },
   account: {
     title: 'Account & security',
-    summary: '{{language}} · 2FA {{state}}',
     languageHint: 'Used for emails and app text.',
     languageError: 'Could not save your language. Please try again.',
   },
@@ -152,6 +146,44 @@ export const profile = {
     xpAwarded: '+{{xp}} XP',
     challenges_one: '{{count}} challenge',
     challenges_other: '{{count}} challenges',
+  },
+  /** Profile 2.0 header: the rank pill next to the name. */
+  header: {
+    level: 'Level {{level}}',
+  },
+  /** Compact XP card under the header (numbers come from the server rank). */
+  xp: {
+    total: 'Total XP',
+    next: 'Next: {{rank}}',
+    max: 'Max rank',
+    toGo: '{{xp}} XP to {{rank}}',
+    a11y: '{{xp}} XP, {{pct}} percent of the way to {{rank}}. Open all ranks',
+    a11yMax: '{{xp}} XP, max rank reached. Open all ranks',
+  },
+  /** At-a-glance tiles under the XP card. */
+  tiles: {
+    bestDaily: 'Best daily',
+  },
+  /** Achievement / stats rows on Profile. */
+  nav: {
+    heading: 'Achievements & stats',
+    stats: 'Statistics',
+    statsSubtitle: 'Tournaments, guesses and scores.',
+    daily: 'Daily Challenge',
+    dailySubtitle: 'Your streak, games played and best score.',
+    historySubtitle: 'Your finished tournaments.',
+  },
+  /** "Your stats" screen segments. */
+  statsScreen: {
+    overall: 'Overall',
+    daily: 'Daily',
+    history: 'History',
+  },
+  /** Settings screen group headings. */
+  settings: {
+    preferences: 'Preferences',
+    sport: 'Preferred sport',
+    about: 'About',
   },
   /** CollapsibleSection (shared section header). */
   section: {

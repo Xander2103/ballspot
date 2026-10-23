@@ -24,7 +24,7 @@ describe('backend URL resolution', () => {
   });
 
   it('is the single source for every screen (no per-file localhost fallback remains)', () => {
-    for (const rel of ['api/client.ts', 'screens/ProfileScreen.tsx', 'screens/RegisterScreen.tsx', 'app/AppNavigator.tsx']) {
+    for (const rel of ['api/client.ts', 'screens/SettingsScreen.tsx', 'screens/RegisterScreen.tsx', 'app/AppNavigator.tsx']) {
       const source = fs.readFileSync(path.join(SRC, rel), 'utf8');
       expect({ rel, localhost: /127\.0\.0\.1|localhost:8000/.test(source) }).toEqual({ rel, localhost: false });
       expect({ rel, usesShared: /from '\.\.\/utils\/urls'/.test(source) }).toEqual({ rel, usesShared: true });
