@@ -105,7 +105,7 @@ class GrowthShareReviewTest extends TestCase
 
         $this->assertSame(1, $this->eventCount($user, AppEvent::SHARE_APP_TAPPED));
         $this->assertSame(1, $this->eventCount($user, AppEvent::SHARE_REWARD_CLAIMED));
-        $this->assertSame(25, (int) XpEvent::where('user_id', $user->id)->where('source_type', XpEvent::SOURCE_SHARE_FIRST)->sum('amount'));
+        $this->assertSame(200, (int) XpEvent::where('user_id', $user->id)->where('source_type', XpEvent::SOURCE_SHARE_FIRST)->sum('amount'));
         $this->assertTrue($user->badges()->where('code', 'first_share')->exists());
         $this->assertContains('first_share', array_column($res->json('new_badges'), 'code'));
     }
@@ -165,8 +165,8 @@ class GrowthShareReviewTest extends TestCase
             $this->withToken($token)->postJson('/api/share', ['type' => 'app'])->assertOk();
         }
 
-        // 25 (first) + 10 (daily) + 15 (high score) — exactly once each.
-        $this->assertSame(50, $this->shareXp($user));
+        // 200 (first) + 10 (daily) + 15 (high score) — exactly once each.
+        $this->assertSame(225, $this->shareXp($user));
         $this->assertSame(9, AppEvent::where('user_id', $user->id)->whereIn('event_name', AppEvent::SHARE_EVENTS)->count());
         // Five shares unlock Social Striker exactly once.
         $this->assertSame(1, $user->badges()->where('code', 'social_striker')->count());
@@ -230,7 +230,7 @@ class GrowthShareReviewTest extends TestCase
         ])->assertOk();
 
         $this->assertNotContains('daily_high_score_share', $res->json('rewards'));
-        $this->assertSame(35, $this->shareXp($user)); // 25 + 10, nothing else
+        $this->assertSame(210, $this->shareXp($user)); // 200 + 10, nothing else
         $this->assertSame(0, $this->eventCount($user, AppEvent::DAILY_RESULT_HIGH_SCORE_SHARE_TAPPED));
         $this->assertNull(AppEvent::where('user_id', $user->id)->whereRaw("metadata LIKE '%scored%'")->first(), 'share text must never be stored');
     }
@@ -254,6 +254,62 @@ class GrowthShareReviewTest extends TestCase
         $this->assertSame(0, AppEvent::where('user_id', $user->id)->count());
     }
 
+    public function test_first_share_reward_is_200_xp_and_comes_from_the_single_default(): void
+    {
+        $this->assertSame(200, \App\Services\ShareRewardService::DEFAULT_FIRST_SHARE_XP);
+        $this->assertSame(200, (int) config('ballspot.share.first_share_xp'));
+
+        [$user, $token] = $this->auth();
+        $res = $this->withToken($token)->postJson('/api/share', ['type' => 'app'])->assertOk();
+
+        $this->assertSame(['first_share'], $res->json('rewards'));
+        $ledger = XpEvent::where('user_id', $user->id)->where('source_type', XpEvent::SOURCE_SHARE_FIRST)->get();
+        $this->assertCount(1, $ledger);
+        $this->assertSame(200, (int) $ledger->first()->amount);
+        $this->assertSame(1, (int) $ledger->first()->source_id);
+        // xp_awarded = the 200 share XP + the First Share trophy's normal rarity XP.
+        $this->assertGreaterThanOrEqual(200, $res->json('xp_awarded'));
+    }
+
+    public function test_account_that_already_claimed_the_old_25_xp_first_share_is_not_awarded_again(): void
+    {
+        [$user, $token] = $this->auth();
+        // History from before the change: the old 25 XP first-share award.
+        XpEvent::create([
+            'user_id'     => $user->id,
+            'source_type' => XpEvent::SOURCE_SHARE_FIRST,
+            'source_id'   => 1,
+            'amount'      => 25,
+            'reason'      => 'First share',
+        ]);
+        $this->withToken($token)->getJson('/api/share/status')
+            ->assertOk()
+            ->assertJsonPath('first_share_available', false)
+            ->assertJsonPath('xp.first_share', 200);
+
+        $res = $this->withToken($token)->postJson('/api/share', ['type' => 'app'])->assertOk();
+        $this->assertNotContains('first_share', $res->json('rewards'));
+        $this->withToken($token)->postJson('/api/share', ['type' => 'app'])->assertOk()->assertJsonPath('rewards', []);
+
+        // No top-up to 200, no second row, the historical 25 is untouched.
+        $ledger = XpEvent::where('user_id', $user->id)->where('source_type', XpEvent::SOURCE_SHARE_FIRST)->get();
+        $this->assertCount(1, $ledger);
+        $this->assertSame(25, (int) $ledger->first()->amount);
+        // Only the (one-time) First Share trophy XP may have been added — never share XP.
+        $this->assertSame(25, $this->shareXp($user));
+        $this->assertSame(0, (int) XpEvent::where('user_id', $user->id)->where('source_type', XpEvent::SOURCE_SHARE_FIRST)->where('amount', 200)->count());
+    }
+
+    public function test_first_share_amount_can_still_be_overridden_per_environment(): void
+    {
+        config(['ballspot.share.first_share_xp' => 75]);
+        [$user, $token] = $this->auth();
+
+        $this->withToken($token)->getJson('/api/share/status')->assertOk()->assertJsonPath('xp.first_share', 75);
+        $this->withToken($token)->postJson('/api/share', ['type' => 'app'])->assertOk();
+        $this->assertSame(75, (int) XpEvent::where('user_id', $user->id)->where('source_type', XpEvent::SOURCE_SHARE_FIRST)->sum('amount'));
+    }
+
     public function test_share_status_reports_what_is_still_available(): void
     {
         [$user, $token] = $this->auth();
@@ -265,7 +321,7 @@ class GrowthShareReviewTest extends TestCase
             ->assertJsonPath('daily_share_available', true)
             ->assertJsonPath('daily_high_score_available', true)
             ->assertJsonPath('high_score_threshold', 80)
-            ->assertJsonPath('xp.first_share', 25)
+            ->assertJsonPath('xp.first_share', 200)
             ->assertJsonPath('xp.daily_share', 10)
             ->assertJsonPath('xp.daily_high_score_share', 15);
 

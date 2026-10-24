@@ -209,11 +209,12 @@ return [
     | calendar day; daily_high_score_xp: once per calendar day when the shared
     | daily score is >= high_score_threshold. Badge unlocks (First Share,
     | Daily Bragger, Social Striker) add the normal rarity XP from xp.badge.
+    | Defaults live in ShareRewardService::DEFAULT_* (first share: 200 XP).
     */
     'share' => [
-        'first_share_xp'        => (int) env('BALLPICKER_SHARE_FIRST_XP', 25),
-        'daily_share_xp'        => (int) env('BALLPICKER_SHARE_DAILY_XP', 10),
-        'daily_high_score_xp'   => (int) env('BALLPICKER_SHARE_DAILY_HIGH_SCORE_XP', 15),
+        'first_share_xp'        => (int) env('BALLPICKER_SHARE_FIRST_XP', \App\Services\ShareRewardService::DEFAULT_FIRST_SHARE_XP),
+        'daily_share_xp'        => (int) env('BALLPICKER_SHARE_DAILY_XP', \App\Services\ShareRewardService::DEFAULT_DAILY_SHARE_XP),
+        'daily_high_score_xp'   => (int) env('BALLPICKER_SHARE_DAILY_HIGH_SCORE_XP', \App\Services\ShareRewardService::DEFAULT_DAILY_HIGH_SCORE_XP),
         'high_score_threshold'  => (int) env('BALLPICKER_SHARE_HIGH_SCORE_THRESHOLD', 80),
         'social_striker_shares' => (int) env('BALLPICKER_SHARE_SOCIAL_STRIKER_SHARES', 5),
     ],

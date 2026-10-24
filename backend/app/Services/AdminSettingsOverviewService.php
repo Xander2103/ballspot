@@ -115,9 +115,9 @@ class AdminSettingsOverviewService
     {
         return [
             'share_rewards' => [
-                'first_share_xp'        => (int) config('ballspot.share.first_share_xp', 25),
-                'daily_share_xp'        => (int) config('ballspot.share.daily_share_xp', 10),
-                'daily_high_score_xp'   => (int) config('ballspot.share.daily_high_score_xp', 15),
+                'first_share_xp'        => (int) config('ballspot.share.first_share_xp', ShareRewardService::DEFAULT_FIRST_SHARE_XP),
+                'daily_share_xp'        => (int) config('ballspot.share.daily_share_xp', ShareRewardService::DEFAULT_DAILY_SHARE_XP),
+                'daily_high_score_xp'   => (int) config('ballspot.share.daily_high_score_xp', ShareRewardService::DEFAULT_DAILY_HIGH_SCORE_XP),
                 'high_score_threshold'  => (int) config('ballspot.share.high_score_threshold', 80),
                 'social_striker_shares' => (int) config('ballspot.share.social_striker_shares', 5),
             ],

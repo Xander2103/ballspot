@@ -44,6 +44,19 @@ class ShareRewardService
     public const BADGE_DAILY_BRAGGER  = 'daily_bragger';
     public const BADGE_SOCIAL_STRIKER = 'social_striker';
 
+    /**
+     * Default XP per reward — the ONE place these numbers live. config/ballspot.php
+     * (share.*), the admin Settings page and every fallback read them from here;
+     * BALLPICKER_SHARE_* env vars override them per environment.
+     *
+     * first share: 200 since 2026-10-24 (was 25). The ledger key share_first/1
+     * is unchanged, so an account that already claimed the old 25 XP is never
+     * awarded again and no historical XP is recalculated.
+     */
+    public const DEFAULT_FIRST_SHARE_XP      = 200;
+    public const DEFAULT_DAILY_SHARE_XP      = 10;
+    public const DEFAULT_DAILY_HIGH_SCORE_XP = 15;
+
     public function __construct(
         private XpService $xpService,
         private BadgeService $badgeService,
@@ -176,9 +189,9 @@ class ShareRewardService
     private function xpAmounts(): array
     {
         return [
-            self::REWARD_FIRST_SHARE            => (int) config('ballspot.share.first_share_xp', 25),
-            self::REWARD_DAILY_SHARE            => (int) config('ballspot.share.daily_share_xp', 10),
-            self::REWARD_DAILY_HIGH_SCORE_SHARE => (int) config('ballspot.share.daily_high_score_xp', 15),
+            self::REWARD_FIRST_SHARE            => (int) config('ballspot.share.first_share_xp', self::DEFAULT_FIRST_SHARE_XP),
+            self::REWARD_DAILY_SHARE            => (int) config('ballspot.share.daily_share_xp', self::DEFAULT_DAILY_SHARE_XP),
+            self::REWARD_DAILY_HIGH_SCORE_SHARE => (int) config('ballspot.share.daily_high_score_xp', self::DEFAULT_DAILY_HIGH_SCORE_XP),
         ];
     }
 

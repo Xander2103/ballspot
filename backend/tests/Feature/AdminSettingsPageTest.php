@@ -151,7 +151,7 @@ class AdminSettingsPageTest extends TestCase
             ->assertOk()
             ->assertSee('invalid — using monthly')
             ->assertSee('(unset)')
-            ->assertSee('+25 XP')
+            ->assertSee('+200 XP')
             ->assertSee('5/hour, 10/day');
     }
 
