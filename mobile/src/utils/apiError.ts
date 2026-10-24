@@ -2,7 +2,7 @@
  * Turn whatever the API client threw into one clean sentence for the user.
  *
  * The client (src/api/client.ts) throws `{ status, ...jsonBody }` for HTTP
- * errors and a raw `TypeError` for network failures. Laravel's bodies look
+ * errors and a raw `TypeError` / Expo `FetchError` for network failures. Laravel's bodies look
  * like `{ message }` or `{ message, errors: { field: [msg] } }`. A 500 with
  * APP_DEBUG=false is `{ message: "Server Error" }` — technical noise we never
  * want on screen. Nothing here ever surfaces a stack trace or exception class.
@@ -62,12 +62,30 @@ function looksTechnical(message: string): boolean {
   );
 }
 
+/**
+ * True when the request never got an HTTP answer (offline, DNS failure,
+ * unreachable host, TLS failure, timeout). Covers both the classic RN/whatwg
+ * `TypeError('Network request failed')` and Expo's native fetch (SDK 56), which
+ * rejects with a `FetchError` whose message starts with "fetch failed: …".
+ * An error that carries an HTTP status is never a network error.
+ */
 export function isNetworkError(e: unknown): boolean {
+  if (e && typeof e === 'object' && typeof (e as { status?: unknown }).status === 'number') return false;
   if (e instanceof TypeError) return true;
+  const name = (e as { name?: unknown })?.name;
+  const ctor = (e as { constructor?: { name?: unknown } })?.constructor?.name;
+  if (name === 'FetchError' || ctor === 'FetchError') return true;
   const msg = (e as { message?: unknown })?.message;
   if (typeof msg !== 'string') return false;
   const lower = msg.toLowerCase();
-  return lower.includes('network request failed') || lower.includes('failed to fetch') || lower === 'load failed';
+  return lower.includes('network request failed')
+    || lower.includes('failed to fetch')
+    || lower === 'load failed'
+    || lower.startsWith('fetch failed')
+    || lower.includes('hostname could not be found')
+    || lower.includes('could not connect to the server')
+    || lower.includes('internet connection appears to be offline')
+    || lower.includes('network connection was lost');
 }
 
 /**
