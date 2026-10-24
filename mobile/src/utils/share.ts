@@ -24,9 +24,15 @@ export const HIGH_SCORE_SHARE_THRESHOLD = 80;
 /** Total shares that unlock the Social Striker trophy (server-enforced). */
 export const SOCIAL_STRIKER_SHARES = 5;
 
-/** Display defaults; the server's status payload overrides them when known. */
+/**
+ * Display defaults, used only until the server's status has been seen once.
+ * The amounts the server reports (GET /api/share/status `xp`) are stored in
+ * the share state and always win, so a server-side change never needs an app
+ * release and the app can never promise a number the server will not grant.
+ * Mirrors ShareRewardService::DEFAULT_* (backend).
+ */
 export const SHARE_XP = {
-  firstShare: 25,
+  firstShare: 200,
   dailyShare: 10,
   dailyHighScore: 15,
 } as const;
@@ -66,6 +72,12 @@ export function dailyShareCta(score: number): DailyShareCta {
 // Reward state (local mirror of the server rules)
 // ---------------------------------------------------------------------------
 
+export interface ShareXpAmounts {
+  first_share: number;
+  daily_share: number;
+  daily_high_score_share: number;
+}
+
 export interface ShareRewardState {
   totalShareCount: number;
   firstShareClaimed: boolean;
@@ -73,6 +85,8 @@ export interface ShareRewardState {
   lastDailyShareRewardDate: string | null;
   /** YYYY-MM-DD of the last 80+ daily-result share that earned the bonus. */
   lastHighScoreShareRewardDate: string | null;
+  /** XP amounts the server last reported; null = not seen yet (display defaults apply). */
+  xp: ShareXpAmounts | null;
 }
 
 export const INITIAL_SHARE_REWARD_STATE: ShareRewardState = {
@@ -80,6 +94,7 @@ export const INITIAL_SHARE_REWARD_STATE: ShareRewardState = {
   firstShareClaimed: false,
   lastDailyShareRewardDate: null,
   lastHighScoreShareRewardDate: null,
+  xp: null,
 };
 
 /** GET /api/share/status and the `status` block of POST /api/share. */
@@ -91,7 +106,17 @@ export interface ShareRewardStatus {
   daily_high_score_available: boolean;
   high_score_threshold: number;
   social_striker_shares: number;
-  xp: { first_share: number; daily_share: number; daily_high_score_share: number };
+  xp: ShareXpAmounts;
+}
+
+/** Keep only sane, non-negative integer amounts; anything else → null (use the defaults). */
+export function sanitizeShareXp(value: unknown): ShareXpAmounts | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as Record<string, unknown>;
+  const ok = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
+  return ok(v.first_share) && ok(v.daily_share) && ok(v.daily_high_score_share)
+    ? { first_share: v.first_share, daily_share: v.daily_share, daily_high_score_share: v.daily_high_score_share }
+    : null;
 }
 
 /** The server wins: rebuild the local state from what it reports. */
@@ -101,6 +126,7 @@ export function stateFromServerStatus(status: ShareRewardStatus): ShareRewardSta
     firstShareClaimed: !status.first_share_available,
     lastDailyShareRewardDate: status.daily_share_available ? null : status.day,
     lastHighScoreShareRewardDate: status.daily_high_score_available ? null : status.day,
+    xp: sanitizeShareXp(status.xp),
   };
 }
 
@@ -115,12 +141,6 @@ export function localDateString(date: Date): string {
 export interface ShareRewardPreview {
   xp: number;
   rewards: ShareReward[];
-}
-
-export interface ShareXpAmounts {
-  first_share: number;
-  daily_share: number;
-  daily_high_score_share: number;
 }
 
 const DEFAULT_AMOUNTS: ShareXpAmounts = {
@@ -140,8 +160,9 @@ export function availableShareRewards(
   kind: ShareKind,
   score: number | null,
   today: string,
-  amounts: ShareXpAmounts = DEFAULT_AMOUNTS,
+  amountsOverride?: ShareXpAmounts,
 ): ShareRewardPreview {
+  const amounts = amountsOverride ?? state.xp ?? DEFAULT_AMOUNTS;
   const rewards: ShareReward[] = [];
   let xp = 0;
 
@@ -176,7 +197,7 @@ export function applyShare(
   kind: ShareKind,
   score: number | null,
   today: string,
-  amounts: ShareXpAmounts = DEFAULT_AMOUNTS,
+  amounts?: ShareXpAmounts,
 ): ShareApplied {
   const preview = availableShareRewards(state, kind, score, today, amounts);
   const next: ShareRewardState = {
@@ -187,4 +208,22 @@ export function applyShare(
     lastHighScoreShareRewardDate: preview.rewards.includes('daily_high_score_share') ? today : state.lastHighScoreShareRewardDate,
   };
   return { ...preview, state: next };
+}
+
+/**
+ * What the Profile "Share BallPicker" card says about its one-time reward:
+ *  - unknown: the state is not loaded yet → neutral copy, no promise;
+ *  - available: never claimed on this account → "+200 XP";
+ *  - claimed: already awarded (the server says so) → "reward claimed".
+ */
+export type FirstShareRewardView =
+  | { kind: 'unknown' }
+  | { kind: 'available'; xp: number }
+  | { kind: 'claimed'; xp: number };
+
+export function firstShareRewardView(state: ShareRewardState | null): FirstShareRewardView {
+  if (!state) return { kind: 'unknown' };
+  const xp = (state.xp ?? DEFAULT_AMOUNTS).first_share;
+  if (state.firstShareClaimed) return { kind: 'claimed', xp };
+  return xp > 0 ? { kind: 'available', xp } : { kind: 'unknown' };
 }

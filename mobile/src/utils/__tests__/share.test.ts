@@ -1,7 +1,7 @@
 import {
   applyShare, availableShareRewards, buildAppShareMessage, buildDailyResultShareMessage, dailyShareCta,
-  HIGH_SCORE_SHARE_THRESHOLD, INITIAL_SHARE_REWARD_STATE, isHighScore, localDateString, SHARE_URL, SHARE_XP,
-  stateFromServerStatus, type ShareRewardState, type ShareRewardStatus,
+  firstShareRewardView, HIGH_SCORE_SHARE_THRESHOLD, INITIAL_SHARE_REWARD_STATE, isHighScore, localDateString,
+  sanitizeShareXp, SHARE_URL, SHARE_XP, stateFromServerStatus, type ShareRewardState, type ShareRewardStatus,
 } from '../share';
 
 const TODAY = '2026-10-14';
@@ -45,12 +45,13 @@ describe('daily share CTA', () => {
 });
 
 describe('share reward rules (local mirror of the server)', () => {
-  it('first ever share is eligible for +25 XP', () => {
+  it('first ever share is eligible for +200 XP', () => {
+    expect(SHARE_XP.firstShare).toBe(200);
     const preview = availableShareRewards(INITIAL_SHARE_REWARD_STATE, 'app', null, TODAY);
     expect(preview).toEqual({ xp: SHARE_XP.firstShare, rewards: ['first_share'] });
 
     const applied = applyShare(INITIAL_SHARE_REWARD_STATE, 'app', null, TODAY);
-    expect(applied.xp).toBe(25);
+    expect(applied.xp).toBe(200);
     expect(applied.state.firstShareClaimed).toBe(true);
     expect(applied.state.totalShareCount).toBe(1);
   });
@@ -58,7 +59,7 @@ describe('share reward rules (local mirror of the server)', () => {
   it('daily share reward is available only once per day', () => {
     const first = applyShare(INITIAL_SHARE_REWARD_STATE, 'daily_result', 55, TODAY);
     expect(first.rewards).toEqual(['first_share', 'daily_share']);
-    expect(first.xp).toBe(35);
+    expect(first.xp).toBe(210);
 
     const again = applyShare(first.state, 'daily_result', 55, TODAY);
     expect(again.rewards).toEqual([]);
@@ -72,7 +73,7 @@ describe('share reward rules (local mirror of the server)', () => {
   it('80+ share bonus is available only once per day', () => {
     const first = applyShare(INITIAL_SHARE_REWARD_STATE, 'daily_result', 80, TODAY);
     expect(first.rewards).toEqual(['first_share', 'daily_share', 'daily_high_score_share']);
-    expect(first.xp).toBe(50);
+    expect(first.xp).toBe(225);
 
     const again = applyShare(first.state, 'daily_result', 99, TODAY);
     expect(again.rewards).toEqual([]);
@@ -90,7 +91,7 @@ describe('share reward rules (local mirror of the server)', () => {
       state = r.state;
       xp += r.xp;
     }
-    expect(xp).toBe(25 + 10 + 15);
+    expect(xp).toBe(200 + 10 + 15);
     expect(state.totalShareCount).toBe(20);
     expect(availableShareRewards(state, 'daily_result', 100, TODAY).xp).toBe(0);
     expect(availableShareRewards(state, 'app', null, TODAY).xp).toBe(0);
@@ -105,16 +106,68 @@ describe('share reward rules (local mirror of the server)', () => {
     const status: ShareRewardStatus = {
       day: TODAY, total_shares: 4, first_share_available: false, daily_share_available: false,
       daily_high_score_available: true, high_score_threshold: 80, social_striker_shares: 5,
-      xp: { first_share: 25, daily_share: 10, daily_high_score_share: 15 },
+      xp: { first_share: 200, daily_share: 10, daily_high_score_share: 15 },
     };
     const state = stateFromServerStatus(status);
     expect(state).toEqual({
       totalShareCount: 4, firstShareClaimed: true, lastDailyShareRewardDate: TODAY, lastHighScoreShareRewardDate: null,
+      xp: { first_share: 200, daily_share: 10, daily_high_score_share: 15 },
     });
     expect(availableShareRewards(state, 'daily_result', 85, TODAY, status.xp)).toEqual({ xp: 15, rewards: ['daily_high_score_share'] });
   });
 
+  it('promises the amount the server reports, not a hardcoded one', () => {
+    const status: ShareRewardStatus = {
+      day: TODAY, total_shares: 0, first_share_available: true, daily_share_available: true,
+      daily_high_score_available: true, high_score_threshold: 80, social_striker_shares: 5,
+      xp: { first_share: 75, daily_share: 5, daily_high_score_share: 8 },
+    };
+    const state = stateFromServerStatus(status);
+    expect(availableShareRewards(state, 'app', null, TODAY)).toEqual({ xp: 75, rewards: ['first_share'] });
+    expect(availableShareRewards(state, 'daily_result', 90, TODAY).xp).toBe(75 + 5 + 8);
+    // Before any server status the display defaults apply.
+    expect(availableShareRewards(INITIAL_SHARE_REWARD_STATE, 'app', null, TODAY).xp).toBe(200);
+  });
+
+  it('ignores malformed server amounts (falls back to the defaults)', () => {
+    expect(sanitizeShareXp(null)).toBeNull();
+    expect(sanitizeShareXp({ first_share: '200', daily_share: 10, daily_high_score_share: 15 })).toBeNull();
+    expect(sanitizeShareXp({ first_share: -1, daily_share: 10, daily_high_score_share: 15 })).toBeNull();
+    expect(sanitizeShareXp({ first_share: 200, daily_share: 10, daily_high_score_share: 15 }))
+      .toEqual({ first_share: 200, daily_share: 10, daily_high_score_share: 15 });
+  });
+
   it('formats the local calendar day', () => {
     expect(localDateString(new Date(2026, 9, 4, 23, 59))).toBe('2026-10-04');
+  });
+});
+
+describe('Profile first-share reward state (claimed / unclaimed)', () => {
+  it('makes no promise before the state is known', () => {
+    expect(firstShareRewardView(null)).toEqual({ kind: 'unknown' });
+  });
+
+  it('shows +200 XP while unclaimed', () => {
+    expect(firstShareRewardView(INITIAL_SHARE_REWARD_STATE)).toEqual({ kind: 'available', xp: 200 });
+  });
+
+  it('shows claimed once the server reports the reward as used', () => {
+    const status: ShareRewardStatus = {
+      day: TODAY, total_shares: 1, first_share_available: false, daily_share_available: true,
+      daily_high_score_available: true, high_score_threshold: 80, social_striker_shares: 5,
+      xp: { first_share: 200, daily_share: 10, daily_high_score_share: 15 },
+    };
+    expect(firstShareRewardView(stateFromServerStatus(status))).toEqual({ kind: 'claimed', xp: 200 });
+  });
+
+  it('a user who claimed the old 25 XP reward sees it as claimed, never as a new +200', () => {
+    const state: ShareRewardState = { ...INITIAL_SHARE_REWARD_STATE, firstShareClaimed: true };
+    expect(firstShareRewardView(state).kind).toBe('claimed');
+    expect(availableShareRewards(state, 'app', null, TODAY).xp).toBe(0);
+  });
+
+  it('a share marks the reward claimed locally', () => {
+    const applied = applyShare(INITIAL_SHARE_REWARD_STATE, 'app', null, TODAY);
+    expect(firstShareRewardView(applied.state).kind).toBe('claimed');
   });
 });

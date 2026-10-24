@@ -20,6 +20,25 @@ export function goPacks(navigation: GameNavigation): void {
 }
 
 /**
+ * Open Settings. The ONE entry used by both the gear in the Profile tab
+ * header and the Settings row on Profile, so both always land on the same
+ * root-stack route (one SettingsScreen, pushed above the tabs; back returns
+ * to Profile). `undefined` (no parent navigator yet) is a no-op.
+ */
+export function openSettings(navigation: { navigate: (route: 'Settings') => void } | undefined): void {
+  navigation?.navigate('Settings');
+}
+
+/**
+ * Switch to the Play (Home) tab from another tab. A tab switch (jumpTo), not
+ * a stack pop or reset: nothing is pushed, nothing underneath is lost, and
+ * the Friends / Tournaments tab keeps its state for when the user comes back.
+ */
+export function goPlayTab(navigation: { navigate: (route: 'Play') => void }): void {
+  navigation.navigate('Play');
+}
+
+/**
  * Route the Android hardware back button to `handler` while the screen is
  * focused. No-op on iOS/web, where there is no hardware back button.
  */

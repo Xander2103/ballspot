@@ -1,6 +1,6 @@
 import { localFlags } from './localFlags';
 import { INITIAL_REVIEW_PROMPT_STATE, type ReviewPromptState } from '../utils/reviewPrompt';
-import { INITIAL_SHARE_REWARD_STATE, type ShareRewardState } from '../utils/share';
+import { INITIAL_SHARE_REWARD_STATE, sanitizeShareXp, type ShareRewardState } from '../utils/share';
 
 /**
  * Local persistence for the growth features (review prompt policy + share
@@ -16,7 +16,7 @@ export const REVIEW_PROMPT_KEYS = {
   appLaunchCount: 'appLaunchCount',
 } as const;
 
-/** One JSON blob: totalShareCount, firstShareClaimed, lastDailyShareRewardDate, lastHighScoreShareRewardDate. */
+/** One JSON blob: totalShareCount, firstShareClaimed, lastDailyShareRewardDate, lastHighScoreShareRewardDate, xp (server amounts). */
 export const SHARE_REWARD_STATE_KEY = 'shareRewardState';
 
 function toInt(value: string | null): number {
@@ -64,6 +64,8 @@ export async function loadShareRewardState(): Promise<ShareRewardState> {
       firstShareClaimed: parsed.firstShareClaimed === true,
       lastDailyShareRewardDate: typeof parsed.lastDailyShareRewardDate === 'string' ? parsed.lastDailyShareRewardDate : null,
       lastHighScoreShareRewardDate: typeof parsed.lastHighScoreShareRewardDate === 'string' ? parsed.lastHighScoreShareRewardDate : null,
+      // Older blobs have no amounts: null → display defaults until the next server status.
+      xp: sanitizeShareXp(parsed.xp),
     };
   } catch {
     return INITIAL_SHARE_REWARD_STATE;

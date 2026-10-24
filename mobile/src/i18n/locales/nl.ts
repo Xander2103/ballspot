@@ -888,6 +888,7 @@ export const nl: Translations = {
       shareApp: 'BallPicker delen',
       shareAppSubtitle: 'Nodig vrienden uit om te spelen.',
       shareAppXp: 'Nodig vrienden uit · +{{xp}} XP',
+      shareAppClaimed: 'Nodig vrienden uit · beloning ontvangen ✓',
       shareAppMessage: 'Denk je dat jij de bal kunt vinden? Speel BallPicker met mij ⚽🎯',
       shareThanks: 'Bedankt voor het delen van BallPicker!',
       shareXpEarned: '+{{xp}} XP verdiend met delen!',
@@ -1020,6 +1021,7 @@ export const nl: Translations = {
       daily: 'Dagelijkse uitdaging',
       dailySubtitle: 'Je reeks, gespeelde uitdagingen en beste score.',
       historySubtitle: 'Je afgelopen toernooien.',
+      settingsSubtitle: 'Sport, thema, taal, meldingen en account.',
     },
     statsScreen: {
       overall: 'Algemeen',

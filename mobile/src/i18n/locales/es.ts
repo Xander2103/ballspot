@@ -888,6 +888,7 @@ export const es: Translations = {
       shareApp: 'Compartir BallPicker',
       shareAppSubtitle: 'Invita a tus amigos a jugar.',
       shareAppXp: 'Invita a amigos · +{{xp}} XP',
+      shareAppClaimed: 'Invita a amigos · recompensa obtenida ✓',
       shareAppMessage: '¿Crees que puedes encontrar el balón? Juega a BallPicker conmigo ⚽🎯',
       shareThanks: '¡Gracias por compartir BallPicker!',
       shareXpEarned: '¡+{{xp}} XP ganados por compartir!',
@@ -1020,6 +1021,7 @@ export const es: Translations = {
       daily: 'Reto diario',
       dailySubtitle: 'Tu racha, retos jugados y mejor puntuación.',
       historySubtitle: 'Tus torneos terminados.',
+      settingsSubtitle: 'Deporte, tema, idioma, notificaciones y cuenta.',
     },
     statsScreen: {
       overall: 'General',

@@ -30,6 +30,7 @@ export const profile = {
     shareApp: 'Share BallPicker',
     shareAppSubtitle: 'Invite friends to play.',
     shareAppXp: 'Invite friends · +{{xp}} XP',
+    shareAppClaimed: 'Invite friends · reward claimed ✓',
     shareAppMessage: 'Think you can spot the ball? Play BallPicker with me ⚽🎯',
     shareThanks: 'Thanks for sharing BallPicker!',
     shareXpEarned: '+{{xp}} XP earned for sharing!',
@@ -172,6 +173,7 @@ export const profile = {
     daily: 'Daily Challenge',
     dailySubtitle: 'Your streak, games played and best score.',
     historySubtitle: 'Your finished tournaments.',
+    settingsSubtitle: 'Sport, theme, language, notifications and account.',
   },
   /** "Your stats" screen segments. */
   statsScreen: {

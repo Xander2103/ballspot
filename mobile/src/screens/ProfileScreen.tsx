@@ -14,9 +14,10 @@ import { authApi } from '../api/authApi';
 import { badgeApi } from '../api/badgeApi';
 import { avatarApi } from '../api/avatarApi';
 import { growth } from '../services/growth';
-import { availableShareRewards, localDateString, type ShareRewardState } from '../utils/share';
+import { firstShareRewardView, type ShareRewardState } from '../utils/share';
 import { getApiErrorMessage } from '../utils/apiError';
 import { signOut } from '../app/signOut';
+import { openSettings } from '../app/navigationActions';
 import { classifySessionError, logoutLocally, profileLoadFailureView, SessionFailureKind, describeApiFailure, formatApiFailure } from '../utils/session';
 import { devLog } from '../utils/devLog';
 import { notifications } from '../services/notifications';
@@ -208,8 +209,14 @@ export function ProfileScreen({ navigation }: Props) {
     bestDaily: t('profile.tiles.bestDaily'),
   };
   const hist = historySummary(history.length, historyFailed);
-  // Only promise XP the server can still grant (first share once per account).
-  const shareAppXp = shareState ? availableShareRewards(shareState, 'app', null, localDateString(new Date())).xp : 0;
+  // Only promise XP the server can still grant (first share once per account,
+  // amount as the server reports it); once used, say so instead of hiding it.
+  const firstShare = firstShareRewardView(shareState);
+  const shareSubtitle = firstShare.kind === 'available'
+    ? t('profile.growth.shareAppXp', { xp: firstShare.xp })
+    : firstShare.kind === 'claimed'
+      ? t('profile.growth.shareAppClaimed')
+      : t('profile.growth.shareAppSubtitle');
 
   return (
     <Screen scroll padding={false} keyboardSafe={false}>
@@ -291,6 +298,18 @@ export function ProfileScreen({ navigation }: Props) {
           />
         </ListGroup>
 
+        {/* Settings — its own card, so it reads as app setup rather than an
+            achievement. Same route as the header gear (openSettings). */}
+        <ListGroup style={styles.group} testID="profile-settings-group">
+          <ListRow
+            icon="settings"
+            title={t('nav.titles.settings')}
+            subtitle={t('profile.nav.settingsSubtitle')}
+            onPress={() => openSettings(navigation)}
+            testID="profile-nav-settings"
+          />
+        </ListGroup>
+
         {/* Growth — deliberately secondary. Sharing uses the native share sheet
             (no social APIs) and may earn bounded XP; rating opens the native
             review / store page and earns nothing (store policy). */}
@@ -298,7 +317,7 @@ export function ProfileScreen({ navigation }: Props) {
           <ActionCard
             icon="share"
             title={t('profile.growth.shareApp')}
-            subtitle={shareAppXp > 0 ? t('profile.growth.shareAppXp', { xp: shareAppXp }) : t('profile.growth.shareAppSubtitle')}
+            subtitle={shareSubtitle}
             onPress={handleShareApp}
             disabled={sharingApp}
             testID="profile-share"

@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/useTheme';
 import { TabIcon, TabIconName } from '../components/TabIcon';
 import { HeaderIconButton } from '../components/HeaderIconButton';
+import { HeaderExitButton } from '../components/HeaderExitButton';
+import { goPlayTab, openSettings } from './navigationActions';
 import { formatBadgeCount } from '../components/CollapsibleSection';
 import { FriendRequestsProvider, useFriendRequests } from './friendRequests';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -52,6 +54,9 @@ function Tabs() {
 
   return (
     <Tab.Navigator
+      // Android hardware back on any other tab returns to Play (the default,
+      // pinned here on purpose: Friends / Tournaments / Profile never exit the app).
+      backBehavior="firstRoute"
       screenOptions={{
         headerStyle: { backgroundColor: theme.surface },
         headerTintColor: theme.text,
@@ -89,7 +94,7 @@ function Tabs() {
               icon="home"
               testID="tournaments-home"
               accessibilityLabel={t('nav.backTo', { label: t('nav.exit.home') })}
-              onPress={() => navigation.navigate('Play')}
+              onPress={() => goPlayTab(navigation)}
             />
           ),
         })}
@@ -97,8 +102,19 @@ function Tabs() {
       <Tab.Screen
         name="Friends"
         component={FriendsScreen}
-        options={{
+        options={({ navigation }) => ({
           title: t('nav.tabs.friends'),
+          // "‹ Home": the same labelled back control as the game screens. It
+          // switches to the Play tab (jumpTo) — Friends is a tab, there is no
+          // stack underneath it to pop.
+          headerLeft: () => (
+            <HeaderExitButton
+              label={t('nav.exit.home')}
+              onPress={() => goPlayTab(navigation)}
+              testID="friends-home"
+              style={{ paddingHorizontal: 10, paddingVertical: 6 }}
+            />
+          ),
           tabBarIcon: icon('friends'),
           tabBarBadge: incomingCount > 0 ? formatBadgeCount(incomingCount) : undefined,
           tabBarBadgeStyle: {
@@ -108,7 +124,7 @@ function Tabs() {
             fontWeight: '800' as const,
             lineHeight: 16,
           },
-        }}
+        })}
       />
       <Tab.Screen
         name="Profile"
@@ -123,7 +139,7 @@ function Tabs() {
               icon="settings"
               testID="profile-settings"
               accessibilityLabel={t('nav.titles.settings')}
-              onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Settings')}
+              onPress={() => openSettings(navigation.getParent<NativeStackNavigationProp<RootStackParamList>>())}
             />
           ),
         })}

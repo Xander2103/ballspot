@@ -24,7 +24,28 @@ describe('Profile 2.0 navigation', () => {
     const tabs = read('app/MainTabs.tsx');
     expect(tabs).toMatch(/icon="settings"/);
     expect(tabs).toMatch(/testID="profile-settings"/);
-    expect(tabs).toMatch(/navigate\('Settings'\)/);
+    expect(tabs).toMatch(/openSettings\(navigation\.getParent<NativeStackNavigationProp<RootStackParamList>>\(\)\)/);
+  });
+
+  it('a Settings row on Profile opens the exact same route as the gear (one helper, one screen)', () => {
+    const profile = read('screens/ProfileScreen.tsx');
+    expect(profile).toMatch(/testID="profile-nav-settings"/);
+    expect(profile).toMatch(/icon="settings"/);
+    expect(profile).toMatch(/title=\{t\('nav\.titles\.settings'\)\}/);
+    expect(profile).toMatch(/subtitle=\{t\('profile\.nav\.settingsSubtitle'\)\}/);
+    expect(profile).toMatch(/onPress=\{\(\) => openSettings\(navigation\)\}/);
+    // Below the achievements card, in its own card.
+    expect(profile.indexOf('testID="profile-achievements"')).toBeLessThan(profile.indexOf('testID="profile-nav-settings"'));
+    expect(profile).toMatch(/testID="profile-settings-group"/);
+    // Neither entry navigates on its own: both go through openSettings.
+    expect(profile).not.toMatch(/navigate\('Settings'\)/);
+    expect(read('app/MainTabs.tsx')).not.toMatch(/navigate\('Settings'\)/);
+    const actions = read('app/navigationActions.ts');
+    expect(actions).toMatch(/export function openSettings\(/);
+    expect(actions).toMatch(/navigation\?\.navigate\('Settings'\);/);
+    // One Settings screen, registered once.
+    const nav = read('app/AppNavigator.tsx');
+    expect(nav.match(/name="Settings"/g)).toHaveLength(1);
   });
 
   it('Profile links every achievement surface and no longer stacks accordions', () => {
@@ -56,7 +77,10 @@ describe('Profile keeps its own behaviour', () => {
   it('keeps Share (rewarded, bounded) and Rate (never rewarded) with the same growth calls', () => {
     expect(profile).toMatch(/growth\.shareApp\(\)/);
     expect(profile).toMatch(/growth\.rateApp\(\)/);
-    expect(profile).toMatch(/availableShareRewards\(shareState, 'app', null, localDateString\(new Date\(\)\)\)\.xp/);
+    // The one-time reward: +XP while unclaimed, "claimed" afterwards (server amounts).
+    expect(profile).toMatch(/firstShareRewardView\(shareState\)/);
+    expect(profile).toMatch(/t\('profile\.growth\.shareAppXp', \{ xp: firstShare\.xp \}\)/);
+    expect(profile).toMatch(/t\('profile\.growth\.shareAppClaimed'\)/);
     expect(profile).toMatch(/outcome\.xpAwarded > 0 \? t\('profile\.growth\.shareXpEarned'/);
     expect(profile).toMatch(/action === 'unavailable'/);
     // Rating never touches XP or the profile; sharing refreshes the rank after a reward.
@@ -112,5 +136,32 @@ describe('Settings keeps every moved setting and its safeguards', () => {
     expect(settings).toMatch(/unregisterPush: \(\) => notifications\.unregisterPushToken\(\)/);
     expect(settings).toMatch(/apiLogout: \(\) => authApi\.logout\(\)/);
     expect(settings).toMatch(/routes: \[\{ name: 'Login' \}\]/);
+  });
+});
+
+describe('Friends: back to Home', () => {
+  const tabs = read('app/MainTabs.tsx');
+
+  it('shows a labelled "‹ Home" back control in the Friends header', () => {
+    const friends = tabs.slice(tabs.indexOf('name="Friends"'), tabs.indexOf('name="Profile"'));
+    expect(friends).toMatch(/headerLeft: \(\) => \(\s*<HeaderExitButton/);
+    expect(friends).toMatch(/label=\{t\('nav\.exit\.home'\)\}/);
+    expect(friends).toMatch(/testID="friends-home"/);
+    expect(read('components/HeaderExitButton.tsx')).toMatch(/‹ \{label\}/);
+  });
+
+  it('switches to the Play tab instead of popping or resetting a stack', () => {
+    const friends = tabs.slice(tabs.indexOf('name="Friends"'), tabs.indexOf('name="Profile"'));
+    expect(friends).toMatch(/onPress=\{\(\) => goPlayTab\(navigation\)\}/);
+    expect(friends).not.toMatch(/goBack|pop\(|reset\(/);
+    expect(read('app/navigationActions.ts')).toMatch(/navigation\.navigate\('Play'\);/);
+    // Android hardware back on a tab also returns to Play.
+    expect(tabs).toMatch(/backBehavior="firstRoute"/);
+  });
+
+  it('leaves the Friends screen itself untouched (scan button stays on the right)', () => {
+    const screen = read('screens/FriendsScreen.tsx');
+    expect(screen).toMatch(/headerRight: \(\) => \(/);
+    expect(screen).not.toMatch(/headerLeft/);
   });
 });
