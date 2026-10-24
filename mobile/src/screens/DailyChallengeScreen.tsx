@@ -15,6 +15,8 @@ import { spacing } from '../theme/spacing';
 import { DailyChallengeEntry } from '../types/daily';
 import { getApiErrorMessage } from '../utils/apiError';
 import { useI18n } from '../i18n';
+import { useGameplayKeepAwake } from '../app/useGameplayKeepAwake';
+import { KEEP_AWAKE_TAGS } from '../utils/keepAwakeSession';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyChallenge'>;
 
@@ -38,6 +40,8 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  // Active play: the screen must not dim or lock while the player looks for the ball.
+  useGameplayKeepAwake(KEEP_AWAKE_TAGS.daily, !!challenge);
 
   useEffect(() => {
     let cancelled = false;

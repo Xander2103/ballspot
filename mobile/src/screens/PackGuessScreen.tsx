@@ -16,6 +16,8 @@ import { isPackAlreadyCompleted } from '../types/pack';
 import type { PackAttemptState, PackChallengeSummary, PackCompletionSummary } from '../types/pack';
 import { getApiErrorMessage } from '../utils/apiError';
 import { useI18n } from '../i18n';
+import { useGameplayKeepAwake } from '../app/useGameplayKeepAwake';
+import { KEEP_AWAKE_TAGS } from '../utils/keepAwakeSession';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackGuess'>;
 
@@ -34,6 +36,8 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
+  // Active play: the screen must not dim or lock while the player looks for the ball.
+  useGameplayKeepAwake(KEEP_AWAKE_TAGS.pack, !!challenge);
 
   const showCompletion = useCallback((completion?: PackCompletionSummary | null) => {
     navigation.replace('PackComplete', { slug, packName, completion: completion ?? null, justCompleted: true });

@@ -14,6 +14,8 @@ import { spacing } from '../theme/spacing';
 import { LeagueRound, CurrentRoundProgress } from '../types/challenge';
 import { getApiErrorMessage } from '../utils/apiError';
 import { useI18n } from '../i18n';
+import { useGameplayKeepAwake } from '../app/useGameplayKeepAwake';
+import { KEEP_AWAKE_TAGS } from '../utils/keepAwakeSession';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Guess'>;
 
@@ -36,6 +38,8 @@ export function GuessScreen({ route, navigation }: Props) {
   const [submitError, setSubmitError] = useState('');
   const [loading, setLoading] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
+  // Active play: the screen must not dim or lock while the player looks for the ball.
+  useGameplayKeepAwake(KEEP_AWAKE_TAGS.tournament, !!round);
 
   useEffect(() => {
     if (!leagueId || !roundId) {
