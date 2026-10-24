@@ -3,3 +3,8 @@ backend/
 node_modules/
 mobile/node_modules/
 howToStart.txt
+# Generated native folders (CNG). This file replaces every .gitignore for EAS
+# uploads, so a local `expo prebuild` / `expo run:ios` output must be excluded
+# here too — otherwise EAS skips prebuild and archives the stale local project.
+mobile/ios
+mobile/android
