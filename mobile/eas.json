@@ -5,12 +5,19 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development",
+        "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
+        "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
+        "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
+      }
     },
     "preview": {
       "ios": {
         "distribution": "internal",
         "env": {
+          "APP_VARIANT": "staging",
           "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
@@ -19,6 +26,27 @@
       "android": {
         "buildType": "apk",
         "env": {
+          "APP_VARIANT": "staging",
+          "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
+        }
+      }
+    },
+    "staging": {
+      "ios": {
+        "distribution": "internal",
+        "env": {
+          "APP_VARIANT": "staging",
+          "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
+          "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
+        }
+      },
+      "android": {
+        "buildType": "apk",
+        "env": {
+          "APP_VARIANT": "staging",
           "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
@@ -29,6 +57,7 @@
       "ios": {
         "distribution": "store",
         "env": {
+          "APP_VARIANT": "production",
           "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
@@ -37,6 +66,7 @@
       "android": {
         "buildType": "app-bundle",
         "env": {
+          "APP_VARIANT": "production",
           "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"

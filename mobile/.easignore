@@ -6,3 +6,11 @@ node_modules/
 .env.*
 !.env.example
 dist/
+.expo/
+.expo-shared/
+ios/build/
+ios/Pods/
+android/.gradle/
+android/app/build/
+android/build/
+coverage/
