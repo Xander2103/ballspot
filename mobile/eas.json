@@ -1,3 +1,4 @@
+
 {
   "cli": {
     "version": ">= 16.0.0"
@@ -53,6 +54,13 @@
       },
       "android": {
         "buildType": "apk"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6796491992"
       }
     }
   }
