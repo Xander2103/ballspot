@@ -2,7 +2,7 @@
   "expo": {
     "name": "BallPicker",
     "slug": "ballpicker",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/web-app-manifest-512x512.png",
     "scheme": "ballpicker",
@@ -20,7 +20,7 @@
     "android": {
       "package": "be.vanmalderstudio.ballpicker",
       "playStoreUrl": "https://play.google.com/store/apps/details?id=be.vanmalderstudio.ballpicker",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#07111F",
         "foregroundImage": "./assets/web-app-manifest-512x512.png"
