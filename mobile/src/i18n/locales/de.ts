@@ -322,10 +322,18 @@ export const de: Translations = {
       a11y: 'Level {{level}}. Profil öffnen',
     },
     notifPrompt: {
-      title: 'Bleib am Ball',
-      message: 'Erhalte eine Erinnerung, wenn deine Tages-Challenge bereit ist oder ein Turnier auf deinen Tipp wartet.',
-      confirm: 'Benachrichtigungen aktivieren',
-      cancel: 'Jetzt nicht',
+      title: 'Verpasse keine Challenge',
+      eyebrow: 'BallPicker-Erinnerungen',
+      message: 'Erhalte eine Erinnerung, sobald die Tages-Challenge bereitsteht, und bleib bei deinen Turnieren auf dem Laufenden.',
+      support: 'So verpasst du weniger Spielchancen und erhöhst deine Chance, um die Preise mitzuspielen.',
+      highlight: 'Tages-Challenges und Turnierhinweise',
+      confirm: 'Erinnerungen aktivieren',
+      cancel: 'Vielleicht später',
+      blocked: {
+        title: 'Benachrichtigungen sind aus',
+        message: 'Du hast Benachrichtigungen für BallPicker auf diesem Gerät deaktiviert. In den Geräteeinstellungen kannst du sie wieder aktivieren.',
+        confirm: 'Einstellungen öffnen',
+      },
     },
     sportSelection: {
       title: 'Wähle deine Sportart',
@@ -1039,6 +1047,9 @@ export const de: Translations = {
   },
 
   notifications: {
+    channel: {
+      name: 'Erinnerungen',
+    },
     reminders: {
       dailyTitle: 'Tägliche Ball-Challenge',
       dailyBody: 'Deine Challenge wartet. Gib deinen Tipp ab, bevor der Tag vorbei ist.',
@@ -1064,10 +1075,24 @@ export const de: Translations = {
       },
       reminderTime: 'Erinnerungszeit',
       reminderTimeHint: 'Wann Tages- / Turnier-Erinnerungen ankommen.',
-      enabled: '● Benachrichtigungen aktiviert',
-      unsupported: 'Erinnerungen werden in der Mobile-App zugestellt. Deine Einstellungen hier werden trotzdem mit deinem Handy synchronisiert.',
-      denied: 'Benachrichtigungen sind in den Einstellungen deines Geräts blockiert. Aktiviere sie dort, um Erinnerungen zu erhalten.',
-      enable: 'Benachrichtigungen aktivieren',
+    unsupported: 'Erinnerungen werden in der Mobile-App zugestellt. Deine Einstellungen hier werden trotzdem mit deinem Handy synchronisiert.',
+    device: {
+      label: 'Benachrichtigungen auf diesem Gerät',
+      granted: 'Erlaubt',
+      grantedHint: 'Dieses Gerät kann Benachrichtigungen von BallPicker anzeigen.',
+      provisional: 'Lautlos erlaubt',
+      provisionalHint: 'Benachrichtigungen landen direkt in der Mitteilungszentrale, ohne Banner oder Ton. Du kannst das in den Geräteeinstellungen ändern.',
+      denied: 'Blockiert',
+      deniedHint: 'Benachrichtigungen sind in den Geräteeinstellungen blockiert. Deine Auswahl unten bleibt gespeichert und gilt, sobald du sie erlaubst.',
+      notDetermined: 'Noch nicht aktiviert',
+      notDeterminedHint: 'Deine Auswahl unten bleibt gespeichert und gilt, sobald du Benachrichtigungen erlaubst.',
+    },
+    delivery: {
+      blocked: 'An, aber vom Gerät blockiert',
+      notEnabled: 'An, aber Benachrichtigungen sind noch nicht erlaubt',
+    },
+    openSettings: 'Einstellungen öffnen',
+    enable: 'Benachrichtigungen erlauben',
     },
   },
 };

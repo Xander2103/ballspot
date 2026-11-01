@@ -8,11 +8,11 @@ const TODAY = '2026-10-14';
 const TOMORROW = '2026-10-15';
 
 describe('share text generation', () => {
-  it('builds the spec share text with the score and the landing page URL', () => {
+  it('builds the spec share text with the score and the download URL', () => {
     expect(buildDailyResultShareMessage(85)).toBe(
-      'I scored 85 points in today’s BallPicker Daily Challenge ⚽🎯 Can you beat me?\nhttps://ballpicker.vanmalderstudio.be',
+      'I scored 85 points in today’s BallPicker Daily Challenge ⚽🎯 Can you beat me?\nhttps://ballpicker.vanmalderstudio.be/download',
     );
-    expect(SHARE_URL).toBe('https://ballpicker.vanmalderstudio.be');
+    expect(SHARE_URL).toBe('https://ballpicker.vanmalderstudio.be/download');
   });
 
   it('builds the app invitation with the URL', () => {

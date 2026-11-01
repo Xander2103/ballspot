@@ -15,8 +15,8 @@
 import { translate } from '../i18n/core';
 import type { LanguageCode } from './language';
 
-/** The public landing page every share message links to (spec'd URL). */
-export const SHARE_URL = 'https://ballpicker.vanmalderstudio.be';
+/** Every share message links here; the backend sends the visitor to the right store. */
+export const SHARE_URL = 'https://ballpicker.vanmalderstudio.be/download';
 
 /** A daily score at or above this gets the stronger CTA and the bonus XP. */
 export const HIGH_SCORE_SHARE_THRESHOLD = 80;

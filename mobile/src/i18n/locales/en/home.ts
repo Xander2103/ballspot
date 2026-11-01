@@ -37,10 +37,18 @@ export const home = {
     a11y: 'Level {{level}}. Open your profile',
   },
   notifPrompt: {
-    title: 'Stay in the game',
-    message: 'Get a reminder when your Daily Challenge is ready or when a tournament needs your guess.',
-    confirm: 'Enable notifications',
-    cancel: 'Not now',
+    title: "Don't miss a challenge",
+    eyebrow: 'BallPicker reminders',
+    message: 'Get a reminder when the Daily Challenge is ready and stay up to date with your tournaments.',
+    support: "You'll miss fewer chances to play and improve your chances of competing for the prizes.",
+    highlight: 'Daily Challenges and tournament alerts',
+    confirm: 'Turn on reminders',
+    cancel: 'Maybe later',
+    blocked: {
+      title: 'Notifications are off',
+      message: 'You turned off notifications for BallPicker on this device. You can turn them back on in your device settings.',
+      confirm: 'Open settings',
+    },
   },
   sportSelection: {
     title: 'Pick your sport',

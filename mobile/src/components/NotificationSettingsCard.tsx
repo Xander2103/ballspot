@@ -1,10 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Switch, TextInput, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import {
+  AppState, View, Text, StyleSheet, Switch, TextInput, ActivityIndicator, TouchableOpacity, Linking,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n, t as translate } from '../i18n';
-import { notifications, isValidReminderTime, type PermissionStatus } from '../services/notifications';
+import { notifications, isValidReminderTime } from '../services/notifications';
+import { canDeliver, reminderDelivery, type DevicePermission } from '../utils/notificationPermission';
 import { refreshRemindersFromServer } from '../services/reminderScheduler';
 import {
   notificationsApi,
@@ -18,6 +22,9 @@ type ToggleKey =
   | 'admin_notifications_enabled';
 
 /** Labels resolve via t() inside the component (locale-aware). */
+/** Same limit as the rest of the Settings screen. */
+const MAX_FONT_SCALE = 1.4;
+
 const TOGGLES: { key: ToggleKey; labelKey: string; hintKey: string }[] = [
   { key: 'daily_reminder_enabled', labelKey: 'notifications.settings.daily.label', hintKey: 'notifications.settings.daily.hint' },
   { key: 'tournament_reminder_enabled', labelKey: 'notifications.settings.tournament.label', hintKey: 'notifications.settings.tournament.hint' },
@@ -32,7 +39,8 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
 
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
-  const [perm, setPerm] = useState<PermissionStatus>('undetermined');
+  const [perm, setPerm] = useState<DevicePermission | null>(null);
+  const lastPerm = useRef<DevicePermission | null>(null);
   const [timeInput, setTimeInput] = useState('19:00');
   const [timeError, setTimeError] = useState('');
   const [error, setError] = useState('');
@@ -41,13 +49,9 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, status] = await Promise.all([
-        notificationsApi.getSettings(),
-        notifications.getPermissionStatus(),
-      ]);
+      const data = await notificationsApi.getSettings();
       setSettings(data);
       setTimeInput(data.reminder_time || '19:00');
-      setPerm(status);
     } catch {
       // Module-level translate: keeps `load` stable so a language change
       // does not re-fetch the settings.
@@ -58,6 +62,28 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // The OS is the source of truth and can change while this screen is open:
+  // read it on every focus and every return from the background (Settings app).
+  const refreshPermission = useCallback(async () => {
+    const status = await notifications.reconcile();
+    const previous = lastPerm.current;
+    lastPerm.current = status;
+    setPerm(status);
+    // Just allowed: the reminders Home could not schedule can be scheduled now.
+    if (previous !== null && !canDeliver(previous) && canDeliver(status)) {
+      await refreshRemindersFromServer();
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { refreshPermission(); }, [refreshPermission]));
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refreshPermission();
+    });
+    return () => sub.remove();
+  }, [refreshPermission]);
 
   const persist = useCallback(async (patch: NotificationSettingsUpdate, key: string) => {
     if (!settings) return;
@@ -80,12 +106,12 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
   }, [settings]);
 
   async function enablePermission() {
-    const status = await notifications.requestPermission();
-    setPerm(status);
-    if (status === 'granted') {
-      await notifications.registerPushToken();
-      await refreshRemindersFromServer();
-    }
+    await notifications.requestPermission();
+    await refreshPermission();
+  }
+
+  function openDeviceSettings() {
+    Linking.openSettings().catch(() => {});
   }
 
   function commitTime() {
@@ -119,13 +145,14 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
 
   return (
     <View style={cardStyle}>
-      <PermissionBanner styles={styles} perm={perm} onEnable={enablePermission} />
+      <DeviceStatus styles={styles} perm={perm} onEnable={enablePermission} onOpenSettings={openDeviceSettings} />
 
       {TOGGLES.map((toggle, i) => (
         <View key={toggle.key} style={[styles.row, i > 0 && styles.rowBorder]}>
           <View style={styles.rowText}>
-            <Text style={styles.rowLabel}>{t(toggle.labelKey)}</Text>
-            <Text style={styles.rowHint}>{t(toggle.hintKey)}</Text>
+            <Text style={styles.rowLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t(toggle.labelKey)}</Text>
+            <Text style={styles.rowHint} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t(toggle.hintKey)}</Text>
+            <DeliveryNote styles={styles} preference={settings[toggle.key]} perm={perm} />
           </View>
           <Switch
             value={settings[toggle.key]}
@@ -139,8 +166,8 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
 
       <View style={[styles.row, styles.rowBorder]}>
         <View style={styles.rowText}>
-          <Text style={styles.rowLabel}>{t('notifications.settings.reminderTime')}</Text>
-          <Text style={styles.rowHint}>{t('notifications.settings.reminderTimeHint')}</Text>
+          <Text style={styles.rowLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('notifications.settings.reminderTime')}</Text>
+          <Text style={styles.rowHint} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('notifications.settings.reminderTimeHint')}</Text>
         </View>
         <TextInput
           style={styles.timeInput}
@@ -161,25 +188,47 @@ export function NotificationSettingsCard({ flat = false }: { flat?: boolean } = 
   );
 }
 
-function PermissionBanner({
-  styles, perm, onEnable,
-}: { styles: Styles; perm: PermissionStatus; onEnable: () => void }) {
+/** What the device allows, separate from the preference toggles below it. */
+function DeviceStatus({
+  styles, perm, onEnable, onOpenSettings,
+}: { styles: Styles; perm: DevicePermission | null; onEnable: () => void; onOpenSettings: () => void }) {
   const { t } = useI18n();
-  if (perm === 'granted') {
-    return <Text style={styles.statusOk}>{t('notifications.settings.enabled')}</Text>;
-  }
+  if (perm === null) return null;
   if (perm === 'unsupported') {
-    return <Text style={styles.statusMuted}>{t('notifications.settings.unsupported')}</Text>;
+    return <Text style={[styles.deviceHint, styles.deviceBlock]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('notifications.settings.unsupported')}</Text>;
   }
-  if (perm === 'denied') {
-    return <Text style={styles.statusWarn}>{t('notifications.settings.denied')}</Text>;
-  }
-  // undetermined
+
+  const toneStyle = canDeliver(perm) ? styles.statusOk : perm === 'denied' ? styles.statusWarn : styles.statusMuted;
+  const action = perm === 'notDetermined'
+    ? { label: t('notifications.settings.enable'), onPress: onEnable }
+    : perm === 'denied' || perm === 'provisional'
+      ? { label: t('notifications.settings.openSettings'), onPress: onOpenSettings }
+      : null;
+
   return (
-    <TouchableOpacity style={styles.enableBtn} onPress={onEnable} activeOpacity={0.85}>
-      <Text style={styles.enableBtnText}>{t('notifications.settings.enable')}</Text>
-    </TouchableOpacity>
+    <View style={styles.deviceBlock} testID={`notif-device-${perm}`}>
+      <Text style={styles.deviceLabel} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('notifications.settings.device.label')}</Text>
+      <Text style={[styles.deviceStatus, toneStyle]} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t(`notifications.settings.device.${perm}`)}</Text>
+      <Text style={styles.deviceHint} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t(`notifications.settings.device.${perm}Hint`)}</Text>
+      {action ? (
+        <TouchableOpacity style={styles.enableBtn} onPress={action.onPress} activeOpacity={0.85} accessibilityRole="button">
+          <Text style={styles.enableBtnText} maxFontSizeMultiplier={MAX_FONT_SCALE}>{action.label}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
   );
+}
+
+/** Shown only when a toggle is on but the device will not deliver it. */
+function DeliveryNote({
+  styles, preference, perm,
+}: { styles: Styles; preference: boolean; perm: DevicePermission | null }) {
+  const { t } = useI18n();
+  if (perm === null) return null;
+  const delivery = reminderDelivery(preference, perm);
+  if (delivery === 'blocked') return <Text style={styles.noteWarn} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('notifications.settings.delivery.blocked')}</Text>;
+  if (delivery === 'notEnabled') return <Text style={styles.noteMuted} maxFontSizeMultiplier={MAX_FONT_SCALE}>{t('notifications.settings.delivery.notEnabled')}</Text>;
+  return null;
 }
 
 type Styles = ReturnType<typeof createStyles>;
@@ -219,17 +268,29 @@ function createStyles(theme: ThemeTokens) {
       paddingVertical: spacing.xs,
       paddingHorizontal: spacing.sm,
     },
-    statusOk: { fontSize: 13, color: theme.success, marginBottom: spacing.sm, fontWeight: '600' },
-    statusWarn: { fontSize: 13, color: theme.warning, marginBottom: spacing.sm },
-    statusMuted: { fontSize: 13, color: theme.textMuted, marginBottom: spacing.sm },
+    deviceBlock: {
+      paddingBottom: spacing.md,
+      marginBottom: spacing.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    deviceLabel: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
+    deviceStatus: { fontSize: 15, fontWeight: '700', marginTop: 2 },
+    deviceHint: { fontSize: 13, lineHeight: 18, color: theme.textSecondary, marginTop: 2 },
+    statusOk: { color: theme.success },
+    statusWarn: { color: theme.warning },
+    statusMuted: { color: theme.text },
+    noteWarn: { fontSize: 12, color: theme.warning, marginTop: 2, fontWeight: '600' },
+    noteMuted: { fontSize: 12, color: theme.textSecondary, marginTop: 2, fontWeight: '600' },
     enableBtn: {
       backgroundColor: theme.primary,
       borderRadius: 10,
       paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
       alignItems: 'center',
-      marginBottom: spacing.sm,
+      marginTop: spacing.sm,
     },
-    enableBtnText: { color: theme.onPrimary, fontWeight: '700', fontSize: 14 },
+    enableBtnText: { color: theme.onPrimary, fontWeight: '700', fontSize: 14, textAlign: 'center' },
     errorText: { fontSize: 13, color: theme.danger, marginTop: spacing.xs },
     retry: { fontSize: 14, color: theme.primary, fontWeight: '600', marginTop: spacing.xs },
   });

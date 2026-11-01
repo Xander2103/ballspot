@@ -7,7 +7,7 @@ import { MainTabScreenProps } from '../app/MainTabs';
 import { signOut } from '../app/signOut';
 import { homeIdentity, logoutLocally, ProfileLoadState } from '../utils/session';
 import { Screen } from '../components/Screen';
-import { ConfirmModal } from '../components/ConfirmModal';
+import { NotificationInviteModal } from '../components/NotificationInviteModal';
 import { LevelRing } from '../components/home/LevelRing';
 import { SportSelector } from '../components/home/SportSelector';
 import { DailyChallengeCard } from '../components/home/DailyChallengeCard';
@@ -29,7 +29,8 @@ import type { AppNotice } from '../types/notice';
 import { notificationsApi } from '../api/notificationsApi';
 import { notifications } from '../services/notifications';
 import { applyReminderState } from '../services/reminderScheduler';
-import { localFlags } from '../storage/localFlags';
+import { useNotificationInvite } from '../app/useNotificationInvite';
+import { canDeliver } from '../utils/notificationPermission';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
@@ -63,9 +64,6 @@ const SPORT_NOTE_MS = 3500;
 const DAILY_RECHECK_DELAYS_MS = [5_000, 30_000, 120_000, 300_000];
 /** Back from the background: refresh Home when its data is older than this. */
 const FOREGROUND_REFRESH_MS = 60_000;
-
-// Persisted flag so we ask for notification permission at most once (non-spammy).
-const NOTIF_PROMPT_SEEN = 'notif_prompt_seen';
 
 /**
  * Admin-managed notice, shown directly above the Daily card in the same card
@@ -109,9 +107,6 @@ export function HomeScreen({ navigation }: Props) {
   const [dailyLoading, setDailyLoading] = useState(true);
   // Admin notice for the daily card. Optional: a failed fetch simply shows none.
   const [notice, setNotice] = useState<AppNotice | null>(null);
-
-  const [notifPromptVisible, setNotifPromptVisible] = useState(false);
-  const [notifPromptLoading, setNotifPromptLoading] = useState(false);
 
   // Sport row (null until the first /sports answer) and the header level ring.
   // Both are optional extras: a failure falls back to the picker / hides the ring.
@@ -212,24 +207,12 @@ export function HomeScreen({ navigation }: Props) {
   const nextTarget = nextDailyTarget(dailyModel, todayDaily);
   const countdown = useCountdown(nextTarget, recheckDaily);
 
-  // One-time, non-spammy notification permission prompt after the app is in use.
-  // If already granted, make sure the push token is registered. Web no-ops.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      notifications.configureHandler();
-      if (!notifications.isSupported()) return;
-      const status = await notifications.getPermissionStatus();
-      if (cancelled) return;
-      if (status === 'granted') {
-        notifications.registerPushToken();
-      } else if (status === 'undetermined') {
-        const seen = await localFlags.get(NOTIF_PROMPT_SEEN);
-        if (!cancelled && !seen) setNotifPromptVisible(true);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  const notifInvite = useNotificationInvite({
+    navigation,
+    userId: user?.id ?? null,
+    ready: !loading && !dailyLoading && profileState === 'ready',
+  });
+  const notifPermission = notifInvite.permission;
 
   // Once today's daily + tournament data is loaded, (re)schedule local reminders
   // to match: suppress the daily reminder if it's already done, enable the
@@ -239,35 +222,13 @@ export function HomeScreen({ navigation }: Props) {
     if (loading || dailyLoading) return;
     let cancelled = false;
     (async () => {
-      if (!notifications.isSupported()) return;
-      if ((await notifications.getPermissionStatus()) !== 'granted') return;
+      if (!notifPermission || !canDeliver(notifPermission)) return;
       const settings = await notificationsApi.getSettings().catch(() => null);
       if (cancelled || !settings) return;
       await applyReminderState(settings, todayDaily, leagues);
     })();
     return () => { cancelled = true; };
-  }, [loading, dailyLoading, todayDaily, leagues]);
-
-  async function handleEnableNotifications() {
-    setNotifPromptLoading(true);
-    try {
-      const status = await notifications.requestPermission();
-      await localFlags.set(NOTIF_PROMPT_SEEN, '1');
-      if (status === 'granted') {
-        await notifications.registerPushToken();
-        const settings = await notificationsApi.getSettings().catch(() => null);
-        if (settings) await applyReminderState(settings, todayDaily, leagues);
-      }
-    } finally {
-      setNotifPromptLoading(false);
-      setNotifPromptVisible(false);
-    }
-  }
-
-  async function handleDismissNotifications() {
-    await localFlags.set(NOTIF_PROMPT_SEEN, '1');
-    setNotifPromptVisible(false);
-  }
+  }, [loading, dailyLoading, todayDaily, leagues, notifPermission]);
 
   function retryProfile() {
     setProfileState('loading');
@@ -407,15 +368,11 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       </ScrollView>
 
-      <ConfirmModal
-        visible={notifPromptVisible}
-        title={t('home.notifPrompt.title')}
-        message={t('home.notifPrompt.message')}
-        confirmLabel={t('home.notifPrompt.confirm')}
-        cancelLabel={t('home.notifPrompt.cancel')}
-        onConfirm={handleEnableNotifications}
-        onCancel={handleDismissNotifications}
-        loading={notifPromptLoading}
+      <NotificationInviteModal
+        variant={notifInvite.invite}
+        busy={notifInvite.busy}
+        onAccept={notifInvite.onAccept}
+        onLater={notifInvite.onLater}
       />
     </Screen>
   );

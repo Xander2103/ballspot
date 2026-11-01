@@ -48,6 +48,7 @@ const LAUNCH_CRITICAL = [
   'components/ConfirmModal.tsx',
   'components/LanguagePicker.tsx',
   'components/NotificationSettingsCard.tsx',
+  'components/NotificationInviteModal.tsx',
   'components/TrophyRoom.tsx',
   'components/home/DailyChallengeCard.tsx',
   'components/home/SportSelector.tsx',

@@ -25,6 +25,7 @@ export type LineIconName =
   | 'palette'
   | 'globe'
   | 'bell'
+  | 'calendar'
   | 'shield'
   | 'logout'
   | 'external'
@@ -199,6 +200,13 @@ export function LineIcon({ name, color, size = 20, strokeWidth = 1.9 }: Props) {
         <Svg width={size} height={size} viewBox="0 0 24 24">
           <Circle cx={12} cy={12} r={8.5} {...common} />
           <Path d="M3.5 12h17M12 3.5c2.6 2.6 2.6 14.4 0 17M12 3.5c-2.6 2.6-2.6 14.4 0 17" {...common} />
+        </Svg>
+      );
+    case 'calendar':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24">
+          <Rect x={4} y={5.5} width={16} height={15} rx={2.5} {...common} />
+          <Path d="M4 10.5h16M8.5 3.5v4M15.5 3.5v4" {...common} />
         </Svg>
       );
     case 'bell':

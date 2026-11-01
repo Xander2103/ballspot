@@ -4,6 +4,7 @@ import { dailyApi } from '../api/dailyApi';
 import { leagueApi } from '../api/leagueApi';
 import type { TodayResponse } from '../types/daily';
 import type { League } from '../types/league';
+import { canDeliver } from '../utils/notificationPermission';
 
 /** Today's daily needs no action (already played, or none exists today). */
 export function dailyIsHandled(today: TodayResponse | null): boolean {
@@ -43,7 +44,7 @@ export async function applyReminderState(
  */
 export async function refreshRemindersFromServer(): Promise<void> {
   if (!notifications.isSupported()) return;
-  if ((await notifications.getPermissionStatus()) !== 'granted') return;
+  if (!canDeliver(await notifications.getPermissionStatus())) return;
   try {
     const [settings, today, leagues] = await Promise.all([
       notificationsApi.getSettings(),

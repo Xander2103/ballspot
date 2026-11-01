@@ -1,5 +1,8 @@
 /** Local reminder copy (scheduled on-device) and the notification settings card. */
 export const notifications = {
+  channel: {
+    name: 'Reminders',
+  },
   reminders: {
     dailyTitle: 'Daily Ball Challenge',
     dailyBody: 'Your challenge is waiting. Make your guess before the day ends.',
@@ -25,9 +28,23 @@ export const notifications = {
     },
     reminderTime: 'Reminder time',
     reminderTimeHint: 'When daily / tournament reminders arrive.',
-    enabled: '● Notifications enabled',
-    unsupported: 'Reminders are delivered in the mobile app. Your preferences here still sync to your phone.',
-    denied: 'Notifications are blocked in your device settings. Enable them there to receive reminders.',
-    enable: 'Enable notifications',
+  unsupported: 'Reminders are delivered in the mobile app. Your preferences here still sync to your phone.',
+  device: {
+    label: 'Notifications on this device',
+    granted: 'Allowed',
+    grantedHint: 'This device can show BallPicker notifications.',
+    provisional: 'Allowed quietly',
+    provisionalHint: 'Notifications go straight to Notification Center, without a banner or sound. You can change this in your device settings.',
+    denied: 'Blocked',
+    deniedHint: 'Notifications are blocked in your device settings. Your choices below are saved and apply as soon as you allow them.',
+    notDetermined: 'Not turned on yet',
+    notDeterminedHint: 'Your choices below are saved and apply as soon as you allow notifications.',
+  },
+  delivery: {
+    blocked: 'On, but blocked by your device',
+    notEnabled: 'On, but notifications are not allowed yet',
+  },
+  openSettings: 'Open settings',
+  enable: 'Allow notifications',
   },
 };

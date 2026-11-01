@@ -322,10 +322,18 @@ export const es: Translations = {
       a11y: 'Nivel {{level}}. Abrir tu perfil',
     },
     notifPrompt: {
-      title: 'No te quedes fuera',
-      message: 'Recibe un aviso cuando tu Reto diario esté listo o cuando un torneo necesite tu intento.',
-      confirm: 'Activar notificaciones',
-      cancel: 'Ahora no',
+      title: 'No te pierdas ningún reto',
+      eyebrow: 'Recordatorios de BallPicker',
+      message: 'Recibe un recordatorio cuando el Reto diario esté listo y mantente al día de tus torneos.',
+      support: 'Así perderás menos oportunidades de jugar y tendrás más posibilidades de competir por los premios.',
+      highlight: 'Retos diarios y avisos de torneos',
+      confirm: 'Activar recordatorios',
+      cancel: 'Quizás más tarde',
+      blocked: {
+        title: 'Las notificaciones están desactivadas',
+        message: 'Desactivaste las notificaciones de BallPicker en este dispositivo. Puedes volver a activarlas en los ajustes de tu dispositivo.',
+        confirm: 'Abrir ajustes',
+      },
     },
     sportSelection: {
       title: 'Elige tu deporte',
@@ -1039,6 +1047,9 @@ export const es: Translations = {
   },
 
   notifications: {
+    channel: {
+      name: 'Recordatorios',
+    },
     reminders: {
       dailyTitle: 'Reto diario del balón',
       dailyBody: 'Tu reto te está esperando. Haz tu intento antes de que acabe el día.',
@@ -1064,10 +1075,24 @@ export const es: Translations = {
       },
       reminderTime: 'Hora del recordatorio',
       reminderTimeHint: 'Cuándo llegan los recordatorios diarios y de torneo.',
-      enabled: '● Notificaciones activadas',
-      unsupported: 'Los recordatorios se envían en la app móvil. Tus preferencias de aquí se sincronizan igualmente con tu teléfono.',
-      denied: 'Las notificaciones están bloqueadas en los ajustes de tu dispositivo. Actívalas ahí para recibir recordatorios.',
-      enable: 'Activar notificaciones',
+    unsupported: 'Los recordatorios se envían en la app móvil. Tus preferencias de aquí se sincronizan igualmente con tu teléfono.',
+    device: {
+      label: 'Notificaciones en este dispositivo',
+      granted: 'Permitidas',
+      grantedHint: 'Este dispositivo puede mostrar notificaciones de BallPicker.',
+      provisional: 'Permitidas en silencio',
+      provisionalHint: 'Las notificaciones llegan directamente al centro de notificaciones, sin banner ni sonido. Puedes cambiarlo en los ajustes de tu dispositivo.',
+      denied: 'Bloqueadas',
+      deniedHint: 'Las notificaciones están bloqueadas en los ajustes de tu dispositivo. Tus opciones de abajo se guardan y se aplican en cuanto las permitas.',
+      notDetermined: 'Aún sin activar',
+      notDeterminedHint: 'Tus opciones de abajo se guardan y se aplican en cuanto permitas las notificaciones.',
+    },
+    delivery: {
+      blocked: 'Activado, pero bloqueado por tu dispositivo',
+      notEnabled: 'Activado, pero las notificaciones aún no están permitidas',
+    },
+    openSettings: 'Abrir ajustes',
+    enable: 'Permitir notificaciones',
     },
   },
 };

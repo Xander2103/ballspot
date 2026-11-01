@@ -10,9 +10,11 @@ interface Props {
   disabled?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
   style?: ViewStyle;
+  /** Upper limit for the system text size, where the button shares tight space. */
+  maxFontSizeMultiplier?: number;
 }
 
-export function AppButton({ title, onPress, loading, disabled, variant = 'primary', style }: Props) {
+export function AppButton({ title, onPress, loading, disabled, variant = 'primary', style, maxFontSizeMultiplier }: Props) {
   const { theme } = useTheme();
   const bg = variant === 'primary' ? theme.primary : variant === 'danger' ? theme.danger : theme.surfaceElevated;
   const textColor = variant === 'primary' ? theme.onPrimary : theme.text;
@@ -27,7 +29,7 @@ export function AppButton({ title, onPress, loading, disabled, variant = 'primar
       {loading ? (
         <ActivityIndicator color={textColor} size="small" />
       ) : (
-        <Text style={[styles.text, { color: textColor }]}>{title}</Text>
+        <Text style={[styles.text, { color: textColor }]} maxFontSizeMultiplier={maxFontSizeMultiplier}>{title}</Text>
       )}
     </TouchableOpacity>
   );
@@ -35,7 +37,8 @@ export function AppButton({ title, onPress, loading, disabled, variant = 'primar
 
 const styles = StyleSheet.create({
   button: {
-    height: 52,
+    minHeight: 52,
+    paddingVertical: spacing.sm,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -44,5 +47,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });

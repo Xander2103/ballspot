@@ -1,10 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokenStorage } from '../storage/tokenStorage';
-import { localFlags } from '../storage/localFlags';
 import { notifications } from '../services/notifications';
 
 const THEME_STORAGE_KEY = 'ballspot_theme';
-const NOTIF_PROMPT_SEEN = 'notif_prompt_seen';
 
 /**
  * Full LOCAL sign-out: clears everything the previous account left on this
@@ -19,8 +17,11 @@ export async function signOut(): Promise<void> {
   // Scheduled local reminders belong to the signed-out account.
   try { await notifications.cancelAll(); } catch {}
 
-  // Per-account UI state: notification prompt flag + persisted theme.
-  try { await localFlags.remove(NOTIF_PROMPT_SEEN); } catch {}
+  // The next account on this device registers its push token from scratch.
+  // Invitation records stay: they are per account (see notificationInvites).
+  try { await notifications.forgetDevice(); } catch {}
+
+  // Per-account UI state: persisted theme.
   try { await AsyncStorage.removeItem(THEME_STORAGE_KEY); } catch {}
 
   // Finally, drop the credential.

@@ -2,8 +2,15 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { notificationsApi, type NotificationSettings } from '../api/notificationsApi';
 import { translate } from '../i18n/core';
+import { localFlags } from '../storage/localFlags';
+import { canDeliver, mapDevicePermission, type DevicePermission } from '../utils/notificationPermission';
+import { createPushRegistrar } from '../utils/pushRegistration';
 
-export type PermissionStatus = 'granted' | 'denied' | 'undetermined' | 'unsupported';
+/** Holds the last token sent to the backend, so it can be removed without asking the OS. */
+const PUSH_TOKEN_FLAG = 'push_token_registered';
+
+/** Android delivers pushes without a channelId through a channel with this id. */
+const ANDROID_CHANNEL_ID = 'default';
 
 /**
  * Reminder copy is resolved at schedule time (not module load) so a reminder
@@ -29,10 +36,24 @@ function isSupported(): boolean {
   return Platform.OS !== 'web';
 }
 
-function mapStatus(status: string): PermissionStatus {
-  if (status === 'granted') return 'granted';
-  if (status === 'denied') return 'denied';
-  return 'undetermined';
+let androidChannelReady = false;
+
+/**
+ * Android 13+ needs a channel before the permission dialog can appear and before
+ * a push token can be read. Created only at those moments, never just by showing
+ * the invitation, so "Maybe later" cannot lead to a system dialog.
+ */
+async function ensureAndroidChannel(): Promise<void> {
+  if (Platform.OS !== 'android' || androidChannelReady) return;
+  try {
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: translate('notifications.channel.name'),
+      importance: Notifications.AndroidImportance.HIGH,
+    });
+    androidChannelReady = true;
+  } catch {
+    // Retried at the next request or registration.
+  }
 }
 
 /**
@@ -67,59 +88,44 @@ function configureHandler(): void {
   handlerConfigured = true;
 }
 
-async function getPermissionStatus(): Promise<PermissionStatus> {
+async function getPermissionStatus(): Promise<DevicePermission> {
   if (!isSupported()) return 'unsupported';
   try {
-    const { status } = await Notifications.getPermissionsAsync();
-    return mapStatus(status);
+    return mapDevicePermission(await Notifications.getPermissionsAsync());
   } catch {
     return 'unsupported';
   }
 }
 
-async function requestPermission(): Promise<PermissionStatus> {
+async function requestPermission(): Promise<DevicePermission> {
   if (!isSupported()) return 'unsupported';
   try {
-    const { status } = await Notifications.requestPermissionsAsync();
-    return mapStatus(status);
+    await ensureAndroidChannel();
+    return mapDevicePermission(await Notifications.requestPermissionsAsync());
   } catch {
     return 'unsupported';
   }
 }
 
-/**
- * Best-effort Expo push token registration for admin announcements. Requires
- * granted permission and (in a real build) an EAS projectId. If either is
- * missing or the device is offline it silently skips — local reminders are
- * unaffected.
- */
-async function registerPushToken(): Promise<void> {
-  if (!isSupported()) return;
-  try {
-    if ((await getPermissionStatus()) !== 'granted') return;
-    const { data: token } = await Notifications.getExpoPushTokenAsync();
-    const platform = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
-    await notificationsApi.registerPushToken({ token, platform });
-  } catch {
-    // No EAS projectId configured / offline — remote push simply stays off.
-  }
+async function readDeviceToken(): Promise<string> {
+  await ensureAndroidChannel();
+  const { data } = await Notifications.getExpoPushTokenAsync();
+  return data;
 }
 
-/**
- * Best-effort removal of this device's push registration on the backend.
- * Called on logout so a signed-out device stops receiving announcements.
- * If the device token cannot be read, nothing is removed (other devices'
- * registrations must survive a single-device logout).
- */
-async function unregisterPushToken(): Promise<void> {
-  if (!isSupported()) return;
-  try {
-    const { data: token } = await Notifications.getExpoPushTokenAsync();
-    if (token) await notificationsApi.unregisterPushToken(token);
-  } catch {
-    // Offline / no projectId — the stale row is pruned server-side after 90 days.
-  }
-}
+const pushRegistrar = createPushRegistrar({
+  getPermission: getPermissionStatus,
+  readDeviceToken,
+  sendRegistration: (token) => notificationsApi.registerPushToken({
+    token,
+    platform: Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web',
+  }),
+  sendRemoval: (token) => notificationsApi.unregisterPushToken(token),
+  loadStoredToken: () => localFlags.get(PUSH_TOKEN_FLAG),
+  saveStoredToken: (token) => localFlags.set(PUSH_TOKEN_FLAG, token),
+  clearStoredToken: () => localFlags.remove(PUSH_TOKEN_FLAG),
+  cancelLocalReminders: () => cancelAll(),
+});
 
 export interface ScheduleState {
   settings: NotificationSettings;
@@ -137,10 +143,16 @@ export interface ScheduleState {
  */
 async function syncSchedules(state: ScheduleState): Promise<void> {
   if (!isSupported()) return;
-  if ((await getPermissionStatus()) !== 'granted') return;
+  if (!canDeliver(await getPermissionStatus())) return;
+  await ensureAndroidChannel();
 
   const { hour, minute } = parseReminderTime(state.settings.reminder_time);
-  const daily = { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour, minute } as const;
+  const daily = {
+    type: Notifications.SchedulableTriggerInputTypes.DAILY,
+    hour,
+    minute,
+    ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL_ID } : {}),
+  } as const;
   const copy = reminderCopy();
 
   try {
@@ -175,8 +187,10 @@ export const notifications = {
   configureHandler,
   getPermissionStatus,
   requestPermission,
-  registerPushToken,
-  unregisterPushToken,
+  /** Applies the current OS permission to the push registration and reminders, and returns it. */
+  reconcile: pushRegistrar.reconcile,
+  unregisterPushToken: pushRegistrar.unregisterForLogout,
+  forgetDevice: pushRegistrar.forgetDevice,
   syncSchedules,
   cancelAll,
 };

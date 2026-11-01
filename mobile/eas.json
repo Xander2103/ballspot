@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -40,7 +41,8 @@
           "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_WEB_URL": "https://ballpicker.vanmalderstudio.be"
-        }
+        },
+        "autoIncrement": true
       }
     }
   },

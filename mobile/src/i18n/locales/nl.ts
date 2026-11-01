@@ -322,10 +322,18 @@ export const nl: Translations = {
       a11y: 'Level {{level}}. Open je profiel',
     },
     notifPrompt: {
-      title: 'Blijf in het spel',
-      message: 'Krijg een herinnering als je dagelijkse uitdaging klaarstaat of als een toernooi op je gok wacht.',
-      confirm: 'Meldingen inschakelen',
-      cancel: 'Niet nu',
+      title: 'Mis geen enkele uitdaging',
+      eyebrow: 'BallPicker-herinneringen',
+      message: 'Ontvang een herinnering wanneer de dagelijkse uitdaging klaarstaat en blijf op de hoogte van je toernooien.',
+      support: 'Zo mis je minder speelkansen en vergroot je je kans om mee te strijden voor de prijzen.',
+      highlight: 'Dagelijkse uitdagingen en toernooimeldingen',
+      confirm: 'Herinneringen inschakelen',
+      cancel: 'Misschien later',
+      blocked: {
+        title: 'Meldingen staan uit',
+        message: 'Je hebt meldingen voor BallPicker op dit toestel uitgeschakeld. Je kunt ze weer aanzetten in de instellingen van je toestel.',
+        confirm: 'Instellingen openen',
+      },
     },
     sportSelection: {
       title: 'Kies je sport',
@@ -1039,11 +1047,14 @@ export const nl: Translations = {
   },
 
   notifications: {
+    channel: {
+      name: 'Herinneringen',
+    },
     reminders: {
       dailyTitle: 'Dagelijkse baluitdaging',
-      dailyBody: 'Je uitdaging staat klaar. Doe je gok voor de dag om is.',
-      tournamentTitle: 'Toernooi wacht op je',
-      tournamentBody: 'Je vrienden wachten op je volgende gok.',
+      dailyBody: 'Je uitdaging staat klaar. Speel voordat de dag voorbij is.',
+      tournamentTitle: 'Je toernooi loopt nog',
+      tournamentBody: 'Speel je volgende ronde, je vrienden wachten op je.',
     },
     settings: {
       loadError: 'Meldingsinstellingen konden niet geladen worden.',
@@ -1052,22 +1063,36 @@ export const nl: Translations = {
       timeInvalid: 'Vul een tijd in als UU:mm (bv. 19:00).',
       daily: {
         label: 'Herinneringen dagelijkse uitdaging',
-        hint: 'Een duwtje als je dagelijkse nog op je wacht.',
+        hint: 'Als je de dagelijkse uitdaging nog niet hebt gespeeld.',
       },
       tournament: {
         label: 'Toernooiherinneringen',
-        hint: 'Als een toernooi op je gok wacht.',
+        hint: 'Als je in een toernooi nog een ronde moet spelen.',
       },
       announcements: {
         label: 'Aankondigingen',
         hint: 'Af en toe nieuws van het BallPicker-team.',
       },
       reminderTime: 'Tijdstip herinnering',
-      reminderTimeHint: 'Wanneer herinneringen voor de dagelijkse / toernooien aankomen.',
-      enabled: '● Meldingen ingeschakeld',
-      unsupported: 'Herinneringen worden bezorgd in de mobiele app. Je voorkeuren hier worden wel gesynchroniseerd met je telefoon.',
-      denied: 'Meldingen zijn geblokkeerd in de instellingen van je toestel. Schakel ze daar in om herinneringen te ontvangen.',
-      enable: 'Meldingen inschakelen',
+      reminderTimeHint: 'Wanneer je herinneringen voor de dagelijkse uitdaging en toernooien ontvangt.',
+    unsupported: 'Herinneringen worden bezorgd in de mobiele app. Je voorkeuren hier worden wel gesynchroniseerd met je telefoon.',
+    device: {
+      label: 'Meldingen op dit toestel',
+      granted: 'Toegestaan',
+      grantedHint: 'Dit toestel kan meldingen van BallPicker tonen.',
+      provisional: 'Stil toegestaan',
+      provisionalHint: 'Meldingen komen rechtstreeks in het meldingencentrum, zonder banner of geluid. Je kunt dit wijzigen in de instellingen van je toestel.',
+      denied: 'Geblokkeerd',
+      deniedHint: 'Meldingen zijn geblokkeerd in de instellingen van je toestel. Je keuzes hieronder blijven bewaard en gelden zodra je meldingen toestaat.',
+      notDetermined: 'Nog niet ingeschakeld',
+      notDeterminedHint: 'Je keuzes hieronder blijven bewaard en gelden zodra je meldingen toestaat.',
+    },
+    delivery: {
+      blocked: 'Aan, maar geblokkeerd door je toestel',
+      notEnabled: 'Aan, maar meldingen zijn nog niet toegestaan',
+    },
+    openSettings: 'Instellingen openen',
+    enable: 'Meldingen toestaan',
     },
   },
 };

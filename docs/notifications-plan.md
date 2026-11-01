@@ -6,7 +6,32 @@ settings, Expo push-token registration, and an admin announcement composer now s
 The rest of this doc is the original design; the sections below record what actually
 shipped and the known limits.
 
-## Daily reminders → backend push (v1.8.6)
+## Permission and invitation flow (2026-11)
+
+The operating system decides what is delivered; the server settings only hold what
+the user wants. `mobile/src/utils/notificationPermission.ts` holds the rules,
+`pushRegistration.ts` keeps the backend token and local reminders in line with the
+OS, and the settings card re-reads the OS on focus and on return from the background.
+
+- **States:** `notDetermined`, `granted`, `provisional` (iOS provisional and ephemeral,
+  read from `ios.status` because the root `status` calls it undetermined), `denied`,
+  `unsupported` (web).
+- **Invitations:** per account, stored on the device as `notif_invite_<userId>`
+  (count, date, outcome) and kept on logout. The first appears on a loaded, focused
+  Home. After "Maybe later", one more after at least seven days. After that, or after
+  the OS dialog was answered, none. Nothing is shown when notifications are allowed.
+- **Denied at OS level:** no OS dialog. Settings explains and links to the OS
+  settings. The second invitation does the same if the user became denied meanwhile.
+  Someone already denied with no invitation on record gets no pop-up, only Settings.
+- **Token:** registered once per app run while allowed. Removed from the backend when
+  the permission is withdrawn, and on logout. The last token sent is stored locally,
+  so removal does not depend on the OS handing it out again.
+- **Android:** channel `default` is created just before the permission request or a
+  token read, as Expo requires on Android 13+, and never just by showing the invitation.
+- **Known limit:** on iOS the keychain survives a reinstall, so the invitation record
+  does too. A device that withdrew permission before this version has no stored token;
+  its row goes when Expo reports it dead or after 90 days.
+
 
 **Audit finding (2026-08-10): before v1.8.6 there was NO backend daily reminder.**
 Daily reminders were purely local on-device notifications scheduled by the app at
