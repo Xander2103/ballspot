@@ -8,6 +8,7 @@
 import type { TodayResponse, DailyStats } from '../types/daily';
 import type { PlayerRank } from '../types/auth';
 import type { Sport } from '../types/sport';
+import { visibleChallengeLabel } from './competitionPeriod';
 
 // --- Daily card --------------------------------------------------------------
 
@@ -51,7 +52,7 @@ export function dailyCardModel(loading: boolean, today: TodayResponse | null, st
   }
 
   const challenge = entry.challenge;
-  const parts = [challenge?.category?.name, challenge?.difficulty].filter((p): p is string => !!p);
+  const parts = [visibleChallengeLabel(challenge?.category?.name), challenge?.difficulty].filter((p): p is string => !!p);
   return { kind: 'playable', dailyChallengeId: entry.id, progress, info: parts.length ? parts.join(' · ') : null, streak };
 }
 

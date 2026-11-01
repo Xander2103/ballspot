@@ -38,6 +38,12 @@ class DiagnosticsController extends Controller
         $adminId = (int) $request->user()->id;
         $back    = redirect()->route('admin.diagnostics.index');
 
+        if (!DailyHistoryClearService::isAllowed()) {
+            AppLog::warn('daily_history_clear.denied', ['admin_id' => $adminId, 'reason' => 'production']);
+
+            return $back->with('error', 'Clearing Daily history is disabled on production: it would erase real results and rankings. Nothing was changed.');
+        }
+
         // The PIN is validated by hand so its value never reaches the
         // validator's error bag / old-input session (and never a log line).
         $pin = $request->input('pin');

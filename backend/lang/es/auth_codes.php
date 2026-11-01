@@ -12,6 +12,7 @@
 return [
     'email_taken'        => 'Ya existe una cuenta con este correo electrónico. Inicia sesión o restablece tu contraseña.',
     'username_taken'     => 'Este nombre de usuario ya está en uso.',
+    'username_invalid'   => 'Usa solo letras, números, puntos, guiones o guiones bajos. Sin espacios ni @.',
     'password_mismatch'  => 'Las contraseñas no coinciden.',
     'validation_failed'  => 'Revisa los campos marcados.',
     'invalid_credentials' => 'Correo electrónico o contraseña incorrectos.',

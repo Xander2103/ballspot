@@ -239,26 +239,31 @@ class PasswordResetHardeningTest extends TestCase
 
         // Make consuming the token blow up AFTER the password was written
         // inside the same transaction: the whole reset must roll back.
-        DB::unprepared('CREATE TRIGGER fail_reset BEFORE DELETE ON password_reset_tokens BEGIN SELECT RAISE(ABORT, "simulated failure"); END;');
+        // A query listener instead of a trigger: trigger syntax differs per
+        // database, and CREATE TRIGGER commits implicitly on MariaDB.
+        $failing = true;
+        DB::listen(function ($query) use (&$failing) {
+            if ($failing && preg_match('/^delete from [`"]password_reset_tokens[`"]/', $query->sql)) {
+                throw new \RuntimeException('simulated failure');
+            }
+        });
 
-        try {
-            $api = $this->postJson('/api/reset-password', [
-                'token' => $token, 'email' => 'resetme@example.com',
-                'password' => 'brandnewpass123', 'password_confirmation' => 'brandnewpass123',
-            ]);
-            $api->assertStatus(500)
-                ->assertJsonPath('code', 'reset_failed')
-                ->assertJsonPath('message', 'We could not reset your password right now. Please try again in a moment.');
-            $this->assertStringNotContainsStringIgnoringCase('simulated', $api->getContent());
+        $api = $this->postJson('/api/reset-password', [
+            'token' => $token, 'email' => 'resetme@example.com',
+            'password' => 'brandnewpass123', 'password_confirmation' => 'brandnewpass123',
+        ]);
+        $api->assertStatus(500)
+            ->assertJsonPath('code', 'reset_failed')
+            ->assertJsonPath('message', 'We could not reset your password right now. Please try again in a moment.');
+        $this->assertStringNotContainsStringIgnoringCase('simulated', $api->getContent());
 
-            $web = $this->post('/reset-password', [
-                'token' => $token, 'email' => 'resetme@example.com',
-                'password' => 'brandnewpass123', 'password_confirmation' => 'brandnewpass123',
-            ]);
-            $web->assertStatus(500)->assertSee('Try again')->assertDontSee('simulated');
-        } finally {
-            DB::unprepared('DROP TRIGGER fail_reset');
-        }
+        $web = $this->post('/reset-password', [
+            'token' => $token, 'email' => 'resetme@example.com',
+            'password' => 'brandnewpass123', 'password_confirmation' => 'brandnewpass123',
+        ]);
+        $web->assertStatus(500)->assertSee('Try again')->assertDontSee('simulated');
+
+        $failing = false;
 
         $this->assertTrue(Hash::check('oldpassword123', $user->fresh()->password), 'password rolled back');
         $this->assertSame(1, DB::table('password_reset_tokens')->where('email', 'resetme@example.com')->count(), 'link still usable');

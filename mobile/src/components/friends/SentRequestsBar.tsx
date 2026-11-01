@@ -7,6 +7,7 @@ import { useI18n } from '../../i18n';
 import { LineIcon } from '../LineIcon';
 import type { FriendRequestItem } from '../../types/friend';
 import { PersonRow, StatusPill } from './PersonRow';
+import { publicPlayerName } from '../../utils/playerName';
 
 interface Props {
   /** Open outgoing requests. The screen renders nothing at all when empty. */
@@ -51,7 +52,7 @@ export function SentRequestsBar({ items, expanded, onToggle, maxListHeight }: Pr
         <ScrollView style={[styles.list, { maxHeight: maxListHeight }]} nestedScrollEnabled showsVerticalScrollIndicator>
           {items.map((item) => (
             <View key={item.id} style={styles.item}>
-              <PersonRow name={item.user.name} subtitle={`@${item.user.username}`} avatarUrl={item.user.avatar_url} avatarSize={32}>
+              <PersonRow name={publicPlayerName(item.user)} subtitle={item.user.rank_name} avatarUrl={item.user.avatar_url} avatarSize={32}>
                 <StatusPill label={t('friends.list.pending')} />
               </PersonRow>
             </View>

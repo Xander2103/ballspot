@@ -221,8 +221,7 @@ class FriendController extends Controller
 
         return [
             'id'         => $user->id,
-            'name'       => $user->name,
-            'username'   => $user->username,
+            ...$user->publicIdentity(),
             'avatar_url' => $user->avatarUrl(),
             'rank_name'  => $rank['name'],
             'level'      => $rank['level'],

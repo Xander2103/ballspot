@@ -175,12 +175,17 @@ class ChallengeController extends Controller
         $sports     = Sport::orderBy('sort_order')->get();
         $challenge->load('tags', 'subcategories');
         $subcategories = $this->subcategoryOptions();
-        return view('admin.challenges.edit', compact('challenge', 'categories', 'sports', 'subcategories'));
+        $locked = $challenge->hasBeenPlayed();
+        return view('admin.challenges.edit', compact('challenge', 'categories', 'sports', 'subcategories', 'locked'));
     }
 
     public function update(Request $request, Challenge $challenge)
     {
         $this->normalizeBallRatios($request);
+
+        $locked = $challenge->hasBeenPlayed();
+        // A locked form sends no ball position (disabled inputs); a stale one may.
+        $ballRule = $locked ? 'nullable' : 'required';
 
         $data = $this->validateChallenge($request, [
             'title'                  => ['required', 'string', 'max:255'],
@@ -189,8 +194,8 @@ class ChallengeController extends Controller
             'usage_pool'             => ['sometimes', 'nullable', 'in:' . implode(',', Challenge::POOLS)],
             'sport_id'               => ['nullable', 'exists:sports,id'],
             'challenge_category_id'  => ['nullable', 'exists:challenge_categories,id'],
-            'ball_x_ratio'           => ['required', 'numeric', 'between:0,1'],
-            'ball_y_ratio'           => ['required', 'numeric', 'between:0,1'],
+            'ball_x_ratio'           => [$ballRule, 'numeric', 'between:0,1'],
+            'ball_y_ratio'           => [$ballRule, 'numeric', 'between:0,1'],
             'hidden_image'           => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'original_image'         => ['nullable', 'file', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
             'tags'                   => ['nullable', 'string', 'max:500'],
@@ -198,33 +203,52 @@ class ChallengeController extends Controller
             'subcategories.*'        => ['integer', 'exists:challenge_subcategories,id'],
         ]);
 
+        if ($locked && ($refused = $this->lockedFieldsChanged($request, $data, $challenge)) !== []) {
+            AppLog::warn('admin.challenge_edit_refused', [
+                'challenge_id' => $challenge->id, 'fields' => $refused, 'admin_user_id' => $request->user()->id,
+            ]);
+
+            return back()->withInput()->withErrors(array_fill_keys(
+                $refused,
+                'This challenge has been played, so its image, ball position and sport are locked. Nothing was saved.',
+            ));
+        }
+
         // Guard: cannot activate a challenge that has no hidden image
         if ($data['status'] === 'active' && !$challenge->hidden_image_path && !$request->hasFile('hidden_image')) {
             return back()->withErrors(['status' => 'Cannot activate a challenge without a hidden image.'])->withInput();
         }
 
+        // Old files go only after the save: if a first guess lands meanwhile, the
+        // model refuses the update and the played image must still exist.
+        $replacedFiles = [];
         if ($request->hasFile('hidden_image')) {
-            if ($challenge->hidden_image_path) Storage::disk('public')->delete($challenge->hidden_image_path);
+            $replacedFiles[] = $challenge->hidden_image_path;
             $data['hidden_image_path'] = $request->file('hidden_image')->store('challenges/hidden', 'public');
         }
         if ($request->hasFile('original_image')) {
-            if ($challenge->original_image_path) Storage::disk('public')->delete($challenge->original_image_path);
+            $replacedFiles[] = $challenge->original_image_path;
             $data['original_image_path'] = $request->file('original_image')->store('challenges/original', 'public');
         }
 
         $challenge->update([
-            'sport_id'               => $data['sport_id'] ?? $challenge->sport_id,
             'challenge_category_id'  => $data['challenge_category_id'] ?? null,
             'title'                  => $data['title'],
             'difficulty'             => $data['difficulty'],
             'status'                 => $data['status'],
             // Omitted (old forms) keeps the stored pool; never silently resets.
             'usage_pool'             => $data['usage_pool'] ?? $challenge->usage_pool,
+        // Not written at all when locked: rounding the stored 6-decimal position
+        // to 3 would otherwise move the ball on a title edit.
+        ] + ($locked ? [] : [
+            'sport_id'               => $data['sport_id'] ?? $challenge->sport_id,
             'ball_x_ratio'           => round((float) $data['ball_x_ratio'], self::BALL_RATIO_DECIMALS),
             'ball_y_ratio'           => round((float) $data['ball_y_ratio'], self::BALL_RATIO_DECIMALS),
             'hidden_image_path'      => $data['hidden_image_path'] ?? $challenge->hidden_image_path,
             'original_image_path'    => $data['original_image_path'] ?? $challenge->original_image_path,
-        ]);
+        ]));
+        $changedFields = array_values(array_diff(array_keys($challenge->getChanges()), ['updated_at']));
+        Storage::disk('public')->delete(array_filter($replacedFiles));
 
         $challenge->tags()->sync($this->resolveTagIds($data['tags'] ?? null));
         $challenge->subcategories()->sync($data['subcategories'] ?? []);
@@ -233,9 +257,33 @@ class ChallengeController extends Controller
             'challenge_id' => $challenge->id, 'usage_pool' => $challenge->usage_pool, 'sport_id' => $challenge->sport_id,
             'status' => $challenge->status, 'new_hidden_image' => $request->hasFile('hidden_image'),
             'new_reveal_image' => $request->hasFile('original_image'), 'admin_user_id' => $request->user()->id,
+            'changed_fields' => $changedFields, 'played' => $locked,
         ]);
 
         return redirect('/admin/challenges')->with('success', 'Challenge updated.');
+    }
+
+    /**
+     * Form fields that would change a locked challenge. An unchanged value from a
+     * tab opened before the first guess is fine (the form shows the ball rounded).
+     *
+     * @return string[]
+     */
+    private function lockedFieldsChanged(Request $request, array $data, Challenge $challenge): array
+    {
+        $refused = array_values(array_filter(['hidden_image', 'original_image'], fn ($f) => $request->hasFile($f)));
+
+        if (isset($data['sport_id']) && (int) $data['sport_id'] !== (int) $challenge->sport_id) {
+            $refused[] = 'sport_id';
+        }
+        foreach (['ball_x_ratio', 'ball_y_ratio'] as $field) {
+            if (isset($data[$field])
+                && round((float) $data[$field], self::BALL_RATIO_DECIMALS) !== round((float) $challenge->{$field}, self::BALL_RATIO_DECIMALS)) {
+                $refused[] = $field;
+            }
+        }
+
+        return $refused;
     }
 
     /**

@@ -14,7 +14,7 @@ reviewed by a lawyer before public launch.**
 | Data | Where | Purpose | Suggested legal basis | Retention | Who can access |
 |---|---|---|---|---|---|
 | Email address | `users.email` | Account identity, login, verification/reset/2FA emails | Contract (providing the service) | Until account deletion (then replaced with `deleted-{id}@ballspot.deleted`) | User (own), admins (DB), Brevo (delivery, with a copy of each message for up to 30 days), Zxcs (mailbox host, SMTP fallback) |
-| Display name + username | `users.name`, `users.username` | Identity in-app and on leaderboards | Contract | Until deletion (anonymized to "Deleted User" / `deleted-{id}`) | All players (leaderboards show username/name) |
+| Display name + username | `users.name`, `users.username` | Identity in-app and on leaderboards | Contract | Until deletion (anonymized to "Deleted User" / `deleted-{id}`) | Other players see the username only; `users.name` stays private to the account and admins |
 | Password hash | `users.password` | Authentication. Bcrypt hash — never plaintext, never exported | Contract | Until deletion (replaced with a random hash) | Nobody (hash only) |
 | Consent record | `users.terms_accepted_at` (timestamp), `users.terms_version` (string) — migration `2026_08_05_000001_add_consent_to_users` | Evidence that the account holder accepted the Terms + Privacy Policy and confirmed the minimum age at registration. `POST /api/register` **requires** `terms_accepted` and `age_confirmed`; both columns are stamped server-side (`now()` and `config('ballspot.legal.terms_version')`) and neither is mass-assignable | Legal obligation / accountability (GDPR Art. 7(1) — being able to demonstrate consent) | **Kept on the anonymized row after account deletion** (see below) | Server-side only; admins (DB) |
 | Avatar image | `storage/app/public/avatars/*`, `users.avatar_path` | Optional profile photo. Re-encoded server-side on upload (GD), which strips ALL embedded metadata — notably EXIF GPS — so a publicly-served avatar cannot leak the uploader's location. `avatar_path` is not mass-assignable | Consent (optional upload) | Deleted immediately on account deletion or avatar removal | Public URL while account exists |
@@ -39,8 +39,8 @@ reviewed by a lawyer before public launch.**
 ## Visible to other players (v1.8.2)
 
 `GET /api/users/{id}/public-profile` is readable by **any authenticated, verified
-player who has the user's id**. It exposes, by explicit allow-list: username,
-display name, avatar URL, rank/level/XP, aggregate gameplay stats (tournaments
+player who has the user's id**. It exposes, by explicit allow-list: username
+(also returned as `name` for older apps), avatar URL, rank/level/XP, aggregate gameplay stats (tournaments
 played and completed, guess count, total and average score, daily challenges
 played, best daily score) and badge counts — plus, since v1.8.8, the list of
 **earned** trophies (badge code, name, description, emoji icon, category,
@@ -56,7 +56,7 @@ Since v1.8.6, anonymized (deleted) accounts return **404** here.
 `GET /api/friends/suggestions` derives up to 10 suggestions from data BallPicker
 already holds: shared `league_members` rows ("played in the same tournament") and
 recent `daily_challenge_guesses` ("active player"). The response contains the
-**same public-safe fields as the friends list** (id, name, username, avatar URL,
+**same public-safe fields as the friends list** (id, username — also returned as `name` — avatar URL,
 rank/level/XP) plus a coarse reason label — never email, `friend_code`, or any
 private data (`FriendSuggestionsTest` asserts this). Excluded: self, existing
 friends, users with a pending request either way, recently-rejected pairs (30
@@ -164,7 +164,7 @@ identifying anyone.
   hash, no tokens, no raw push-token values). Since v1.8.2 it also includes the
   subject's own `friend_code`, their friends list and their pending friend
   requests. For the counterpart of a friendship or request it returns only
-  username + display name — **never that other person's email or friend code**
+  the username — **never that other person's real name, email or friend code**
   (`DataExportTest::test_export_never_exposes_other_users_emails_or_friend_codes`).
 - `DELETE /api/account` revokes all API tokens, deletes the avatar file, push
   tokens, notification settings and pending verification codes, and anonymizes

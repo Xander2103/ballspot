@@ -212,7 +212,7 @@ class CompetitionAdminStatsTest extends TestCase
         $this->assertSame($users[0]->username, $rows[0]['username']); // earlier last guess wins the tie
         $this->assertNotContains('ghost_player', array_column($rows, 'username'));
         foreach ($rows as $row) {
-            $this->assertSame(['placement', 'username', 'total_score', 'challenges_played', 'avg_score', 'tied'], array_keys($row));
+            $this->assertSame(['placement', 'user_id', 'username', 'total_score', 'challenges_played', 'avg_score', 'tied'], array_keys($row));
         }
 
         $html = $this->actingAs($this->admin())->get('/admin/competition')->assertOk()->getContent();

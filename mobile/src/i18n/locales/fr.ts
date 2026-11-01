@@ -119,7 +119,6 @@ export const fr: Translations = {
       roundResult: 'Résultat de la manche',
       dailyChallenge: 'Défi du jour',
       dailyResult: 'Résultat du jour',
-      weeklyLeaderboard: 'Classement hebdo',
       leaderboard: 'Classement',
       scanFriendCode: 'Scanner un code ami',
       settings: 'Paramètres',
@@ -160,6 +159,7 @@ export const fr: Translations = {
     auth: {
       email_taken: 'Un compte existe déjà avec cet e-mail. Connecte-toi ou réinitialise ton mot de passe.',
       username_taken: "Ce nom d'utilisateur est déjà pris.",
+      username_invalid: "Utilise uniquement des lettres, des chiffres, des points, des tirets ou des underscores. Pas d'espaces ni de @.",
       password_mismatch: 'Les mots de passe ne correspondent pas.',
       validation_failed: 'Vérifie les champs signalés.',
       invalid_credentials: 'E-mail ou mot de passe incorrect.',
@@ -353,7 +353,26 @@ export const fr: Translations = {
     },
     result: {
       notFound: 'Aucun résultat trouvé.',
-      viewWeeklyLeaderboard: 'Voir le classement hebdo',
+    },
+    // Chosen from the API's period_type; neutral when the period is unknown.
+    competition: {
+      weekly: {
+        periodName: 'Hebdomadaire',
+        title: 'Classement hebdo',
+        viewLeaderboard: 'Voir le classement hebdo',
+        points: '{{score}} pts cette semaine',
+      },
+      monthly: {
+        periodName: 'Mensuel',
+        title: 'Classement mensuel',
+        viewLeaderboard: 'Voir le classement mensuel',
+        points: '{{score}} pts ce mois-ci',
+      },
+      neutral: {
+        title: 'Classement',
+        viewLeaderboard: 'Voir le classement',
+        points: '{{score}} pts',
+      },
     },
     share: {
       cta: 'Partager le résultat',
@@ -516,11 +535,11 @@ export const fr: Translations = {
       playToJoin: 'Joue pour entrer au classement !',
       of: 'sur {{total}}',
       betterThan: 'Mieux que {{pct}} % des joueurs',
-      ptsThisWeek: '{{score}} pts cette semaine',
     },
     leaderboard: {
       youSuffix: '(toi)',
-      rowStats: 'moy. {{avg}} · {{count}} manches',
+      rowStats_one: 'moy. {{avg}} · {{count}} manche',
+      rowStats_other: 'moy. {{avg}} · {{count}} manches',
       emptyTitle: 'Pas encore de score',
       emptyText: 'Joue quelques manches pour voir le classement !',
     },
@@ -774,11 +793,11 @@ export const fr: Translations = {
       codeTitle: 'Ton code ami',
       codeHint: "Partage ce code (ou le QR) pour que d'autres joueurs puissent t'ajouter.",
       copyCode: 'Copier le code ami',
-      searchPlaceholder: "Rechercher par nom ou nom d'utilisateur",
+      searchPlaceholder: "Rechercher par nom d'utilisateur",
       searchA11y: 'Rechercher parmi tes amis',
       noMatch: 'Aucun ami ne correspond à ta recherche.',
-      friendMeta: '@{{username}} · {{rank}} · {{xp}} XP',
-      requestMeta: '@{{username}} · {{rank}}',
+      friendMeta: '{{rank}} · {{xp}} XP',
+      requestMeta: '{{rank}}',
       remove: 'Retirer',
       removeA11y: 'Retirer {{name}} de tes amis',
       accept: 'Accepter',

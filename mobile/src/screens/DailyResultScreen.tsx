@@ -16,9 +16,10 @@ import { availableShareRewards, dailyShareCta, localDateString, type ShareReward
 import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
-import { DailyGuessResult, DailyStats, TodayResponse } from '../types/daily';
+import { DailyGuessResult, DailyStats } from '../types/daily';
 import { useI18n } from '../i18n';
-import { settleDailyResultLoad } from '../utils/dailyResultLoad';
+import { dailyResultDisplay, formatChallengeDate, settleDailyResultLoad } from '../utils/dailyResultLoad';
+import { competitionCopyKeys, competitionPeriodType } from '../utils/competitionPeriod';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DailyResult'>;
 
@@ -50,26 +51,23 @@ function getDistanceFeedbackKey(distance: number): string {
 export function DailyResultScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { dailyChallengeId, newBadges, rankProgress, rankUp, justCompleted } = route.params;
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
 
   const [result, setResult] = useState<DailyGuessResult | null>(null);
-  const [today, setToday] = useState<TodayResponse | null>(null);
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    // Only the result is required; a failing today/stats call must not hide it.
+    // Only the result is required; a failing stats call must not hide it.
     Promise.allSettled([
       dailyApi.result(dailyChallengeId).then((r) => r.data),
-      dailyApi.today(),
       dailyApi.stats(),
     ]).then((settled) => {
       if (cancelled) return;
       const loaded = settleDailyResultLoad(settled);
       setResult(loaded.result);
-      setToday(loaded.today);
       setStats(loaded.stats);
       setLoading(false);
     });
@@ -141,13 +139,16 @@ export function DailyResultScreen({ route, navigation }: Props) {
   const rating = t(getScoreRatingKey(result.score));
   const distanceFeedbackKey = getDistanceFeedbackKey(result.distance);
   const distanceFeedback = distanceFeedbackKey ? t(distanceFeedbackKey) : '';
-  const hiddenImageUrl = today?.daily_challenge?.challenge?.hidden_image_url ?? null;
-  const displayImageUrl = result.reveal_image_url ?? hiddenImageUrl;
-  const isRevealImage = !!result.reveal_image_url;
-  const categoryName = today?.daily_challenge?.challenge?.category?.name ?? null;
-  const challengeTitle = today?.daily_challenge?.challenge?.title ?? null;
-  const sportSlug = result.sport?.slug ?? today?.daily_challenge?.challenge?.sport?.slug ?? null;
+  const {
+    imageUrl: displayImageUrl,
+    isRevealImage,
+    title: challengeTitle,
+    categoryName,
+    sportSlug,
+  } = dailyResultDisplay(result);
+  const playedOn = formatChallengeDate(result.challenge_date, locale);
   const streak = stats?.current_streak ?? 0;
+  const leaderboardCopy = competitionCopyKeys(competitionPeriodType(stats?.period));
 
   const markers: Marker[] = [
     { x_ratio: result.guess_x_ratio, y_ratio: result.guess_y_ratio, type: 'ghost-ball' },
@@ -187,6 +188,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
         {categoryName ? (
           <Text style={styles.categoryLabel}>{categoryName}</Text>
         ) : null}
+        {playedOn ? <Text style={styles.playedOn}>{playedOn}</Text> : null}
         <Text style={styles.scoreLabel}>{t('game.result.yourScore')}</Text>
         <Text style={[styles.score, { color: scoreColor }]}>{result.score}</Text>
         <Text style={styles.rating}>{rating}</Text>
@@ -243,7 +245,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
       {/* Actions */}
       {shareCta.prominent ? shareBlock : null}
       <AppButton
-        title={t('daily.result.viewWeeklyLeaderboard')}
+        title={t(leaderboardCopy.viewLeaderboard)}
         onPress={() => navigation.navigate('WeeklyLeaderboard')}
         style={styles.leaderboardBtn}
       />
@@ -277,6 +279,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
     marginBottom: 4,
+  },
+  playedOn: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: spacing.xs,
   },
   scoreLabel: {
     fontSize: 12,

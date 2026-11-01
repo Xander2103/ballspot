@@ -59,6 +59,11 @@ return [
         'no_guess' => 'Speel eerst de dagelijkse uitdaging van vandaag voor je het resultaat deelt.',
     ],
 
+    'player' => [
+        'fallback' => 'Speler #:id',
+        'deleted'  => 'Verwijderde speler',
+    ],
+
     'friends' => [
         'code_not_found'     => 'Geen speler gevonden met die vriendencode.',
         'self'               => 'Je kunt jezelf niet als vriend toevoegen.',

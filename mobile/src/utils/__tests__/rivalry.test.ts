@@ -13,7 +13,7 @@ describe('rivalryLine', () => {
   it('says you are leading with the margin over second place', () => {
     const line = rivalryLine([
       entry({ user_id: 1, total_score: 120, is_current_user: true }),
-      entry({ user_id: 2, total_score: 95, name: 'Sam' }),
+      entry({ user_id: 2, total_score: 95, username: 'Sam' }),
     ]);
     expect(line).toBe('You are leading by 25 points');
   });
@@ -28,7 +28,7 @@ describe('rivalryLine', () => {
 
   it('says you are behind the leader by your own deficit', () => {
     const line = rivalryLine([
-      entry({ user_id: 2, total_score: 150, name: 'Sam' }),
+      entry({ user_id: 2, total_score: 150, username: 'Sam' }),
       entry({ user_id: 3, total_score: 140, name: 'Kim' }),
       entry({ user_id: 1, total_score: 100, is_current_user: true }),
     ]);
@@ -37,7 +37,7 @@ describe('rivalryLine', () => {
 
   it('reports the leader when the current user has no entry', () => {
     const line = rivalryLine([
-      entry({ user_id: 2, total_score: 150, name: 'Sam' }),
+      entry({ user_id: 2, total_score: 150, username: 'Sam' }),
       entry({ user_id: 3, total_score: 120, name: 'Kim' }),
     ]);
     expect(line).toBe('Sam leads by 30 points');
@@ -53,15 +53,15 @@ describe('rivalryLine', () => {
 
   it('says tied when the current user matches the leader from below', () => {
     const line = rivalryLine([
-      entry({ user_id: 2, total_score: 100, name: 'Sam' }),
+      entry({ user_id: 2, total_score: 100, username: 'Sam' }),
       entry({ user_id: 1, total_score: 100, is_current_user: true }),
     ]);
     expect(line).toBe("It's currently tied.");
   });
 
-  it('falls back to username when name is empty', () => {
+  it('names the leader by username, whatever `name` holds', () => {
     const line = rivalryLine([
-      entry({ user_id: 2, total_score: 150, name: '', username: 'sam99' }),
+      entry({ user_id: 2, total_score: 150, name: 'Sam Peeters', username: 'sam99' }),
       entry({ user_id: 1, total_score: 100, is_current_user: true }),
     ]);
     expect(line).toBe('You are 50 points behind sam99');
@@ -71,7 +71,7 @@ describe('rivalryLine', () => {
     // SUM() aggregates come back as strings on MySQL — the line must still work.
     const line = rivalryLine([
       entry({ user_id: 1, total_score: '120' as unknown as number, is_current_user: true }),
-      entry({ user_id: 2, total_score: '95' as unknown as number, name: 'Sam' }),
+      entry({ user_id: 2, total_score: '95' as unknown as number, username: 'Sam' }),
     ]);
     expect(line).toBe('You are leading by 25 points');
   });
@@ -80,7 +80,7 @@ describe('rivalryLine', () => {
     // "9" > "85" as strings; as numbers the 85 leads.
     const line = rivalryLine([
       entry({ user_id: 1, total_score: '9' as unknown as number, is_current_user: true }),
-      entry({ user_id: 2, total_score: '85' as unknown as number, name: 'Sam' }),
+      entry({ user_id: 2, total_score: '85' as unknown as number, username: 'Sam' }),
     ]);
     expect(line).toBe('You are 76 points behind Sam');
   });

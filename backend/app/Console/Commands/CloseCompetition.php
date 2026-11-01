@@ -60,10 +60,11 @@ class CloseCompetition extends Command
         if (!empty($result['finishes'])) {
             $this->newLine();
             $this->table(
-                ['#', 'User', 'Score', 'XP', 'Badges'],
+                ['#', 'User ID', 'User', 'Score', 'XP', 'Badges'],
                 array_map(fn ($f) => [
                     $f['placement'],
-                    $f['username'] ?? '(user #' . $f['user_id'] . ')',
+                    $f['user_id'],
+                    $f['username'] ?? '—',
                     $f['total_score'],
                     $f['xp'],
                     implode(', ', $f['badges']) ?: '—',

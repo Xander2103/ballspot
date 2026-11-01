@@ -3,19 +3,22 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
+import { competitionCopyKeys, type CompetitionPeriodType } from '../utils/competitionPeriod';
 
 interface Props {
   rank: number | null;
   totalPlayers: number;
   betterThanPercentage: number | null;
   score?: number | null;
+  /** Set on the daily competition board; league boards have no period. */
+  periodType?: CompetitionPeriodType | null;
 }
 
 /**
  * "You are #X of Y — closer than Z% of players" summary card used at the top
  * of leaderboard screens.
  */
-export function YourPositionCard({ rank, totalPlayers, betterThanPercentage, score }: Props) {
+export function YourPositionCard({ rank, totalPlayers, betterThanPercentage, score, periodType }: Props) {
   const { t } = useI18n();
 
   if (!rank) {
@@ -36,7 +39,7 @@ export function YourPositionCard({ rank, totalPlayers, betterThanPercentage, sco
       {typeof betterThanPercentage === 'number' && totalPlayers > 1 ? (
         <Text style={styles.better}>{t('game.position.betterThan', { pct: betterThanPercentage })}</Text>
       ) : null}
-      {typeof score === 'number' ? <Text style={styles.subtle}>{t('game.position.ptsThisWeek', { score: score.toLocaleString() })}</Text> : null}
+      {typeof score === 'number' ? <Text style={styles.subtle}>{t(competitionCopyKeys(periodType).points, { score: score.toLocaleString() })}</Text> : null}
     </View>
   );
 }

@@ -32,7 +32,7 @@
 <h2>What other players can see</h2>
 <p>BallPicker is a social game, so some of your information is visible to other signed-in players:</p>
 <ul>
-    <li>Your display name, username, profile picture, rank, XP, badge count and aggregate game statistics (such as tournaments played, number of guesses, total and average score, and daily challenge history) appear on leaderboards and on your player profile, which any signed-in player can view.</li>
+    <li>Your username, profile picture, rank, XP, badge count and aggregate game statistics (such as tournaments played, number of guesses, total and average score, and daily challenge history) appear on leaderboards and on your player profile, which any signed-in player can view. The name you entered and your email address are not shown to other players.</li>
     <li>Players you share your friend code or QR code with can send you a friend request.</li>
     <li><strong>Your email address is never shown to other players</strong>, and neither is your friend code, your push notification token, or any of your security data.</li>
 </ul>

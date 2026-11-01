@@ -342,6 +342,9 @@
                     <div class="alert alert-danger py-2">{{ $errors->first('pin') ?: $errors->first('acknowledge') }} Nothing was changed.</div>
                 @endif
 
+                @if(!\App\Services\DailyHistoryClearService::isAllowed())
+                    <div class="text-muted small" data-daily-clear-disabled>Clear Daily History is disabled on production: it would erase real results and rankings.</div>
+                @else
                 <details {{ $errors->has('pin') || $errors->has('acknowledge') ? 'open' : '' }}>
                     <summary class="fw-semibold text-danger" style="cursor:pointer">Clear Daily History</summary>
 
@@ -385,6 +388,7 @@
                     </form>
                     <div class="text-muted small mt-2">Every attempt (allowed or denied) is logged as <code>daily_history_clear.*</code> without the PIN.</div>
                 </details>
+                @endif
             </div>
         </div>
     </div>

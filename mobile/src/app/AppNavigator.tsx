@@ -313,7 +313,7 @@ export function AppNavigator({ onReady }: AppNavigatorProps = {}) {
             headerLeft: () => <HeaderExitButton label={t('nav.exit.home')} onPress={() => goHome(navigation)} />,
           })}
         />
-        <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: t('nav.titles.weeklyLeaderboard') }} />
+        <Stack.Screen name="WeeklyLeaderboard" component={WeeklyLeaderboardScreen} options={{ title: t('nav.titles.leaderboard') }} />
         <Stack.Screen name="FriendProfile" component={FriendProfileScreen} options={({ route }) => ({ title: `@${route.params.username}` })} />
         <Stack.Screen name="ScanFriendCode" component={ScanFriendCodeScreen} options={{ title: t('nav.titles.scanFriendCode') }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: t('nav.titles.settings') }} />

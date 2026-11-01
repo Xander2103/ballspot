@@ -120,7 +120,6 @@ export const nl: Translations = {
       roundResult: 'Ronderesultaat',
       dailyChallenge: 'Dagelijkse baluitdaging',
       dailyResult: 'Dagelijks resultaat',
-      weeklyLeaderboard: 'Weekklassement',
       leaderboard: 'Klassement',
       scanFriendCode: 'Vriendencode scannen',
       settings: 'Instellingen',
@@ -162,6 +161,7 @@ export const nl: Translations = {
     auth: {
       email_taken: 'Er bestaat al een account met dit e-mailadres. Log in of reset je wachtwoord.',
       username_taken: 'Deze gebruikersnaam is al in gebruik.',
+      username_invalid: 'Gebruik alleen letters, cijfers, punten, streepjes of underscores. Geen spaties of @.',
       password_mismatch: 'De wachtwoorden komen niet overeen.',
       validation_failed: 'Controleer de gemarkeerde velden.',
       invalid_credentials: 'Ongeldig e-mailadres of wachtwoord.',
@@ -358,7 +358,26 @@ export const nl: Translations = {
     },
     result: {
       notFound: 'Geen resultaat gevonden.',
-      viewWeeklyLeaderboard: 'Bekijk het weekklassement',
+    },
+    // Chosen from the API's period_type; neutral when the period is unknown.
+    competition: {
+      weekly: {
+        periodName: 'Wekelijks',
+        title: 'Weekklassement',
+        viewLeaderboard: 'Bekijk het weekklassement',
+        points: '{{score}} ptn deze week',
+      },
+      monthly: {
+        periodName: 'Maandelijks',
+        title: 'Maandklassement',
+        viewLeaderboard: 'Bekijk het maandklassement',
+        points: '{{score}} ptn deze maand',
+      },
+      neutral: {
+        title: 'Klassement',
+        viewLeaderboard: 'Bekijk het klassement',
+        points: '{{score}} ptn',
+      },
     },
     share: {
       cta: 'Resultaat delen',
@@ -522,11 +541,11 @@ export const nl: Translations = {
       playToJoin: 'Speel om in het klassement te komen!',
       of: 'van {{total}}',
       betterThan: 'Beter dan {{pct}}% van de spelers',
-      ptsThisWeek: '{{score}} ptn deze week',
     },
     leaderboard: {
       youSuffix: '(jij)',
-      rowStats: 'gem. {{avg}} · {{count}} rondes',
+      rowStats_one: 'gem. {{avg}} · {{count}} ronde',
+      rowStats_other: 'gem. {{avg}} · {{count}} rondes',
       emptyTitle: 'Nog geen scores',
       emptyText: 'Speel een paar rondes om het klassement te zien!',
     },
@@ -783,11 +802,11 @@ export const nl: Translations = {
       codeTitle: 'Jouw vriendencode',
       codeHint: 'Deel deze code (of de QR) zodat andere spelers je kunnen toevoegen.',
       copyCode: 'Vriendencode kopiëren',
-      searchPlaceholder: 'Zoek op naam of gebruikersnaam',
+      searchPlaceholder: 'Zoek op gebruikersnaam',
       searchA11y: 'Zoek in je vrienden',
       noMatch: 'Geen vrienden gevonden voor je zoekopdracht.',
-      friendMeta: '@{{username}} · {{rank}} · {{xp}} XP',
-      requestMeta: '@{{username}} · {{rank}}',
+      friendMeta: '{{rank}} · {{xp}} XP',
+      requestMeta: '{{rank}}',
       remove: 'Verwijderen',
       removeA11y: '{{name}} uit je vrienden verwijderen',
       accept: 'Accepteren',

@@ -85,6 +85,7 @@
     // URLs stay exactly as they are — this is presentation only.
     $navGroups = [
         'challenges' => ['label' => 'Challenges', 'url' => '/admin/challenges', 'match' => ['admin/challenges*'], 'pages' => []],
+        'players' => ['label' => 'Players', 'url' => '/admin/players', 'match' => ['admin/players*'], 'pages' => []],
         'content' => ['label' => 'Content', 'url' => '/admin/categories', 'match' => ['admin/categories*', 'admin/subcategories*', 'admin/packs*', 'admin/sports*'], 'pages' => [
             ['label' => 'Challenges',    'url' => '/admin/challenges',    'match' => 'admin/challenges*'],
             ['label' => 'Categories',    'url' => '/admin/categories',    'match' => 'admin/categories*'],
@@ -166,6 +167,6 @@
 
     @yield('content')
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc4s9bIOgUxi8T/jzmE5DOdR8fGOABGJxGBnI3VJiS4" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>

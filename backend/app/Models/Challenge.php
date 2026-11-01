@@ -22,6 +22,14 @@ class Challenge extends Model
     /** Pools whose challenges may be drawn into tournament rounds. */
     public const TOURNAMENT_POOLS = [self::POOL_TOURNAMENT, self::POOL_GENERAL];
 
+    /**
+     * What a guess was scored against and what its result shows. A guess stores
+     * only the player's own position and score, so once anyone has played these
+     * can never change: old results and prize rankings would stop matching.
+     * Title, category, tags, difficulty, status and pool stay editable.
+     */
+    public const LOCKED_ONCE_PLAYED = ['sport_id', 'hidden_image_path', 'original_image_path', 'ball_x_ratio', 'ball_y_ratio'];
+
     protected $fillable = [
         'sport_id', 'challenge_category_id',
         'title', 'hidden_image_path', 'original_image_path',
@@ -38,6 +46,24 @@ class Challenge extends Model
             'ball_x_ratio' => 'float',
             'ball_y_ratio' => 'float',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Last line of defence: the admin form refuses this earlier with a clear message.
+        static::updating(function (Challenge $challenge) {
+            if ($challenge->isDirty(self::LOCKED_ONCE_PLAYED) && $challenge->hasBeenPlayed()) {
+                throw new \LogicException("Challenge {$challenge->id} has been played; its image, ball position and sport are locked.");
+            }
+        });
+    }
+
+    /** True once any player has a daily, tournament or pack guess on this challenge. */
+    public function hasBeenPlayed(): bool
+    {
+        return DailyChallengeGuess::whereIn('daily_challenge_id', DailyChallenge::where('challenge_id', $this->id)->select('id'))->exists()
+            || Guess::whereIn('league_round_id', LeagueRound::where('challenge_id', $this->id)->select('id'))->exists()
+            || PackAttemptGuess::where('challenge_id', $this->id)->exists();
     }
 
     public function sport(): BelongsTo { return $this->belongsTo(Sport::class); }

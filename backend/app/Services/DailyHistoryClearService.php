@@ -26,6 +26,12 @@ class DailyHistoryClearService
     public const CONFIRMATION_PIN = '1281';
     public const ACKNOWLEDGEMENT  = 'I understand this clears Daily history';
 
+    /** Pre-launch tool: on production it would erase real results and prize rankings. */
+    public static function isAllowed(): bool
+    {
+        return !app()->isProduction() || (bool) config('ballspot.allow_daily_history_clear');
+    }
+
     public function pinMatches(?string $pin): bool
     {
         return is_string($pin) && hash_equals(self::CONFIRMATION_PIN, trim($pin));

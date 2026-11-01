@@ -120,7 +120,6 @@ export const de: Translations = {
       roundResult: 'Rundenergebnis',
       dailyChallenge: 'Tägliche Ball-Challenge',
       dailyResult: 'Tagesergebnis',
-      weeklyLeaderboard: 'Wochenrangliste',
       leaderboard: 'Rangliste',
       scanFriendCode: 'Freundescode scannen',
       settings: 'Einstellungen',
@@ -162,6 +161,7 @@ export const de: Translations = {
     auth: {
       email_taken: 'Mit dieser E-Mail existiert bereits ein Konto. Bitte melde dich an oder setze dein Passwort zurück.',
       username_taken: 'Dieser Benutzername ist bereits vergeben.',
+      username_invalid: 'Nur Buchstaben, Zahlen, Punkte, Bindestriche oder Unterstriche verwenden. Keine Leerzeichen oder @.',
       password_mismatch: 'Die Passwörter stimmen nicht überein.',
       validation_failed: 'Bitte prüfe die markierten Felder.',
       invalid_credentials: 'Ungültige E-Mail oder ungültiges Passwort.',
@@ -358,7 +358,26 @@ export const de: Translations = {
     },
     result: {
       notFound: 'Kein Ergebnis gefunden.',
-      viewWeeklyLeaderboard: 'Wochenrangliste ansehen',
+    },
+    // Chosen from the API's period_type; neutral when the period is unknown.
+    competition: {
+      weekly: {
+        periodName: 'Wöchentlich',
+        title: 'Wochenrangliste',
+        viewLeaderboard: 'Wochenrangliste ansehen',
+        points: '{{score}} Pkt. diese Woche',
+      },
+      monthly: {
+        periodName: 'Monatlich',
+        title: 'Monatsrangliste',
+        viewLeaderboard: 'Monatsrangliste ansehen',
+        points: '{{score}} Pkt. diesen Monat',
+      },
+      neutral: {
+        title: 'Rangliste',
+        viewLeaderboard: 'Rangliste ansehen',
+        points: '{{score}} Pkt.',
+      },
     },
     share: {
       cta: 'Ergebnis teilen',
@@ -522,11 +541,11 @@ export const de: Translations = {
       playToJoin: 'Spiel, um in die Rangliste zu kommen!',
       of: 'von {{total}}',
       betterThan: 'Besser als {{pct}}% der Spieler',
-      ptsThisWeek: '{{score}} Pkt. diese Woche',
     },
     leaderboard: {
       youSuffix: '(du)',
-      rowStats: 'Ø {{avg}} · {{count}} Runden',
+      rowStats_one: 'Ø {{avg}} · {{count}} Runde',
+      rowStats_other: 'Ø {{avg}} · {{count}} Runden',
       emptyTitle: 'Noch keine Punkte',
       emptyText: 'Spiel ein paar Runden, um die Rangliste zu sehen!',
     },
@@ -783,11 +802,11 @@ export const de: Translations = {
       codeTitle: 'Dein Freundescode',
       codeHint: 'Teile diesen Code (oder den QR-Code), damit andere Spieler dich hinzufügen können.',
       copyCode: 'Freundescode kopieren',
-      searchPlaceholder: 'Nach Name oder Benutzername suchen',
+      searchPlaceholder: 'Nach Benutzername suchen',
       searchA11y: 'Deine Freunde durchsuchen',
       noMatch: 'Keine Freunde passen zu deiner Suche.',
-      friendMeta: '@{{username}} · {{rank}} · {{xp}} XP',
-      requestMeta: '@{{username}} · {{rank}}',
+      friendMeta: '{{rank}} · {{xp}} XP',
+      requestMeta: '{{rank}}',
       remove: 'Entfernen',
       removeA11y: '{{name}} aus deinen Freunden entfernen',
       accept: 'Annehmen',

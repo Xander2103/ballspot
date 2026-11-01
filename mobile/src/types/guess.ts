@@ -27,6 +27,7 @@ export interface LeaderboardEntry {
   rank: number;
   user_id: number;
   username: string;
+  /** Same value as `username` since the public-name change; show `username`. */
   name: string;
   total_score: number;
   guesses_count: number;

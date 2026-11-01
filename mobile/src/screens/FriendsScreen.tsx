@@ -27,6 +27,7 @@ import { getApiErrorMessage } from '../utils/apiError';
 import {
   checkFriendCode, filterFriends, openRequests, suggestionState, type FriendsTab,
 } from '../utils/friendsModel';
+import { publicPlayerName } from '../utils/playerName';
 
 type Props = MainTabScreenProps<'Friends'>;
 
@@ -280,8 +281,8 @@ export function FriendsScreen({ navigation, route }: Props) {
         keyExtractor={(f) => String(f.id)}
         renderItem={({ item }) => (
           <PersonRow
-            name={item.name}
-            subtitle={t('friends.list.friendMeta', { username: item.username, rank: item.rank_name, xp: item.total_xp })}
+            name={publicPlayerName(item)}
+            subtitle={t('friends.list.friendMeta', { rank: item.rank_name, xp: item.total_xp })}
             avatarUrl={item.avatar_url}
             onPress={() => navigation.navigate('FriendProfile', { userId: item.id, username: item.username })}
             testID={`friends-row-${item.id}`}
@@ -290,7 +291,7 @@ export function FriendsScreen({ navigation, route }: Props) {
               label={t('friends.list.remove')}
               tone="text"
               onPress={() => setRemoveTarget(item)}
-              accessibilityLabel={t('friends.list.removeA11y', { name: item.name })}
+              accessibilityLabel={t('friends.list.removeA11y', { name: publicPlayerName(item) })}
             />
           </PersonRow>
         )}
@@ -325,8 +326,8 @@ export function FriendsScreen({ navigation, route }: Props) {
           const busy = busyRequestId === item.id;
           return (
             <PersonRow
-              name={item.user.name}
-              subtitle={t('friends.list.requestMeta', { username: item.user.username, rank: item.user.rank_name })}
+              name={publicPlayerName(item.user)}
+              subtitle={t('friends.list.requestMeta', { rank: item.user.rank_name })}
               avatarUrl={item.user.avatar_url}
               testID={`friends-request-${item.id}`}
             >
@@ -337,14 +338,14 @@ export function FriendsScreen({ navigation, route }: Props) {
                     tone="quiet"
                     disabled={busyRequestId !== null}
                     onPress={() => handleRequest(item, 'reject')}
-                    accessibilityLabel={t('friends.list.declineA11y', { name: item.user.name })}
+                    accessibilityLabel={t('friends.list.declineA11y', { name: publicPlayerName(item.user) })}
                   />
                   <RowButton
                     label={t('friends.list.accept')}
                     tone="primary"
                     disabled={busyRequestId !== null}
                     onPress={() => handleRequest(item, 'accept')}
-                    accessibilityLabel={t('friends.list.acceptA11y', { name: item.user.name })}
+                    accessibilityLabel={t('friends.list.acceptA11y', { name: publicPlayerName(item.user) })}
                   />
                 </View>
               )}
@@ -373,7 +374,7 @@ export function FriendsScreen({ navigation, route }: Props) {
           const failed = suggestFailedId === item.id;
           return (
             <PersonRow
-              name={item.name}
+              name={publicPlayerName(item)}
               subtitle={failed ? t('friends.list.addFailed') : t('friends.list.suggestionMeta', { reason, rank: item.rank_name })}
               subtitleTone={failed ? 'danger' : 'default'}
               avatarUrl={item.avatar_url}
@@ -389,7 +390,7 @@ export function FriendsScreen({ navigation, route }: Props) {
                   tone="primary"
                   disabled={suggestBusyId !== null}
                   onPress={() => handleSuggestAdd(item.id)}
-                  accessibilityLabel={t('friends.list.addA11y', { name: item.name })}
+                  accessibilityLabel={t('friends.list.addA11y', { name: publicPlayerName(item) })}
                   testID={`friends-suggestion-add-${item.id}`}
                 />
               ) : null}
@@ -463,7 +464,7 @@ export function FriendsScreen({ navigation, route }: Props) {
       <ConfirmModal
         visible={!!removeTarget}
         title={t('friends.remove.title')}
-        message={t('friends.remove.message', { name: removeTarget?.name ?? t('friends.remove.fallbackName') })}
+        message={t('friends.remove.message', { name: removeTarget ? publicPlayerName(removeTarget) : t('friends.remove.fallbackName') })}
         confirmLabel={t('friends.remove.confirm')}
         cancelLabel={t('common.buttons.cancel')}
         onConfirm={handleRemove}

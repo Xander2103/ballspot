@@ -17,6 +17,7 @@ import { LeaderboardEntry } from '../types/guess';
 import { rivalryLine, daysLeftLabel } from '../utils/rivalry';
 import { LOBBY_POLL_INTERVAL_MS, shouldAlertOnLoadFailure, type LoadTrigger } from '../utils/lobbyPolling';
 import { useI18n, t as translate } from '../i18n';
+import { publicPlayerName } from '../utils/playerName';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
@@ -188,10 +189,9 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
               <View key={member.id} style={styles.memberRow}>
                 <View style={styles.memberInfo}>
                   <Text style={styles.memberName}>
-                    {member.name}
+                    {publicPlayerName(member)}
                     {member.is_owner ? ' 👑' : ''}
                   </Text>
-                  <Text style={styles.memberUsername}>@{member.username}</Text>
                 </View>
                 {league.is_owner && !member.is_owner && (
                   <TouchableOpacity
@@ -295,7 +295,7 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
       {(league?.status === 'active' || league?.status === 'completed') && (
         <>
           <Text style={styles.sectionTitle}>{t('tournaments.detail.leaderboardPreview')}</Text>
-          <LeaderboardList entries={leaderboard.slice(0, 3)} />
+          <LeaderboardList entries={leaderboard.slice(0, 3)} scrollEnabled={false} />
         </>
       )}
 
@@ -357,7 +357,6 @@ const styles = StyleSheet.create({
   memberRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.xs, borderBottomWidth: 1, borderBottomColor: colors.border },
   memberInfo: { flex: 1 },
   memberName: { fontSize: 14, fontWeight: '600', color: colors.text },
-  memberUsername: { fontSize: 12, color: colors.textSecondary },
   removeBtn: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   removeBtnText: { fontSize: 14, color: colors.error, fontWeight: '700' },
   startBtn: { marginTop: 4 },

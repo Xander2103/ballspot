@@ -22,7 +22,7 @@ class BadgeSeeder extends Seeder
             ['code' => 'top_10_percent_daily', 'name' => 'Sharp Shooter',    'icon' => '🎖️', 'category' => 'daily',      'rarity' => 'rare',      'description' => 'Finished in the top 10% of a daily challenge.'],
             ['code' => 'tournament_winner',  'name' => 'Tournament Winner',  'icon' => '🏆', 'category' => 'tournament', 'rarity' => 'epic',      'description' => 'Win a tournament.'],
             ['code' => 'daily_champion',     'name' => 'Daily Champion',     'icon' => '👑', 'category' => 'daily',      'rarity' => 'epic',      'description' => 'Finished #1 in a daily challenge.'],
-            ['code' => 'weekly_top_10',      'name' => 'Weekly Top 10',      'icon' => '🌟', 'category' => 'daily',      'rarity' => 'rare',      'description' => 'Finished in the weekly top 10.'],
+            ['code' => 'weekly_top_10',      'name' => 'Competition Top 10', 'icon' => '🌟', 'category' => 'daily',      'rarity' => 'rare',      'description' => 'Finished in the competition top 10.'],
             ['code' => 'football_rookie',    'name' => 'Football Rookie',    'icon' => '⚽', 'category' => 'sport',      'rarity' => 'common',    'description' => 'Played your first football challenge.'],
             ['code' => 'football_expert',    'name' => 'Football Expert',    'icon' => '🥅', 'category' => 'sport',      'rarity' => 'epic',      'description' => 'Played 25 football challenges.'],
 

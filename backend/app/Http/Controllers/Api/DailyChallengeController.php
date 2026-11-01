@@ -82,18 +82,7 @@ class DailyChallengeController extends Controller
 
         $alreadyPlayed = $dc->guesses()->where('user_id', $request->user()->id)->exists();
 
-        $challengeData = [
-            'id'               => $dc->challenge->id,
-            'title'            => $dc->challenge->title,
-            'difficulty'       => $dc->challenge->difficulty,
-            'hidden_image_url' => $dc->challenge->hidden_image_path
-                ? asset('storage/' . $dc->challenge->hidden_image_path)
-                : null,
-            'category'         => $dc->challenge->category ? [
-                'id'   => $dc->challenge->category->id,
-                'name' => $dc->challenge->category->name,
-                'slug' => $dc->challenge->category->slug,
-            ] : null,
+        $challengeData = $this->challengeSummary($dc->challenge) + [
             'sport'            => $dc->challenge->sport ? [
                 'slug'          => $dc->challenge->sport->slug,
                 'name'          => $dc->challenge->sport->name,
@@ -301,6 +290,13 @@ class DailyChallengeController extends Controller
         }
 
         $challenge = $dailyChallenge->challenge;
+
+        // The foreign key cascades, so this only guards an inconsistent database:
+        // without its challenge a result has no ball position or image to show.
+        if (!$challenge) {
+            return response()->json(['message' => __('messages.daily.no_guess')], 404);
+        }
+
         return response()->json(['data' => $this->buildGuessResult($guess, $challenge, $dailyChallenge)]);
     }
 
@@ -315,15 +311,15 @@ class DailyChallengeController extends Controller
         // Shared ranking logic (deterministic tie-break) — same as the close flow.
         $standings = $this->standings->forWindow($periodStart, $periodEnd);
         $users = \App\Models\User::whereIn('id', $standings->pluck('user_id'))
-            ->get(['id', 'username', 'name'])
+            ->get(['id', 'username'])
             ->keyBy('id');
 
         $entries = $standings->map(function ($row) use ($users, $request) {
-            $user = $users->get($row['user_id']);
+            $publicName = \App\Models\User::publicNameFor($row['user_id'], $users->get($row['user_id'])?->username);
             return [
                 'user_id'           => $row['user_id'],
-                'username'          => $user?->username,
-                'name'              => $user?->name,
+                'username'          => $publicName,
+                'name'              => $publicName,
                 'total_score'       => $row['total_score'],
                 'challenges_played' => $row['challenges_played'],
                 'avg_score'         => $row['avg_score'],
@@ -415,12 +411,34 @@ class DailyChallengeController extends Controller
         ]);
     }
 
+    /**
+     * Display fields shared by /daily/today and the result. SECURITY: this is
+     * served before a guess, so it must never carry the ball position or reveal image.
+     */
+    private function challengeSummary(Challenge $challenge): array
+    {
+        return [
+            'id'               => $challenge->id,
+            'title'            => $challenge->title,
+            'difficulty'       => $challenge->difficulty,
+            'hidden_image_url' => $challenge->hidden_image_path
+                ? asset('storage/' . $challenge->hidden_image_path)
+                : null,
+            'category'         => $challenge->category ? [
+                'id'   => $challenge->category->id,
+                'name' => $challenge->category->name,
+                'slug' => $challenge->category->slug,
+            ] : null,
+        ];
+    }
+
     private function buildGuessResult(DailyChallengeGuess $guess, Challenge $challenge, DailyChallenge $dailyChallenge): array
     {
-        $challenge->loadMissing('sport');
+        $challenge->loadMissing(['sport', 'category']);
 
         return array_merge([
             'id'               => $guess->id,
+            'challenge_date'   => $dailyChallenge->challenge_date?->toDateString(),
             'score'            => $guess->score,
             'distance'         => $guess->distance,
             'guess_x_ratio'    => $guess->guess_x_ratio,
@@ -430,6 +448,8 @@ class DailyChallengeController extends Controller
             'reveal_image_url' => $challenge->original_image_path
                 ? asset('storage/' . $challenge->original_image_path)
                 : null,
+            // The challenge this guess was played on, whichever daily is live now.
+            'challenge'        => $this->challengeSummary($challenge),
             // Marker object on the result screen (the challenge's sport).
             'sport'            => $challenge->sport ? [
                 'slug'          => $challenge->sport->slug,
@@ -465,21 +485,8 @@ class DailyChallengeController extends Controller
 
     private function getWeeklyRank(int $userId, string $weekStart, string $weekEnd): ?int
     {
-        $scores = DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($weekStart, $weekEnd) {
-            $q->whereBetween('challenge_date', [$weekStart, $weekEnd]);
-        })
-        ->selectRaw('user_id, SUM(score) as total_score')
-        ->groupBy('user_id')
-        ->orderByDesc('total_score')
-        ->pluck('total_score', 'user_id');
+        $position = $this->standings->rankedUserIds($weekStart, $weekEnd)->search($userId);
 
-        if (!$scores->has($userId)) return null;
-
-        $rank = 1;
-        foreach ($scores as $uid => $score) {
-            if ($uid === $userId) return $rank;
-            $rank++;
-        }
-        return null;
+        return $position === false ? null : $position + 1;
     }
 }

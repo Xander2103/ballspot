@@ -48,6 +48,29 @@ class CompetitionStandingsService
             });
     }
 
+    /**
+     * Just the ranked user ids for [start, end], best first, in SQL so that a
+     * per-request caller does not load a whole period of guesses. Same players
+     * and same order as forWindow(): the rank on the stats and the badge cannot
+     * disagree with the leaderboard the player sees.
+     *
+     * @return Collection<int, int>
+     */
+    public function rankedUserIds(string $start, string $end): Collection
+    {
+        return DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($start, $end) {
+            $q->whereBetween('challenge_date', [$start, $end]);
+        })
+            ->whereIn('user_id', \App\Models\User::query()->whereNull('anonymized_at')->select('id'))
+            ->groupBy('user_id')
+            ->orderByRaw('SUM(score) DESC')
+            ->orderByRaw('MAX(submitted_at) ASC')
+            ->orderBy('user_id')
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+    }
+
     /** Deterministic comparator (see class docblock). */
     private function comparator(): callable
     {

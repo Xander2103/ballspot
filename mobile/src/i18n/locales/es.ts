@@ -120,7 +120,6 @@ export const es: Translations = {
       roundResult: 'Resultado de la ronda',
       dailyChallenge: 'Reto diario del balón',
       dailyResult: 'Resultado diario',
-      weeklyLeaderboard: 'Clasificación semanal',
       leaderboard: 'Clasificación',
       scanFriendCode: 'Escanear código de amigo',
       settings: 'Ajustes',
@@ -162,6 +161,7 @@ export const es: Translations = {
     auth: {
       email_taken: 'Ya existe una cuenta con este correo electrónico. Inicia sesión o restablece tu contraseña.',
       username_taken: 'Este nombre de usuario ya está en uso.',
+      username_invalid: 'Usa solo letras, números, puntos, guiones o guiones bajos. Sin espacios ni @.',
       password_mismatch: 'Las contraseñas no coinciden.',
       validation_failed: 'Revisa los campos marcados.',
       invalid_credentials: 'Correo electrónico o contraseña incorrectos.',
@@ -358,7 +358,26 @@ export const es: Translations = {
     },
     result: {
       notFound: 'No se encontró ningún resultado.',
-      viewWeeklyLeaderboard: 'Ver clasificación semanal',
+    },
+    // Chosen from the API's period_type; neutral when the period is unknown.
+    competition: {
+      weekly: {
+        periodName: 'Semanal',
+        title: 'Clasificación semanal',
+        viewLeaderboard: 'Ver clasificación semanal',
+        points: '{{score}} pts esta semana',
+      },
+      monthly: {
+        periodName: 'Mensual',
+        title: 'Clasificación mensual',
+        viewLeaderboard: 'Ver clasificación mensual',
+        points: '{{score}} pts este mes',
+      },
+      neutral: {
+        title: 'Clasificación',
+        viewLeaderboard: 'Ver clasificación',
+        points: '{{score}} pts',
+      },
     },
     share: {
       cta: 'Compartir resultado',
@@ -522,11 +541,11 @@ export const es: Translations = {
       playToJoin: '¡Juega para entrar en la tabla!',
       of: 'de {{total}}',
       betterThan: 'Mejor que el {{pct}}% de los jugadores',
-      ptsThisWeek: '{{score}} pts esta semana',
     },
     leaderboard: {
       youSuffix: '(tú)',
-      rowStats: 'media {{avg}} · {{count}} rondas',
+      rowStats_one: 'media {{avg}} · {{count}} ronda',
+      rowStats_other: 'media {{avg}} · {{count}} rondas',
       emptyTitle: 'Aún no hay puntuaciones',
       emptyText: '¡Juega algunas rondas para ver la clasificación!',
     },
@@ -783,11 +802,11 @@ export const es: Translations = {
       codeTitle: 'Tu código de amigo',
       codeHint: 'Comparte este código (o el QR) para que otros jugadores puedan añadirte.',
       copyCode: 'Copiar código de amigo',
-      searchPlaceholder: 'Buscar por nombre o usuario',
+      searchPlaceholder: 'Buscar por usuario',
       searchA11y: 'Buscar entre tus amigos',
       noMatch: 'Ningún amigo coincide con tu búsqueda.',
-      friendMeta: '@{{username}} · {{rank}} · {{xp}} XP',
-      requestMeta: '@{{username}} · {{rank}}',
+      friendMeta: '{{rank}} · {{xp}} XP',
+      requestMeta: '{{rank}}',
       remove: 'Quitar',
       removeA11y: 'Quitar a {{name}} de tus amigos',
       accept: 'Aceptar',

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { visibleChallengeLabel } from '../utils/competitionPeriod';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -51,6 +52,7 @@ export function ResultScreen({ route, navigation }: Props) {
   useHardwareBack(useCallback(() => goHome(navigation), [navigation]));
   const { roundId, leagueId, imageUrl, leagueName, categoryName, challengeTitle, newBadges, rankProgress, rankUp, tournamentCompletion, justCompleted } = route.params;
   const routeSportSlug = route.params.sportSlug ?? null;
+  const visibleCategoryName = visibleChallengeLabel(categoryName);
   const { t } = useI18n();
   const [result, setResult] = useState<GuessResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,8 +142,8 @@ export function ResultScreen({ route, navigation }: Props) {
     <Screen scroll padding>
       {/* Score card */}
       <View style={styles.scoreBox}>
-        {categoryName ? (
-          <Text style={styles.categoryLabel}>{categoryName}</Text>
+        {visibleCategoryName ? (
+          <Text style={styles.categoryLabel}>{visibleCategoryName}</Text>
         ) : null}
         <Text style={styles.scoreLabel}>{t('game.result.yourScore')}</Text>
         <Text style={[styles.score, { color: scoreColor }]}>{result.score}</Text>

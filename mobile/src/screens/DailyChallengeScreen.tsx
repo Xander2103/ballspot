@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { visibleChallengeLabel } from '../utils/competitionPeriod';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -129,7 +130,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
 
   const hasGuess = guessX !== null && guessY !== null;
   const diffColor = DIFFICULTY_COLOR[challenge.challenge.difficulty] ?? theme.textSecondary;
-  const categoryName = challenge.challenge.category?.name ?? null;
+  const categoryName = visibleChallengeLabel(challenge.challenge.category?.name);
   const imageUrl = challenge.challenge.hidden_image_url;
 
   // English keeps the en-US format the screen has always used.
@@ -173,7 +174,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         <Text style={styles.instruction}>{t('game.guess.instruction')}</Text>
         {challenge.challenge.tags && challenge.challenge.tags.length > 0 ? (
           <View style={styles.tagRow}>
-            {challenge.challenge.tags.slice(0, 4).map((tag) => (
+            {challenge.challenge.tags.filter((tag) => visibleChallengeLabel(tag.name)).slice(0, 4).map((tag) => (
               <View key={tag.slug} style={styles.tagChip}>
                 <Text style={styles.tagText}>#{tag.name}</Text>
               </View>

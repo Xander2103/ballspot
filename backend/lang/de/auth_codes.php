@@ -12,6 +12,7 @@
 return [
     'email_taken'        => 'Mit dieser E-Mail existiert bereits ein Konto. Bitte melde dich an oder setze dein Passwort zurück.',
     'username_taken'     => 'Dieser Benutzername ist bereits vergeben.',
+    'username_invalid'   => 'Nur Buchstaben, Zahlen, Punkte, Bindestriche oder Unterstriche verwenden. Keine Leerzeichen oder @.',
     'password_mismatch'  => 'Die Passwörter stimmen nicht überein.',
     'validation_failed'  => 'Bitte prüfe die markierten Felder.',
     'invalid_credentials' => 'Ungültige E-Mail oder ungültiges Passwort.',

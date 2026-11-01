@@ -11,6 +11,7 @@
 return [
     'email_taken'        => 'Un compte existe déjà avec cet e-mail. Connecte-toi ou réinitialise ton mot de passe.',
     'username_taken'     => 'Ce nom d\'utilisateur est déjà pris.',
+    'username_invalid'   => 'Utilise uniquement des lettres, des chiffres, des points, des tirets ou des underscores. Pas d\'espaces ni de @.',
     'password_mismatch'  => 'Les mots de passe ne correspondent pas.',
     'validation_failed'  => 'Vérifie les champs signalés.',
     'invalid_credentials' => 'E-mail ou mot de passe incorrect.',

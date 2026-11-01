@@ -742,7 +742,11 @@ Submit a guess for today's daily challenge. One guess per user per daily challen
 
 ### GET /api/daily/{dailyChallenge}/result  *(auth required)*
 
+`challenge_date` (Y-m-d) is the date of this daily, not of today.
+
 Returns the user's result for this daily challenge. Only available after guessing.
+`challenge` is the challenge this guess was played on, so an old result never depends on
+today's daily. It is also part of the `POST /api/daily/{id}/guess` response.
 
 ```json
 // Response 200
@@ -755,7 +759,14 @@ Returns the user's result for this daily challenge. Only available after guessin
     "guess_y_ratio": 0.72,
     "ball_x_ratio": 0.45,
     "ball_y_ratio": 0.71,
-    "reveal_image_url": "http://..."
+    "reveal_image_url": "http://...",
+    "challenge": {
+      "id": 12,
+      "title": "Goal Line",
+      "difficulty": "medium",
+      "hidden_image_url": "http://...",
+      "category": { "id": 3, "name": "Headers", "slug": "headers" } // null without a category
+    }
   }
 }
 // Response 404 — user has not guessed yet
@@ -783,10 +794,11 @@ Returns all users' total scores for daily challenges this week (Monday–Sunday,
   ],
   "week_start": "2026-06-22",
   "week_end": "2026-06-28",
-  // v1.7.6 — UI-only period label from config('ballspot.leaderboard.period_label'),
-  // default "Weekly". The aggregation window is still weekly; the app renders this
-  // label instead of hardcoding "Weekly" (prep for a possible future "Monthly").
-  "period_label": "Weekly",
+  // The route keeps its name; window and label follow BALLPICKER_COMPETITION_PERIOD
+  // (see "Competition period on the leaderboard"). The app picks its copy from
+  // period.period_type and never assumes a period.
+  "period_label": "Monthly",
+  "period": { "period_type": "monthly", "period_label": "Monthly", "period_start": "2026-06-01", "period_end": "2026-06-30" },
   "meta": { /* current_user_rank, total_players, better_than_percentage, top_users, nearby_users … (see meta block below) */ }
 }
 ```
@@ -803,14 +815,15 @@ Returns the current user's daily challenge statistics.
   "total_played": 12,
   "average_score": 74.5,
   "best_score": 98,
-  "weekly_rank": 2
+  "weekly_rank": 2,
+  "period": { "period_type": "monthly", "period_label": "Monthly", "period_start": "2026-06-01", "period_end": "2026-06-30" }
 }
 ```
 
 **Streak logic:**
 - `current_streak`: consecutive days ending today or yesterday where the user played the daily challenge
 - `best_streak`: longest ever consecutive-day run
-- `weekly_rank`: user's rank by total score this week (null if no score this week)
+- `weekly_rank`: user's rank by total score in the current competition period, named by `period` (null if no score in it)
 
 ---
 
@@ -1923,3 +1936,21 @@ for older clients. Codes: `email_taken`, `username_taken`, `password_mismatch`,
   `password_reset.requested|completed|failed` (renamed from `password.reset_*`),
   `account.delete.completed|failed` (renamed from `account.deleted` /
   `account.delete_failed`).
+
+## Public player identity (2026-11)
+
+Other players are identified by `username` only. Every payload about another
+player (tournament and competition leaderboards including `meta`, tournament
+members, friends, requests, suggestions, public profile, data-export
+counterparts) goes through `User::publicName()`.
+
+- **`name` stays in these payloads and now holds the same value as `username`.**
+  Published apps render `name || username`, so the key cannot be removed or left
+  holding the real name. New clients read `username` only.
+- `GET /me` and the auth responses still return the account's own entered `name`.
+- A blank or email-shaped legacy username is returned as a localized
+  `Player #<id>`; a deleted account as a localized `Deleted player`.
+- `POST /register`: the username is trimmed, NFC-normalized and loses a leading
+  `@`. It must start with a letter or digit and may then contain letters, digits
+  and `. _ -`; `deleted-<n>` is reserved. Failure code: `username_invalid`.
+  `username_taken` now ignores letter case. Existing accounts are not re-checked.

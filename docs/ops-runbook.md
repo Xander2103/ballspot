@@ -747,6 +747,9 @@ Deletes **only** `daily_challenge_guesses` and `daily_challenge_guesses`' parent
 users, badges or packs. Use it once before public launch to make test-scheduled
 photos reusable; never casually afterwards (it erases players' daily scores).
 
+**Refused on production** (web and command) unless `BALLPICKER_ALLOW_DAILY_HISTORY_CLEAR=true`
+is set and config is re-cached: it would erase real results and prize rankings.
+
 Safety chain, in order: admin session → POST + CSRF only (GET is 405) →
 acknowledgement checkbox → confirmation PIN (constant-time compare, never
 logged, never rendered) → full content backup via the same service as

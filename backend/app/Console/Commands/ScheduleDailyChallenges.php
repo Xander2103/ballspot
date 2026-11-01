@@ -133,6 +133,13 @@ class ScheduleDailyChallenges extends Command
             $date     = $start->copy()->addDays($i)->toDateString();
             $existing = DailyChallenge::whereDate('challenge_date', $date)->first();
 
+            // Even --force never re-points a played daily: its guesses would move to another photo.
+            if ($existing && $force && $existing->guesses()->exists()) {
+                $this->line("  <fg=yellow>SKIP</>  {$date} — already played, cannot be replaced");
+                $skippedCount++;
+                continue;
+            }
+
             if ($existing && !$force) {
                 $this->line("  <fg=yellow>SKIP</>  {$date} — already scheduled");
                 $skippedCount++;

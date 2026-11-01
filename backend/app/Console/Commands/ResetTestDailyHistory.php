@@ -66,6 +66,12 @@ class ResetTestDailyHistory extends Command
             return self::SUCCESS;
         }
 
+        if (($force || $confirm) && !\App\Services\DailyHistoryClearService::isAllowed()) {
+            $this->error('Refusing: disabled on production, this would erase real results and rankings. (Nothing deleted.)');
+            \App\Support\AppLog::warn('daily.history_reset_denied', ['reason' => 'production']);
+            return self::FAILURE;
+        }
+
         if (!$force && !$confirm) {
             $this->warn('DRY RUN — nothing deleted. Re-run with --force --confirm-prelaunch to delete.');
             \App\Support\AppLog::event('daily.history_reset_dry_run', [

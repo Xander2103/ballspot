@@ -10,7 +10,26 @@ export const daily = {
   },
   result: {
     notFound: 'No result found.',
-    viewWeeklyLeaderboard: 'View Weekly Leaderboard',
+  },
+  // Chosen from the API's period_type; neutral when the period is unknown.
+  competition: {
+    weekly: {
+      periodName: 'Weekly',
+      title: 'Weekly Leaderboard',
+      viewLeaderboard: 'View Weekly Leaderboard',
+      points: '{{score}} pts this week',
+    },
+    monthly: {
+      periodName: 'Monthly',
+      title: 'Monthly Leaderboard',
+      viewLeaderboard: 'View Monthly Leaderboard',
+      points: '{{score}} pts this month',
+    },
+    neutral: {
+      title: 'Leaderboard',
+      viewLeaderboard: 'View Leaderboard',
+      points: '{{score}} pts',
+    },
   },
   share: {
     cta: 'Share result',

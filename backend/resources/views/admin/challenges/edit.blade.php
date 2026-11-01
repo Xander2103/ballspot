@@ -41,6 +41,14 @@
     @endif
 </div>
 
+@if($locked)
+<div class="alert alert-warning" style="max-width: 740px;" data-challenge-locked>
+    <strong>Played challenge: image, ball position and sport are locked.</strong>
+    Results and rankings depend on them. Title, category, tags, difficulty, status and pool can still change.
+    To correct a photo or ball position, create a new challenge.
+</div>
+@endif
+
 <div class="card shadow-sm" style="max-width: 740px;">
     <div class="card-body">
         <form action="/admin/challenges/{{ $challenge->id }}" method="POST" enctype="multipart/form-data">
@@ -81,7 +89,7 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="sport_id" class="form-label fw-semibold">Sport</label>
-                    <select id="sport_id" name="sport_id" class="form-select @error('sport_id') is-invalid @enderror">
+                    <select id="sport_id" name="sport_id" class="form-select @error('sport_id') is-invalid @enderror" @disabled($locked)>
                         @foreach($sports as $sport)
                         <option value="{{ $sport->id }}"
                             {{ (string) old('sport_id', $challenge->sport_id) === (string) $sport->id ? 'selected' : '' }}>
@@ -121,7 +129,7 @@
             {{-- Section: Hidden image --}}
             <hr class="my-4">
             <h6 class="fw-semibold mb-1">Hidden Image</h6>
-            <p class="text-muted small mb-3">What players see while guessing. Click the image to reposition the ball marker.</p>
+            <p class="text-muted small mb-3">What players see while guessing.@unless($locked) Click the image to reposition the ball marker.@endunless</p>
 
             @if($challenge->hidden_image_path)
             <div id="hidden-picker" class="image-picker-container mb-1">
@@ -133,6 +141,7 @@
             <p class="text-muted small mb-3">Current: <span id="coords-display">x={{ $ballX }}, y={{ $ballY }}</span></p>
             @endif
 
+            @unless($locked)
             <div class="mb-3">
                 <label for="hidden_image" class="form-label fw-semibold">Replace Hidden Image <span class="text-muted fw-normal small">(optional)</span></label>
                 <input type="file" id="hidden_image" name="hidden_image"
@@ -149,11 +158,12 @@
                 </div>
                 <p class="text-muted small mt-1">Click to place the marker on the new image.</p>
             </div>
+            @endunless
 
             {{-- Section: Reveal image --}}
             <hr class="my-4">
             <h6 class="fw-semibold mb-1">Reveal Image</h6>
-            <p class="text-muted small mb-3">Shown after guessing. Click to set ball position precisely — the ball is visible here.</p>
+            <p class="text-muted small mb-3">Shown after guessing.@unless($locked) Click to set ball position precisely — the ball is visible here.@endunless</p>
 
             @if($challenge->original_image_path)
             <div id="reveal-picker" class="image-picker-container mb-1">
@@ -162,9 +172,10 @@
                     left:{{ $ballX * 100 }}%;
                     top:{{ $ballY * 100 }}%;"></div>
             </div>
-            <p class="text-muted small mb-3">Click above to reposition from the reveal image.</p>
+            @unless($locked)<p class="text-muted small mb-3">Click above to reposition from the reveal image.</p>@endunless
             @endif
 
+            @unless($locked)
             <div class="mb-3">
                 <label for="original_image" class="form-label fw-semibold">{{ $challenge->original_image_path ? 'Replace Reveal Image' : 'Add Reveal Image' }} <span class="text-muted fw-normal small">(optional)</span></label>
                 <input type="file" id="original_image" name="original_image"
@@ -181,18 +192,19 @@
                 </div>
                 <p class="text-muted small mt-1">Click to set position from the new reveal image.</p>
             </div>
+            @endunless
 
             {{-- Ball position --}}
             <hr class="my-4">
             <h6 class="fw-semibold mb-1">Ball Position <span class="text-danger">*</span></h6>
-            <p class="text-muted small mb-3">Set by clicking any image above, or enter manually. 0 = left/top, 1 = right/bottom.</p>
+            <p class="text-muted small mb-3">@unless($locked)Set by clicking any image above, or enter manually. @endunless 0 = left/top, 1 = right/bottom.</p>
 
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <label for="ball_x_ratio" class="form-label fw-semibold">X (horizontal)</label>
                     <input type="number" id="ball_x_ratio" name="ball_x_ratio"
                            class="form-control @error('ball_x_ratio') is-invalid @enderror"
-                           value="{{ $ballX }}" min="0" max="1" step="0.001" required>
+                           value="{{ $ballX }}" min="0" max="1" step="0.001" @if($locked) disabled @else required @endif>
                     @error('ball_x_ratio')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
 
@@ -200,7 +212,7 @@
                     <label for="ball_y_ratio" class="form-label fw-semibold">Y (vertical)</label>
                     <input type="number" id="ball_y_ratio" name="ball_y_ratio"
                            class="form-control @error('ball_y_ratio') is-invalid @enderror"
-                           value="{{ $ballY }}" min="0" max="1" step="0.001" required>
+                           value="{{ $ballY }}" min="0" max="1" step="0.001" @if($locked) disabled @else required @endif>
                     @error('ball_y_ratio')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
             </div>
@@ -313,6 +325,7 @@
         var img    = document.getElementById(p.imgId);
         if (!picker || !img) return;
         picker.addEventListener('click', function (e) {
+            if (xInput.disabled) return; // played challenge: the marker stays put
             var rect = img.getBoundingClientRect();
             applyPosition(
                 Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width)),

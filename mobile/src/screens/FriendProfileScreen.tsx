@@ -14,6 +14,7 @@ import { rarityColor } from '../theme/rarity';
 import { getRankVisualStyle } from '../theme/rankVisuals';
 import { useI18n } from '../i18n';
 import type { PublicProfile } from '../types/friend';
+import { publicPlayerName } from '../utils/playerName';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FriendProfile'>;
 
@@ -78,9 +79,8 @@ export function FriendProfileScreen({ route, navigation }: Props) {
   return (
     <Screen scroll padding>
       <View style={styles.header}>
-        <Avatar uri={profile.avatar_url} name={profile.name} size={88} />
-        <Text style={styles.name}>{profile.name}</Text>
-        <Text style={styles.username}>@{profile.username}</Text>
+        <Avatar uri={profile.avatar_url} name={publicPlayerName(profile)} size={88} />
+        <Text style={styles.name}>{publicPlayerName(profile)}</Text>
       </View>
 
       <View style={[styles.rankCard, getRankVisualStyle(profile.rank?.level, theme)]}>
@@ -127,7 +127,7 @@ export function FriendProfileScreen({ route, navigation }: Props) {
       <ConfirmModal
         visible={confirmRemove}
         title={t('friends.remove.title')}
-        message={t('friends.remove.message', { name: profile.name })}
+        message={t('friends.remove.message', { name: publicPlayerName(profile) })}
         confirmLabel={t('friends.remove.confirm')}
         cancelLabel={t('common.buttons.cancel')}
         onConfirm={handleRemove}
@@ -157,7 +157,6 @@ function createStyles(theme: ThemeTokens) {
     body: { fontSize: 14, color: theme.textSecondary },
     header: { alignItems: 'center', marginBottom: spacing.lg },
     name: { fontSize: 22, fontWeight: '800', color: theme.text, marginTop: spacing.sm },
-    username: { fontSize: 14, color: theme.textSecondary },
     rankCard: { backgroundColor: theme.surface, borderRadius: 14, borderWidth: 1, borderColor: theme.border, padding: spacing.md, alignItems: 'center', marginBottom: spacing.lg },
     rankName: { fontSize: 18, fontWeight: '800', color: theme.primary },
     rankMeta: { fontSize: 13, color: theme.textSecondary, marginTop: 2 },

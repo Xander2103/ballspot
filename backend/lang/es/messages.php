@@ -59,6 +59,11 @@ return [
         'no_guess' => 'Juega primero el desafío diario de hoy antes de compartir su resultado.',
     ],
 
+    'player' => [
+        'fallback' => 'Jugador #:id',
+        'deleted'  => 'Jugador eliminado',
+    ],
+
     'friends' => [
         'code_not_found'     => 'No se encontró ningún jugador con ese código de amigo.',
         'self'               => 'No puedes añadirte a ti mismo como amigo.',

@@ -174,9 +174,15 @@ class AccountReRegistrationTest extends TestCase
         // Make the anonymizing UPDATE blow up at the database level. The token
         // revocation and side-table deletes ran BEFORE it inside the same
         // transaction, so they must all roll back.
-        \Illuminate\Support\Facades\DB::unprepared(
-            "CREATE TRIGGER block_anon BEFORE UPDATE ON users WHEN NEW.name = 'Deleted User' BEGIN SELECT RAISE(ABORT, 'simulated failure'); END;"
-        );
+        // A query listener instead of a trigger: trigger syntax differs per
+        // database, and CREATE TRIGGER commits implicitly on MariaDB.
+        \Illuminate\Support\Facades\DB::listen(function ($query) {
+            if (str_starts_with($query->sql, 'update `users`') || str_starts_with($query->sql, 'update "users"')) {
+                if (in_array('Deleted User', $query->bindings, true)) {
+                    throw new \RuntimeException('simulated failure');
+                }
+            }
+        });
 
         $this->withToken($token)->deleteJson('/api/account')->assertStatus(500);
 

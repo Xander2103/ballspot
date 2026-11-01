@@ -125,22 +125,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Leaderboard
-    |--------------------------------------------------------------------------
-    | Visible label for the recurring daily-challenge leaderboard period. The
-    | aggregation window is currently WEEKLY (Mon–Sun, see
-    | DailyChallengeController::weeklyLeaderboard). Changing this label alone is a
-    | UI-only rename; a real "Monthly" competition ALSO requires changing that
-    | window (and the weekly rank query) — deliberately out of scope for now.
-    | The label is echoed in the weekly leaderboard API response as `period_label`
-    | so the mobile app never hardcodes "Weekly".
-    */
-    'leaderboard' => [
-        'period_label' => env('BALLPICKER_LEADERBOARD_PERIOD_LABEL', 'Weekly'),
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | Competition period (daily-challenge leaderboard window)
     |--------------------------------------------------------------------------
     | Drives the recurring leaderboard aggregation window AND the top-10% badge.
@@ -149,6 +133,10 @@ return [
     | boundary (defaults to the app timezone). Changing this changes what the
     | leaderboard and the weekly_top_10 badge aggregate — deliberately one knob.
     */
+    // Wipes all daily results, and with them the rankings. Refused on production
+    // unless deliberately enabled; see DailyHistoryClearService::isAllowed().
+    'allow_daily_history_clear' => env('BALLPICKER_ALLOW_DAILY_HISTORY_CLEAR', false),
+
     'competition' => [
         'period'   => env('BALLPICKER_COMPETITION_PERIOD', 'monthly'), // weekly | monthly
         'label'    => env('BALLPICKER_COMPETITION_LABEL'),             // optional override

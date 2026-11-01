@@ -37,7 +37,7 @@
 <p>Challenge images are managed by the BallPicker team. We aim to use appropriately licensed imagery. If you believe any content infringes your rights, please contact us immediately.</p>
 
 <h2>Your content and conduct</h2>
-<p>Your display name, username and profile picture are visible to other signed-in players. You are responsible for what you upload, and you agree not to use:</p>
+<p>Your username and profile picture are visible to other signed-in players. You are responsible for what you upload, and you agree not to use:</p>
 <ul>
     <li>sexually explicit, violent, hateful or otherwise objectionable images or names;</li>
     <li>content that impersonates another person or organisation;</li>

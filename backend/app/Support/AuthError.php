@@ -24,6 +24,7 @@ final class AuthError
     // Registration
     public const EMAIL_TAKEN        = 'email_taken';
     public const USERNAME_TAKEN     = 'username_taken';
+    public const USERNAME_INVALID   = 'username_invalid';
     public const PASSWORD_MISMATCH  = 'password_mismatch';
     public const VALIDATION_FAILED  = 'validation_failed';
     // Login
@@ -73,6 +74,7 @@ final class AuthError
     public const MESSAGES = [
         self::EMAIL_TAKEN        => 'An account with this email already exists. Please log in or reset your password.',
         self::USERNAME_TAKEN     => 'This username is already taken.',
+        self::USERNAME_INVALID   => 'Use only letters, numbers, dots, dashes or underscores. No spaces or @.',
         self::PASSWORD_MISMATCH  => 'Passwords do not match.',
         self::VALIDATION_FAILED  => 'Please check the highlighted fields.',
         self::INVALID_CREDENTIALS => 'Invalid email or password.',

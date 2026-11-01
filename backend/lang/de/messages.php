@@ -59,6 +59,11 @@ return [
         'no_guess' => 'Spiele zuerst die heutige Tages-Challenge, bevor du das Ergebnis teilst.',
     ],
 
+    'player' => [
+        'fallback' => 'Spieler #:id',
+        'deleted'  => 'Gelöschter Spieler',
+    ],
+
     'friends' => [
         'code_not_found'     => 'Kein Spieler mit diesem Freundescode gefunden.',
         'self'               => 'Du kannst dich nicht selbst als Freund hinzufügen.',

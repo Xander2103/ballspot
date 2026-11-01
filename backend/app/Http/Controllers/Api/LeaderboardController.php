@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\LeaderboardEntryResource;
 use App\Models\League;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -25,17 +26,32 @@ class LeaderboardController extends Controller
             ->select(
                 'users.id as user_id',
                 'users.username',
-                'users.name',
                 DB::raw('SUM(guesses.score) as total_score'),
                 DB::raw('COUNT(guesses.id) as guesses_count'),
                 DB::raw('ROUND(AVG(guesses.score), 1) as avg_score')
             )
-            ->groupBy('users.id', 'users.username', 'users.name')
+            ->groupBy('users.id', 'users.username')
+            // Same order as TournamentCompletionService::calculateStandings, so the
+            // live board never disagrees with the final placement on a tie.
             ->orderByDesc('total_score')
+            ->orderByRaw('MAX(guesses.submitted_at) ASC')
+            ->orderBy('users.id')
             // Tournaments are capped at 8 players; this is a pure safety net.
             ->limit(100)
             ->get()
+            // The real name is not even selected. `meta` re-serializes these rows,
+            // so the public identity has to be set here, not in the resource.
+            //
+            // SUM() and AVG() are DECIMAL on MariaDB/MySQL, which PDO returns as
+            // strings ("100"); SQLite returns numbers. The API contract is numeric
+            // on every database, and the app hides a score that is not a number.
             ->map(fn($row, $i) => array_merge((array) $row, [
+                'user_id' => (int) $row->user_id,
+                'username' => $publicName = User::publicNameFor($row->user_id, $row->username),
+                'name' => $publicName,
+                'total_score' => (int) $row->total_score,
+                'guesses_count' => (int) $row->guesses_count,
+                'avg_score' => round((float) $row->avg_score, 1),
                 'rank' => $i + 1,
                 'is_current_user' => (int) $row->user_id === $currentUserId,
             ]));

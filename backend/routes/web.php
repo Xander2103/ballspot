@@ -67,6 +67,10 @@ Route::prefix('admin')->middleware('admin')->group(function () {
 
     Route::get('competition', [\App\Http\Controllers\Admin\CompetitionController::class, 'index'])->name('admin.competition.index');
 
+    // Player lookup + read-only player file (holds personal data; access is logged).
+    Route::get('players', [\App\Http\Controllers\Admin\PlayerController::class, 'index'])->name('admin.players.index');
+    Route::get('players/{user}', [\App\Http\Controllers\Admin\PlayerController::class, 'show'])->whereNumber('user')->name('admin.players.show');
+
     Route::get('sports', [\App\Http\Controllers\Admin\SportController::class, 'index'])->name('admin.sports.index');
     Route::get('sports/create', [\App\Http\Controllers\Admin\SportController::class, 'create'])->name('admin.sports.create');
     Route::post('sports', [\App\Http\Controllers\Admin\SportController::class, 'store'])->name('admin.sports.store');

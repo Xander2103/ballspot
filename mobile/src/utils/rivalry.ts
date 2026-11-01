@@ -1,5 +1,6 @@
 import { LeaderboardEntry } from '../types/guess';
 import { translate as t } from '../i18n/core';
+import { publicPlayerName } from './playerName';
 
 /**
  * Pure rivalry-status helpers for the tournament detail screen. Both return
@@ -26,9 +27,6 @@ function points(n: number): string {
   return t('tournaments.rivalry.points', { count: n });
 }
 
-function displayName(e: LeaderboardEntry): string {
-  return e.name || e.username || t('tournaments.rivalry.aPlayer');
-}
 
 export function rivalryLine(entries: LeaderboardEntry[] | null | undefined): string | null {
   if (!Array.isArray(entries) || entries.length < 2) return null;
@@ -55,12 +53,12 @@ export function rivalryLine(entries: LeaderboardEntry[] | null | undefined): str
     const deficit = leaderScore - myScore;
     return deficit === 0
       ? t('tournaments.rivalry.tied')
-      : t('tournaments.rivalry.behind', { points: points(deficit), name: displayName(leader) });
+      : t('tournaments.rivalry.behind', { points: points(deficit), name: publicPlayerName(leader) });
   }
   const margin = leaderScore - secondScore;
   return margin === 0
     ? t('tournaments.rivalry.tied')
-    : t('tournaments.rivalry.leaderLeads', { name: displayName(leader), points: points(margin) });
+    : t('tournaments.rivalry.leaderLeads', { name: publicPlayerName(leader), points: points(margin) });
 }
 
 export function daysLeftLabel(endsAt: string | null | undefined, now: Date = new Date()): string | null {

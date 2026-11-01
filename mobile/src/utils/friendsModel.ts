@@ -38,11 +38,11 @@ export function checkFriendCode(
   return { ok: true, code };
 }
 
-/** Case-insensitive match on display name or username; the full list for an empty query. */
-export function filterFriends<T extends Pick<FriendSummary, 'name' | 'username'>>(friends: T[], query: string): T[] {
+/** Case-insensitive match on username; the full list for an empty query. */
+export function filterFriends<T extends Pick<FriendSummary, 'username'>>(friends: T[], query: string): T[] {
   const q = query.trim().toLowerCase();
   if (!q) return friends;
-  return friends.filter((f) => f.name.toLowerCase().includes(q) || f.username.toLowerCase().includes(q));
+  return friends.filter((f) => f.username.toLowerCase().includes(q));
 }
 
 export type SuggestionState = 'add' | 'sending' | 'pending' | 'friend';

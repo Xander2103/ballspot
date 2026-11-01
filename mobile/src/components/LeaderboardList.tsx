@@ -4,6 +4,7 @@ import { LeaderboardEntry } from '../types/guess';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
+import { publicPlayerName } from '../utils/playerName';
 
 interface Props {
   entries: LeaderboardEntry[];
@@ -14,6 +15,8 @@ interface Props {
    * preview on the tournament detail screen).
    */
   style?: StyleProp<ViewStyle>;
+  /** False when nested in a ScrollView: the parent scrolls, not this list. */
+  scrollEnabled?: boolean;
 }
 
 function getRankEmoji(rank: number) {
@@ -29,10 +32,9 @@ function EntryRow({ item }: { item: LeaderboardEntry }) {
     <View style={[styles.row, item.is_current_user && styles.rowHighlight]}>
       <Text style={styles.rank}>{getRankEmoji(item.rank)}</Text>
       <View style={styles.info}>
-        <Text style={[styles.name, item.is_current_user && styles.nameHighlight]}>
-          {item.name}{item.is_current_user ? ` ${t('game.leaderboard.youSuffix')}` : ''}
+        <Text style={[styles.name, item.is_current_user && styles.nameHighlight]} numberOfLines={1}>
+          {publicPlayerName(item)}{item.is_current_user ? ` ${t('game.leaderboard.youSuffix')}` : ''}
         </Text>
-        <Text style={styles.username}>@{item.username}</Text>
       </View>
       <View style={styles.scoreBox}>
         <Text style={[styles.score, item.is_current_user && styles.scoreHighlight]}>{item.total_score}</Text>
@@ -42,7 +44,7 @@ function EntryRow({ item }: { item: LeaderboardEntry }) {
   );
 }
 
-export function LeaderboardList({ entries, style }: Props) {
+export function LeaderboardList({ entries, style, scrollEnabled }: Props) {
   const { t } = useI18n();
   if (entries.length === 0) {
     return (
@@ -60,6 +62,7 @@ export function LeaderboardList({ entries, style }: Props) {
       renderItem={({ item }) => <EntryRow item={item} />}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       style={style}
+      scrollEnabled={scrollEnabled}
       contentContainerStyle={styles.listContent}
     />
   );
@@ -68,11 +71,10 @@ export function LeaderboardList({ entries, style }: Props) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, paddingHorizontal: spacing.md },
   rowHighlight: { backgroundColor: colors.surfaceElevated },
-  rank: { fontSize: 22, width: 44, textAlign: 'center' },
+  rank: { fontSize: 22, width: 44, textAlign: 'center', color: colors.textSecondary },
   info: { flex: 1, marginLeft: spacing.sm },
   name: { fontSize: 15, fontWeight: '700', color: colors.text },
   nameHighlight: { color: colors.primary },
-  username: { fontSize: 12, color: colors.textSecondary },
   scoreBox: { alignItems: 'flex-end' },
   score: { fontSize: 20, fontWeight: '700', color: colors.primary },
   scoreHighlight: { color: colors.warning },

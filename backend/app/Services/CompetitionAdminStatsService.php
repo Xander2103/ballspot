@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\CompetitionFinish;
 use App\Models\DailyChallengeGuess;
+use App\Models\TournamentFinish;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\Schema;
 class CompetitionAdminStatsService
 {
     public const LEADERBOARD_PREVIEW_ROWS = 10;
+
+    public const RECENT_WINNER_ROWS = 9;
 
     /** Badges the close flow awards for a monthly period (BadgeService::evaluateCompetitionFinish). */
     public const COMPETITION_BADGES = ['monthly_winner', 'monthly_podium', 'monthly_top_10'];
@@ -50,6 +53,7 @@ class CompetitionAdminStatsService
             'current'      => $this->currentPeriod($current, $currentStandings, $now),
             'previous'     => $this->previousPeriod($previous, $previousStandings),
             'leaderboard'  => $this->leaderboardPreview($currentStandings),
+            'winners'      => $this->recentWinners(),
             'accounts'     => $this->accounts($now),
             'config'       => $this->config(),
             'commands'     => $this->commands($previous),
@@ -163,6 +167,7 @@ class CompetitionAdminStatsService
 
             $rows[] = [
                 'placement'         => $row['placement'],
+                'user_id'           => (int) $user->id,
                 'username'          => $user->username,
                 'total_score'       => $row['total_score'],
                 'challenges_played' => $row['challenges_played'],
@@ -172,6 +177,44 @@ class CompetitionAdminStatsService
         }
 
         return $rows;
+    }
+
+    /**
+     * Recorded podiums and tournament wins. The dossier link uses the stored
+     * user_id only: a username is display text and can never identify a winner.
+     * user_id is null when the account row is gone, which renders without a link.
+     *
+     * @return array{competitions: array<int,array>, tournaments: array<int,array>}
+     */
+    private function recentWinners(): array
+    {
+        $competitions = CompetitionFinish::where('placement', '<=', 3)
+            ->with('user:id,username')
+            ->orderByDesc('period_end')->orderBy('placement')
+            ->limit(self::RECENT_WINNER_ROWS)
+            ->get()
+            ->map(fn (CompetitionFinish $f) => [
+                'label'       => $f->period_label,
+                'placement'   => $f->placement,
+                'user_id'     => $f->user_id,
+                'username'    => $f->user?->username,
+                'total_score' => $f->total_score,
+            ])->all();
+
+        $tournaments = TournamentFinish::where('placement', 1)
+            ->with(['user:id,username', 'league:id,name'])
+            ->orderByDesc('created_at')->orderByDesc('id')
+            ->limit(self::RECENT_WINNER_ROWS)
+            ->get()
+            ->map(fn (TournamentFinish $f) => [
+                'label'       => $f->league?->name,
+                'placement'   => $f->placement,
+                'user_id'     => $f->user_id,
+                'username'    => $f->user?->username,
+                'total_score' => $f->total_score,
+            ])->all();
+
+        return ['competitions' => $competitions, 'tournaments' => $tournaments];
     }
 
     // ------------------------------------------------------------------

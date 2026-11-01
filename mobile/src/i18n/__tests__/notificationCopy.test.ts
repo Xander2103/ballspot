@@ -101,3 +101,12 @@ describe('one permission flow', () => {
     expect(read('app/useNotificationInvite.ts')).toContain('Linking.openSettings()');
   });
 });
+
+describe('tournament leaderboard row copy', () => {
+  it.each(Object.entries(LOCALES))('%s has singular and plural round counts', (_name, locale) => {
+    const stats = (locale as any).game.leaderboard;
+    expect(stats.rowStats_one).toContain('{{count}}');
+    expect(stats.rowStats_other).toContain('{{count}}');
+    expect(stats.rowStats_one).not.toBe(stats.rowStats_other);
+  });
+});

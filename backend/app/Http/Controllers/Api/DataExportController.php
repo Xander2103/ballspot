@@ -61,16 +61,15 @@ class DataExportController extends Controller
                 ->get(['platform', 'created_at', 'last_seen_at']),
 
             // Who the subject is connected to. Only the counterpart's public
-            // identity (username/display name) — never their email or their
+            // identity (the username) — never their real name, email or
             // friend_code, which are that other person's data, not the
-            // subject's. `DataExportTest` asserts both exclusions.
+            // subject's. `DataExportTest` asserts these exclusions.
             'friends' => $user->friends()
                 ->orderBy('username')
                 ->limit(self::MAX_ROWS)
                 ->get()
                 ->map(fn ($f) => [
-                    'username'  => $f->username,
-                    'name'      => $f->name,
+                    ...$f->publicIdentity(),
                     'friends_since' => $f->pivot?->created_at?->toISOString(),
                 ]),
 
@@ -79,22 +78,20 @@ class DataExportController extends Controller
             // would understate what is actually held about the subject.
             'friend_requests' => [
                 'incoming' => FriendRequest::where('recipient_id', $user->id)
-                    ->with('requester:id,username,name')
+                    ->with('requester:id,username,anonymized_at')
                     ->limit(self::MAX_ROWS)
                     ->get()
                     ->map(fn ($r) => [
-                        'username'   => $r->requester?->username,
-                        'name'       => $r->requester?->name,
+                        ...($r->requester?->publicIdentity() ?? ['name' => null, 'username' => null]),
                         'status'     => $r->status,
                         'created_at' => $r->created_at?->toISOString(),
                     ]),
                 'outgoing' => FriendRequest::where('requester_id', $user->id)
-                    ->with('recipient:id,username,name')
+                    ->with('recipient:id,username,anonymized_at')
                     ->limit(self::MAX_ROWS)
                     ->get()
                     ->map(fn ($r) => [
-                        'username'   => $r->recipient?->username,
-                        'name'       => $r->recipient?->name,
+                        ...($r->recipient?->publicIdentity() ?? ['name' => null, 'username' => null]),
                         'status'     => $r->status,
                         'created_at' => $r->created_at?->toISOString(),
                     ]),
@@ -125,9 +122,7 @@ class DataExportController extends Controller
                     'submitted_at' => $g->submitted_at?->toISOString(),
                 ]),
 
-            'tournament_guesses_summary' => Guess::where('user_id', $user->id)
-                ->selectRaw('COUNT(*) as count, COALESCE(SUM(score), 0) as total_score, ROUND(AVG(score), 1) as average_score')
-                ->first(),
+            'tournament_guesses_summary' => $this->tournamentGuessSummary($user),
 
             'tournament_finishes' => TournamentFinish::where('user_id', $user->id)
                 ->orderByDesc('created_at')
@@ -151,5 +146,19 @@ class DataExportController extends Controller
                     'completed_at' => $a->completed_at?->toISOString(),
                 ]),
         ]);
+    }
+
+    /** Numbers on every database: SUM/AVG are DECIMAL strings on MariaDB/MySQL. */
+    private function tournamentGuessSummary(\App\Models\User $user): array
+    {
+        $row = Guess::where('user_id', $user->id)
+            ->selectRaw('COUNT(*) as count, COALESCE(SUM(score), 0) as total_score, AVG(score) as average_score')
+            ->first();
+
+        return [
+            'count'         => (int) $row->count,
+            'total_score'   => (int) $row->total_score,
+            'average_score' => $row->average_score === null ? null : round((float) $row->average_score, 1),
+        ];
     }
 }

@@ -59,6 +59,11 @@ return [
         'no_guess' => 'Play today\'s daily challenge before sharing its result.',
     ],
 
+    'player' => [
+        'fallback' => 'Player #:id',
+        'deleted'  => 'Deleted player',
+    ],
+
     'friends' => [
         'code_not_found'     => 'No player found with that friend code.',
         'self'               => 'You cannot add yourself as a friend.',

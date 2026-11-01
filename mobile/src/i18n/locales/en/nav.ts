@@ -24,7 +24,6 @@ export const nav = {
     roundResult: 'Round Result',
     dailyChallenge: 'Daily Ball Challenge',
     dailyResult: 'Daily Result',
-    weeklyLeaderboard: 'Weekly Leaderboard',
     leaderboard: 'Leaderboard',
     scanFriendCode: 'Scan friend code',
     settings: 'Settings',

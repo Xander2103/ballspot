@@ -72,6 +72,73 @@ class User extends Authenticatable implements MustVerifyEmail, HasLocalePreferen
         return static::query()->whereRaw('LOWER(email) = ?', [$normalized])->first();
     }
 
+    /**
+     * Allowed shape of a NEW username: letters and digits in any script plus
+     * . _ - (never first). Excludes spaces, @ and invisible characters, so an
+     * email address or a look-alike can no longer become a public identity.
+     * Existing accounts are never re-validated against this.
+     */
+    public const USERNAME_PATTERN = '/^[\p{L}\p{N}][\p{L}\p{M}\p{N}._-]*$/u';
+
+    /** deleted-{id} is what AccountDeletionService writes: registering it would break that later delete. */
+    public const RESERVED_USERNAME_PATTERN = '/^deleted-\d+$/i';
+
+    /** Canonical stored form of a username: trimmed, NFC, no leading @. Case is kept for display. */
+    public static function normalizeUsername(?string $username): string
+    {
+        $value = trim((string) $username);
+        if (class_exists(\Normalizer::class)) {
+            $value = \Normalizer::normalize($value, \Normalizer::FORM_C) ?: $value;
+        }
+
+        return trim(ltrim($value, '@'));
+    }
+
+    /** Case-insensitive "already taken" check, independent of the database collation. */
+    public static function usernameIsTaken(string $username): bool
+    {
+        return static::query()->whereRaw('LOWER(username) = ?', [mb_strtolower($username)])->exists();
+    }
+
+    /**
+     * THE public identity of a player: every API field another player can see
+     * goes through here. The real name and email are deliberately not inputs,
+     * so they cannot reach a public surface through this path. A missing or
+     * email-shaped legacy username falls back to a neutral label.
+     */
+    public static function publicNameFor(int|string|null $id, ?string $username, bool $anonymized = false): string
+    {
+        if ($anonymized) {
+            return (string) __('messages.player.deleted');
+        }
+
+        $value = trim(ltrim(trim((string) $username), '@'));
+        if ($value === '' || preg_match('/[^@\s]@[^@\s]/', $value)) {
+            return (string) __('messages.player.fallback', ['id' => (int) $id]);
+        }
+
+        return $value;
+    }
+
+    public function publicName(): string
+    {
+        return self::publicNameFor($this->id, $this->username, $this->anonymized_at !== null);
+    }
+
+    /**
+     * The `name` + `username` pair for another player's API payload. Both keys
+     * stay because published apps read `name` first (`name || username`), so it
+     * must carry the username rather than disappear.
+     *
+     * @return array{name: string, username: string}
+     */
+    public function publicIdentity(): array
+    {
+        $name = $this->publicName();
+
+        return ['name' => $name, 'username' => $name];
+    }
+
     /** Login codes are sent only when the user opted in (or the global force flag is on). */
     public function wantsLoginTwoFactor(): bool
     {

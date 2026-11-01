@@ -63,8 +63,7 @@ class PublicProfileController extends Controller
         return response()->json([
             'data' => [
                 'id'         => $user->id,
-                'name'       => $user->name,
-                'username'   => $user->username,
+                ...$user->publicIdentity(),
                 'avatar_url' => $user->avatarUrl(),
                 'rank'       => $rank,
                 'total_xp'   => $rank['total_xp'],

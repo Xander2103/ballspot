@@ -7,15 +7,19 @@ class UserResource extends JsonResource
 {
     public function toArray($request): array
     {
-        $isSelf = $request->user()?->id === $this->id;
+        $viewer = $request->user();
+        $isSelf = $viewer?->id === $this->id;
+        // Auth responses have no viewer yet but always describe the caller's own
+        // account. Another signed-in player only ever gets the public identity.
+        $viewingOther = $viewer !== null && !$isSelf;
 
         // Every optional field carries a safe default: a row from before a
         // column existed (NULL theme/language/2FA) must still render a full
         // profile — the app treats a missing field as a broken response.
         return [
             'id'             => $this->id,
-            'name'           => (string) ($this->name ?? ''),
-            'username'       => (string) ($this->username ?? ''),
+            'name'           => $viewingOther ? $this->publicName() : (string) ($this->name ?? ''),
+            'username'       => $viewingOther ? $this->publicName() : (string) ($this->username ?? ''),
             'email'          => $this->when($isSelf, $this->email),
             // When verification is switched off, every account counts as
             // verified — the app must never route a user to a code screen for

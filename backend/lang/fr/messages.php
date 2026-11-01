@@ -59,6 +59,11 @@ return [
         'no_guess' => 'Joue d\'abord le défi du jour avant de partager son résultat.',
     ],
 
+    'player' => [
+        'fallback' => 'Joueur #:id',
+        'deleted'  => 'Joueur supprimé',
+    ],
+
     'friends' => [
         'code_not_found'     => 'Aucun joueur trouvé avec ce code ami.',
         'self'               => 'Tu ne peux pas t\'ajouter toi-même comme ami.',

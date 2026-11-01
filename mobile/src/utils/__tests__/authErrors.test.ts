@@ -43,6 +43,13 @@ describe('mapAuthError', () => {
     });
   });
 
+  it('has copy for a refused username format', () => {
+    const info = mapAuthError({ status: 422, code: 'username_invalid', errors: { username: ['x'] }, codes: { username: 'username_invalid' } }, 'f');
+    expect(info.code).toBe('username_invalid');
+    expect(info.fieldErrors.username).toBe(authErrorMessage('username_invalid'));
+    expect(info.fieldErrors.username).toContain('letters');
+  });
+
   it('falls back to the backend field text for unknown field codes', () => {
     const info = mapAuthError(
       { status: 422, errors: { email: ['The email field must be a valid email address.'] }, codes: { email: 'email_invalid' } },

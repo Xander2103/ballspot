@@ -121,23 +121,59 @@
         <div class="card shadow-sm h-100" data-section="leaderboard">
             <div class="card-header"><strong>Leaderboard preview</strong> <span class="text-muted small">— live top {{ \App\Services\CompetitionAdminStatsService::LEADERBOARD_PREVIEW_ROWS }}, {{ $cur['period_label'] }} ({{ $cur['period_start'] }} → {{ $cur['period_end'] }})</span></div>
             <table class="table table-sm mb-0">
-                <thead><tr><th>#</th><th>Player</th><th class="text-end">Points</th><th class="text-end">Dailies</th><th class="text-end">Avg</th><th></th></tr></thead>
+                <thead><tr><th>#</th><th>Player</th><th>ID</th><th class="text-end">Points</th><th class="text-end">Dailies</th><th class="text-end">Avg</th><th></th></tr></thead>
                 <tbody>
                 @forelse($d['leaderboard'] as $row)
                     <tr>
                         <td>{{ $row['placement'] }}</td>
-                        <td>{{ $row['username'] }}</td>
+                        <td><a href="{{ route('admin.players.show', $row['user_id']) }}">{{ $row['username'] }}</a></td>
+                        <td class="text-muted small">{{ $row['user_id'] }}</td>
                         <td class="text-end fw-semibold">{{ $row['total_score'] }}</td>
                         <td class="text-end">{{ $row['challenges_played'] }}</td>
                         <td class="text-end">{{ $row['avg_score'] }}</td>
                         <td>@if($row['tied'])<span class="badge bg-light text-dark" title="Same total as a neighbour — ordered by earliest last guess, then user id">tie</span>@endif</td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="text-muted">No daily guesses in this period yet.</td></tr>
+                    <tr><td colspan="7" class="text-muted">No daily guesses in this period yet.</td></tr>
                 @endforelse
                 </tbody>
             </table>
             <div class="card-footer small text-muted">Usernames only. Deleted (anonymized) accounts are excluded exactly as on the app leaderboard. Ties are broken by the earliest last qualifying guess, then user id (same rule as the close command).</div>
+        </div>
+    </div>
+
+    {{-- Winners: always linked by stored user id, never by name --}}
+    <div class="col-12">
+        <div class="card shadow-sm" data-section="winners">
+            <div class="card-header"><strong>Recent winners</strong> <span class="text-muted small">— open the player file to see contact details</span></div>
+            <div class="row g-0">
+                @foreach(['competitions' => 'Competition podiums', 'tournaments' => 'Tournament winners'] as $key => $heading)
+                    <div class="col-lg-6">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>{{ $heading }}</th><th>#</th><th>Player</th><th>ID</th><th class="text-end">Points</th></tr></thead>
+                            <tbody>
+                            @forelse($d['winners'][$key] as $w)
+                                <tr>
+                                    <td>{{ $w['label'] ?? '—' }}</td>
+                                    <td>{{ $w['placement'] }}</td>
+                                    <td>
+                                        @if($w['user_id'])
+                                            <a href="{{ route('admin.players.show', $w['user_id']) }}">{{ $w['username'] ?? 'Open file' }}</a>
+                                        @else
+                                            <span class="text-muted">Account removed</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-muted small">{{ $w['user_id'] ?? '—' }}</td>
+                                    <td class="text-end">{{ $w['total_score'] }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="5" class="text-muted">None recorded yet.</td></tr>
+                            @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                @endforeach
+            </div>
         </div>
     </div>
 

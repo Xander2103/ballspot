@@ -504,14 +504,8 @@ class BadgeService
         $weekStart = $period->start();
         $weekEnd   = $period->end();
 
-        $scores = DailyChallengeGuess::whereHas('dailyChallenge', function ($q) use ($weekStart, $weekEnd) {
-            $q->whereBetween('challenge_date', [$weekStart, $weekEnd]);
-        })
-            ->selectRaw('user_id, SUM(score) as total_score')
-            ->groupBy('user_id')
-            ->orderByDesc('total_score')
-            ->pluck('user_id')
-            ->values();
+        // Same ranking as the leaderboard, including its tie-break.
+        $scores = app(\App\Services\CompetitionStandingsService::class)->rankedUserIds($weekStart, $weekEnd);
 
         // Only meaningful with a real field of players.
         if ($scores->count() < 10) {

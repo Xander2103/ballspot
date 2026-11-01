@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, Pressable } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -10,6 +10,8 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { WeeklyLeaderboardEntry, WeeklyLeaderboard } from '../types/daily';
 import { useI18n, type TranslateParams } from '../i18n';
+import { competitionCopyKeys, competitionPeriodLabel, competitionPeriodType } from '../utils/competitionPeriod';
+import { publicPlayerName } from '../utils/playerName';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'WeeklyLeaderboard'>;
 
@@ -44,7 +46,7 @@ function LeaderboardRow({ entry }: { entry: WeeklyLeaderboardEntry }) {
   const { t } = useI18n();
   const isCurrentUser = entry.is_current_user;
   const rankDisplay = RankMedal({ rank: entry.rank });
-  const displayName = entry.name || entry.username;
+  const displayName = publicPlayerName(entry);
 
   return (
     <View style={[styles.row, isCurrentUser && styles.rowHighlighted]}>
@@ -79,6 +81,12 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const listRef = useRef<FlatList<WeeklyLeaderboardEntry>>(null);
+  const periodType = competitionPeriodType(leaderboard?.period);
+
+  // The navigator's title is neutral; the response names the real period.
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: t(competitionCopyKeys(periodType).title) });
+  }, [navigation, periodType, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -124,7 +132,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
   const meta = leaderboard.meta;
   const hasRank = !!meta?.current_user_rank;
   const entries = leaderboard.data;
-  const periodLabel = leaderboard.period?.period_label ?? leaderboard.period_label ?? t('nav.titles.leaderboard');
+  const periodLabel = competitionPeriodLabel(t, leaderboard.period, leaderboard.period_label);
   const rangeStart = leaderboard.period?.period_start ?? leaderboard.week_start;
   const rangeEnd = leaderboard.period?.period_end ?? leaderboard.week_end;
   const periodRange = formatPeriodRange(t, rangeStart, rangeEnd);
@@ -152,6 +160,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
           totalPlayers={meta.total_players}
           betterThanPercentage={meta.better_than_percentage}
           score={meta.current_user_score}
+          periodType={periodType}
         />
       ) : (
         <View style={styles.noRankCard}>
@@ -182,7 +191,7 @@ export function WeeklyLeaderboardScreen({ navigation }: Props) {
           <Text style={styles.colHeaderText}>{t('daily.leaderboard.columns.player')}</Text>
         </View>
         <View style={styles.scoreCell}>
-          <Text style={[styles.colHeaderText, styles.colHeaderRight]}>{t('common.labels.score')}</Text>
+          <Text style={[styles.colHeaderText, styles.colHeaderRight]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t('common.labels.score')}</Text>
         </View>
       </View>
 
@@ -300,7 +309,7 @@ const styles = StyleSheet.create({
   },
   list: {
     // Bound the list so it scrolls internally instead of pushing the footer /
-    // "Back Home" button off-screen when a week has many players.
+    // "Back Home" button off-screen when a period has many players.
     flex: 1,
   },
   listContent: {

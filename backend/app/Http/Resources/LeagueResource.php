@@ -50,8 +50,7 @@ class LeagueResource extends JsonResource
             'members'                => $this->whenLoaded('members', function () {
                 return $this->members->map(fn($m) => [
                     'id'        => $m->id,
-                    'name'      => $m->name,
-                    'username'  => $m->username,
+                    ...$m->publicIdentity(),
                     'is_owner'  => (int) $m->id === (int) $this->owner_user_id,
                     'joined_at' => $m->pivot?->joined_at
                         ? \Carbon\Carbon::parse($m->pivot->joined_at)->toISOString()

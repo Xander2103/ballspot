@@ -34,6 +34,9 @@ class RegisterRequest extends FormRequest
         if (is_string($this->input('email'))) {
             $this->merge(['email' => \App\Models\User::normalizeEmail($this->input('email'))]);
         }
+        if (is_string($this->input('username'))) {
+            $this->merge(['username' => \App\Models\User::normalizeUsername($this->input('username'))]);
+        }
     }
 
     public function rules(): array
@@ -46,7 +49,15 @@ class RegisterRequest extends FormRequest
         // anyway, and a 422 here beats a 500 there.
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'username' => ['required', 'string', 'max:50', 'unique:users,username'],
+            // The username is the public identity, so it is checked in any case:
+            // "Xander" and "xander" can never be two players (SQLite's UNIQUE
+            // index is case-sensitive; the MariaDB collation already agrees).
+            'username' => [
+                'required', 'string', 'max:50',
+                'regex:' . \App\Models\User::USERNAME_PATTERN,
+                'not_regex:' . \App\Models\User::RESERVED_USERNAME_PATTERN,
+                new \App\Rules\UsernameAvailable(),
+            ],
             // max:255 = the column width; a longer valid-RFC address would pass
             // validation and then fail the INSERT as a 500.
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
@@ -170,7 +181,7 @@ class RegisterRequest extends FormRequest
     {
         return match (true) {
             $field === 'email'    && in_array('Unique', $rules, true)    => AuthError::EMAIL_TAKEN,
-            $field === 'username' && in_array('Unique', $rules, true)    => AuthError::USERNAME_TAKEN,
+            $field === 'username' && in_array(\App\Rules\UsernameAvailable::class, $rules, true) => AuthError::USERNAME_TAKEN,
             $field === 'password' && in_array('Confirmed', $rules, true) => AuthError::PASSWORD_MISMATCH,
             // Never a hint that a honeypot exists.
             $field === self::HONEYPOT_FIELD => AuthError::VALIDATION_FAILED,
@@ -186,7 +197,8 @@ class RegisterRequest extends FormRequest
         return [
             'beta_code.required'      => __('messages.auth.beta_code_required'),
             'email.unique'            => AuthError::message(AuthError::EMAIL_TAKEN),
-            'username.unique'         => AuthError::message(AuthError::USERNAME_TAKEN),
+            'username.regex'          => AuthError::message(AuthError::USERNAME_INVALID),
+            'username.not_regex'      => AuthError::message(AuthError::USERNAME_INVALID),
             'password.confirmed'      => AuthError::message(AuthError::PASSWORD_MISMATCH),
             'password.min'            => __('messages.auth.password_min'),
             'preferred_language.in'   => __('messages.auth.language_unsupported'),

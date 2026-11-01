@@ -55,8 +55,19 @@ export interface TodayResponse {
   next_daily?: NextDailyInfo | null;
 }
 
+/** The challenge a result was played on. */
+export interface DailyResultChallenge {
+  id: number;
+  title: string;
+  difficulty?: string | null;
+  hidden_image_url: string | null;
+  category: { id: number; name: string; slug: string } | null;
+}
+
 export interface DailyGuessResult {
   id: number;
+  /** Date (Y-m-d) of the daily this guess belongs to. Absent on an older backend. */
+  challenge_date?: string | null;
   score: number;
   distance: number;
   guess_x_ratio: number;
@@ -64,6 +75,8 @@ export interface DailyGuessResult {
   ball_x_ratio: number;
   ball_y_ratio: number;
   reveal_image_url: string | null;
+  /** Absent on a backend that predates this field. */
+  challenge?: DailyResultChallenge | null;
   // Rank / percentile insight for this daily challenge.
   rank: number;
   total_players: number;
@@ -78,6 +91,7 @@ export interface WeeklyLeaderboardEntry {
   rank: number;
   user_id: number;
   username: string;
+  /** Same value as `username` since the public-name change; show `username`. */
   name: string;
   total_score: number;
   challenges_played: number;
@@ -122,4 +136,6 @@ export interface DailyStats {
   average_score: number;
   best_score: number;
   weekly_rank: number | null;
+  /** The competition this rank belongs to; absent on servers before v1.7.8. */
+  period?: CompetitionPeriod;
 }

@@ -12,6 +12,7 @@
 return [
     'email_taken'        => 'Er bestaat al een account met dit e-mailadres. Log in of reset je wachtwoord.',
     'username_taken'     => 'Deze gebruikersnaam is al in gebruik.',
+    'username_invalid'   => 'Gebruik alleen letters, cijfers, punten, streepjes of underscores. Geen spaties of @.',
     'password_mismatch'  => 'De wachtwoorden komen niet overeen.',
     'validation_failed'  => 'Controleer de gemarkeerde velden.',
     'invalid_credentials' => 'Ongeldig e-mailadres of wachtwoord.',

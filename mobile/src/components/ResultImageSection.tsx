@@ -7,6 +7,7 @@ import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
 import { getSportObjectIcon, getSportObjectMarkerStyle } from '../utils/sportObject';
+import { visibleChallengeLabel } from '../utils/competitionPeriod';
 
 interface Props {
   imageUri: string;
@@ -37,6 +38,7 @@ export function ResultImageSection({
 }: Props) {
   const { t } = useI18n();
   const [fullscreen, setFullscreen] = useState(false);
+  const visibleTitle = visibleChallengeLabel(title);
 
   return (
     <View>
@@ -81,7 +83,7 @@ export function ResultImageSection({
         ) : (
           <Text style={styles.legendHint}>{t('game.result.legend.approxHint')}</Text>
         )}
-        {title ? <Text style={styles.challengeTitle}>{title}</Text> : null}
+        {visibleTitle ? <Text style={styles.challengeTitle}>{visibleTitle}</Text> : null}
       </View>
 
       <FullscreenImageViewer

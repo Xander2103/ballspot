@@ -13,6 +13,17 @@ class DailyChallenge extends Model
 
     protected $casts = ['challenge_date' => 'date:Y-m-d'];
 
+    protected static function booted(): void
+    {
+        // Guesses point at this row: re-pointing or re-dating it would move them
+        // to another photo or another competition period.
+        static::updating(function (DailyChallenge $daily) {
+            if ($daily->isDirty(['challenge_id', 'challenge_date']) && $daily->guesses()->exists()) {
+                throw new \LogicException("Daily challenge {$daily->id} has guesses; its challenge and date are locked.");
+            }
+        });
+    }
+
     public function challenge(): BelongsTo
     {
         return $this->belongsTo(Challenge::class);

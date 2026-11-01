@@ -12,6 +12,7 @@
 return [
     'email_taken'        => 'An account with this email already exists. Please log in or reset your password.',
     'username_taken'     => 'This username is already taken.',
+    'username_invalid'   => 'Use only letters, numbers, dots, dashes or underscores. No spaces or @.',
     'password_mismatch'  => 'Passwords do not match.',
     'validation_failed'  => 'Please check the highlighted fields.',
     'invalid_credentials' => 'Invalid email or password.',

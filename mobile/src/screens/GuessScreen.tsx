@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { visibleChallengeLabel } from '../utils/competitionPeriod';
 import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
@@ -157,7 +158,7 @@ export function GuessScreen({ route, navigation }: Props) {
 
   const hasGuess = guessX !== null && guessY !== null;
   const diffColor = DIFFICULTY_COLOR[round.challenge.difficulty] ?? colors.textSecondary;
-  const categoryName = round.challenge.category?.name ?? null;
+  const categoryName = visibleChallengeLabel(round.challenge.category?.name);
 
   const guessLabel = hasGuess
     ? t('game.guess.locked', { x: Math.round(guessX! * 100), y: Math.round(guessY! * 100) })

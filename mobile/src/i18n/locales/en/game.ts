@@ -128,11 +128,11 @@ export const game = {
     playToJoin: 'Play to get on the board!',
     of: 'of {{total}}',
     betterThan: 'Better than {{pct}}% of players',
-    ptsThisWeek: '{{score}} pts this week',
   },
   leaderboard: {
     youSuffix: '(you)',
-    rowStats: 'avg {{avg}} · {{count}} rounds',
+    rowStats_one: 'avg {{avg}} · {{count}} round',
+    rowStats_other: 'avg {{avg}} · {{count}} rounds',
     emptyTitle: 'No scores yet',
     emptyText: 'Play some rounds to see the leaderboard!',
   },

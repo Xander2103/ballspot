@@ -34,7 +34,8 @@ describe('filterFriends', () => {
   const list = [person(1, 'Anna Peeters', 'anna'), person(2, 'Bram', 'goalkeeper_b')];
 
   it('matches name or username, case-insensitively', () => {
-    expect(filterFriends(list, 'PEET').map((f) => f.id)).toEqual([1]);
+    expect(filterFriends(list, 'ANN').map((f) => f.id)).toEqual([1]);
+    expect(filterFriends(list, 'peeters')).toEqual([]);
     expect(filterFriends(list, 'keeper').map((f) => f.id)).toEqual([2]);
     expect(filterFriends(list, '  ')).toBe(list);
     expect(filterFriends(list, 'zzz')).toEqual([]);
@@ -42,7 +43,7 @@ describe('filterFriends', () => {
 
   it('stays fast on a few hundred friends', () => {
     const many = Array.from({ length: 500 }, (_, i) => person(i, `Player ${i}`, `p${i}`));
-    expect(filterFriends(many, 'player 49').map((f) => f.id)).toEqual([49, ...Array.from({ length: 10 }, (_, i) => 490 + i)]);
+    expect(filterFriends(many, 'p49').map((f) => f.id)).toEqual([49, ...Array.from({ length: 10 }, (_, i) => 490 + i)]);
   });
 });
 
