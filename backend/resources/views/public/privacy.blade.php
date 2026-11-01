@@ -3,7 +3,7 @@
 
 @section('content')
 <h1>Privacy Policy</h1>
-<p class="page-meta">Last updated: August 2026</p>
+<p class="page-meta">Last updated: November 2026</p>
 
 <p>BallPicker is a skill-based sports guessing game. This policy explains what personal information we process, why, how long we keep it, and what rights you have. We do not sell your data, we do not run advertisements, and we do not use advertising or analytics trackers.</p>
 
@@ -58,7 +58,8 @@
 <ul>
     <li><strong>Hetzner Online GmbH, Germany</strong> — hosting of the application and database.</li>
     <li><strong>Expo</strong> — push notification delivery, together with <strong>Apple Push Notification service</strong> and <strong>Google Firebase Cloud Messaging</strong>.</li>
-    <li><strong>Zxcs B.V., Netherlands</strong> — delivery of verification, login and password-reset emails.</li>
+    <li><strong>Brevo (Sendinblue SAS), France</strong> — delivery of verification, login and password-reset emails. For each email Brevo receives your email address and the message, including any one-time code or reset link. It records delivery events such as delivered or bounced and, where enabled, opened or clicked. We use these only to check that account emails arrive, never for marketing.</li>
+    <li><strong>Zxcs B.V., Netherlands</strong> — hosting of our mailbox, including any email you send to our support address, and backup delivery of account emails if Brevo is unavailable.</li>
     <li><strong>Apple App Store / Google Play</strong> — app distribution and, where applicable, TestFlight beta testing.</li>
 </ul>
 <p>Where a provider processes data outside the European Economic Area, that transfer is covered by the European Commission's Standard Contractual Clauses or an adequacy decision.</p>
@@ -68,6 +69,7 @@
     <li><strong>Account and gameplay data:</strong> until you delete your account (see below).</li>
     <li><strong>Push notification tokens:</strong> removed when you log out (where your device can reach our servers), when you remove the device, on account deletion, and automatically after about 90 days of inactivity.</li>
     <li><strong>Login and email verification codes:</strong> they expire within minutes and the records, including the IP address and user agent, are purged automatically.</li>
+    <li><strong>Account emails at Brevo:</strong> the delivery record and a copy of the message are kept for up to 30 days, then deleted.</li>
     <li><strong>Friend requests:</strong> kept until your account is deleted, including requests you have declined.</li>
     <li><strong>Backups:</strong> retained for a limited period and then overwritten.</li>
 </ul>

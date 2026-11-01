@@ -110,6 +110,15 @@ class ConsentAndLegalTest extends TestCase
         $res->assertSee('friend code', false);
     }
 
+    public function test_privacy_page_names_both_email_processors(): void
+    {
+        $res = $this->get('/privacy')->assertOk();
+
+        $res->assertSee('Brevo (Sendinblue SAS), France', false);
+        $res->assertSee('Zxcs B.V., Netherlands', false);
+        $res->assertSee('up to 30 days', false);
+    }
+
     public function test_privacy_page_is_honest_that_deletion_anonymises(): void
     {
         $res = $this->get('/privacy')->assertOk();

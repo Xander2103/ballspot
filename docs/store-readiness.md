@@ -60,8 +60,10 @@ the operator placeholders were filled on 2026-08-20:
   address published — revisit if a lawyer or a store review requires one)
 - Hosting: **Hetzner Online GmbH, Germany** (verified: server rDNS
   `clients.your-server.de`)
-- Email delivery: **Zxcs B.V., Netherlands** (verified locally:
-  `MAIL_HOST=mail.zxcs.nl`; confirm the production `.env` uses the same host)
+- Email delivery: **Brevo (Sendinblue SAS), France**, with **Zxcs B.V.,
+  Netherlands** as mailbox host and SMTP fallback (`docs/brevo-email.md`). The
+  privacy page promises 30 days of log retention at Brevo: keep that setting
+  and the text in step.
 - Contact: `{{ $supportEmail }}` from `BALLSPOT_SUPPORT_EMAIL`. **The old
   default `support@ballspot.app` was a dead address — the `ballspot.app`
   domain does not exist.** The config fallback is now `info@vanmalderstudio.be`;

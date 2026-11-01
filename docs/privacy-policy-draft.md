@@ -99,10 +99,16 @@ address and browser/device string it was requested from, to detect abuse.
 
 ## Who processes your data
 
-Our servers at **Hetzner Online GmbH, Germany** store your data. Two service
+Our servers at **Hetzner Online GmbH, Germany** store your data. Three service
 providers touch small parts of it to make features work:
 
-- **Zxcs B.V. (Netherlands)** delivers account emails (verification, password reset).
+- **Brevo (Sendinblue SAS, France)** delivers account emails (verification, login
+  code, password reset). It receives your email address and the message, and
+  records delivery events. The record and a copy of the message are kept for up
+  to 30 days.
+- **Zxcs B.V. (Netherlands)** hosts our mailbox, including email you send to our
+  support address, and is the backup route for account emails if Brevo is
+  unavailable.
 - **Expo push service** delivers notifications to your device, if you opted in
   (it receives your push token and the message text, not your name or email).
   Expo in turn hands the message to your platform's own push network:
