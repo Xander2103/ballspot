@@ -1,11 +1,22 @@
 <?php
 
 use App\Http\Controllers\Admin\DailyChallengeAdminController;
+use App\Http\Controllers\DownloadController;
 use App\Http\Controllers\PublicController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+// Public marketing pages: the target of every shared link. No session, cookies
+// or CSRF, so a link going around cannot fill the sessions table: these routes
+// never touch the database. (Old app builds share `/`, new ones `/download`.)
+Route::withoutMiddleware([
+    \Illuminate\Cookie\Middleware\EncryptCookies::class,
+    \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+    \Illuminate\Session\Middleware\StartSession::class,
+    \Illuminate\View\Middleware\ShareErrorsFromSession::class,
+    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+])->group(function () {
+    Route::get('/', [DownloadController::class, 'landing'])->name('home');
+    Route::get('/download', [DownloadController::class, 'download'])->name('download');
 });
 
 // Public legal / info pages

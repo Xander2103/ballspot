@@ -27,6 +27,14 @@ return [
     // frontend_url below for deep links back into the running app.
     'web_url'       => env('BALLSPOT_WEB_URL', env('APP_URL', 'http://localhost')),
 
+    // Official store listings behind /download and the landing page. Permanent
+    // identifiers of this app, so not environment-specific by design (same
+    // reasoning as mobile/src/utils/storeLinks.ts).
+    'stores' => [
+        'ios'     => 'https://apps.apple.com/be/app/ballpicker-sports/id6796491992',
+        'android' => 'https://play.google.com/store/apps/details?id=be.vanmalderstudio.ballpicker',
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Frontend app URL (password reset & other deep links)
