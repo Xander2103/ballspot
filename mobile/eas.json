@@ -29,6 +29,7 @@
     "production": {
       "ios": {
         "distribution": "store",
+        "autoIncrement": true,
         "env": {
           "EXPO_PUBLIC_API_BASE_URL": "https://ballpicker.vanmalderstudio.be/api",
           "EXPO_PUBLIC_API_URL": "https://ballpicker.vanmalderstudio.be/api",
