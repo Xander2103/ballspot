@@ -26,6 +26,13 @@ class AppServiceProvider extends ServiceProvider
         // TRUSTED_PROXIES. See config/ballspot.php 'trusted_proxies'.
         \App\Support\TrustedProxies::apply();
 
+        // max(1, …): a timeout of 0 would mean "wait forever" to the HTTP client.
+        \Illuminate\Support\Facades\Mail::extend('brevo', fn () => new \App\Mail\Transport\BrevoTransport(
+            config('services.brevo.key'),
+            max(1, (int) config('services.brevo.timeout')),
+            max(1, (int) config('services.brevo.connect_timeout')),
+        ));
+
         $this->configureRateLimiters();
     }
 

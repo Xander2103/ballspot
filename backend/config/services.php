@@ -22,6 +22,14 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    // Used when MAIL_MAILER=brevo. Emails go out inside the HTTP request, so
+    // these timeouts bound how long a login or registration can wait on Brevo.
+    'brevo' => [
+        'key' => env('BREVO_API_KEY'),
+        'timeout' => env('BREVO_TIMEOUT', 10),
+        'connect_timeout' => env('BREVO_CONNECT_TIMEOUT', 5),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

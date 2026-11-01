@@ -87,6 +87,13 @@ class StoreReadinessCheck extends Command
             'MAIL_MAILER=' . config('mail.default'),
             'MAIL_MAILER=log — verification codes and reset links would be written to laravel.log instead of sent'
         );
+        if (config('mail.default') === 'brevo') {
+            $this->productionSetting(
+                filled(config('services.brevo.key')),
+                'BREVO_API_KEY is set',
+                'BREVO_API_KEY is empty — with MAIL_MAILER=brevo every verification and reset email would fail'
+            );
+        }
 
         // Launch policy: login 2FA is a per-user opt-in and OFF for launch.
         // Forcing it would email a code on EVERY login (mail volume + support

@@ -372,7 +372,8 @@ MAIL_FROM_ADDRESS=...
 MAIL_FROM_NAME="BallPicker"
 ```
 
-(An API-based mailer works equally well in place of SMTP.)
+An API-based mailer works equally well in place of SMTP: `MAIL_MAILER=brevo` uses
+Brevo's HTTPS API. See `docs/brevo-email.md` for setup, switching and rollback.
 
 ---
 

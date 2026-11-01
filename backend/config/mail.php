@@ -30,7 +30,7 @@ return [
     | your mailers below. You may also add additional mailers if needed.
     |
     | Supported: "smtp", "sendmail", "mailgun", "ses", "ses-v2",
-    |            "postmark", "resend", "log", "array",
+    |            "postmark", "resend", "brevo", "log", "array",
     |            "failover", "roundrobin"
     |
     */
@@ -47,6 +47,12 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url((string) env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
+        ],
+
+        // Brevo HTTPS API (App\Mail\Transport\BrevoTransport, registered in
+        // AppServiceProvider; key and timeouts in config/services.php).
+        'brevo' => [
+            'transport' => 'brevo',
         ],
 
         'ses' => [

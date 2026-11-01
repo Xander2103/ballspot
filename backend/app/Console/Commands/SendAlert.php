@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Mail;
  *
  *   php artisan ballspot:send-alert --subject="[BallPicker] DOWN" --body="…"
  *   echo "…" | php artisan ballspot:send-alert --subject="…" --stdin
+ *   php artisan ballspot:send-alert --mailer=brevo --to=me@example.com --subject="…" --body="…"
  */
 class SendAlert extends Command
 {
@@ -21,7 +22,8 @@ class SendAlert extends Command
                             {--subject= : Subject line}
                             {--body= : Message text}
                             {--stdin : Read the message text from standard input}
-                            {--to= : Recipient (default: BALLPICKER_ALERT_EMAIL)}';
+                            {--to= : Recipient (default: BALLPICKER_ALERT_EMAIL)}
+                            {--mailer= : Mailer to use (default: MAIL_MAILER)}';
 
     protected $description = 'Email an operational alert to the configured ops address';
 
@@ -53,7 +55,7 @@ class SendAlert extends Command
         }
 
         try {
-            Mail::to($to)->send(new OpsAlertMail($subject, $body));
+            Mail::mailer($this->option('mailer'))->to($to)->send(new OpsAlertMail($subject, $body));
         } catch (\Throwable $e) {
             AppLog::error('ops.alert_failed', ['exception' => class_basename($e), 'error' => substr($e->getMessage(), 0, 300)]);
             $this->error('Alert not sent: ' . class_basename($e));

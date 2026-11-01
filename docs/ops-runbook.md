@@ -213,7 +213,7 @@ writes — closing stays `php artisan ballspot:close-competition`.
    `docs/security-hardening.md`); the app shows the wait time.
 3. A user with two-factor login ON (Profile → Account & security, or
    `BALLPICKER_FORCE_LOGIN_2FA=true`) gets `requires_2fa`; `login.2fa_required`
-   is logged. Check the mail transport if the code never arrives (`MAIL_*` in `.env`, `tail laravel.log` for mail exceptions).
+   is logged. Check the mail transport if the code never arrives (`MAIL_*` in `.env`, `tail laravel.log` for mail exceptions; with `MAIL_MAILER=brevo`, `grep mail.brevo` in the events log and see `docs/brevo-email.md`).
 4. Unverified accounts are sent back to the verification screen; that is not
    a failure.
 

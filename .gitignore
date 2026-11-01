@@ -4,3 +4,8 @@
 # They may contain database files, uploaded images, and user metadata.
 backups/
 howToStart.txt
+
+# Environment files hold API keys and SMTP passwords, wherever they are placed.
+.env
+.env.*
+!.env*.example
