@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateNotificationSettingsRequest;
 use App\Models\NotificationSetting;
+use App\Models\PushToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -45,8 +46,13 @@ class NotificationSettingsController extends Controller
             // Read-only server capability flag: when true the backend sends the
             // daily reminder push, so the app must NOT schedule its local daily
             // reminder (prevents double notifications during the cutover).
+            // Per account: only when the server can actually reach it (a
+            // registered push token). Otherwise an account without a token
+            // (e.g. an Android build without FCM, or a failed registration)
+            // would lose its local reminder and get none from the server.
             'daily_reminder_push_active'  => (bool) (config('ballspot.notifications.push_enabled')
-                && config('ballspot.notifications.daily_reminder_push_enabled')),
+                && config('ballspot.notifications.daily_reminder_push_enabled'))
+                && PushToken::where('user_id', $settings->user_id)->exists(),
         ];
     }
 }

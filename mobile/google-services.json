@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "261397517939",
+    "project_id": "ballpicker-sports-2026",
+    "storage_bucket": "ballpicker-sports-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:261397517939:android:3f55d2222d336b20473c06",
+        "android_client_info": {
+          "package_name": "be.vanmalderstudio.ballpicker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDK-38glISHAawGeJVBVt4KT8m1t-uAlFk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -112,6 +112,7 @@ describe('share reward rules (local mirror of the server)', () => {
     expect(state).toEqual({
       totalShareCount: 4, firstShareClaimed: true, lastDailyShareRewardDate: TODAY, lastHighScoreShareRewardDate: null,
       xp: { first_share: 200, daily_share: 10, daily_high_score_share: 15 },
+      serverDay: TODAY,
     });
     expect(availableShareRewards(state, 'daily_result', 85, TODAY, status.xp)).toEqual({ xp: 15, rewards: ['daily_high_score_share'] });
   });

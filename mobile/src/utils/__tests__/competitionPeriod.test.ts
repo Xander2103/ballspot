@@ -113,6 +113,24 @@ describe('competitionPeriodLabel', () => {
   });
 });
 
+describe('Trophy Room history keeps each finish in its own period', () => {
+  it('names a finish from its stored period_type: an old weekly result stays weekly', () => {
+    const source = read('components/TrophyRoom.tsx');
+    expect(source).toMatch(
+      /finish\.period_type === 'weekly'\s*\?\s*t\('profile\.trophyRoom\.weeklyCompetition'\)\s*:\s*t\('profile\.trophyRoom\.monthlyCompetition'\)/,
+    );
+  });
+
+  it.each(LANGUAGES)('%s: weekly and monthly finish names both exist and name their own period', (locale) => {
+    const weekly = translate('profile.trophyRoom.weeklyCompetition', undefined, locale);
+    const monthly = translate('profile.trophyRoom.monthlyCompetition', undefined, locale);
+    expect(weekly).toMatch(WEEK_WORDS);
+    expect(weekly).not.toMatch(MONTH_WORDS);
+    expect(monthly).toMatch(MONTH_WORDS);
+    expect(monthly).not.toMatch(WEEK_WORDS);
+  });
+});
+
 describe('screens take the period from the API', () => {
   it('Daily Result labels its button from the /daily/stats period', () => {
     const source = read('screens/DailyResultScreen.tsx');

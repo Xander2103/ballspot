@@ -484,7 +484,10 @@ class ObservabilityLoggingTest extends TestCase
 
         $outcome = app(ExpoPushService::class)->sendMessages(array_map(fn ($t) => ['to' => $t, 'title' => 'x', 'body' => 'y', 'sound' => 'default'], [$good, $dead, $slow]));
 
-        $this->assertSame(['sent' => 1, 'failed' => 2, 'invalid_tokens_removed' => 1], $outcome);
+        $this->assertSame(['sent' => 1, 'failed' => 2, 'invalid_tokens_removed' => 1], \Illuminate\Support\Arr::only($outcome, ['sent', 'failed', 'invalid_tokens_removed']));
+        // Per-message tickets come back in order and never carry the token.
+        $this->assertSame(['ok', 'error', 'error'], array_column($outcome['tickets'], 'status'));
+        $this->assertStringNotContainsString('token-', json_encode($outcome));
         $this->assertLogged('push.attempt', ['message_count' => 3]);
         $hit = $this->assertLogged('push.failures', ['sent' => 1, 'failed' => 2, 'invalid_tokens_removed' => 1], 'warning');
         $this->assertSame(['DeviceNotRegistered' => 1, 'MessageRateExceeded' => 1], $hit['context']['reasons']);

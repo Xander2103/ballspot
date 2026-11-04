@@ -380,6 +380,12 @@ export const fr: Translations = {
       message: 'J’ai marqué {{score}} points dans le BallPicker Daily Challenge d’aujourd’hui ⚽🎯 Tu fais mieux ?',
       xpAvailable: 'Partage maintenant et gagne +{{xp}} XP',
       xpEarned: '+{{xp}} XP gagnés en partageant !',
+      xpEarnedWithTrophy: '+{{xp}} XP gagnés : +{{share}} pour le partage, +{{trophy}} pour ton nouveau trophée !',
+      rewardParts: {
+        first_share: '+{{xp}} premier partage',
+        daily_share: '+{{xp}} partage du jour',
+        daily_high_score_share: '+{{xp}} gros score',
+      },
       thanks: 'Merci d’avoir partagé !',
       error: 'Impossible d’ouvrir la fenêtre de partage. Réessaie.',
     },

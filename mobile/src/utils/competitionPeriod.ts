@@ -63,9 +63,12 @@ export function competitionPeriodLabel(
 export function visibleChallengeLabel(value?: string | null): string | null {
   const label = value?.trim();
   if (!label) return null;
+  // A file name or a numbered copy (AboveGoalHeader.jpg, AboveGoalHeader 2) is
+  // the same internal name.
+  const core = label.replace(/\.(?:jpe?g|png|webp|heic|gif)$/i, '').replace(/[\s_-]*\(?\d+\)?$/, '');
   const isIdentifier =
-    /^[A-Z]?[a-z0-9]+(?:[A-Z][a-z0-9]*)+$/.test(label) || // PascalCase / camelCase
-    /^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+$/.test(label) || // snake_case
+    /^[A-Z]?[a-z0-9]+(?:[A-Z][a-z0-9]*)+$/.test(core) || // PascalCase / camelCase
+    /^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+$/.test(core) || // snake_case
     /^[a-z][A-Za-z0-9]*(?:\.[A-Za-z0-9_]+)+$/.test(label); // dotted translation key
   return isIdentifier ? null : label;
 }

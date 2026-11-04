@@ -538,6 +538,14 @@ class DiagnosticsService
             'pack_completions'      => PackAttempt::where('status', PackAttempt::STATUS_COMPLETED)->where('completed_at', '>=', $since)->count(),
             'push_tokens_seen'      => DB::table('push_tokens')->where('last_seen_at', '>=', $since)->count(),
             'push_tokens_total'     => DB::table('push_tokens')->count(),
+            'push_tokens_by_platform' => DB::table('push_tokens')->select('platform', DB::raw('count(*) as c'))
+                ->groupBy('platform')->pluck('c', 'platform')->mapWithKeys(fn ($c, $p) => [($p ?: 'unknown') => (int) $c])->all(),
+            // Expo receipt outcomes for pushes sent in the window (status or error code => count).
+            'push_receipts'         => Schema::hasTable('push_receipts')
+                ? DB::table('push_receipts')->where('created_at', '>=', $since)
+                    ->select(DB::raw("coalesce(error, status) as k"), DB::raw('count(*) as c'))
+                    ->groupBy('k')->pluck('c', 'k')->map(fn ($c) => (int) $c)->all()
+                : null,
             'users_total'           => User::count(),
         ];
     }

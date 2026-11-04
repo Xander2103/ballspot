@@ -94,6 +94,27 @@
         </div>
     </div>
 
+    {{-- 2b. Runtime of THIS web process (read-only) --}}
+    <div class="col-12">
+        <div class="card shadow-sm" data-section="runtime">
+            <div class="card-header d-flex align-items-center gap-2"><strong>Runtime (this web process)</strong> <span class="badge badge-soft">read-only · {{ $runtime['sapi'] }}</span></div>
+            <table class="table table-sm mb-0 small">
+                <tr><th>Competition period (served to the app)</th><td><code>{{ $runtime['period_effective'] }}</code> <span class="text-muted">config value <code>{{ $runtime['period_config_raw'] ?? '(unset)' }}</code></span></td></tr>
+                <tr><th><code>{{ \App\Services\RuntimeFingerprintService::PERIOD_KEY }}</code> sources</th><td>
+                    .env file: <code>{{ is_array($runtime['period_dotenv_file']) ? ($runtime['period_dotenv_file'] === [] ? '(not in file)' : implode(', ', $runtime['period_dotenv_file'])) : '(unreadable)' }}</code> ·
+                    getenv: <code>{{ $runtime['period_getenv'] ?? '-' }}</code> ·
+                    $_SERVER: <code>{{ $runtime['period_server_var'] ?? '-' }}</code> ·
+                    $_ENV: <code>{{ $runtime['period_env_var'] ?? '-' }}</code>
+                </td></tr>
+                <tr><th>Config cache</th><td>{{ $runtime['config_cached'] ? 'cached' : 'not cached (reads .env per request)' }} <span class="text-muted">{{ $runtime['config_cache_mtime'] ?? '' }}</span></td></tr>
+                <tr><th>Code</th><td><code>{{ $runtime['base_path_real'] ?? $runtime['base_path'] }}</code> · commit <code>{{ $runtime['git_commit'] ?? '?' }}</code></td></tr>
+                <tr><th>PHP</th><td>{{ $runtime['php_version'] }} · user <code>{{ $runtime['process_user'] ?? '?' }}</code> · ini <code>{{ $runtime['loaded_ini'] ?? '-' }}</code></td></tr>
+                <tr><th>OPcache</th><td>{{ $runtime['opcache']['enabled'] ? 'on' : 'off' }} · validate_timestamps {{ $runtime['opcache']['validate_timestamps'] }} · revalidate_freq {{ $runtime['opcache']['revalidate_freq'] }} · started {{ $runtime['opcache']['start_time'] ?? '-' }}@if($runtime['opcache']['file_cache']) · file_cache <code>{{ $runtime['opcache']['file_cache'] }}</code>@endif</td></tr>
+            </table>
+            <div class="card-footer small text-muted">Compare with <code>php artisan ballspot:competition-period-audit</code> (CLI). Any difference in path, commit, PHP version, config cache or env values explains a CLI/web mismatch.</div>
+        </div>
+    </div>
+
     {{-- 3. Launch / feature flags (read-only) --}}
     <div class="col-12">
         <div class="card shadow-sm" data-section="flags">

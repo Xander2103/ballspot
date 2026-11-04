@@ -9,3 +9,10 @@ howToStart.txt
 .env
 .env.*
 !.env*.example
+
+# Firebase/Google service-account PRIVATE keys (FCM V1 push key, Play upload
+# key). They belong in EAS credentials only, never in git. google-services.json
+# (the public Firebase client config) is not covered by this rule.
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json

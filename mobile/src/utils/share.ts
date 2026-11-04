@@ -87,6 +87,12 @@ export interface ShareRewardState {
   lastHighScoreShareRewardDate: string | null;
   /** XP amounts the server last reported; null = not seen yet (display defaults apply). */
   xp: ShareXpAmounts | null;
+  /**
+   * The server's calendar day, only on a state fresh from the server (never
+   * restored from storage). null = the server's answer is not known right now,
+   * so the UI promises no XP. The server day is UTC, the player's is not.
+   */
+  serverDay: string | null;
 }
 
 export const INITIAL_SHARE_REWARD_STATE: ShareRewardState = {
@@ -95,6 +101,7 @@ export const INITIAL_SHARE_REWARD_STATE: ShareRewardState = {
   lastDailyShareRewardDate: null,
   lastHighScoreShareRewardDate: null,
   xp: null,
+  serverDay: null,
 };
 
 /** GET /api/share/status and the `status` block of POST /api/share. */
@@ -127,6 +134,7 @@ export function stateFromServerStatus(status: ShareRewardStatus): ShareRewardSta
     lastDailyShareRewardDate: status.daily_share_available ? null : status.day,
     lastHighScoreShareRewardDate: status.daily_high_score_available ? null : status.day,
     xp: sanitizeShareXp(status.xp),
+    serverDay: status.day,
   };
 }
 
@@ -182,6 +190,37 @@ export function availableShareRewards(
   }
 
   return { xp, rewards };
+}
+
+/**
+ * The hint on the Daily Result screen. Only a state fresh from the server can
+ * promise XP: a stored or initial state may be out of date, and would offer a
+ * first-share reward this account already claimed. Compared against the
+ * server's day, because that is the day the server's per-day limit uses.
+ */
+export function dailyShareHint(state: ShareRewardState | null, score: number): {
+  xp: number;
+  parts: { reward: ShareReward; xp: number }[];
+} | null {
+  if (!state?.serverDay) return null;
+  const preview = availableShareRewards(state, 'daily_result', score, state.serverDay);
+  if (preview.xp <= 0) return null;
+  const amounts = state.xp ?? DEFAULT_AMOUNTS;
+  return { xp: preview.xp, parts: preview.rewards.map((reward) => ({ reward, xp: amounts[reward] })) };
+}
+
+/**
+ * Splits POST /api/share `xp_awarded`, which also holds the XP of any trophy the
+ * share unlocked, so the result can say why it exceeds the announced reward.
+ */
+export function splitAwardedShareXp(
+  xpAwarded: number,
+  rewards: ShareReward[],
+  state: ShareRewardState | null,
+): { share: number; trophy: number } {
+  const amounts = state?.xp ?? DEFAULT_AMOUNTS;
+  const share = Math.min(xpAwarded, rewards.reduce((sum, reward) => sum + amounts[reward], 0));
+  return { share, trophy: xpAwarded - share };
 }
 
 export interface ShareApplied extends ShareRewardPreview {

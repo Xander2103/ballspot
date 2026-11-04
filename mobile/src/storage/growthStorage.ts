@@ -66,6 +66,8 @@ export async function loadShareRewardState(): Promise<ShareRewardState> {
       lastHighScoreShareRewardDate: typeof parsed.lastHighScoreShareRewardDate === 'string' ? parsed.lastHighScoreShareRewardDate : null,
       // Older blobs have no amounts: null → display defaults until the next server status.
       xp: sanitizeShareXp(parsed.xp),
+      // A stored state may be out of date, so it never counts as the server's answer.
+      serverDay: null,
     };
   } catch {
     return INITIAL_SHARE_REWARD_STATE;

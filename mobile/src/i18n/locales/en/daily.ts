@@ -37,6 +37,12 @@ export const daily = {
     message: 'I scored {{score}} points in today’s BallPicker Daily Challenge ⚽🎯 Can you beat me?',
     xpAvailable: 'Share now and earn +{{xp}} XP',
     xpEarned: '+{{xp}} XP earned for sharing!',
+    xpEarnedWithTrophy: '+{{xp}} XP earned: +{{share}} for sharing, +{{trophy}} for your new trophy!',
+    rewardParts: {
+      first_share: '+{{xp}} first share',
+      daily_share: '+{{xp}} daily share',
+      daily_high_score_share: '+{{xp}} high score',
+    },
     thanks: 'Thanks for sharing!',
     error: 'Could not open the share sheet. Please try again.',
   },

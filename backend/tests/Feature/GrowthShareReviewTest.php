@@ -125,6 +125,31 @@ class GrowthShareReviewTest extends TestCase
         $this->assertFalse($user->badges()->where('code', 'daily_bragger')->exists());
     }
 
+    /** Build 9 showed "+210 XP" where 200 was expected: 210 is what the two rewards add up to. */
+    public function test_status_and_award_agree_with_the_210_xp_shown_on_daily_result(): void
+    {
+        $this->seed(\Database\Seeders\BadgeSeeder::class);
+        [$user, $token] = $this->auth();
+        $daily = $this->dailyWithGuess($user, 55);
+
+        $this->withToken($token)->getJson('/api/share/status')
+            ->assertOk()
+            ->assertJsonPath('first_share_available', true)
+            ->assertJsonPath('daily_share_available', true)
+            ->assertJsonPath('xp.first_share', 200)
+            ->assertJsonPath('xp.daily_share', 10);
+
+        $res = $this->withToken($token)->postJson('/api/share', ['type' => 'daily_result', 'daily_challenge_id' => $daily->id]);
+
+        $res->assertOk();
+        $ledger = fn (string $source) => (int) XpEvent::where('user_id', $user->id)->where('source_type', $source)->sum('amount');
+        $this->assertSame(200, $ledger(XpEvent::SOURCE_SHARE_FIRST));
+        $this->assertSame(10, $ledger(XpEvent::SOURCE_SHARE_DAILY));
+        // The First Share trophy adds its own common-rarity XP to the total.
+        $this->assertSame(310, $res->json('xp_awarded'));
+        $this->assertContains('first_share', array_column($res->json('new_badges'), 'code'));
+    }
+
     public function test_high_score_share_is_recorded_and_rewarded_for_80_plus(): void
     {
         [$user, $token] = $this->auth();

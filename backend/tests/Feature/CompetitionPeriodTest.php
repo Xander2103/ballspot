@@ -131,6 +131,45 @@ class CompetitionPeriodTest extends TestCase
         ];
     }
 
+    /**
+     * Without a usable period setting (unset, empty, typo, wrong case) the API
+     * still names monthly — never weekly — on both endpoints the app reads, for
+     * a player with no score this period too.
+     */
+    #[DataProvider('unusablePeriodProvider')]
+    public function test_unusable_period_config_falls_back_to_monthly_not_weekly(mixed $raw): void
+    {
+        Carbon::setTestNow(Carbon::create(2026, 11, 3, 12, 0, 0, config('app.timezone')));
+        config(['ballspot.competition.period' => $raw, 'ballspot.competition.label' => null]);
+        [, $token] = $this->auth();
+
+        $period = ['period_type' => 'monthly', 'period_label' => 'Monthly', 'period_start' => '2026-11-01', 'period_end' => '2026-11-30'];
+
+        $this->withToken($token)->getJson('/api/daily/stats')
+            ->assertOk()
+            ->assertJsonPath('period', $period)
+            ->assertJsonPath('weekly_rank', null);
+
+        $this->withToken($token)->getJson('/api/daily/leaderboard/weekly')
+            ->assertOk()
+            ->assertJsonPath('period', $period)
+            ->assertJsonPath('period_label', 'Monthly')
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('meta.current_user_rank', null);
+
+        Carbon::setTestNow();
+    }
+
+    public static function unusablePeriodProvider(): array
+    {
+        return [
+            'unset'      => [null],
+            'empty'      => [''],
+            'typo'       => ['montly'],
+            'wrong case' => ['Weekly'],
+        ];
+    }
+
     public function test_top_10_badge_copy_names_no_period_and_keeps_its_code(): void
     {
         $this->seed(\Database\Seeders\BadgeSeeder::class);

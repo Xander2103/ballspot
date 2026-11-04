@@ -90,7 +90,7 @@ class DailyReminderService
                     }
                 }
 
-                $outcome = $this->push->sendMessages($messages);
+                $outcome = $this->push->sendMessages($messages, \App\Models\PushReceipt::SOURCE_DAILY_REMINDER);
                 $result['sent']                   += $outcome['sent'];
                 $result['failed']                 += $outcome['failed'];
                 $result['invalid_tokens_removed'] += $outcome['invalid_tokens_removed'];

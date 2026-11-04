@@ -8,3 +8,7 @@ howToStart.txt
 # here too — otherwise EAS skips prebuild and archives the stale local project.
 mobile/ios
 mobile/android
+# Service-account private keys never go into a build archive (EAS credentials hold them).
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceAccount*.json

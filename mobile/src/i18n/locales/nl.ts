@@ -385,6 +385,12 @@ export const nl: Translations = {
       message: 'Ik scoorde {{score}} punten in de BallPicker Daily Challenge van vandaag ⚽🎯 Kun jij beter?',
       xpAvailable: 'Deel nu en verdien +{{xp}} XP',
       xpEarned: '+{{xp}} XP verdiend met delen!',
+      xpEarnedWithTrophy: '+{{xp}} XP verdiend: +{{share}} voor delen, +{{trophy}} voor je nieuwe trofee!',
+      rewardParts: {
+        first_share: '+{{xp}} eerste keer delen',
+        daily_share: '+{{xp}} dagelijks delen',
+        daily_high_score_share: '+{{xp}} topscore',
+      },
       thanks: 'Bedankt voor het delen!',
       error: 'Het deelvenster kon niet geopend worden. Probeer het opnieuw.',
     },

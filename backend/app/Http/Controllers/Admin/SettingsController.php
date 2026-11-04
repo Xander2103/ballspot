@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
  */
 class SettingsController extends Controller
 {
-    public function index(AdminSettingsOverviewService $overview)
+    public function index(AdminSettingsOverviewService $overview, \App\Services\RuntimeFingerprintService $runtime)
     {
         return view('admin.settings.index', [
             'cooldownDays'    => GameplaySetting::tournamentChallengeCooldownDays(),
@@ -22,6 +22,8 @@ class SettingsController extends Controller
             'cooldownMin'     => GameplaySetting::COOLDOWN_MIN_DAYS,
             'cooldownMax'     => GameplaySetting::COOLDOWN_MAX_DAYS,
             's'               => $overview->overview(),
+            // php-fpm's own view (compare with `ballspot:competition-period-audit` on the CLI).
+            'runtime'         => $runtime->snapshot(),
         ]);
     }
 

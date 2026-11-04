@@ -12,7 +12,7 @@ import { RankProgressCard } from '../components/RankProgressCard';
 import { RankUpCard } from '../components/RankUpCard';
 import { dailyApi } from '../api/dailyApi';
 import { growth, type ShareOutcome } from '../services/growth';
-import { availableShareRewards, dailyShareCta, localDateString, type ShareRewardState } from '../utils/share';
+import { dailyShareCta, dailyShareHint, splitAwardedShareXp, type ShareRewardState } from '../utils/share';
 import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -158,9 +158,8 @@ export function DailyResultScreen({ route, navigation }: Props) {
   // 80+ gets the stronger copy and the primary slot; lower scores still share,
   // just less prominently. The hint only promises XP the server can still grant.
   const shareCta = dailyShareCta(result.score);
-  const sharePreview = shareState && !shareOutcome
-    ? availableShareRewards(shareState, 'daily_result', result.score, localDateString(new Date()))
-    : null;
+  const shareHint = shareOutcome ? null : dailyShareHint(shareState, result.score);
+  const awarded = shareOutcome ? splitAwardedShareXp(shareOutcome.xpAwarded, shareOutcome.rewards, shareOutcome.state) : null;
   const shareBlock = (
     <View style={styles.shareBlock}>
       <AppButton
@@ -169,12 +168,21 @@ export function DailyResultScreen({ route, navigation }: Props) {
         loading={sharing}
         variant={shareCta.prominent ? 'primary' : 'secondary'}
       />
-      {sharePreview && sharePreview.xp > 0 ? (
-        <Text style={styles.shareHint}>{t('daily.share.xpAvailable', { xp: sharePreview.xp })}</Text>
+      {shareHint ? (
+        <Text style={styles.shareHint}>
+          {t('daily.share.xpAvailable', { xp: shareHint.xp })}
+          {shareHint.parts.length > 1
+            ? `\n${shareHint.parts.map((part) => t(`daily.share.rewardParts.${part.reward}`, { xp: part.xp })).join(' · ')}`
+            : ''}
+        </Text>
       ) : null}
       {shareOutcome?.opened ? (
         <Text style={[styles.shareHint, shareOutcome.xpAwarded > 0 ? styles.shareEarned : null]}>
-          {shareOutcome.xpAwarded > 0 ? t('daily.share.xpEarned', { xp: shareOutcome.xpAwarded }) : t('daily.share.thanks')}
+          {shareOutcome.xpAwarded <= 0
+            ? t('daily.share.thanks')
+            : awarded && awarded.trophy > 0
+              ? t('daily.share.xpEarnedWithTrophy', { xp: shareOutcome.xpAwarded, share: awarded.share, trophy: awarded.trophy })
+              : t('daily.share.xpEarned', { xp: shareOutcome.xpAwarded })}
         </Text>
       ) : null}
       {shareError ? <Text style={styles.shareError}>{shareError}</Text> : null}

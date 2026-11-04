@@ -3,8 +3,11 @@
 namespace App\Services;
 
 use App\Models\AdminNotification;
+use App\Models\PushReceipt;
 use App\Models\PushToken;
 use App\Support\AppLog;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -64,7 +67,7 @@ class ExpoPushService
             'sound' => 'default',
         ])->values()->all();
 
-        $outcome = $this->sendMessages($messages);
+        $outcome = $this->sendMessages($messages, PushReceipt::SOURCE_ANNOUNCEMENT);
 
         $status = $outcome['failed'] > 0 && $outcome['sent'] === 0
             ? AdminNotification::STATUS_FAILED
@@ -98,55 +101,87 @@ class ExpoPushService
      * stop sending to dead devices. Synchronous by design — this codebase has
      * no queue worker dependency.
      *
-     * @param  array<int, array{to: string, title: string, body: string, sound: string}>  $messages
-     * @return array{sent: int, failed: int, invalid_tokens_removed: int}
+     * An "ok" ticket only means Expo accepted the message. Each ok ticket id is
+     * stored in push_receipts (token row id + platform, never the token) so
+     * ballspot:check-push-receipts can fetch what APNs/FCM actually said.
+     *
+     * @param  array<int, array{to: string, title: string, body: string, sound?: string, data?: array}>  $messages
+     * @param  string  $source  PushReceipt::SOURCE_* — what triggered the send
+     * @return array{sent: int, failed: int, invalid_tokens_removed: int, reasons: array<string, int>,
+     *               tickets: array<int, array{status: string, id: ?string, error: ?string}>}
      */
-    public function sendMessages(array $messages): array
+    public function sendMessages(array $messages, string $source = 'unknown'): array
     {
         $sent = 0;
         $failed = 0;
         $invalid = [];
         $failureReasons = [];
+        /** @var array<int, array{status: string, id: ?string, error: ?string}> $ticketsOut  in message order */
+        $ticketsOut = [];
+        /** @var array<string, string> $accepted  ticket id => token */
+        $accepted = [];
 
-        AppLog::event('push.attempt', ['message_count' => count($messages), 'batches' => (int) ceil(count($messages) / self::BATCH_SIZE)]);
+        AppLog::event('push.attempt', ['source' => $source, 'message_count' => count($messages), 'batches' => (int) ceil(count($messages) / self::BATCH_SIZE)]);
 
         foreach (array_chunk($messages, self::BATCH_SIZE) as $chunk) {
+            $batchFailure = null;
             try {
-                $response = Http::asJson()
-                    ->acceptJson()
-                    ->post(config('ballspot.notifications.expo_push_url'), $chunk);
+                $response = $this->client()->post(config('ballspot.notifications.expo_push_url'), $chunk);
             } catch (\Throwable $e) {
                 // Exception class only — the message could echo request data.
-                AppLog::warn('push.batch_failed', ['reason' => 'http_exception', 'exception' => get_class($e), 'count' => count($chunk)]);
+                AppLog::warn('push.batch_failed', ['source' => $source, 'reason' => 'http_exception', 'exception' => get_class($e), 'count' => count($chunk)]);
+                $batchFailure = 'http_exception';
+            }
+
+            if ($batchFailure === null && ! $response->successful()) {
+                AppLog::warn('push.batch_failed', [
+                    'source' => $source, 'reason' => 'http_status', 'status' => $response->status(),
+                    'count'  => count($chunk), 'expo_errors' => $this->requestErrorCodes($response->json()),
+                ]);
+                $batchFailure = 'http_' . $response->status();
+            }
+
+            if ($batchFailure !== null) {
                 $failed += count($chunk);
-                $failureReasons['http_exception'] = ($failureReasons['http_exception'] ?? 0) + count($chunk);
+                $failureReasons[$batchFailure] = ($failureReasons[$batchFailure] ?? 0) + count($chunk);
+                foreach ($chunk as $_) {
+                    $ticketsOut[] = ['status' => 'error', 'id' => null, 'error' => $batchFailure];
+                }
                 continue;
             }
 
-            if (! $response->successful()) {
-                AppLog::warn('push.batch_failed', ['reason' => 'http_status', 'status' => $response->status(), 'count' => count($chunk)]);
-                $failed += count($chunk);
-                $failureReasons['http_' . $response->status()] = ($failureReasons['http_' . $response->status()] ?? 0) + count($chunk);
-                continue;
+            // A 200 can still carry request-level errors next to (or instead
+            // of) the tickets, e.g. an access-token problem.
+            $requestErrors = $this->requestErrorCodes($response->json());
+            if ($requestErrors !== []) {
+                AppLog::warn('push.request_errors', ['source' => $source, 'expo_errors' => $requestErrors]);
             }
 
-            // Expo returns { data: [ { status: "ok" | "error", details? }, ... ] }
+            // Expo returns { data: [ { status: "ok", id } | { status: "error", details }, ... ] }
             // with one ticket per message, in order.
             $tickets = $response->json('data', []);
             foreach (array_values($chunk) as $i => $message) {
-                $ticket = $tickets[$i] ?? null;
+                $ticket = is_array($tickets) ? ($tickets[$i] ?? null) : null;
                 if (($ticket['status'] ?? null) === 'ok') {
                     $sent++;
+                    $id = isset($ticket['id']) && is_string($ticket['id']) ? $ticket['id'] : null;
+                    if ($id !== null) {
+                        $accepted[$id] = $message['to'];
+                    }
+                    $ticketsOut[] = ['status' => 'ok', 'id' => $id, 'error' => null];
                     continue;
                 }
                 $failed++;
-                $reason = (string) ($ticket['details']['error'] ?? 'ticket_error');
+                $reason = (string) ($ticket['details']['error'] ?? ($ticket === null ? 'missing_ticket' : 'ticket_error'));
                 $failureReasons[$reason] = ($failureReasons[$reason] ?? 0) + 1;
+                $ticketsOut[] = ['status' => 'error', 'id' => null, 'error' => $reason];
                 if ($reason === 'DeviceNotRegistered') {
                     $invalid[] = $message['to'];
                 }
             }
         }
+
+        $this->recordAcceptedTickets($accepted, $source);
 
         $removed = 0;
         if ($invalid !== []) {
@@ -156,12 +191,98 @@ class ExpoPushService
 
         if ($failed > 0) {
             // Reason categories + counts only. Never the Expo tokens.
-            AppLog::warn('push.failures', ['sent' => $sent, 'failed' => $failed, 'reasons' => $failureReasons, 'invalid_tokens_removed' => $removed]);
+            AppLog::warn('push.failures', ['source' => $source, 'sent' => $sent, 'failed' => $failed, 'reasons' => $failureReasons, 'invalid_tokens_removed' => $removed]);
         } else {
-            AppLog::event('push.sent', ['sent' => $sent, 'failed' => 0, 'invalid_tokens_removed' => $removed]);
+            AppLog::event('push.sent', ['source' => $source, 'sent' => $sent, 'failed' => 0, 'invalid_tokens_removed' => $removed]);
         }
 
-        return ['sent' => $sent, 'failed' => $failed, 'invalid_tokens_removed' => $removed];
+        return [
+            'sent' => $sent, 'failed' => $failed, 'invalid_tokens_removed' => $removed,
+            'reasons' => $failureReasons, 'tickets' => $ticketsOut,
+        ];
+    }
+
+    /**
+     * Expo HTTP client: JSON, a bounded timeout, the optional access token
+     * (required once "enhanced push security" is switched on for the Expo
+     * project), and a retry only for answers that mean "nothing was sent"
+     * (429 rate limit, 503 unavailable). Connection errors are not retried:
+     * the request may have gone through, and a retry would double-notify.
+     */
+    public function client(): PendingRequest
+    {
+        $request = Http::asJson()
+            ->acceptJson()
+            ->timeout((int) config('ballspot.notifications.expo_timeout_seconds', 20))
+            ->retry(
+                3,
+                fn (int $attempt) => $attempt * 1000,
+                fn ($e) => $e instanceof RequestException && in_array($e->response->status(), [429, 503], true),
+                throw: false,
+            );
+
+        $accessToken = (string) config('ballspot.notifications.expo_access_token', '');
+
+        return $accessToken !== '' ? $request->withToken($accessToken) : $request;
+    }
+
+    /**
+     * Request-level error codes from an Expo answer ({ errors: [{ code }] }).
+     * Codes only: the messages can echo request data.
+     *
+     * @return array<int, string>
+     */
+    public function requestErrorCodes(mixed $json): array
+    {
+        if (! is_array($json) || ! isset($json['errors']) || ! is_array($json['errors'])) {
+            return [];
+        }
+
+        return array_values(array_map(
+            fn ($e) => is_array($e) ? (string) ($e['code'] ?? 'unknown') : 'unknown',
+            $json['errors'],
+        ));
+    }
+
+    /**
+     * Store accepted ticket ids for the receipt check. Best effort: a missing
+     * table (deploy before migrate) or a DB hiccup must never turn a delivered
+     * push into a failed send.
+     *
+     * @param  array<string, string>  $accepted  ticket id => token
+     */
+    private function recordAcceptedTickets(array $accepted, string $source): void
+    {
+        if ($accepted === []) {
+            return;
+        }
+
+        try {
+            $tokens = PushToken::whereIn('token', array_values($accepted))
+                ->get(['id', 'token', 'platform'])
+                ->keyBy('token');
+
+            $now = now();
+            $rows = [];
+            foreach ($accepted as $ticketId => $token) {
+                $row = $tokens->get($token);
+                $rows[] = [
+                    'ticket_id'     => $ticketId,
+                    'push_token_id' => $row?->id,
+                    'platform'      => $row?->platform,
+                    'source'        => $source,
+                    'status'        => PushReceipt::STATUS_PENDING,
+                    'created_at'    => $now,
+                    'updated_at'    => $now,
+                ];
+            }
+
+            foreach (array_chunk($rows, 500) as $chunk) {
+                PushReceipt::insertOrIgnore($chunk);
+            }
+        } catch (\Throwable $e) {
+            AppLog::warn('push.receipt_record_failed', ['source' => $source, 'exception' => get_class($e), 'count' => count($accepted)]);
+        }
     }
 
     /**

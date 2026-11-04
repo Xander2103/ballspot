@@ -55,6 +55,11 @@ Schedule::command('sanctum:prune-expired --hours=24')->daily();
 // cutover rule). 15-minute cadence + a 60-minute send window per user.
 Schedule::command('ballspot:send-daily-reminders')->everyFifteenMinutes()->withoutOverlapping();
 
+// Expo push receipts: what APNs/FCM said about each accepted ticket. Removes
+// DeviceNotRegistered tokens and logs credential errors (InvalidCredentials /
+// MismatchSenderId). Bounded per run; a no-op until something was sent.
+Schedule::command('ballspot:check-push-receipts')->everyFifteenMinutes()->withoutOverlapping();
+
 // Scheduler heartbeat for /api/health and /admin/diagnostics: when the cron
 // last ran and as which user. Deliberately NO withoutOverlapping() — that
 // would take a cache lock, and a broken cache store is one of the things the

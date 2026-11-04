@@ -51,6 +51,7 @@ class NotificationSettingsTest extends TestCase
         config()->set('ballspot.notifications.daily_reminder_push_enabled', true);
 
         $user = User::factory()->create();
+        \App\Models\PushToken::create(['user_id' => $user->id, 'token' => 'ExponentPushToken[flag' . $user->id . ']', 'platform' => 'ios']);
 
         $this->withToken($user->createToken('t')->plainTextToken)
             ->getJson('/api/me/notification-settings')
@@ -60,6 +61,23 @@ class NotificationSettingsTest extends TestCase
         config()->set('ballspot.notifications.daily_reminder_push_enabled', false);
 
         $this->withToken($user->createToken('t2')->plainTextToken)
+            ->getJson('/api/me/notification-settings')
+            ->assertOk()
+            ->assertJson(['daily_reminder_push_active' => false]);
+    }
+
+    public function test_push_active_flag_is_false_for_an_account_the_server_cannot_reach(): void
+    {
+        // Server reminders on, but no push token (e.g. Android without FCM):
+        // the app must keep its local daily reminder, or the player gets none.
+        config()->set('ballspot.notifications.push_enabled', true);
+        config()->set('ballspot.notifications.daily_reminder_push_enabled', true);
+
+        $noToken = User::factory()->create();
+        $other = User::factory()->create();
+        \App\Models\PushToken::create(['user_id' => $other->id, 'token' => 'ExponentPushToken[other' . $other->id . ']']);
+
+        $this->withToken($noToken->createToken('t')->plainTextToken)
             ->getJson('/api/me/notification-settings')
             ->assertOk()
             ->assertJson(['daily_reminder_push_active' => false]);

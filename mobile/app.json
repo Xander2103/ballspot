@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "be.vanmalderstudio.ballpicker",
+      "googleServicesFile": "./google-services.json",
       "playStoreUrl": "https://play.google.com/store/apps/details?id=be.vanmalderstudio.ballpicker",
       "versionCode": 3,
       "adaptiveIcon": {

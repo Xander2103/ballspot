@@ -266,6 +266,17 @@ return [
         // default: enable only once the app build that suppresses the local
         // daily reminder is live, or users on old builds get notified twice.
         'daily_reminder_push_enabled' => (bool) env('BALLPICKER_DAILY_REMINDER_PUSH_ENABLED', false),
+        // Optional Expo access token (expo.dev → Access tokens). Only required
+        // once "Enhanced security for push notifications" is on for the Expo
+        // project; harmless otherwise. Never logged.
+        'expo_access_token'     => env('EXPO_ACCESS_TOKEN'),
+        'expo_receipts_url'     => env('EXPO_PUSH_RECEIPTS_URL', 'https://exp.host/--/api/v2/push/getReceipts'),
+        'expo_timeout_seconds'  => (int) env('EXPO_PUSH_TIMEOUT_SECONDS', 20),
+        // Expo advises waiting before asking for receipts; the check skips
+        // tickets younger than this. Receipts expire after about a day.
+        'receipt_delay_minutes' => (int) env('BALLPICKER_PUSH_RECEIPT_DELAY_MINUTES', 15),
+        // push_receipts rows older than this are pruned by the receipt check.
+        'receipt_retention_days' => (int) env('BALLPICKER_PUSH_RECEIPT_RETENTION_DAYS', 30),
     ],
 
     'auth' => [

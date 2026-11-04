@@ -5,6 +5,7 @@ import { translate } from '../i18n/core';
 import { localFlags } from '../storage/localFlags';
 import { canDeliver, mapDevicePermission, type DevicePermission } from '../utils/notificationPermission';
 import { createPushRegistrar } from '../utils/pushRegistration';
+import { planDailyReminderDates } from '../utils/reminderPlan';
 
 /** Holds the last token sent to the backend, so it can be removed without asking the OS. */
 const PUSH_TOKEN_FLAG = 'push_token_registered';
@@ -161,8 +162,20 @@ async function syncSchedules(state: ScheduleState): Promise<void> {
     // When the server owns daily reminders (backend push active), never
     // schedule the local daily reminder too — the user would be notified twice.
     const serverOwnsDaily = state.settings.daily_reminder_push_active === true;
-    if (state.settings.daily_reminder_enabled && !state.dailyCompleted && !serverOwnsDaily) {
-      await Notifications.scheduleNotificationAsync({ content: copy.daily, trigger: daily });
+    // One dated reminder per day for the coming week, today skipped once it is
+    // handled. A single repeating trigger would be cancelled here after a
+    // played daily and never come back until the next app open.
+    if (state.settings.daily_reminder_enabled && !serverOwnsDaily) {
+      for (const date of planDailyReminderDates(new Date(), hour, minute, state.dailyCompleted)) {
+        await Notifications.scheduleNotificationAsync({
+          content: copy.daily,
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date,
+            ...(Platform.OS === 'android' ? { channelId: ANDROID_CHANNEL_ID } : {}),
+          },
+        });
+      }
     }
 
     if (state.settings.tournament_reminder_enabled && state.hasPendingTournament) {

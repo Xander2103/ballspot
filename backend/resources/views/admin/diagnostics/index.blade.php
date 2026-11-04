@@ -296,6 +296,8 @@
                 <tr><th>Tournaments created / completed</th><td>{{ $d['activity']['tournaments_created'] }} / {{ $d['activity']['tournaments_completed'] }}</td></tr>
                 <tr><th>Pack completions</th><td>{{ $d['activity']['pack_completions'] }}</td></tr>
                 <tr><th>Push devices seen / total</th><td>{{ $d['activity']['push_tokens_seen'] }} / {{ $d['activity']['push_tokens_total'] }}</td></tr>
+                <tr><th>Push devices by platform</th><td>@forelse(($d['activity']['push_tokens_by_platform'] ?? []) as $platform => $count){{ $platform }}: {{ $count }}@if(!$loop->last) · @endif @empty — @endforelse</td></tr>
+                <tr><th>Push receipts (24h)</th><td>@if(is_null($d['activity']['push_receipts'] ?? null)) not recorded (migrate) @else @forelse($d['activity']['push_receipts'] as $k => $count){{ $k }}: {{ $count }}@if(!$loop->last) · @endif @empty none @endforelse @endif</td></tr>
                 <tr><th>Users total</th><td>{{ $d['activity']['users_total'] }}</td></tr>
             </table>
             <div class="card-footer small text-muted">Counts only. Per-event detail lives in the events log.</div>
