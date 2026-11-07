@@ -9,6 +9,8 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { dailyApi } from '../api/dailyApi';
+import { prefetchImminentImage } from '../services/imagePrefetch';
+import { imageAspect, revealImageAfterGuess } from '../utils/imagePrefetch';
 import { goHome, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import { ThemeTokens } from '../theme/themes';
@@ -100,6 +102,8 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
     setSubmitError('');
     try {
       const res = await dailyApi.guess(dailyChallengeId, guessX, guessY);
+      // Scored: the reveal may now be fetched — start it before the result screen mounts.
+      prefetchImminentImage(revealImageAfterGuess(res.data));
       navigation.replace('DailyResult', {
         dailyChallengeId,
         newBadges: res.data.new_badges ?? [],
@@ -132,6 +136,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
   const diffColor = DIFFICULTY_COLOR[challenge.challenge.difficulty] ?? theme.textSecondary;
   const categoryName = visibleChallengeLabel(challenge.challenge.category?.name);
   const imageUrl = challenge.challenge.hidden_image_url;
+  const aspectHint = imageAspect(challenge.challenge.hidden_image_width, challenge.challenge.hidden_image_height);
 
   // English keeps the en-US format the screen has always used.
   const todayLabel = new Date().toLocaleDateString(locale === 'en' ? 'en-US' : locale, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -187,6 +192,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
         <View style={styles.imageCard}>
           <ImageGuessPicker
             imageUri={imageUrl}
+            aspectHint={aspectHint}
             onGuess={handleGuess}
             interactive
             selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
@@ -213,6 +219,7 @@ export function DailyChallengeScreen({ route, navigation }: Props) {
       <FullscreenImageViewer
         visible={fullscreen}
         imageUri={imageUrl}
+        aspectHint={aspectHint}
         onClose={() => setFullscreen(false)}
         selectable
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}

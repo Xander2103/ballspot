@@ -9,6 +9,9 @@ export interface Challenge {
   title: string;
   difficulty: 'easy' | 'medium' | 'hard';
   hidden_image_url: string;
+  /** Pixel size of the served guess image (newer backends; absent/null = unknown). */
+  hidden_image_width?: number | null;
+  hidden_image_height?: number | null;
   category: ChallengeCategory | null;
   /** The challenge's own sport (drives the guess marker). Older backends omit it. */
   sport?: { slug: string; name: string; emoji: string; object_name?: string | null; primary_color?: string | null } | null;

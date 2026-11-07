@@ -16,6 +16,8 @@ import { useCountdown } from '../components/home/useCountdown';
 import { leagueApi } from '../api/leagueApi';
 import { authApi } from '../api/authApi';
 import { dailyApi } from '../api/dailyApi';
+import { prefetchImage } from '../services/imagePrefetch';
+import { dailyGuessImageToPrefetch } from '../utils/imagePrefetch';
 import { noticesApi } from '../api/noticesApi';
 import { sportApi } from '../api/sportApi';
 import { preferencesApi } from '../api/preferencesApi';
@@ -157,6 +159,9 @@ export function HomeScreen({ navigation }: Props) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // Today's guess photo is downloaded while the player is still on Home, so
+  // "Play" opens it from the disk cache. Never the reveal (see utils/imagePrefetch).
+  useEffect(() => { prefetchImage(dailyGuessImageToPrefetch(todayDaily)); }, [todayDaily]);
   useEffect(() => navigation.addListener('focus', load), [navigation, load]);
 
   // Focus events do not fire when the app itself comes back to the foreground:

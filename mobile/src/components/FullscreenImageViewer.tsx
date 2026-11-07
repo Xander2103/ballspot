@@ -3,8 +3,8 @@ import {
   Modal,
   View,
   Text,
-  Image,
   StyleSheet,
+  ActivityIndicator,
   Pressable,
   PanResponder,
   useWindowDimensions,
@@ -13,6 +13,8 @@ import {
   PanResponderGestureState,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image, ImageLoadEventData } from 'expo-image';
+import { imageAspect } from '../utils/imagePrefetch';
 import { AppButton } from './AppButton';
 import { containRect } from '../utils/imageLayout';
 import {
@@ -59,6 +61,8 @@ interface Props {
   submitTitle?: string;
   submitting?: boolean;
   submitError?: string;
+  /** width/height from the API when known — see ImageGuessPicker. */
+  aspectHint?: number | null;
 }
 
 interface GestureMemory {
@@ -95,11 +99,15 @@ export function FullscreenImageViewer({
   submitTitle,
   submitting = false,
   submitError = '',
+  aspectHint = null,
 }: Props) {
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const [aspect, setAspect] = useState<number>(FALLBACK_ASPECT);
+  const [aspect, setAspect] = useState<number>(aspectHint ?? FALLBACK_ASPECT);
+  // Taps map through the aspect ratio: none count before the photo is shown.
+  const [loadedUri, setLoadedUri] = useState<string | null>(null);
+  const isLoaded = !!imageUri && loadedUri === imageUri;
   // The gesture layer's own size: identical to the image view's frame, so
   // touch coordinates relative to it need no status-bar/offset corrections.
   const [layout, setLayout] = useState<Size>({ width: window.width, height: window.height });
@@ -115,27 +123,26 @@ export function FullscreenImageViewer({
   const aspectRef = useRef(aspect);
   const transformRef = useRef<Transform>(IDENTITY);
   const gesture = useRef<GestureMemory>(IDLE);
-  const callbacks = useRef({ canSelect, onSelectPoint, onClose });
-  callbacks.current = { canSelect, onSelectPoint, onClose };
+  const callbacks = useRef({ canSelect, onSelectPoint, onClose, isLoaded });
+  callbacks.current = { canSelect, onSelectPoint, onClose, isLoaded };
 
-  // Probe natural dimensions so the letterbox math matches the rendered image.
+  // A new photo starts from the API's size (if any) until its own size is known.
   useEffect(() => {
-    if (!imageUri) return;
-    let cancelled = false;
-    Image.getSize(
-      imageUri,
-      (w, h) => {
-        if (!cancelled && w > 0 && h > 0) {
-          aspectRef.current = w / h;
-          setAspect(w / h);
-        }
-      },
-      () => {
-        // One failed probe only — the fallback aspect keeps taps usable.
-      }
-    );
-    return () => { cancelled = true; };
-  }, [imageUri]);
+    const next = aspectHint ?? FALLBACK_ASPECT;
+    aspectRef.current = next;
+    setAspect(next);
+  }, [imageUri, aspectHint]);
+
+  // The decoded image's size drives the letterbox math (no separate size
+  // probe/download: it comes from the same, usually cached, load).
+  function handleLoad(e: ImageLoadEventData) {
+    const measured = imageAspect(e?.source?.width, e?.source?.height);
+    if (measured) {
+      aspectRef.current = measured;
+      setAspect(measured);
+    }
+    setLoadedUri(imageUri);
+  }
 
   // Every (re)open starts fitted; the guess itself lives in the screen state.
   useEffect(() => {
@@ -158,6 +165,7 @@ export function FullscreenImageViewer({
   function handleTap(x: number, y: number) {
     const cb = callbacks.current;
     if (cb.canSelect) {
+      if (!cb.isLoaded) return;
       const mapped = screenPointToRatios(currentRect(), layoutRef.current, transformRef.current, x, y);
       if (mapped) cb.onSelectPoint!(mapped.xRatio, mapped.yRatio);
     } else if (transformRef.current.scale <= 1) {
@@ -255,8 +263,28 @@ export function FullscreenImageViewer({
           ]}
           pointerEvents="none"
         >
-          <Image source={{ uri: imageUri }} style={{ width: layout.width, height: layout.height }} resizeMode="contain" />
+          <Image
+            source={{ uri: imageUri }}
+            style={{ width: layout.width, height: layout.height }}
+            contentFit="contain"
+            cachePolicy="memory-disk"
+            priority="high"
+            recyclingKey={imageUri}
+            // Decode the full display copy, not a screen-sized thumbnail:
+            // pinch-zoom stays sharp instead of magnifying a downscaled bitmap.
+            allowDownscaling={false}
+            transition={{ duration: 120, effect: 'cross-dissolve' }}
+            onLoad={handleLoad}
+            onError={() => setLoadedUri(null)}
+            accessible={false}
+          />
         </View>
+
+        {!isLoaded && (
+          <View style={styles.loading} pointerEvents="none">
+            <ActivityIndicator color="#ffffff" />
+          </View>
+        )}
 
         {marker && (
           <View
@@ -322,6 +350,7 @@ export function FullscreenImageViewer({
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#000000', overflow: 'hidden' },
+  loading: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   imageWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   closeBtn: {
     position: 'absolute',

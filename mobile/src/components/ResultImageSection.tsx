@@ -21,6 +21,8 @@ interface Props {
   title?: string | null;
   /** Slug of the challenge's sport — marker + legend object (default football). */
   sportSlug?: string | null;
+  /** width/height of the image when the API sent its size. */
+  aspectHint?: number | null;
 }
 
 function pct(ratio: number): string {
@@ -34,7 +36,7 @@ function pct(ratio: number): string {
  */
 export function ResultImageSection({
   imageUri, markers, isRevealImage,
-  guessXRatio, guessYRatio, ballXRatio, ballYRatio, title, sportSlug,
+  guessXRatio, guessYRatio, ballXRatio, ballYRatio, title, sportSlug, aspectHint,
 }: Props) {
   const { t } = useI18n();
   const [fullscreen, setFullscreen] = useState(false);
@@ -54,7 +56,7 @@ export function ResultImageSection({
         accessibilityLabel={t('game.image.openFullscreenA11y')}
       >
         <View pointerEvents="none">
-          <ImageGuessPicker imageUri={imageUri} interactive={false} markers={markers} sportSlug={sportSlug} />
+          <ImageGuessPicker imageUri={imageUri} interactive={false} markers={markers} sportSlug={sportSlug} aspectHint={aspectHint} />
         </View>
       </Pressable>
 
@@ -89,6 +91,7 @@ export function ResultImageSection({
       <FullscreenImageViewer
         visible={fullscreen}
         imageUri={imageUri}
+        aspectHint={aspectHint}
         onClose={() => setFullscreen(false)}
       />
     </View>

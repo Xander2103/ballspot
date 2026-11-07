@@ -12,6 +12,7 @@ import { goPacks, useHardwareBack } from '../app/navigationActions';
 import type { ThemeTokens } from '../theme/themes';
 import { spacing } from '../theme/spacing';
 import { useI18n } from '../i18n';
+import { imageAspect } from '../utils/imagePrefetch';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PackResult'>;
 
@@ -29,6 +30,7 @@ export function PackResultScreen({ route, navigation }: Props) {
 
   const r = result.result;
   const isReveal = !!r.reveal_image_url;
+  const aspectHint = isReveal ? imageAspect(r.reveal_image_width, r.reveal_image_height) : null;
   const completed = result.pack_completed;
   const progress = result.progress;
   const xpGained = result.rank_progress?.xp_gained ?? 0;
@@ -58,7 +60,7 @@ export function PackResultScreen({ route, navigation }: Props) {
               accessibilityLabel={t('packs.result.openFullscreen')}
             >
               <View pointerEvents="none">
-                <ImageGuessPicker imageUri={imageUrl} markers={markers} interactive={false} sportSlug={sportSlug} />
+                <ImageGuessPicker imageUri={imageUrl} markers={markers} interactive={false} sportSlug={sportSlug} aspectHint={aspectHint} />
               </View>
             </Pressable>
             <FullscreenButton onPress={() => setFullscreen(true)} />
@@ -123,7 +125,7 @@ export function PackResultScreen({ route, navigation }: Props) {
         )}
       </View>
 
-      <FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} onClose={() => setFullscreen(false)} sportSlug={sportSlug} />
+      <FullscreenImageViewer visible={fullscreen} imageUri={imageUrl} aspectHint={aspectHint} onClose={() => setFullscreen(false)} sportSlug={sportSlug} />
     </Screen>
   );
 }

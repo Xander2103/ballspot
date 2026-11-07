@@ -11,6 +11,7 @@
 
 import type { DailyGuessResult } from '../types/daily';
 import { visibleChallengeLabel } from './competitionPeriod';
+import { imageAspect } from './imagePrefetch';
 
 export interface DailyResultLoad<R, S> {
   result: R | null;
@@ -40,6 +41,8 @@ export function formatChallengeDate(date: string | null | undefined, locale: str
 
 export interface DailyResultDisplay {
   imageUrl: string | null;
+  /** width/height of that image when the API sent its size (null = unknown). */
+  imageAspect: number | null;
   isRevealImage: boolean;
   title: string | null;
   categoryName: string | null;
@@ -47,11 +50,15 @@ export interface DailyResultDisplay {
 }
 
 export function dailyResultDisplay(
-  result: Pick<DailyGuessResult, 'reveal_image_url' | 'challenge' | 'sport'>,
+  result: Pick<DailyGuessResult, 'reveal_image_url' | 'challenge' | 'sport'>
+    & Partial<Pick<DailyGuessResult, 'reveal_image_width' | 'reveal_image_height'>>,
 ): DailyResultDisplay {
   const challenge = result.challenge;
   return {
     imageUrl: result.reveal_image_url ?? challenge?.hidden_image_url ?? null,
+    imageAspect: result.reveal_image_url
+      ? imageAspect(result.reveal_image_width, result.reveal_image_height)
+      : imageAspect(challenge?.hidden_image_width, challenge?.hidden_image_height),
     isRevealImage: !!result.reveal_image_url,
     title: challenge?.title ?? null,
     categoryName: visibleChallengeLabel(challenge?.category?.name),

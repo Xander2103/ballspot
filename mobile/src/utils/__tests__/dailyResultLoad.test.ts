@@ -47,6 +47,7 @@ describe('what a daily result shows', () => {
   it('shows the title, category and image of the played challenge', () => {
     expect(dailyResultDisplay({ reveal_image_url: 'https://x/reveal.jpg', challenge: challenge(), sport: null })).toEqual({
       imageUrl: 'https://x/reveal.jpg',
+      imageAspect: null, // older backend: no size sent
       isRevealImage: true,
       title: 'Goal Line',
       categoryName: 'Headers',
@@ -59,6 +60,14 @@ describe('what a daily result shows', () => {
       .toMatchObject({ imageUrl: 'https://x/hidden.jpg', isRevealImage: false });
   });
 
+  it('takes the aspect ratio of the image it actually shows', () => {
+    const sized = challenge({ hidden_image_width: 2048, hidden_image_height: 1536 });
+    expect(dailyResultDisplay({
+      reveal_image_url: 'https://x/reveal.webp', reveal_image_width: 1536, reveal_image_height: 2048, challenge: sized, sport: null,
+    }).imageAspect).toBeCloseTo(0.75);
+    expect(dailyResultDisplay({ reveal_image_url: null, challenge: sized, sport: null }).imageAspect).toBeCloseTo(4 / 3);
+  });
+
   it('keeps each result\'s own category', () => {
     const corners = challenge({ category: { id: 4, name: 'Corner Kicks', slug: 'corner-kicks' } });
     expect(dailyResultDisplay({ reveal_image_url: null, challenge: corners, sport: null }).categoryName).toBe('Corner Kicks');
@@ -69,6 +78,7 @@ describe('what a daily result shows', () => {
     expect(dailyResultDisplay({ reveal_image_url: null, challenge: challenge({ category: null }), sport: null }).categoryName).toBeNull();
     expect(dailyResultDisplay({ reveal_image_url: null, sport: null })).toEqual({
       imageUrl: null,
+      imageAspect: null,
       isRevealImage: false,
       title: null,
       categoryName: null,

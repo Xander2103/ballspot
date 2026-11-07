@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -104,7 +105,15 @@ export function PackDetailScreen({ route, navigation }: Props) {
     <Screen scroll>
       <View style={styles.header}>
         {pack.cover_image_url ? (
-          <Image source={{ uri: pack.cover_image_url }} style={styles.cover} resizeMode="cover" />
+          <Image
+            source={{ uri: pack.cover_image_url }}
+            style={styles.cover}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={pack.cover_image_url}
+            transition={150}
+            accessible={false}
+          />
         ) : (
           <View style={styles.coverFallback}>
             <Text style={styles.coverEmoji}>{pack.sport?.emoji ?? '⚽'}</Text>

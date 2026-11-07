@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../app/AppNavigator';
 import { Screen } from '../components/Screen';
@@ -81,7 +82,15 @@ function PackCard({
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress}>
       <View style={[styles.cover, { backgroundColor: accent + '22' }]}>
         {pack.cover_image_url ? (
-          <Image source={{ uri: pack.cover_image_url }} style={styles.coverImg} resizeMode="cover" />
+          <Image
+            source={{ uri: pack.cover_image_url }}
+            style={styles.coverImg}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            recyclingKey={pack.cover_image_url}
+            transition={150}
+            accessible={false}
+          />
         ) : (
           <Text style={styles.coverEmoji}>{pack.sport?.emoji ?? '⚽'}</Text>
         )}

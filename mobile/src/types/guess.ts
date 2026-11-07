@@ -7,6 +7,9 @@ export interface GuessResult {
   ball_x_ratio: number;
   ball_y_ratio: number;
   reveal_image_url: string | null;
+  /** Pixel size of the served reveal image (newer backends; absent/null = unknown). */
+  reveal_image_width?: number | null;
+  reveal_image_height?: number | null;
   // Rank / percentile insight within this round.
   rank?: number;
   total_players?: number;

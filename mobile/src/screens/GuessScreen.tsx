@@ -9,6 +9,8 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { roundApi } from '../api/roundApi';
+import { prefetchImminentImage } from '../services/imagePrefetch';
+import { imageAspect, revealImageAfterGuess } from '../utils/imagePrefetch';
 import { goHome, useHardwareBack } from '../app/navigationActions';
 import { colors } from '../theme/colors';
 import { spacing } from '../theme/spacing';
@@ -109,7 +111,9 @@ export function GuessScreen({ route, navigation }: Props) {
     setSubmitting(true);
     setSubmitError('');
     try {
-      const { newBadges, rankProgress, rankUp, tournamentCompletion } = await roundApi.submitGuess(roundId, { guess_x_ratio: guessX, guess_y_ratio: guessY });
+      const { result, newBadges, rankProgress, rankUp, tournamentCompletion } = await roundApi.submitGuess(roundId, { guess_x_ratio: guessX, guess_y_ratio: guessY });
+      // Scored: the reveal may now be fetched — start it before the result screen mounts.
+      prefetchImminentImage(revealImageAfterGuess(result));
       navigation.replace('Result', {
         roundId,
         leagueId,
@@ -159,6 +163,7 @@ export function GuessScreen({ route, navigation }: Props) {
   const hasGuess = guessX !== null && guessY !== null;
   const diffColor = DIFFICULTY_COLOR[round.challenge.difficulty] ?? colors.textSecondary;
   const categoryName = visibleChallengeLabel(round.challenge.category?.name);
+  const aspectHint = imageAspect(round.challenge.hidden_image_width, round.challenge.hidden_image_height);
 
   const guessLabel = hasGuess
     ? t('game.guess.locked', { x: Math.round(guessX! * 100), y: Math.round(guessY! * 100) })
@@ -215,6 +220,7 @@ export function GuessScreen({ route, navigation }: Props) {
         <View style={styles.imageCard}>
           <ImageGuessPicker
             imageUri={round.challenge.hidden_image_url}
+            aspectHint={aspectHint}
             onGuess={handleGuess}
             interactive
             selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
@@ -247,6 +253,7 @@ export function GuessScreen({ route, navigation }: Props) {
       <FullscreenImageViewer
         visible={fullscreen}
         imageUri={round.challenge.hidden_image_url}
+        aspectHint={aspectHint}
         onClose={() => setFullscreen(false)}
         selectable
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}

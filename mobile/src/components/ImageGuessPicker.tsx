@@ -1,8 +1,10 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, Image, StyleSheet, Pressable, Text, LayoutChangeEvent } from 'react-native';
+import React, { useRef, useState, useCallback } from 'react';
+import { View, StyleSheet, Pressable, Text, LayoutChangeEvent, ActivityIndicator } from 'react-native';
+import { Image, ImageLoadEventData } from 'expo-image';
 import { colors } from '../theme/colors';
 import { useI18n } from '../i18n';
 import { getSportObjectIcon, getSportObjectMarkerStyle } from '../utils/sportObject';
+import { imageAspect } from '../utils/imagePrefetch';
 
 const GHOST_SIZE = 42;
 const GLOW_SIZE  = 60;
@@ -36,38 +38,47 @@ interface Props {
    * object drawn in the ghost marker. Missing/unknown → football.
    */
   sportSlug?: string | null;
+  /**
+   * width/height of the served image when the API knows it (newer backends):
+   * the frame gets its final shape before the download, so nothing jumps.
+   * The decoded image's own size always wins once it is loaded.
+   */
+  aspectHint?: number | null;
 }
 
-export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true, selectedPoint, sportSlug }: Props) {
+/**
+ * The photo the player guesses on (and the result photo with its markers).
+ *
+ * Loaded with expo-image: persistent disk cache + memory cache, so a photo
+ * that was prefetched (Home, previous pack step) or seen before renders
+ * without a download, and going back/forward never re-downloads it. The
+ * container takes the image's exact aspect ratio (from `aspectHint`, then
+ * from the decoded image itself — no separate size probe/download), so the
+ * photo is never cropped and 0..1 tap ratios equal image ratios.
+ */
+export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive = true, selectedPoint, sportSlug, aspectHint }: Props) {
   const { t } = useI18n();
   const containerRef = useRef<View>(null);
-  const [dims, setDims]               = useState({ width: 0, height: 0 });
-  const [aspect, setAspect]           = useState<number>(FALLBACK_ASPECT);
-  const [guess, setGuess]             = useState<{ xRatio: number; yRatio: number } | null>(null);
-  const [dimensionsLoaded, setDimensionsLoaded] = useState(false);
-  const [failed, setFailed]           = useState(false);
+  const [dims, setDims]       = useState({ width: 0, height: 0 });
+  const [guess, setGuess]     = useState<{ xRatio: number; yRatio: number } | null>(null);
+  // Keyed by URI: a new photo is never shown with the previous one's state.
+  const [loaded, setLoaded]   = useState<{ uri: string; aspect: number | null } | null>(null);
+  const [failedUri, setFailedUri] = useState<string | null>(null);
 
-  // Load natural image dimensions to set the container aspect ratio exactly,
-  // preventing any cropping of the challenge image.
-  useEffect(() => {
-    if (!imageUri) return;
-    let cancelled = false;
-    setDimensionsLoaded(false);
-    setFailed(false);
-    Image.getSize(
-      imageUri,
-      (w, h) => {
-        if (!cancelled) {
-          if (w > 0 && h > 0) setAspect(w / h);
-          setDimensionsLoaded(true);
-        }
-      },
-      () => {
-        // One failed probe only — never retried, so a dead URL cannot loop.
-        if (!cancelled) { setDimensionsLoaded(true); setFailed(true); }
-      }
-    );
-    return () => { cancelled = true; };
+  // Development-only timing (Metro console): mount → decoded, and from which cache.
+  const startedAt = useRef<{ uri: string; at: number } | null>(null);
+  if (startedAt.current?.uri !== imageUri) startedAt.current = { uri: imageUri, at: Date.now() };
+
+  const isLoaded = loaded?.uri === imageUri;
+  const failed = failedUri === imageUri;
+  const aspect = (isLoaded ? loaded!.aspect : null) ?? aspectHint ?? FALLBACK_ASPECT;
+
+  const handleLoad = useCallback((e: ImageLoadEventData) => {
+    setLoaded({ uri: imageUri, aspect: imageAspect(e?.source?.width, e?.source?.height) });
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.log(`[img] ${Date.now() - (startedAt.current?.at ?? Date.now())}ms cache=${e?.cacheType} ${e?.source?.width}x${e?.source?.height} ${imageUri.split('/').pop()}`);
+    }
   }, [imageUri]);
 
   const handleLayout = useCallback((e: LayoutChangeEvent) => {
@@ -85,7 +96,7 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
   }
 
   function handlePress(e: any) {
-    if (!interactive || !onGuess || dims.width === 0) return;
+    if (!interactive || !onGuess || !isLoaded || dims.width === 0) return;
     const { locationX, locationY, pageX, pageY } = e.nativeEvent;
     if (
       Number.isFinite(locationX) && Number.isFinite(locationY) &&
@@ -137,30 +148,45 @@ export function ImageGuessPicker({ imageUri, onGuess, markers = [], interactive 
             <Text style={styles.failedText}>{t('game.image.unavailable')}</Text>
           </View>
         ) : (
-          <Image
-            source={{ uri: imageUri }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-            onError={() => setFailed(true)}
-          />
+          <>
+            <Image
+              source={{ uri: imageUri }}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              priority="high"
+              recyclingKey={imageUri}
+              transition={{ duration: 120, effect: 'cross-dissolve' }}
+              onLoad={handleLoad}
+              // One failed load only — never retried, so a dead URL cannot loop.
+              onError={() => setFailedUri(imageUri)}
+              accessible={false}
+            />
+            {!isLoaded ? (
+              <View style={styles.loading}>
+                <ActivityIndicator color={colors.textMuted} />
+              </View>
+            ) : null}
+          </>
         )}
       </View>
 
       {interactive && (
-        <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} disabled={!dimensionsLoaded} />
+        // Taps only count once the photo is visible at its real aspect ratio.
+        <Pressable style={StyleSheet.absoluteFill} onPress={handlePress} disabled={!isLoaded} />
       )}
 
       {(() => {
         const shownGuess = selectedPoint !== undefined
           ? (selectedPoint ? { xRatio: selectedPoint.x, yRatio: selectedPoint.y } : null)
           : guess;
-        return shownGuess && interactive && dims.width > 0 && renderMarker(
+        return shownGuess && interactive && isLoaded && dims.width > 0 && renderMarker(
           { x_ratio: shownGuess.xRatio, y_ratio: shownGuess.yRatio, type: 'ghost-ball' },
           'guess'
         );
       })()}
 
-      {dims.width > 0 && markers.map((m, i) => renderMarker(m, i))}
+      {isLoaded && dims.width > 0 && markers.map((m, i) => renderMarker(m, i))}
     </View>
   );
 }
@@ -219,4 +245,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceElevated,
   },
   failedText: { color: colors.textMuted, fontSize: 14, fontStyle: 'italic' },
+  loading: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

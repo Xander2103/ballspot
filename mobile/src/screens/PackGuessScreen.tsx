@@ -8,6 +8,8 @@ import { ImageGuessPicker } from '../components/ImageGuessPicker';
 import { FullscreenImageViewer } from '../components/FullscreenImageViewer';
 import { FullscreenButton } from '../components/FullscreenButton';
 import { packApi } from '../api/packApi';
+import { prefetchImage, prefetchImminentImage } from '../services/imagePrefetch';
+import { imageAspect, nextPackGuessImage, revealImageAfterGuess } from '../utils/imagePrefetch';
 import { goPacks, useHardwareBack } from '../app/navigationActions';
 import { useTheme } from '../theme/useTheme';
 import type { ThemeTokens } from '../theme/themes';
@@ -96,6 +98,10 @@ export function PackGuessScreen({ route, navigation }: Props) {
     setError('');
     try {
       const result = await packApi.submitGuess(attempt.id, challenge.id, guessX, guessY);
+      // Scored: this photo's reveal + the NEXT step's guess image (never its
+      // reveal) are fetched while the player reads the result.
+      prefetchImminentImage(revealImageAfterGuess(result.result));
+      prefetchImage(nextPackGuessImage(result));
       navigation.replace('PackResult', {
         slug, packName, result,
         imageUrl: result.result.reveal_image_url ?? challenge.hidden_image_url,
@@ -137,6 +143,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
   const isFinal = step >= total;
   // One label for both submit buttons (footer and fullscreen viewer).
   const submitTitle = isFinal ? t('packs.guess.submitFinal') : t('packs.guess.submit');
+  const aspectHint = imageAspect(challenge.hidden_image_width, challenge.hidden_image_height);
 
   return (
     // scroll: a portrait image (height = width / aspect) can overflow small
@@ -154,6 +161,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
         <View style={styles.imageCard}>
           <ImageGuessPicker
             imageUri={challenge.hidden_image_url}
+            aspectHint={aspectHint}
             onGuess={handleGuess}
             interactive
             selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}
@@ -183,6 +191,7 @@ export function PackGuessScreen({ route, navigation }: Props) {
       <FullscreenImageViewer
         visible={fullscreen}
         imageUri={challenge.hidden_image_url}
+        aspectHint={aspectHint}
         onClose={() => setFullscreen(false)}
         selectable
         selectedPoint={hasGuess ? { x: guessX!, y: guessY! } : null}

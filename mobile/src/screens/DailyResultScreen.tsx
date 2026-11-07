@@ -141,6 +141,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
   const distanceFeedback = distanceFeedbackKey ? t(distanceFeedbackKey) : '';
   const {
     imageUrl: displayImageUrl,
+    imageAspect: displayImageAspect,
     isRevealImage,
     title: challengeTitle,
     categoryName,
@@ -227,6 +228,7 @@ export function DailyResultScreen({ route, navigation }: Props) {
           ballYRatio={result.ball_y_ratio}
           title={challengeTitle}
           sportSlug={sportSlug}
+          aspectHint={displayImageAspect}
         />
       ) : (
         <View style={styles.noImage}>

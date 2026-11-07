@@ -20,6 +20,7 @@ import { spacing } from '../theme/spacing';
 import { GuessResult } from '../types/guess';
 import { CurrentRoundResponse } from '../types/challenge';
 import { useI18n } from '../i18n';
+import { imageAspect } from '../utils/imagePrefetch';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Result'>;
 
@@ -132,6 +133,7 @@ export function ResultScreen({ route, navigation }: Props) {
   const distanceFeedback = distanceFeedbackKey ? t(distanceFeedbackKey) : '';
   const displayImageUrl = result.reveal_image_url ?? imageUrl;
   const isRevealImage = !!result.reveal_image_url;
+  const displayAspect = isRevealImage ? imageAspect(result.reveal_image_width, result.reveal_image_height) : null;
 
   const markers: Marker[] = [
     { x_ratio: result.guess_x_ratio, y_ratio: result.guess_y_ratio, type: 'ghost-ball' },
@@ -170,6 +172,7 @@ export function ResultScreen({ route, navigation }: Props) {
           ballYRatio={result.ball_y_ratio}
           title={challengeTitle ?? null}
           sportSlug={result.sport?.slug ?? routeSportSlug}
+          aspectHint={displayAspect}
         />
       ) : (
         <View style={styles.noImage}>

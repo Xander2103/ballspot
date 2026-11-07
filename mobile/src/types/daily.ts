@@ -27,6 +27,9 @@ export interface DailyChallengeEntry {
     title: string;
     difficulty: string;
     hidden_image_url: string | null;
+    /** Pixel size of the served guess image (newer backends; absent/null = unknown). */
+    hidden_image_width?: number | null;
+    hidden_image_height?: number | null;
     category: { id: number; name: string; slug: string } | null;
     sport?: SportSummary | null;
     tags?: ChallengeTag[];
@@ -61,6 +64,9 @@ export interface DailyResultChallenge {
   title: string;
   difficulty?: string | null;
   hidden_image_url: string | null;
+  /** Pixel size of the served guess image (newer backends; absent/null = unknown). */
+  hidden_image_width?: number | null;
+  hidden_image_height?: number | null;
   category: { id: number; name: string; slug: string } | null;
 }
 
@@ -75,6 +81,9 @@ export interface DailyGuessResult {
   ball_x_ratio: number;
   ball_y_ratio: number;
   reveal_image_url: string | null;
+  /** Pixel size of the served reveal image (newer backends; absent/null = unknown). */
+  reveal_image_width?: number | null;
+  reveal_image_height?: number | null;
   /** Absent on a backend that predates this field. */
   challenge?: DailyResultChallenge | null;
   // Rank / percentile insight for this daily challenge.

@@ -18,6 +18,7 @@ import { rivalryLine, daysLeftLabel } from '../utils/rivalry';
 import { LOBBY_POLL_INTERVAL_MS, shouldAlertOnLoadFailure, type LoadTrigger } from '../utils/lobbyPolling';
 import { useI18n, t as translate } from '../i18n';
 import { publicPlayerName } from '../utils/playerName';
+import { prefetchImage } from '../services/imagePrefetch';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LeagueDetail'>;
 
@@ -60,6 +61,11 @@ export function LeagueDetailScreen({ route, navigation }: Props) {
         setDailyLimitReached(cr.reason === 'daily_limit_reached');
         setDailyContext({ playedToday: cr.played_today_count, roundsPerDay: cr.rounds_per_day });
         if (cr.current_round) setRoundId(cr.current_round.id);
+        // current-round only returns rounds this player has NOT guessed yet:
+        // warm its guess image (never a reveal) so "Play" opens instantly.
+        if (cr.current_round && !cr.completed && cr.reason !== 'daily_limit_reached') {
+          prefetchImage(cr.current_round.challenge?.hidden_image_url);
+        }
         if (cr.progress) setProgress(cr.progress);
       } else {
         setHasRound(false);
