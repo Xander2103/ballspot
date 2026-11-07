@@ -421,9 +421,7 @@ class DailyChallengeController extends Controller
             'id'               => $challenge->id,
             'title'            => $challenge->title,
             'difficulty'       => $challenge->difficulty,
-            'hidden_image_url' => $challenge->hidden_image_path
-                ? asset('storage/' . $challenge->hidden_image_path)
-                : null,
+            ...$challenge->hiddenImagePayload(),
             'category'         => $challenge->category ? [
                 'id'   => $challenge->category->id,
                 'name' => $challenge->category->name,
@@ -445,9 +443,7 @@ class DailyChallengeController extends Controller
             'guess_y_ratio'    => $guess->guess_y_ratio,
             'ball_x_ratio'     => $challenge->ball_x_ratio,
             'ball_y_ratio'     => $challenge->ball_y_ratio,
-            'reveal_image_url' => $challenge->original_image_path
-                ? asset('storage/' . $challenge->original_image_path)
-                : null,
+            ...$challenge->revealImagePayload(),
             // The challenge this guess was played on, whichever daily is live now.
             'challenge'        => $this->challengeSummary($challenge),
             // Marker object on the result screen (the challenge's sport).

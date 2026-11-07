@@ -1,5 +1,7 @@
 <?php
 namespace App\Models;
+use App\Services\ImageVariantService;
+use App\Support\AppLog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,11 +42,18 @@ class Challenge extends Model
         'usage_pool' => self::POOL_GENERAL,
     ];
 
+    /**
+     * Display-copy metadata (ImageVariantService). Never serialised: it holds
+     * the path of the REVEAL copy, which must not leak before a guess.
+     */
+    protected $hidden = ['image_variants'];
+
     protected function casts(): array
     {
         return [
             'ball_x_ratio' => 'float',
             'ball_y_ratio' => 'float',
+            'image_variants' => 'array',
         ];
     }
 
@@ -56,6 +65,195 @@ class Challenge extends Model
                 throw new \LogicException("Challenge {$challenge->id} has been played; its image, ball position and sport are locked.");
             }
         });
+
+        // A new or replaced photo gets its display copy straight away. Never
+        // fails the save: without a copy the original is served, as before.
+        static::created(fn (Challenge $c) => $c->refreshImageVariantsAfterUpload());
+        static::updated(function (Challenge $c) {
+            if ($c->wasChanged(['hidden_image_path', 'original_image_path'])) {
+                $c->refreshImageVariantsAfterUpload();
+            }
+        });
+        static::deleted(function (Challenge $c) {
+            foreach ((array) $c->image_variants as $meta) {
+                $c->deleteVariantUnlessShared(is_array($meta) ? $meta : null);
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------
+    // Images (display copies, v1.10)
+    // ------------------------------------------------------------------
+
+    /** Image the player guesses on (display copy when there is one). */
+    public function hiddenImageUrl(): ?string
+    {
+        return self::storageUrl($this->hidden_image_path, $this->displayVariant('hidden'));
+    }
+
+    /** Reveal image. SECURITY: only ever put in a payload AFTER the guess is scored. */
+    public function revealImageUrl(): ?string
+    {
+        return self::storageUrl($this->original_image_path, $this->displayVariant('original'));
+    }
+
+    /**
+     * hidden_image_url (+ its pixel size when known, so the app can reserve
+     * the exact aspect before the download) for pre-guess payloads.
+     */
+    public function hiddenImagePayload(): array
+    {
+        $size = $this->hiddenImageSize();
+
+        return [
+            'hidden_image_url'    => $this->hiddenImageUrl(),
+            'hidden_image_width'  => $size['width'] ?? null,
+            'hidden_image_height' => $size['height'] ?? null,
+        ];
+    }
+
+    /** SECURITY: result payloads only (after the guess is scored). */
+    public function revealImagePayload(): array
+    {
+        $size = $this->revealImageSize();
+
+        return [
+            'reveal_image_url'    => $this->revealImageUrl(),
+            'reveal_image_width'  => $size['width'] ?? null,
+            'reveal_image_height' => $size['height'] ?? null,
+        ];
+    }
+
+    /** Pixel size of what hiddenImageUrl() serves, when known. @return array{width:int,height:int}|null */
+    public function hiddenImageSize(): ?array
+    {
+        return self::sizeOf($this->displayVariant('hidden'));
+    }
+
+    /** @return array{width:int,height:int}|null */
+    public function revealImageSize(): ?array
+    {
+        return self::sizeOf($this->displayVariant('original'));
+    }
+
+    /**
+     * The stored variant for 'hidden' or 'original', only while it still
+     * belongs to the current source file and serving is switched on.
+     */
+    public function displayVariant(string $kind): ?array
+    {
+        if (! config('ballspot.images.serve_variants', true)) {
+            return null;
+        }
+        $source = $kind === 'hidden' ? $this->hidden_image_path : $this->original_image_path;
+        $meta = ((array) $this->image_variants)[$kind] ?? null;
+
+        return self::variantMatches($meta, $source) ? $meta : null;
+    }
+
+    /**
+     * (Re)build the display copies whose source changed (or all with $force).
+     * Writes only `image_variants`, without events or timestamps, so it is
+     * safe on played (locked) challenges. Returns kind => created|original|kept|failed|none.
+     *
+     * @return array<string,string>
+     */
+    public function refreshImageVariants(bool $force = false): array
+    {
+        $service = app(ImageVariantService::class);
+        $maxEdge = (int) config('ballspot.images.challenge_max_edge', 2048);
+        $old = (array) $this->image_variants;
+        $new = [];
+        $report = [];
+
+        foreach (['hidden' => $this->hidden_image_path, 'original' => $this->original_image_path] as $kind => $source) {
+            $current = $old[$kind] ?? null;
+            if (! $source) {
+                $this->deleteVariantUnlessShared(is_array($current) ? $current : null);
+                $report[$kind] = 'none';
+                continue;
+            }
+            if (! $force && self::variantMatches($current, $source, $maxEdge)) {
+                $new[$kind] = $current;
+                $report[$kind] = 'kept';
+                continue;
+            }
+            $meta = $service->generate($source, dirname($source) . '/display', $maxEdge);
+            if (is_array($current) && ($current['path'] ?? null) !== ($meta['path'] ?? null)) {
+                $this->deleteVariantUnlessShared($current);
+            }
+            if ($meta === null) {
+                $report[$kind] = 'failed';
+                continue;
+            }
+            $new[$kind] = $meta;
+            $report[$kind] = $meta['path'] ? 'created' : 'original';
+        }
+
+        $value = $new === [] ? null : $new;
+        static::whereKey($this->getKey())->toBase()->update(['image_variants' => $value === null ? null : json_encode($value)]);
+        $this->setAttribute('image_variants', $value);
+        $this->syncOriginalAttribute('image_variants');
+
+        return $report;
+    }
+
+    /**
+     * Copies are named after their source file, so two challenges pointing at
+     * the same upload share one copy: never delete it while another challenge
+     * still uses that source.
+     */
+    private function deleteVariantUnlessShared(?array $meta): void
+    {
+        $source = $meta['source'] ?? null;
+        if (! is_array($meta) || ! is_string($source) || $source === '') {
+            return;
+        }
+        $shared = static::query()
+            ->whereKeyNot($this->getKey())
+            ->where(fn ($q) => $q->where('hidden_image_path', $source)->orWhere('original_image_path', $source))
+            ->exists();
+        if (! $shared) {
+            app(ImageVariantService::class)->deleteVariant($meta);
+        }
+    }
+
+    private function refreshImageVariantsAfterUpload(): void
+    {
+        if (! config('ballspot.images.generate_on_upload', true)) {
+            return;
+        }
+        try {
+            $this->refreshImageVariants();
+        } catch (\Throwable $e) {
+            AppLog::warn('images.variant_failed', ['challenge_id' => $this->id, 'error' => class_basename($e)]);
+        }
+    }
+
+    public static function variantMatches(mixed $meta, ?string $source, ?int $maxEdge = null): bool
+    {
+        return is_array($meta)
+            && $source
+            && ($meta['source'] ?? null) === $source
+            && (int) ($meta['v'] ?? 0) === ImageVariantService::VERSION
+            && (int) ($meta['width'] ?? 0) > 0
+            && (int) ($meta['height'] ?? 0) > 0
+            && ($maxEdge === null || (int) ($meta['max_edge'] ?? 0) === $maxEdge);
+    }
+
+    public static function storageUrl(?string $source, ?array $variant): ?string
+    {
+        if (! $source) {
+            return null;
+        }
+        $path = is_array($variant) && ! empty($variant['path']) ? $variant['path'] : $source;
+
+        return asset('storage/' . $path);
+    }
+
+    private static function sizeOf(?array $variant): ?array
+    {
+        return $variant ? ['width' => (int) $variant['width'], 'height' => (int) $variant['height']] : null;
     }
 
     /** True once any player has a daily, tournament or pack guess on this challenge. */

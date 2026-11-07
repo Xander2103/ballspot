@@ -1052,6 +1052,27 @@ email/login verification codes.
 | `POST /api/daily/{id}/guess` | Exposed (post-submission) | Exposed (post-submission) |
 | `GET /api/daily/{id}/result` | Exposed (user already guessed) | Exposed (user already guessed) |
 
+### Image URLs and sizes (2026-11-06)
+
+Every `hidden_image_url` / `reveal_image_url` (daily, pack, pack `next_challenge`,
+pack detail list, tournament round, all guess results) now points at the
+**display copy** of the upload when one exists
+(`/storage/challenges/{hidden|original}/display/<name>-w2048-v1.webp`, longest edge ≤ 2048 px,
+EXIF orientation applied, metadata stripped), otherwise at the original exactly as before.
+Pack `cover_image_url` likewise uses `/storage/packs/covers/display/…-w1200-v1.webp`.
+
+New optional fields next to them (null when unknown — older apps ignore them):
+
+| Field | Next to |
+|---|---|
+| `hidden_image_width`, `hidden_image_height` | every `hidden_image_url` |
+| `reveal_image_width`, `reveal_image_height` | every `reveal_image_url` (post-guess payloads only) |
+
+The copy is a uniform downscale of the same picture (no crop, no padding), so every
+0–1 ratio below means the same point on the original and on the copy. File names are
+unique per upload, so a URL never changes content (safe to cache "immutable").
+Kill switch: `BALLPICKER_IMAGE_VARIANTS=false` serves the originals again.
+
 ### Coordinate system
 
 Ball positions and guess positions are expressed as ratios (0–1):

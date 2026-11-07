@@ -520,6 +520,23 @@ return [
         'fail_open' => (bool) env('BALLPICKER_RATE_LIMIT_FAIL_OPEN', true),
     ],
 
+    'images' => [
+        // Serve the downscaled display copies (ImageVariantService) instead of
+        // the original uploads in every API payload. false = originals
+        // everywhere, exactly as before (instant rollback: env + config:cache);
+        // the variant files are kept either way.
+        'serve_variants' => (bool) env('BALLPICKER_IMAGE_VARIANTS', true),
+
+        // Build the display copy right after an admin upload (synchronous,
+        // ~0.3 s for a 12 MP photo). false = only ballspot:images-optimize does.
+        'generate_on_upload' => (bool) env('BALLPICKER_IMAGE_VARIANTS_ON_UPLOAD', true),
+
+        // Longest edge in pixels. 2048 keeps full sharpness on the largest
+        // phones (1290 px wide) plus ~1.6x fullscreen zoom headroom.
+        'challenge_max_edge' => 2048,
+        'cover_max_edge'     => 1200,
+    ],
+
     'monitoring' => [
         // Where scripts/monitor-health.sh (via ballspot:send-alert) sends
         // DOWN / STILL DOWN / RECOVERED mails.

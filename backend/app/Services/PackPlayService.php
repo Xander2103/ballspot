@@ -466,7 +466,7 @@ class PackPlayService
             'title'            => $challenge->title,
             'difficulty'       => $challenge->difficulty,
             // SECURITY: never expose ball_x_ratio / ball_y_ratio here.
-            'hidden_image_url' => $challenge->hidden_image_path ? asset('storage/' . $challenge->hidden_image_path) : null,
+            ...$challenge->hiddenImagePayload(),
             'sport'            => $challenge->sport ? [
                 'slug'        => $challenge->sport->slug,
                 'name'        => $challenge->sport->name,

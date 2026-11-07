@@ -37,6 +37,8 @@ class ChallengeCategoryTest extends TestCase
         $sport    = $this->makeSport();
         $category = $this->makeCategory($sport);
         $admin    = User::factory()->create(['is_admin' => true]);
+        // Never write test uploads (or their display copies) into the real storage dir.
+        \Illuminate\Support\Facades\Storage::fake('public');
 
         $response = $this->actingAs($admin)->post('/admin/challenges', [
             'title'                 => 'Test Corner',

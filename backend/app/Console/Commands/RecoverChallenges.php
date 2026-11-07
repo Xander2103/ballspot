@@ -122,6 +122,10 @@ class RecoverChallenges extends Command
         $extList = self::IMAGE_EXTENSIONS;
 
         foreach ($files as $file) {
+            // Generated display copies (ImageVariantService) are never uploads.
+            if (str_contains('/' . $file, '/display/')) {
+                continue;
+            }
             $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
             if (in_array($ext, $extList, true)) {
                 $images[] = $file;

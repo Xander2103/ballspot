@@ -121,7 +121,7 @@ class PackPlayController extends Controller
                 // Safe to reveal AFTER the guess is scored.
                 'ball_x_ratio'     => (float) $challenge->ball_x_ratio,
                 'ball_y_ratio'     => (float) $challenge->ball_y_ratio,
-                'reveal_image_url' => $challenge->original_image_path ? asset('storage/' . $challenge->original_image_path) : null,
+                ...$challenge->revealImagePayload(),
                 // Marker object on the result screen (the CHALLENGE's sport —
                 // a Mixed Sports pack has no single sport).
                 'sport'            => $challenge->sport ? [
